@@ -1,0 +1,25 @@
+{
+  "name": "skmusic",
+  "version": "1.0.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "description": "SK Music — a fast, kosher, filtered YouTube music web client. Static Cloudflare Worker build over a whitelisted catalog.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "setup": "node engine/fetch-corpus.mjs",
+    "build": "node engine/fetch-corpus.mjs && node engine/build-static.mjs",
+    "build:static": "node engine/build-static.mjs",
+    "build:code": "node engine/build-static.mjs --code",
+    "deploy": "npm run build && wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1"
+  },
+  "devDependencies": {
+    "wrangler": "^4.107.0"
+  }
+}

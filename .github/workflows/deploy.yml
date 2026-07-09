@@ -1,0 +1,43 @@
+name: Deploy to Cloudflare
+
+# Builds the static bundle from the latest catalog snapshot and deploys it to Cloudflare Workers Static
+# Assets. Runs on push to main, daily (to pick up catalog updates), and on demand.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**.md", "docs/**", "supabase/**", "**.sql"]
+  schedule:
+    - cron: "0 6 * * *" # daily 06:00 UTC — refresh the catalog + redeploy
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HAS_CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+      CF_ANALYTICS_TOKEN: ${{ secrets.CF_ANALYTICS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Fetch latest catalog snapshot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node engine/fetch-corpus.mjs
+      - name: Build static bundle
+        run: node engine/build-static.mjs
+      - name: Deploy to Cloudflare
+        if: env.HAS_CF_TOKEN == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: deploy
+      - name: Skipped deploy (no token)
+        if: env.HAS_CF_TOKEN != 'true'
+        run: echo "::notice::Built. Add the CLOUDFLARE_API_TOKEN repo secret to enable auto-deploy."

@@ -1,0 +1,24 @@
+node_modules/
+.env
+*.local.md
+
+# fetched catalog snapshot (rebuilt in CI; large/binary — never source)
+data/corpus.db
+data/corpus.db-shm
+data/corpus.db-wal
+data/*.db.gz
+data/whitelist.json
+data/.httpcache/
+
+# secrets — never commit
+CLOUDFLARE_API_TOKEN.txt
+*.token
+innertube_cookie.txt
+google-services.json
+
+# Cloudflare static build output + wrangler state (rebuilt)
+dist/
+.wrangler/
+
+# local editor/agent config
+.claude/

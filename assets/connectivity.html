@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>SK Music — Connection Test</title>
+<style>
+  :root{--bg:#0e0a0b;--card:#171012;--line:#241a1d;--text:#f3e9ea;--muted:#a89295;--ok:#34d399;--warn:#f5b544;--bad:#ff5d6b;--accent:#ff5d6b;
+    font-family:'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:radial-gradient(900px 500px at 80% -10%,rgba(255,93,107,.10),transparent 60%),var(--bg);color:var(--text);min-height:100vh;padding:22px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-size:22px;font-weight:800;letter-spacing:-.3px}
+  .sub{color:var(--muted);font-size:14px;margin:6px 0 20px}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+  button{background:linear-gradient(180deg,#ff6f7c,var(--accent));color:#fff;border:none;border-radius:11px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer}
+  button.ghost{background:var(--card);border:1px solid var(--line);color:var(--text)}
+  button:disabled{opacity:.55;cursor:default}
+  .grp{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:20px 0 8px}
+  .row{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+  .dot{width:11px;height:11px;border-radius:50%;flex:none;background:#555}
+  .dot.ok{background:var(--ok);box-shadow:0 0 10px var(--ok)}.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad);box-shadow:0 0 10px var(--bad)}.dot.run{background:var(--muted);animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.3}}
+  .rmeta{flex:1;min-width:0}
+  .rlabel{font-weight:700;font-size:14.5px}
+  .rurl{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .rstate{font-size:13px;font-weight:700;text-align:right;flex:none;max-width:48%}
+  .rstate.ok{color:var(--ok)}.rstate.warn{color:var(--warn)}.rstate.bad{color:var(--bad)}.rstate.run{color:var(--muted)}
+  .rms{color:var(--muted);font-size:11px;font-weight:600}
+  .verdict{border-radius:14px;padding:16px 18px;margin:22px 0 10px;font-size:15px;border:1px solid var(--line);background:var(--card)}
+  .verdict.ok{border-color:rgba(52,211,153,.4)}.verdict.bad{border-color:rgba(255,93,107,.45)}
+  .verdict b{font-size:16px}
+  .verdict code{background:#0b0708;padding:1px 6px;border-radius:5px;font-size:13px}
+  textarea{width:100%;height:240px;margin-top:12px;background:#0b0708;border:1px solid var(--line);border-radius:12px;color:#cdbfc1;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;padding:12px;resize:vertical;white-space:pre}
+  .hint{color:var(--muted);font-size:13px;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>SK Music · Connection Test</h1>
+  <div class="sub">Checks whether your network — a filter like Techloq, school/work Wi-Fi, or a phone content-filter/whitelist — is blocking anything SK Music needs, especially music playback. Nothing plays out loud. When it finishes, tap <b>Share log</b> (or Copy / Download) and send it to whoever set up the filter.</div>
+  <div class="bar">
+    <button id="run">Re-run test</button>
+    <button class="ghost" id="share">Share log</button>
+    <button class="ghost" id="copy">Copy log</button>
+    <button class="ghost" id="download">Download</button>
+  </div>
+  <div id="results"></div>
+  <div id="verdict"></div>
+  <textarea id="log" readonly spellcheck="false"></textarea>
+  <div class="hint">Run this on the device that has the problem, on the Wi-Fi/data it normally uses.</div>
+</div>
+
+<script>
+const APP = location.origin;
+// Probeable hosts (a bare fetch is representative for these — allowed or blocked outright, not Referer-gated).
+// The YouTube *player* is deliberately NOT probed by fetch: a plain fetch of youtube.com/embed reports
+// "blocked" even when playback works, because filters allow the embed only from a real iframe (Referer /
+// Sec-Fetch). So playback gets its own test that actually initializes the player.
+const TARGETS = [
+  { grp: "App itself (should always pass)", label: "App page", url: APP + "/?diag=1" },
+  { grp: "App itself (should always pass)", label: "Catalog data", url: APP + "/data/meta.json" },
+  { grp: "App itself (should always pass)", label: "Search + trending API", url: APP + "/trending?days=1" },
+  { grp: "Music (YouTube)", label: "Player script (iframe_api)", url: "https://www.youtube.com/iframe_api" },
+  { grp: "Music (YouTube)", label: "Media host (googlevideo)", url: "https://redirector.googlevideo.com/" },
+  { grp: "Images", label: "Song thumbnails (ytimg)", url: "https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg", img: true },
+  { grp: "Images", label: "Artist thumbnails (ggpht)", url: "https://yt3.ggpht.com/favicon.ico", img: true },
+  { grp: "Search & analytics", label: "Complete Search (search.zemer.io)", url: "https://search.zemer.io/search?q=a" },
+  { grp: "Search & analytics", label: "Analytics write (Supabase)", url: "POST jxttqcouabdptftlvfnd.supabase.co insert", supa: true },
+];
+const SUPA_URL = "https://jxttqcouabdptftlvfnd.supabase.co";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4dHRxY291YWJkcHRmdGx2Zm5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTc2OTAsImV4cCI6MjA5ODc5MzY5MH0.DiTcbcKTqXZTJfOqEXfvckiObinN0g15BDbLmAmmdsY";
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+let LINES = [];
+
+// opaqueredirect => a filter bounced the request (on Techloq that's filter.techloq.com; the exact target
+// isn't readable cross-origin). opaque => reached the host. throw => unreachable/denied (typical of a phone
+// whitelist that just drops non-listed hosts instead of redirecting).
+async function probeFetch(url) {
+  const t0 = performance.now();
+  try {
+    const r = await fetch(url, { mode: "no-cors", redirect: "manual", cache: "no-store" });
+    const ms = Math.round(performance.now() - t0);
+    if (r.type === "opaqueredirect") return { s: "bad", d: "redirected by a filter (blocked)", ms };
+    return { s: "ok", d: "reachable", ms };
+  } catch (e) {
+    return { s: "bad", d: "unreachable/denied — " + ((e && e.message) || "network error"), ms: Math.round(performance.now() - t0) };
+  }
+}
+// Supabase: a SELECT is RLS-blocked by design, so probe with a real WRITE (anon inserts are allowed) — that
+// actually tells you whether the browser can reach and write to Supabase. Rows are tagged event="conntest".
+async function probeSupabaseWrite() {
+  const t0 = performance.now();
+  try {
+    const r = await fetch(SUPA_URL + "/rest/v1/zemer_analytics", {
+      method: "POST",
+      headers: { apikey: SUPA_KEY, Authorization: "Bearer " + SUPA_KEY, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ event: "conntest", path: "/test", meta: { src: "connectivity" } }),
+    });
+    const ms = Math.round(performance.now() - t0);
+    return r.ok ? { s: "ok", d: "write succeeded — Supabase reachable", ms } : { s: "bad", d: "write rejected — HTTP " + r.status, ms };
+  } catch (e) {
+    return { s: "bad", d: "unreachable — " + ((e && e.message) || "network error"), ms: Math.round(performance.now() - t0) };
+  }
+}
+function probeImg(url) {
+  return new Promise((resolve) => {
+    const t0 = performance.now(), im = new Image();
+    const done = (s, d) => resolve({ s, d, ms: Math.round(performance.now() - t0) });
+    im.onload = () => done("ok", "loaded");
+    im.onerror = () => done("bad", "blocked / not an image");
+    setTimeout(() => done("bad", "timed out (likely blocked)"), 8000);
+    im.src = url + (url.includes("?") ? "&" : "?") + "cb=" + Date.now();
+  });
+}
+// The real test: does the YouTube player actually start? Uses a genuine iframe, exactly like the app —
+// so it reflects real playback (which a filter may allow even while blocking youtube.com browsing).
+function testPlayback() {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (s, d) => { if (settled) return; settled = true; clearTimeout(to); resolve({ s, d }); };
+    const to = setTimeout(() => done("bad", "player never initialized in 14s — playback is blocked"), 14000);
+    const start = () => {
+      try {
+        const holder = document.createElement("div");
+        holder.style.cssText = "position:absolute;left:-9999px;top:-9999px;width:200px;height:120px";
+        document.body.appendChild(holder);
+        new YT.Player(holder, {
+          videoId: "dQw4w9WgXcQ", playerVars: { autoplay: 0 },
+          events: {
+            onReady: (e) => { try { e.target.mute(); } catch {} done("ok", "player initialized — playback works"); setTimeout(() => { try { e.target.destroy(); } catch {} }, 300); },
+            onError: (e) => done("bad", "player error code " + (e && e.data)),
+          },
+        });
+      } catch (e) { done("bad", "player threw: " + ((e && e.message) || e)); }
+    };
+    if (window.YT && window.YT.Player) return start();
+    window.onYouTubeIframeAPIReady = start;
+    const s = document.createElement("script");
+    s.src = "https://www.youtube.com/iframe_api";
+    s.onerror = () => done("bad", "player script (iframe_api) is blocked");
+    document.head.appendChild(s);
+  });
+}
+
+function rowEl(t) {
+  const el = document.createElement("div"); el.className = "row";
+  el.innerHTML = `<span class="dot run"></span><div class="rmeta"><div class="rlabel">${esc(t.label)}</div><div class="rurl">${esc(t.url)}</div></div><div class="rstate run">…<div class="rms"></div></div>`;
+  return el;
+}
+function setRow(el, r) {
+  el.querySelector(".dot").className = "dot " + r.s;
+  const st = el.querySelector(".rstate"); st.className = "rstate " + r.s;
+  st.innerHTML = `${r.s === "ok" ? "OK" : "BLOCKED"}<div class="rms">${esc(r.d)}${r.ms != null ? " · " + r.ms + "ms" : ""}</div>`;
+}
+
+async function run() {
+  $("run").disabled = true; LINES = [];
+  const res = $("results"); res.innerHTML = ""; $("verdict").innerHTML = "";
+  LINES.push("SK Music Connection Test", new Date().toISOString(), "UA: " + navigator.userAgent, "Screen " + screen.width + "x" + screen.height + " · viewport " + innerWidth + "x" + innerHeight, "Origin: " + APP, "".padEnd(46, "-"));
+
+  let lastGrp = "";
+  const rows = TARGETS.map((t) => {
+    if (t.grp !== lastGrp) { const g = document.createElement("div"); g.className = "grp"; g.textContent = t.grp; res.appendChild(g); lastGrp = t.grp; }
+    const el = rowEl(t); res.appendChild(el); return { t, el };
+  });
+
+  const blocked = [];
+  for (const { t, el } of rows) {
+    const r = t.img ? await probeImg(t.url) : t.supa ? await probeSupabaseWrite() : await probeFetch(t.url);
+    setRow(el, r);
+    LINES.push(`[${r.s === "ok" ? "OK " : "BLK"}] ${t.label} — ${t.url || "POST insert"} — ${r.d}${r.ms != null ? " (" + r.ms + "ms)" : ""}`);
+    if (r.s === "bad") blocked.push(t.label);
+  }
+
+  const g = document.createElement("div"); g.className = "grp"; g.textContent = "Playback test (the important one)"; res.appendChild(g);
+  const pel = rowEl({ label: "Start the music player", url: "YouTube IFrame player (real iframe)" }); res.appendChild(pel);
+  const pb = await testPlayback(); setRow(pel, pb);
+  LINES.push(`[${pb.s === "ok" ? "OK " : "BLK"}] Playback (YouTube IFrame player) — ${pb.d}`);
+  const playbackOk = pb.s === "ok";
+
+  const v = $("verdict");
+  if (playbackOk && !blocked.length) {
+    v.className = "verdict ok"; v.innerHTML = "<b>✅ Everything works.</b> Your network isn't blocking SK Music.";
+  } else if (!playbackOk) {
+    v.className = "verdict bad"; v.innerHTML = "<b>⛔ Music playback is blocked on this network.</b> The player can't start. On a filter like Techloq the fix is to allow the YouTube <b>embed player</b> + media — send this log and ask them to allow <code>youtube.com/embed</code>, <code>*.googlevideo.com</code>, and <code>www.youtube.com/iframe_api</code>." + (blocked.length ? "<br><br>Also blocked: " + esc(blocked.join(", ")) + "." : "");
+  } else {
+    v.className = "verdict bad"; v.innerHTML = "<b>⚠️ Playback works, but some things are blocked:</b> " + esc(blocked.join(", ")) + " (thumbnails/search may not load). Send the log below.";
+  }
+  LINES.push("".padEnd(46, "-"), "VERDICT: " + (playbackOk && !blocked.length ? "all clear" : (!playbackOk ? "PLAYBACK BLOCKED" : "partial — " + blocked.join(", "))));
+  $("log").value = LINES.join("\n");
+  $("run").disabled = false;
+}
+
+const logText = () => $("log").value || "(run the test first)";
+function flash(id, msg) { const b = $(id), o = b.textContent; b.textContent = msg; setTimeout(() => (b.textContent = o), 1600); }
+$("run").onclick = run;
+$("copy").onclick = async () => { try { await navigator.clipboard.writeText(logText()); flash("copy", "Copied ✓"); } catch { $("log").focus(); $("log").select(); document.execCommand("copy"); flash("copy", "Copied ✓"); } };
+$("download").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([logText()], { type: "text/plain" }));
+  a.download = "sk-music-connection-test.txt"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+};
+$("share").onclick = async () => {
+  if (navigator.share) { try { await navigator.share({ title: "SK Music Connection Test", text: logText() }); return; } catch {} }
+  try { await navigator.clipboard.writeText(logText()); flash("share", "Copied ✓ — paste in a message"); } catch { $("log").focus(); $("log").select(); }
+};
+if (!navigator.share) $("share").style.display = "none"; // desktop: Copy/Download cover it
+
+run();
+</script>
+</body>
+</html>

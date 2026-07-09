@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SK Music — Analytics</title>
+<style>
+  :root{
+    --bg:#0b1020; --bg2:#0f172a; --card:#111a2e; --card2:#16223c; --line:#1f2c47;
+    --text:#e8edf7; --muted:#8aa0c4; --dim:#5f759b; --accent:#ff5d6b; --accent2:#5b8cff;
+    --good:#34d399; --gold:#f5b544; --violet:#a78bfa;
+    --shadow:0 18px 50px rgba(0,0,0,.5); --r:16px;
+    font-family:'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:radial-gradient(1200px 700px at 85% -10%,rgba(91,140,255,.12),transparent 60%),radial-gradient(900px 600px at 0% 110%,rgba(255,93,107,.10),transparent 55%),var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent2)}
+  .mono{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  /* ---------- login ---------- */
+  #login{min-height:100vh;display:grid;place-items:center;padding:24px}
+  .lcard{width:min(400px,100%);background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:34px 30px}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+  .brand .dot{width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 16px var(--accent)}
+  .brand h1{font-size:19px;font-weight:800;letter-spacing:-.2px}
+  .brand span{color:var(--muted);font-weight:600;font-size:13px}
+  label{display:block;font-size:12px;color:var(--muted);margin:14px 0 6px;font-weight:600;letter-spacing:.2px}
+  input{width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:11px;color:var(--text);padding:12px 14px;font-size:14px;outline:none;transition:border-color .15s,box-shadow .15s}
+  input:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(91,140,255,.18)}
+  .btn{width:100%;margin-top:20px;background:linear-gradient(180deg,#ff6f7c,var(--accent));color:#fff;border:none;border-radius:11px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;transition:transform .12s,filter .15s}
+  .btn:hover{filter:brightness(1.06)}.btn:active{transform:translateY(1px)}.btn[disabled]{opacity:.6;cursor:default}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--muted);margin-top:10px;font-weight:600}
+  .msg{margin-top:14px;font-size:13px;min-height:18px;color:var(--accent)}
+  .msg.ok{color:var(--good)}
+  .hint{margin-top:18px;font-size:12px;color:var(--dim);line-height:1.5;border-top:1px solid var(--line);padding-top:14px}
+
+  /* ---------- app ---------- */
+  #app{display:none;max-width:1240px;margin:0 auto;padding:22px 22px 60px}
+  header.top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+  header.top .t{display:flex;align-items:center;gap:11px}
+  header.top h1{font-size:20px;font-weight:800;letter-spacing:-.3px}
+  header.top .who{color:var(--dim);font-size:12px}
+  .spacer{flex:1}
+  .seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:3px}
+  .seg button{background:transparent;border:none;color:var(--muted);padding:7px 13px;font-size:12.5px;font-weight:600;border-radius:8px;cursor:pointer}
+  .seg button.on{background:var(--accent2);color:#fff}
+  .iconbtn{background:var(--card);border:1px solid var(--line);color:var(--muted);border-radius:10px;padding:8px 13px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+  .iconbtn:hover{color:var(--text);border-color:#2c3d63}
+
+  .grid{display:grid;gap:14px}
+  .stats{grid-template-columns:repeat(4,1fr)}
+  .stat{background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:var(--r);padding:18px}
+  .stat .k{color:var(--muted);font-size:12px;font-weight:600;letter-spacing:.3px;text-transform:uppercase}
+  .stat .v{font-size:30px;font-weight:800;margin-top:8px;letter-spacing:-.5px}
+  .stat .s{color:var(--dim);font-size:12px;margin-top:4px}
+  .stat.a{border-top:2px solid var(--accent)}.stat.b{border-top:2px solid var(--accent2)}
+  .stat.c{border-top:2px solid var(--good)}.stat.d{border-top:2px solid var(--gold)}
+
+  .cols{grid-template-columns:1.6fr 1fr;margin-top:14px}
+  .cols3{grid-template-columns:1fr 1fr 1fr;margin-top:14px}
+  .panel{background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:var(--r);padding:18px}
+  .panel h3{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:15px;display:flex;justify-content:space-between}
+  .panel h3 .n{color:var(--dim);font-weight:600}
+
+  /* bar list */
+  .bars{display:flex;flex-direction:column;gap:9px}
+  .bar{position:relative}
+  .bar .lab{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px}
+  .bar .lab .name{color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:74%}
+  .bar .lab .cnt{color:var(--muted);font-weight:600}
+  .bar .track{height:8px;background:var(--bg2);border-radius:6px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent2),var(--violet));transition:width .5s cubic-bezier(.2,.8,.2,1)}
+  .bar.rose .fill{background:linear-gradient(90deg,var(--accent),#ff9aa4)}
+  .bar.green .fill{background:linear-gradient(90deg,var(--good),#7ff0c8)}
+  .bar.gold .fill{background:linear-gradient(90deg,var(--gold),#ffd98a)}
+
+  /* time chart */
+  .chart{display:flex;align-items:flex-end;gap:3px;height:150px;padding-top:10px}
+  .chart .col{flex:1;background:linear-gradient(180deg,var(--accent2),rgba(91,140,255,.25));border-radius:4px 4px 2px 2px;min-height:2px;position:relative;transition:height .5s}
+  .chart .col:hover{background:linear-gradient(180deg,var(--accent),rgba(255,93,107,.3))}
+  .chart .col span{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#000;color:#fff;font-size:11px;padding:2px 6px;border-radius:5px;white-space:nowrap;opacity:0;pointer-events:none;margin-bottom:5px;transition:opacity .12s}
+  .chart .col:hover span{opacity:1}
+  .axis{display:flex;justify-content:space-between;color:var(--dim);font-size:11px;margin-top:8px}
+
+  /* table */
+  .tablewrap{margin-top:14px;background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+  .tablewrap h3{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:16px 18px 12px}
+  .scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--dim);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:9px 14px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card2)}
+  td{padding:10px 14px;border-bottom:1px solid rgba(31,44,71,.5);white-space:nowrap;color:var(--muted)}
+  tr:hover td{background:rgba(91,140,255,.05)}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.2px}
+  .ev-load{background:rgba(52,211,153,.16);color:var(--good)}
+  .ev-nav{background:rgba(91,140,255,.16);color:var(--accent2)}
+  .ev-search{background:rgba(245,181,68,.16);color:var(--gold)}
+  .ev-like{background:rgba(255,93,107,.16);color:var(--accent)}
+  .ev-filter{background:rgba(167,139,250,.16);color:var(--violet)}
+  .ev-play{background:rgba(45,212,191,.18);color:#2dd4bf}
+  .ev-blocked{background:rgba(251,146,60,.18);color:#fb923c}
+  .ev-other{background:rgba(138,160,196,.14);color:var(--muted)}
+  td.path{color:var(--text);max-width:280px;overflow:hidden;text-overflow:ellipsis}
+  .empty{padding:40px;text-align:center;color:var(--dim);font-size:14px}
+  .loading{padding:60px;text-align:center;color:var(--muted)}
+
+  /* listening share bar + legend */
+  .sharebar{display:flex;height:22px;border-radius:8px;overflow:hidden;background:var(--bg2);margin-bottom:14px}
+  .sharebar .seg{height:100%;min-width:2px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+  .legend{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px}
+  .leg{display:flex;align-items:center;gap:8px;font-size:12.5px;min-width:0}
+  .leg-dot{width:9px;height:9px;border-radius:3px;flex:none}
+  .leg-name{color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+  .leg-pct{color:var(--muted);font-weight:700;flex:none}
+
+  /* activity heatmap */
+  .hm{display:flex;flex-direction:column;gap:3px;min-width:520px}
+  .hm-row{display:flex;gap:3px;align-items:center}
+  .hm-day{width:34px;font-size:11px;color:var(--dim);flex:none;text-align:right;padding-right:6px}
+  .hm-cell{flex:1;min-width:10px;height:16px;border-radius:3px}
+  .hm-hr{flex:1;min-width:10px;font-size:9px;color:var(--dim);text-align:left}
+  .panel .hm{overflow-x:auto}
+
+  /* recent-events filter chips */
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{background:var(--bg2);border:1px solid var(--line);color:var(--muted);border-radius:20px;padding:4px 11px;font-size:12px;font-weight:600;cursor:pointer;text-transform:capitalize}
+  .chip:hover{color:var(--text);border-color:#2c3d63}
+  .chip.on{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+  .chip-n{opacity:.65;font-size:11px}
+
+  /* new-vs-returning stacked bars */
+  .nr-legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-bottom:12px}
+  .nr-legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:middle}
+  .nr-chart{display:flex;align-items:flex-end;gap:4px;height:140px}
+  .nr-col{flex:1;display:flex;flex-direction:column;min-height:3px;border-radius:4px 4px 0 0;overflow:hidden}
+  .nr-new{background:var(--accent2)}
+  .nr-ret{background:var(--good)}
+  @media(max-width:860px){.stats{grid-template-columns:1fr 1fr}.cols,.cols3{grid-template-columns:1fr}.legend{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<section id="login">
+  <form class="lcard" id="loginForm" autocomplete="on">
+    <div class="brand"><span class="dot"></span><h1>SK Music</h1><span>· Analytics</span></div>
+    <label for="email">Email</label>
+    <input id="email" type="email" required autocomplete="username" placeholder="you@example.com" />
+    <label for="password">Password</label>
+    <input id="password" type="password" required autocomplete="current-password" placeholder="••••••••" />
+    <button class="btn" id="signInBtn" type="submit">Sign in</button>
+    <div class="msg" id="loginMsg"></div>
+    <div class="hint">Admin only. Your email must be in the <b>zemer_admin</b> table. To grant access: Supabase → <b>Authentication → Users → Add user</b>, then add the same email to <b>zemer_admin</b>.</div>
+  </form>
+</section>
+
+<!-- ================= DASHBOARD ================= -->
+<main id="app">
+  <header class="top">
+    <div class="t"><span class="brand"><span class="dot" style="width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 16px var(--accent);display:inline-block"></span></span>
+      <h1>Analytics</h1><span class="who" id="who"></span></div>
+    <div class="spacer"></div>
+    <div class="seg" id="range">
+      <button data-h="24">24h</button>
+      <button data-h="168" class="on">7d</button>
+      <button data-h="720">30d</button>
+      <button data-h="0">All</button>
+    </div>
+    <button class="iconbtn" id="refreshBtn">↻ Refresh</button>
+    <button class="iconbtn" id="signOutBtn">Sign out</button>
+  </header>
+
+  <div id="content"><div class="loading">Loading events…</div></div>
+</main>
+
+<script>
+// Self-contained: talks to Supabase's Auth + REST endpoints with plain fetch (no CDN import), so this file
+// works by double-clicking it (file://) with no server and no dependencies.
+const SUPABASE_URL = 'https://jxttqcouabdptftlvfnd.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4dHRxY291YWJkcHRmdGx2Zm5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTc2OTAsImV4cCI6MjA5ODc5MzY5MH0.DiTcbcKTqXZTJfOqEXfvckiObinN0g15BDbLmAmmdsY';
+const TABLE = 'zemer_analytics';
+
+// tiny Supabase client over fetch
+let SESSION = JSON.parse(localStorage.getItem('sk_session') || 'null');
+async function sbSignIn(email, password) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error_description || j.msg || j.error || 'Sign-in failed');
+  SESSION = j; localStorage.setItem('sk_session', JSON.stringify(j));
+  return j;
+}
+function sbSignOut() { SESSION = null; localStorage.removeItem('sk_session'); }
+async function sbIsAdmin() {
+  const email = SESSION?.user?.email; if (!email) return false;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/zemer_admin?select=email&email=eq.${encodeURIComponent(email)}`, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SESSION.access_token}` } });
+    if (!r.ok) return false;
+    const j = await r.json();
+    return Array.isArray(j) && j.length > 0;
+  } catch { return false; }
+}
+async function sbSelect(qs) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?${qs}`, {
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SESSION?.access_token || SUPABASE_ANON_KEY}` },
+  });
+  if (r.status === 401) { sbSignOut(); throw new Error('Session expired — sign in again.'); }
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.message || j.hint || 'Query failed');
+  return j;
+}
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const num = (n) => (n ?? 0).toLocaleString('en-US');
+let RANGE_H = 168, timer = null;
+
+/* ---------- auth ---------- */
+async function boot() { if (SESSION?.access_token && await sbIsAdmin()) enterApp(SESSION); else sbSignOut(); }
+$('loginForm').addEventListener('submit', (e) => { e.preventDefault(); doAuth(); });
+
+async function doAuth() {
+  const email = $('email').value.trim(), password = $('password').value;
+  const msg = $('loginMsg'); msg.className = 'msg'; msg.textContent = '';
+  if (!email || !password) { msg.textContent = 'Enter email and password.'; return; }
+  $('signInBtn').disabled = true;
+  try {
+    const s = await sbSignIn(email, password);
+    if (!(await sbIsAdmin())) { sbSignOut(); throw new Error('Not authorized — your email must be in the zemer_admin table.'); }
+    enterApp(s);
+  } catch (e) { msg.textContent = e.message; }
+  finally { $('signInBtn').disabled = false; }
+}
+$('signOutBtn').addEventListener('click', () => {
+  sbSignOut();
+  if (timer) clearInterval(timer);
+  $('app').style.display = 'none'; $('login').style.display = 'grid';
+});
+
+function enterApp(session) {
+  $('login').style.display = 'none'; $('app').style.display = 'block';
+  $('who').textContent = session?.user?.email || '';
+  load();
+  if (timer) clearInterval(timer);
+  timer = setInterval(() => load(true), 60000); // auto-refresh — incremental (new rows only)
+}
+
+/* ---------- range + refresh ---------- */
+$('range').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  [...$('range').children].forEach((x) => x.classList.remove('on'));
+  b.classList.add('on'); RANGE_H = +b.dataset.h; load();
+});
+$('refreshBtn').addEventListener('click', () => load(true)); // incremental (new rows only)
+
+/* ---------- data (cached + incremental) ---------- */
+// Keep the fetched rows in memory. A full fetch only runs on first load / range change; the 60s auto-refresh
+// and the Refresh button just pull rows NEWER than the watermark and merge — so we don't re-download the whole
+// (growing) table every minute. The range window is re-applied on each merge so old rows fall off.
+let CACHE = { rows: [], newest: null, rangeH: null };
+async function load(incremental) {
+  const rangeStart = RANGE_H > 0 ? new Date(Date.now() - RANGE_H * 3600e3).toISOString() : null;
+  try {
+    if (incremental && CACHE.rangeH === RANGE_H && CACHE.newest) { // pull only new rows since last time
+      const chunk = await sbSelect(`select=*&order=created_at.desc&limit=1000&created_at=gt.${encodeURIComponent(CACHE.newest)}`) || [];
+      if (chunk.length) { CACHE.rows = chunk.concat(CACHE.rows); CACHE.newest = chunk[0].created_at; }
+      if (rangeStart) CACHE.rows = CACHE.rows.filter((r) => r.created_at >= rangeStart); // slide the window forward
+      render(CACHE.rows);
+      return;
+    }
+    // full fetch (first load or range change): page through everything in the window
+    const range = rangeStart ? '&created_at=gte.' + rangeStart : '';
+    const PAGE = 1000, MAX_PAGES = 500;
+    const all = [];
+    for (let p = 0; p < MAX_PAGES; p++) {
+      const chunk = await sbSelect(`select=*&order=created_at.desc&limit=${PAGE}&offset=${p * PAGE}${range}`) || [];
+      all.push(...chunk);
+      if (all.length && p === 0 && chunk.length === PAGE) $('content').innerHTML = `<div class="loading">Loading events… ${num(all.length)}+</div>`;
+      if (chunk.length < PAGE) break; // last page
+    }
+    CACHE = { rows: all, newest: all.length ? all[0].created_at : null, rangeH: RANGE_H };
+    render(all);
+  } catch (e) {
+    $('content').innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+    if (/expired/i.test(e.message)) { $('app').style.display = 'none'; $('login').style.display = 'grid'; }
+  }
+}
+
+/* ---------- render ---------- */
+function tally(rows, key, fn) {
+  const m = new Map();
+  for (const r of rows) { const v = (fn ? fn(r) : r[key]) || '—'; m.set(v, (m.get(v) || 0) + 1); }
+  return [...m.entries()].sort((a, b) => b[1] - a[1]);
+}
+function barList(pairs, cls = '', max = 8) {
+  const top = pairs.slice(0, max); const hi = Math.max(1, ...top.map((p) => p[1]));
+  if (!top.length) return '<div class="empty" style="padding:20px">No data</div>';
+  return `<div class="bars">${top.map(([name, n]) => `
+    <div class="bar ${cls}"><div class="lab"><span class="name">${esc(name)}</span><span class="cnt mono">${num(n)}</span></div>
+    <div class="track"><div class="fill" style="width:${(n / hi * 100).toFixed(1)}%"></div></div></div>`).join('')}</div>`;
+}
+function timeChart(rows) {
+  const buckets = RANGE_H && RANGE_H <= 48 ? 24 : 30;
+  const spanH = RANGE_H > 0 ? RANGE_H : (() => { if (!rows.length) return 24; const oldest = new Date(rows[rows.length - 1].created_at).getTime(); return Math.max(1, (Date.now() - oldest) / 3600e3); })();
+  const stepMs = (spanH * 3600e3) / buckets, now = Date.now();
+  const counts = new Array(buckets).fill(0);
+  for (const r of rows) { const t = new Date(r.created_at).getTime(); const i = Math.floor((now - t) / stepMs); if (i >= 0 && i < buckets) counts[buckets - 1 - i]++; }
+  const hi = Math.max(1, ...counts);
+  const fmt = (i) => { const d = new Date(now - (buckets - i) * stepMs); return spanH <= 48 ? d.toLocaleTimeString([], { hour: '2-digit' }) : (d.getMonth() + 1) + '/' + d.getDate(); };
+  const cols = counts.map((c, i) => `<div class="col" style="height:${(c / hi * 100).toFixed(1)}%"><span>${num(c)} · ${fmt(i)}</span></div>`).join('');
+  return `<div class="chart">${cols}</div><div class="axis"><span>${fmt(0)}</span><span>now</span></div>`;
+}
+const evClass = (e) => ['load','nav','search','like','filter','play','blocked'].includes(e) ? 'ev-' + e : 'ev-other';
+function metaStr(r) {
+  const m = r.meta; if (!m) return '';
+  if (r.event === 'search') return m.q ? `“${m.q}” (${m.count ?? '?'})` : '';
+  if (r.event === 'play') return m.artist ? `${m.title} · ${m.artist}` : (m.title || m.v || '');
+  if (r.event === 'blocked') return `${m.title || m.v || ''}${m.reason ? ` — ${m.reason}` : ''}`;
+  if (r.event === 'like') return (m.on === false ? 'unlike ' : '') + (m.title || m.v || '');
+  if (r.event === 'filter') return `${m.f} → ${m.on ? 'on' : 'off'}`;
+  return '';
+}
+function domainOf(u) { if (!u) return 'Direct'; try { const h = new URL(u).hostname.replace(/^www\./, ''); return h || 'Direct'; } catch { return 'Direct'; } }
+function sessionStats(rows) {
+  const byS = new Map();
+  for (const r of rows) { const s = r.session; if (!s) continue; const t = new Date(r.created_at).getTime(); const e = byS.get(s); if (e) { e.n++; if (t < e.min) e.min = t; if (t > e.max) e.max = t; } else byS.set(s, { n: 1, min: t, max: t }); }
+  const sess = [...byS.values()];
+  const avgMin = sess.length ? sess.reduce((a, e) => a + (e.max - e.min), 0) / sess.length / 60000 : 0;
+  const bounce = sess.length ? sess.filter((e) => e.n <= 1).length / sess.length * 100 : 0;
+  return { count: sess.length, avgMin, bounce };
+}
+function visitorStats(rows) {
+  const m = new Map();
+  for (const r of rows) { const v = r.meta && r.meta.vid; if (!v) continue; let s = m.get(v); if (!s) { s = new Set(); m.set(v, s); } s.add(r.session); }
+  const returning = [...m.values()].filter((s) => s.size >= 2).length;
+  return { visitors: m.size, returning, returningPct: m.size ? returning / m.size * 100 : 0 };
+}
+function topSongs(plays) {
+  const m = new Map();
+  for (const r of plays) { const k = (r.meta && (r.meta.v || r.meta.title)); if (!k) continue; const e = m.get(k) || { title: (r.meta.title || k), artist: (r.meta.artist || ''), n: 0 }; e.n++; m.set(k, e); }
+  return [...m.values()].sort((a, b) => b.n - a.n);
+}
+function referrers(rows) {
+  const firstBySession = new Map();
+  for (const r of rows) { if (r.session && !firstBySession.has(r.session)) firstBySession.set(r.session, domainOf(r.referrer)); }
+  const m = new Map();
+  for (const d of firstBySession.values()) m.set(d, (m.get(d) || 0) + 1);
+  return [...m.entries()].sort((a, b) => b[1] - a[1]);
+}
+function heatmap(rows) {
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const grid = Array.from({ length: 7 }, () => new Array(24).fill(0));
+  let hi = 0;
+  for (const r of rows) { const d = new Date(r.created_at); const c = ++grid[d.getDay()][d.getHours()]; if (c > hi) hi = c; }
+  if (!hi) return '<div class="empty" style="padding:20px">No data</div>';
+  const body = grid.map((row, wd) => `<div class="hm-row"><span class="hm-day">${days[wd]}</span>${row.map((c, h) => `<span class="hm-cell" title="${days[wd]} ${h}:00 — ${c} event${c === 1 ? '' : 's'}" style="background:${c ? `rgba(91,140,255,${(0.14 + 0.86 * c / hi).toFixed(3)})` : 'var(--bg2)'}"></span>`).join('')}</div>`).join('');
+  const axis = `<div class="hm-row"><span class="hm-day"></span>${Array.from({ length: 24 }, (_, h) => `<span class="hm-hr">${h % 6 === 0 ? h : ''}</span>`).join('')}</div>`;
+  return `<div class="hm">${body}${axis}</div>`;
+}
+
+const SHARE_COLORS = ['#ff5d6b','#5b8cff','#34d399','#f5b544','#a78bfa','#f472b6','#2dd4bf','#fb923c','#60a5fa','#94a3b8'];
+// 100%-stacked share bar + legend: what % of plays each artist/song is.
+function shareBar(pairs, topN = 9) {
+  const total = pairs.reduce((a, p) => a + p[1], 0);
+  if (!total) return '<div class="empty" style="padding:24px">No plays yet — press play on the site.</div>';
+  const top = pairs.slice(0, topN);
+  const otherN = total - top.reduce((a, p) => a + p[1], 0);
+  const segs = otherN > 0 ? [...top, ['Other', otherN]] : top;
+  const pct = (n) => (n / total * 100);
+  const bar = segs.map((s, i) => `<div class="seg" style="width:${pct(s[1]).toFixed(2)}%;background:${SHARE_COLORS[i % SHARE_COLORS.length]}" title="${esc(s[0])} — ${pct(s[1]).toFixed(1)}% (${num(s[1])})"></div>`).join('');
+  const legend = segs.map((s, i) => `<div class="leg"><span class="leg-dot" style="background:${SHARE_COLORS[i % SHARE_COLORS.length]}"></span><span class="leg-name">${esc(s[0])}</span><span class="leg-pct mono">${pct(s[1]).toFixed(1)}%</span></div>`).join('');
+  return `<div class="sharebar">${bar}</div><div class="legend">${legend}</div>`;
+}
+
+// New vs returning visitors per day: a visitor is "new" on the day of their first-ever appearance (within
+// the loaded window), and "returning" on any later day they show up again.
+function newReturning(rows) {
+  const dayKey = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  const first = new Map(), daysByVid = new Map();
+  for (const r of [...rows].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))) {
+    const v = r.meta && r.meta.vid; if (!v) continue;
+    const dk = dayKey(r.created_at);
+    if (!first.has(v)) first.set(v, dk);
+    let s = daysByVid.get(v); if (!s) { s = new Set(); daysByVid.set(v, s); } s.add(dk);
+  }
+  const days = new Map();
+  for (const [v, s] of daysByVid) { const fd = first.get(v); for (const dk of s) { let e = days.get(dk); if (!e) { e = { nw: 0, rt: 0 }; days.set(dk, e); } if (dk === fd) e.nw++; else e.rt++; } }
+  return [...days.entries()].sort((a, b) => a[0] - b[0]).map(([day, e]) => ({ day, nw: e.nw, rt: e.rt }));
+}
+function newRetChart(rows) {
+  const data = newReturning(rows);
+  if (!data.length) return '<div class="empty" style="padding:20px">No visitor data yet</div>';
+  const hi = Math.max(1, ...data.map((d) => d.nw + d.rt));
+  const bars = data.map((d) => {
+    const total = d.nw + d.rt, newPct = total ? d.nw / total * 100 : 0;
+    return `<div class="nr-col" title="${new Date(d.day).toLocaleDateString()} — ${d.nw} new, ${d.rt} returning" style="height:${(total / hi * 100).toFixed(1)}%"><div class="nr-new" style="height:${newPct.toFixed(1)}%"></div><div class="nr-ret" style="height:${(100 - newPct).toFixed(1)}%"></div></div>`;
+  }).join('');
+  return `<div class="nr-legend"><span><i style="background:var(--accent2)"></i>New</span><span><i style="background:var(--good)"></i>Returning</span></div><div class="nr-chart">${bars}</div>`;
+}
+
+let LAST_ROWS = [], TABLE_FILTER = 'all';
+window.setTableFilter = (ev) => { TABLE_FILTER = ev; renderTable(); };
+
+function render(rows) {
+  LAST_ROWS = rows;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todayN = rows.filter((r) => new Date(r.created_at) >= today).length;
+  const ss = sessionStats(rows), vs = visitorStats(rows);
+  const plays = rows.filter((r) => r.event === 'play');
+  const songPairs = topSongs(plays).map((s) => [s.artist ? `${s.title} · ${s.artist}` : s.title, s.n]);
+  const likes = rows.filter((r) => r.event === 'like' && r.meta?.on !== false);
+  const likePairs = topSongs(likes).map((s) => [s.artist ? `${s.title} · ${s.artist}` : s.title, s.n]);
+  const zeroSearch = tally(rows.filter((r) => r.event === 'search' && (r.meta?.count === 0 || r.meta?.count === '0')), null, (r) => r.meta?.q);
+  const avg = ss.avgMin < 1 ? (ss.avgMin * 60).toFixed(0) + 's' : ss.avgMin.toFixed(1) + 'm';
+
+  $('content').innerHTML = `
+    <div class="grid stats">
+      <div class="stat a"><div class="k">Events</div><div class="v mono">${num(rows.length)}</div><div class="s">${num(todayN)} today</div></div>
+      <div class="stat b"><div class="k">Visitors</div><div class="v mono">${num(vs.visitors)}</div><div class="s">${num(vs.returning)} returning</div></div>
+      <div class="stat c"><div class="k">Sessions</div><div class="v mono">${num(ss.count)}</div><div class="s">${vs.returningPct.toFixed(0)}% returning</div></div>
+      <div class="stat d"><div class="k">Plays</div><div class="v mono">${num(plays.length)}</div><div class="s">songs started</div></div>
+    </div>
+    <div class="grid stats">
+      <div class="stat b"><div class="k">Avg session</div><div class="v mono">${avg}</div><div class="s">time on site</div></div>
+      <div class="stat a"><div class="k">Bounce rate</div><div class="v mono">${ss.bounce.toFixed(0)}%</div><div class="s">single-event sessions</div></div>
+      <div class="stat d"><div class="k">Events / session</div><div class="v mono">${ss.count ? (rows.length / ss.count).toFixed(1) : '0'}</div><div class="s">depth</div></div>
+      <div class="stat c"><div class="k">Visitors (IP)</div><div class="v mono">${num(new Set(rows.map((r) => r.ip).filter(Boolean)).size)}</div><div class="s">unique IPs</div></div>
+    </div>
+
+    <div class="grid cols">
+      <div class="panel"><h3>Listening by artist <span class="n">% of ${num(plays.length)} plays</span></h3>${shareBar(tally(plays, null, (r) => r.meta?.artist))}</div>
+      <div class="panel"><h3>Listening by song <span class="n">% of ${num(plays.length)} plays</span></h3>${shareBar(songPairs)}</div>
+    </div>
+
+    <div class="grid cols3">
+      <div class="panel"><h3>New vs returning <span class="n">daily</span></h3>${newRetChart(rows)}</div>
+      <div class="panel"><h3>Activity over time <span class="n">${RANGE_H ? RANGE_H + 'h' : 'all'}</span></h3>${timeChart(rows)}</div>
+      <div class="panel"><h3>Event types</h3>${barList(tally(rows, 'event'), 'rose')}</div>
+    </div>
+
+    <div class="grid cols3">
+      <div class="panel"><h3>Top songs played <span class="n">${num(plays.length)} plays</span></h3>${barList(songPairs, 'rose')}</div>
+      <div class="panel"><h3>Top artists played</h3>${barList(tally(plays, null, (r) => r.meta?.artist), 'green')}</div>
+      <div class="panel"><h3>Searches, 0 results <span class="n">content gaps</span></h3>${barList(zeroSearch, 'gold')}</div>
+    </div>
+
+    <div class="grid cols">
+      <div class="panel"><h3>Most liked songs <span class="n">${num(likes.length)} likes</span></h3>${barList(likePairs, 'rose')}</div>
+      <div class="panel"><h3>Most liked artists</h3>${barList(tally(likes, null, (r) => r.meta?.artist), 'green')}</div>
+    </div>
+
+    <div class="grid cols3">
+      <div class="panel"><h3>Top pages</h3>${barList(tally(rows, 'path'))}</div>
+      <div class="panel"><h3>Traffic sources <span class="n">by session</span></h3>${barList(referrers(rows), 'green')}</div>
+      <div class="panel"><h3>Top searches</h3>${barList(tally(rows.filter((r) => r.event === 'search'), null, (r) => r.meta?.q), 'gold')}</div>
+    </div>
+
+    <div class="grid cols3">
+      <div class="panel"><h3>Devices</h3>${barList(tally(rows, 'device'), 'gold')}</div>
+      <div class="panel"><h3>Screen sizes</h3>${barList(tally(rows, null, (r) => r.screen || r.meta?.screen), 'green')}</div>
+      <div class="panel"><h3>Countries</h3>${barList(tally(rows, 'country'))}</div>
+    </div>
+    <div class="grid cols3">
+      <div class="panel"><h3>Browsers</h3>${barList(tally(rows, 'browser'), 'green')}</div>
+      <div class="panel"><h3>Operating systems</h3>${barList(tally(rows, 'os'), 'gold')}</div>
+      <div class="panel"><h3>Viewports <span class="n">on load</span></h3>${barList(tally(rows.filter((r) => r.event === 'load'), null, (r) => r.meta?.viewport))}</div>
+    </div>
+
+    <div class="panel" style="margin-top:14px"><h3>Activity heatmap <span class="n">your local time · hour × day</span></h3>${heatmap(rows)}</div>
+
+    <div class="tablewrap" id="tblwrap"></div>`;
+  renderTable();
+}
+
+function renderTable() {
+  const kinds = ['all', 'play', 'nav', 'search', 'like', 'filter', 'blocked', 'load'];
+  const chips = kinds.map((e) => `<button class="chip ${TABLE_FILTER === e ? 'on' : ''}" onclick="setTableFilter('${e}')">${e}${e === 'all' ? '' : ` <span class="chip-n">${num(LAST_ROWS.filter((r) => r.event === e).length)}</span>`}</button>`).join('');
+  const rows = TABLE_FILTER === 'all' ? LAST_ROWS : LAST_ROWS.filter((r) => r.event === TABLE_FILTER);
+  const recent = rows.slice(0, 80).map((r) => `<tr>
+    <td class="mono">${esc(new Date(r.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }))}</td>
+    <td><span class="pill ${evClass(r.event)}">${esc(r.event || '—')}</span></td>
+    <td class="path">${esc(r.path || '')}${metaStr(r) ? ` <span style="color:var(--dim)">· ${esc(metaStr(r))}</span>` : ''}</td>
+    <td>${esc(r.browser || '—')} <span style="color:var(--dim)">${esc(r.os || '')}</span></td>
+    <td>${esc(r.device || '—')}${(r.screen || r.meta?.screen) ? ` <span style="color:var(--dim)">${esc(r.screen || r.meta?.screen)}</span>` : ''}</td>
+    <td>${esc(r.country || '—')}${r.city ? ' · ' + esc(r.city) : ''}</td>
+    <td class="mono" style="color:var(--dim)">${esc(r.ip || '—')}</td>
+  </tr>`).join('');
+  $('tblwrap').innerHTML = `
+    <h3 style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">Recent events <span class="chips">${chips}</span></h3>
+    <div class="scroll">${rows.length ? `<table>
+      <thead><tr><th>Time</th><th>Event</th><th>Path / detail</th><th>Browser</th><th>Device</th><th>Location</th><th>IP</th></tr></thead>
+      <tbody>${recent}</tbody></table>` : '<div class="empty">No matching events. Browse the site (hard-refresh once so the latest code loads), then Refresh.</div>'}</div>`;
+}
+
+boot();
+</script>
+</body>
+</html>
