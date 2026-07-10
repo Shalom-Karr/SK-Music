@@ -683,6 +683,22 @@ export default {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
+    // Sitemaps + robots.txt: large, static SEO files hit by crawlers. Serve them straight from assets,
+    // edge-cached via the Cache API with a real TTL, and skip the KV-override lookup below. Without this
+    // every Googlebot fetch was a Worker call + KV read + a full, uncached transfer of the ~1 MB file,
+    // which was slow enough to make Search Console's fetch fail.
+    if (request.method === "GET" && (/^\/sitemap[\w.-]*\.xml$/.test(pathname) || pathname === "/robots.txt")) {
+      const cache = caches.default;
+      const cached = await cache.match(request);
+      if (cached) return cached;
+      const asset = await env.ASSETS.fetch(request);
+      const headers = new Headers(asset.headers);
+      headers.set("Cache-Control", "public, max-age=3600, s-maxage=21600");
+      const resp = new Response(asset.body, { status: asset.status, headers });
+      if (asset.ok) ctx.waitUntil(cache.put(request, resp.clone()));
+      return resp;
+    }
+
     // KV overrides win over static assets for page-like file paths.
     // Scoped away from /data/ and /lib/ to avoid adding KV reads to hot asset traffic.
     if (

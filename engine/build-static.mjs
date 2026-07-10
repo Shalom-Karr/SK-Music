@@ -416,7 +416,7 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
     locs.map((l) => `<url><loc>${SITE}${escXml(l)}</loc></url>`).join("\n") +
     `\n</urlset>\n`;
 
-  const SITEMAP_CHUNK = 45000;
+  const SITEMAP_CHUNK = 25000;   // cap URLs per sitemap so each file stays small + quick for crawlers to fetch
   const registeredSitemaps = [];
 
   const writeSitemapGroup = (groupName, urls) => {
@@ -583,6 +583,12 @@ ensureWrite(path.join(DIST, "sw.js"), SW);
 
 // _headers: mark /lib/* immutable — browsers skip revalidation on versioned URLs,
 // and a new build changes BUILD → new paths → the browser refetches.
-ensureWrite(path.join(DIST, "_headers"), "/lib/*\n  Cache-Control: public, max-age=31536000, immutable\n");
+// _headers: versioned /lib is immutable; sitemaps + robots get a real cache lifetime so crawlers (and
+// Cloudflare's edge) cache them instead of re-fetching the full multi-MB file on every request.
+ensureWrite(path.join(DIST, "_headers"),
+  "/lib/*\n  Cache-Control: public, max-age=31536000, immutable\n" +
+  "/sitemap.xml\n  Cache-Control: public, max-age=3600, s-maxage=21600\n" +
+  "/sitemap-*\n  Cache-Control: public, max-age=3600, s-maxage=21600\n" +
+  "/robots.txt\n  Cache-Control: public, max-age=3600, s-maxage=21600\n");
 
 console.log(`\ndist/ ready → ${fs.readdirSync(DATA).length} data files, ${fs.readdirSync(LIB).length} lib modules`);
