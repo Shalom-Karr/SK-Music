@@ -1,0 +1,71 @@
+name: Desktop Build
+
+# Build the native SK Music desktop app and publish per-OS installers to a GitHub Release whenever the
+# Rust sources or Tauri build config under Desktop/ change (or run it by hand).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Desktop/**/*.rs'
+      - 'Desktop/src-tauri/Cargo.toml'
+      - 'Desktop/src-tauri/Cargo.lock'
+      - 'Desktop/src-tauri/tauri.conf.json'
+      - 'Desktop/package.json'
+      - '.github/workflows/desktop_build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+          - platform: macos-latest
+          - platform: ubuntu-22.04
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust build cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: Desktop/src-tauri
+
+      - name: Linux system deps
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Installs @tauri-apps/cli from Desktop/package.json (frontend is a remote URL, so nothing to build).
+      - name: Install Tauri CLI
+        working-directory: Desktop
+        run: npm install
+
+      - name: Build installers + publish release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: Desktop
+          tagName: desktop-v__VERSION__
+          releaseName: 'SK Music Desktop v__VERSION__'
+          releaseBody: |
+            Native SK Music desktop app (Tauri 2 — a fast native shell around the web app).
+            Download the installer for your OS:
+            - **Windows:** the `*-setup.exe`
+            - **macOS:** the `*.dmg`
+            - **Linux:** the `*.AppImage` or `*.deb`
+          releaseDraft: false
+          prerelease: false
