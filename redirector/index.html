@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Install YouTube → SK Music Redirector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f0f0f;
+            --surface-1: #161616;
+            --surface-2: #272727;
+            --surface-3: #3a3a3a;
+            --text-primary: #f1f1f1;
+            --text-secondary: #aaa;
+            --accent-color: #3ea6ff;
+            --border-color: #303030;
+            --border-radius: 8px;
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        body {
+            font-family: var(--font-family);
+            line-height: 1.7;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 2em;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: var(--surface-1);
+            padding: 30px 40px;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        h1, h2 { 
+            color: var(--text-primary); 
+            border-bottom: 1px solid var(--border-color); 
+            padding-bottom: 10px; 
+            margin-top: 20px;
+            margin-bottom: 15px; 
+        }
+        h1 { font-size: 1.8em; margin-top: 0; }
+        h2 { font-size: 1.4em; }
+        p, li { color: var(--text-secondary); }
+        ol { padding-left: 20px; }
+        li { margin-bottom: 25px; }
+        a { color: var(--accent-color); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        strong { color: var(--text-primary); font-weight: 500; }
+
+        .button {
+            display: inline-block;
+            background-color: var(--accent-color);
+            color: white;
+            padding: 12px 24px;
+            border-radius: var(--border-radius);
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 500;
+            transition: filter 0.2s;
+            margin-top: 10px;
+        }
+        .button:hover { filter: brightness(1.15); }
+
+        .browser-links {
+            margin-top: 10px;
+        }
+        .browser-link {
+            display: inline-block;
+            background-color: var(--surface-2);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            margin: 5px 5px 5px 0;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            font-size: 0.9em;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+        .browser-link:hover {
+            background-color: var(--surface-3);
+            border-color: var(--accent-color);
+            text-decoration: none;
+        }
+        code {
+            background-color: var(--surface-3);
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: var(--text-primary);
+        }
+        .address-container {
+            display: flex;
+            align-items: center;
+            background-color: var(--surface-2);
+            padding: 10px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+        .address-container code {
+            flex-grow: 1;
+            background: none;
+            padding: 0;
+            font-size: 1em;
+            color: var(--text-secondary);
+            word-break: break-all;
+        }
+        .copy-button {
+            background-color: var(--surface-3);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 6px 14px;
+            font-size: 0.9em;
+            font-family: inherit;
+            cursor: pointer;
+            margin-left: 15px;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+        .copy-button:hover {
+            background-color: var(--surface-2);
+            border-color: var(--accent-color);
+        }
+        .guide-image {
+            max-width: 100%;
+            border-radius: 6px;
+            margin-top: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        .site-footer {
+            margin-top: 40px;
+            padding: 20px;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+        .footer-logos {
+            display: inline-flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .footer-logo {
+            height: 30px;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        }
+        .footer-logo:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Install the YouTube → SK Music Redirector</h1>
+        <p>This page installs the userscript that sends YouTube and YouTube Music links straight to the matching page on <strong>SK Music</strong>.</p>
+        
+        <h2>Installation & Setup Guide</h2>
+        <ol>
+            <li>
+                First, install the <strong>Tampermonkey</strong> extension for your browser:
+                <div class="browser-links">
+                    <a href="https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo" class="browser-link" target="_blank" rel="noopener noreferrer">Chrome</a>
+                    <a href="https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd" class="browser-link" target="_blank" rel="noopener noreferrer">Edge</a>
+                    <a href="https://addons.mozilla.org/en-US/firefox/addon/tampermonkey/" class="browser-link" target="_blank" rel="noopener noreferrer">Firefox</a>
+                    <a href="https://www.tampermonkey.net/" class="browser-link" target="_blank" rel="noopener noreferrer">Other Browsers</a>
+                </div>
+            </li>
+            <li>
+                Next, install the redirector script by clicking the button below. A new tab will open; click "Install" there to confirm.
+                <br>
+                <a href="https://raw.githubusercontent.com/Shalom-Karr/SK-Music/main/redirector/youtube-to-skmusic.user.js" class="button" target="_blank">
+                    Install YouTube → SK Music Script
+                </a>
+            </li>
+            <li>
+                <strong>Complete the one-time setup (Required).</strong> This final step gives Tampermonkey permission to run. Find your browser below and follow the instructions.
+                <p style="margin-bottom: 15px; margin-top: 10px;">Your browser blocks direct links to settings for security. Please copy the address and paste it into your address bar.</p>
+                
+                <!-- === CHROME GUIDE === -->
+                <strong>For Chrome / Brave:</strong>
+                <div class="address-container">
+                    <code>chrome://extensions/?id=dhdgffkkebhmkfjojejmpbldmpobfkfo</code>
+                    <button class="copy-button" onclick="copyAddress(this, 'chrome://extensions/?id=dhdgffkkebhmkfjojejmpbldmpobfkfo')">Copy</button>
+                </div>
+                <p>On the settings page, find and enable the <strong>"Allow User Scripts"</strong> option. The toggle should be blue, as shown below.</p>
+                <img src="chrome.png" alt="Chrome settings showing Allow User Scripts enabled" class="guide-image">
+
+                <!-- === EDGE GUIDE === -->
+                <strong style="display:block; margin-top: 25px;">For Microsoft Edge:</strong>
+                <div class="address-container">
+                    <code>edge://extensions/?id=iikmkjmpaadaobahmlepeloendndfphd</code>
+                    <button class="copy-button" onclick="copyAddress(this, 'edge://extensions/?id=iikmkjmpaadaobahmlepeloendndfphd')">Copy</button>
+                </div>
+                <p>On the settings page, ensure the main toggle switch for Tampermonkey at the top-right is <strong>On</strong> (blue). The "Allow User Scripts" option does not exist on this page for Edge. Optionally, you can also check <strong>"Allow in InPrivate"</strong> if you use private browsing.</p>
+                <img src="edge.png" alt="Edge settings for Tampermonkey" class="guide-image">
+            </li>
+        </ol>
+
+        <h2>How It Works</h2>
+        <p>
+            When you open a <strong>YouTube</strong> or <strong>YouTube Music</strong> link, this script automatically detects it and
+            seamlessly redirects you to the matching page on <strong>SK Music</strong> &mdash; videos become songs, playlists and
+            channels carry over, and anything else lands on the SK Music home page.
+        </p>
+    </div>
+
+    <footer class="site-footer">
+        <div class="footer-logos">
+            <p>Developed by Shalom Karr</p>
+        </div>
+    </footer>
+
+    <script>
+        function copyAddress(buttonElement, textToCopy) {
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const originalText = buttonElement.innerText;
+                buttonElement.innerText = 'Copied!';
+                setTimeout(() => {
+                    buttonElement.innerText = originalText;
+                }, 2000); 
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                alert('Could not copy address. Please select the text and copy it manually.');
+            });
+        }
+    </script>
+
+</body>
+</html>
