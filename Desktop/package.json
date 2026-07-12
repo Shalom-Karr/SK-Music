@@ -1,0 +1,13 @@
+{
+  "name": "sk-music-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SK Music — native desktop app (Tauri 2) wrapping the deployed web client",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}
