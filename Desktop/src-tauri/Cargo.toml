@@ -1,0 +1,39 @@
+[package]
+name = "sk-music-desktop"
+version = "0.1.0"
+description = "SK Music — native desktop shell (Tauri 2) for the kosher Jewish-music web client"
+authors = ["SK Music"]
+license = "GPL-3.0-or-later"
+edition = "2021"
+rust-version = "1.77"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Core: system webview + tray. The window loads the deployed web app directly,
+# so the Rust side only adds what a browser can't (tray, media keys, deep links, updates).
+tauri = { version = "2", features = ["tray-icon"] }
+
+# Focus the running window instead of spawning a second copy. The `deep-link` feature
+# is load-bearing: it forwards a 2nd instance's argv so on_open_url fires on Win/Linux.
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+
+# Register skmusic:// and route /song/:id etc. into the SPA (wired up in src/deeplink.rs).
+tauri-plugin-deep-link = "2"
+
+# Signed auto-update via a minisign-signed manifest on the skmusic origin (wired up in src/updater.rs).
+tauri-plugin-updater = "2"
+
+# OS media controls: Windows SMTC / macOS Now Playing / Linux MPRIS (wired up in src/media.rs).
+souvlaki = "0.7"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
