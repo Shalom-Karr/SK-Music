@@ -35,6 +35,10 @@ const SITE = (process.env.SITE_URL || "https://skmusic.shalomkarr.workers.dev").
 // ── file helpers ──────────────────────────────────────────────────────────────
 const rmrf = (p) => fs.rmSync(p, { recursive: true, force: true });
 
+// Recursive file count under a dir — used to keep the build under Cloudflare's 20,000-asset limit.
+const countFiles = (dir) => fs.readdirSync(dir, { withFileTypes: true })
+  .reduce((n, e) => n + (e.isDirectory() ? countFiles(path.join(dir, e.name)) : 1), 0);
+
 const ensureWrite = (p, data) => {
   fs.mkdirSync(path.dirname(p), { recursive: true });
   fs.writeFileSync(p, data);
@@ -489,22 +493,35 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
       `<noscript><a href="/" style="color:#f5f5f5">Open SK Music</a></noscript></body></html>`;
 
     const safeId = (id) => typeof id === "string" && /^[A-Za-z0-9_-]+$/.test(id);
-    let nA = 0, nP = 0;
+    // Cloudflare caps a deployment at 20,000 assets. Pre-baking is an OPTIMIZATION, not a requirement —
+    // only bake as many shells as fit under FILE_CAP (RESERVE leaves room for the always-run assets written
+    // after this block). Any deep-link WITHOUT a pre-baked file just falls to the Worker's
+    // renderDeepLinkShell — same correct OG, served dynamically ("non-file") instead of from the asset
+    // layer. So the site never breaks as the catalog grows; it degrades to more Worker requests.
+    // See docs/asset-file-limit.md.
+    const FILE_CAP = 19800, RESERVE = 40;
+    let budget = FILE_CAP - RESERVE - countFiles(DIST);
+    let nA = 0, nP = 0, viaWorker = 0;
     for (const a of artists) {
       if (!safeId(a.id)) continue;
+      if (budget <= 0) { viaWorker++; continue; }
       ensureWrite(path.join(DIST, "artists", a.id + ".html"), shell({
         title: a.name || "Artist", description: "Artist · SK Music",
         image: a.thumbnail || null, type: "profile", urlPath: "/artists/" + a.id }));
-      nA++;
+      nA++; budget--;
     }
     for (const p of playlists) {
       if (!safeId(p.id)) continue;
+      if (budget <= 0) { viaWorker++; continue; }
       ensureWrite(path.join(DIST, "playlists", p.id + ".html"), shell({
         title: p.title || "Playlist", description: "Playlist · SK Music",
         image: p.thumbnail || null, type: "music.playlist", urlPath: "/playlists/" + p.id }));
-      nP++;
+      nP++; budget--;
     }
-    console.log(`  deep-link OG shells: ${nA} artists + ${nP} playlists → asset-served (no Worker)`);
+    if (viaWorker)
+      console.log(`  deep-link OG shells: ${nA} artists + ${nP} playlists pre-baked; ${viaWorker} over the ${FILE_CAP}-file cap → served dynamically by the Worker`);
+    else
+      console.log(`  deep-link OG shells: ${nA} artists + ${nP} playlists → asset-served (no Worker)`);
   })();
 
   // ── admin taggers ──────────────────────────────────────────────────────────
@@ -649,13 +666,12 @@ ensureWrite(path.join(DIST, "_headers"),
   "/artists/*\n  Cache-Control: public, max-age=3600, s-maxage=21600\n" +
   "/playlists/*\n  Cache-Control: public, max-age=3600, s-maxage=21600\n");
 
-// Cloudflare Workers Assets caps a deployment at 20,000 files. The per-album data files (~13.8k) plus the
-// deep-link shells push us toward it — fail early with a clear message rather than letting wrangler reject
-// the whole upload at deploy time.
-const countFiles = (dir) => fs.readdirSync(dir, { withFileTypes: true })
-  .reduce((n, e) => n + (e.isDirectory() ? countFiles(path.join(dir, e.name)) : 1), 0);
+// Backstop for Cloudflare's 20,000-asset limit. The shell pre-bake above already caps itself at 19,800
+// (overflow falls to the Worker), so this only fires if the non-shell files alone — mainly the ~13.8k
+// per-album detail files — approach the limit. That's unfixable by skipping shells, so fail loudly with
+// the real remedy. See docs/asset-file-limit.md.
 const totalFiles = countFiles(DIST);
-if (totalFiles > 19800)
-  throw new Error(`dist has ${totalFiles} files — too close to Cloudflare's 20,000-asset limit. Reduce per-entity files (e.g. album detail) before deploying.`);
+if (totalFiles > 19950)
+  throw new Error(`dist has ${totalFiles} files — at Cloudflare's 20,000-asset limit even after deep-link shells fell back to the Worker. Fold album detail into the shipped dataset (see docs/asset-file-limit.md).`);
 
 console.log(`\ndist/ ready → ${fs.readdirSync(DATA).length} data files, ${fs.readdirSync(LIB).length} lib modules, ${totalFiles} total assets (limit 20000)`);
