@@ -357,6 +357,7 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .row .rowbtn{opacity:0;transition:opacity .14s}
 .heart svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round}
 .heart.on svg{fill:currentColor;stroke:none}
+.iconbtn.rpt.on{color:var(--primary)}.iconbtn.rpt.on svg{fill:var(--primary)}
 .heart.on{color:var(--primary)}
 .heart:hover{color:var(--text)}
 .heart.on:hover{color:var(--primary-2)}
@@ -823,6 +824,7 @@ fill="url(#royal)" stroke="none">
       <button class="iconbtn nb-play" id="nbPlay" onclick="toggle()" title="Play/Pause"></button>
       <button class="iconbtn" onclick="next()" title="Next"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zM16 6v12h2V6z"/></svg></button>
       <button class="iconbtn skip" onclick="seekBy(15)" title="Forward 15s"><svg viewBox="0 0 24 24"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="11.5" y="15.6" font-size="8" text-anchor="middle" font-weight="700" fill="currentColor">15</text></svg></button>
+      <button class="iconbtn rpt" onclick="toggleRepeat()" title="Repeat this song"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg></button>
     </div>
     <div class="nb-seek">
       <span class="nb-time" id="nbCur">0:00</span>
@@ -866,6 +868,7 @@ fill="url(#royal)" stroke="none">
         <button class="iconbtn big" id="npPlay" onclick="toggle()"></button>
         <button class="iconbtn" onclick="next()"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zM16 6v12h2V6z"/></svg></button>
         <button class="iconbtn skip" onclick="seekBy(15)" title="Forward 15s"><svg viewBox="0 0 24 24"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="11.5" y="15.6" font-size="8" text-anchor="middle" font-weight="700" fill="currentColor">15</text></svg></button>
+        <button class="iconbtn skip rpt" onclick="toggleRepeat()" title="Repeat this song"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg></button>
       </div>
     </div>
     <div class="np-upnext"><h4>Up Next</h4><div class="rows" id="npQueue"></div></div>
@@ -989,7 +992,7 @@ const TABS = [
 const TITLES = { ...Object.fromEntries(TABS.map(([k, l]) => [k, l])), redirector: "Send YouTube here" };
 
 /* ============================ state + filters ============================ */
-const state = { tab: "home", loaded: {}, detailOpen: false, nowOpen: false, queue: [], qi: -1 };
+const state = { tab: "home", loaded: {}, detailOpen: false, nowOpen: false, queue: [], qi: -1, repeat: false };
 const LS = { get: (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
 const noFemale = () => LS.get("zw_noFemale", "1") === "1"; // ON by default (opt-out); others default off
 const chasidMode = () => LS.get("zw_chasid", ""); // "" = off · "only" = Chasidish only · "hide" = hide Chasidish
@@ -1948,6 +1951,9 @@ function refreshNowPlaying() {
 function toggle() { if (!state.queue.length) return; PB.paused() ? PB.play() : PB.pause(); }
 function next() { if (state.qi < state.queue.length - 1) playIndex(state.qi + 1, 1); else PB.pause(); }
 function prev() { if (PB.cur() > 3 || state.qi <= 0) PB.seek(0); else playIndex(state.qi - 1, -1); }
+// Repeat one: when a song ends with repeat on, replay it instead of advancing (manual next/prev still work).
+function repeatOrNext() { if (state.repeat && state.qi >= 0) playIndex(state.qi); else next(); }
+function toggleRepeat() { state.repeat = !state.repeat; document.querySelectorAll(".rpt").forEach((b) => b.classList.toggle("on", state.repeat)); showToast(state.repeat ? "Repeat this song" : "Repeat off", 1300); }
 function seekBy(d) { if (!state.queue.length) return; const dur = PB.dur(); if (!dur) return; PB.seek(Math.max(0, Math.min(dur - 0.5, PB.cur() + d))); }
 function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); paintQueue(); }
 function closeNow() { state.nowOpen = false; el("now").classList.remove("on"); }
@@ -1977,7 +1983,7 @@ function tick() {
 function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing · 2 paused · 3 buffering · 5 cued
   if (code === 1) { streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); } // rate resets on each load
   else if (code === 2) playAccrue(); // paused → bank the elapsed listen time
-  else if (code === 0) { stopTick(); playFinalize(); next(); }
+  else if (code === 0) { stopTick(); playFinalize(); repeatOrNext(); }
   setPlayIcons();
 }
 function showToast(msg, ms) { const t = el("toast"); t.innerHTML = msg; t.classList.add("on"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), ms || 4200); }
@@ -1991,7 +1997,7 @@ function onPlaybackError() {
 // html5 fallback wiring — only fires when PB.mode === "html5"
 audio.addEventListener("play", () => { streamFails = 0; startTick(); audio.playbackRate = PB.rate; setPlayIcons(); playResume(); });
 audio.addEventListener("pause", () => { stopTick(); setPlayIcons(); playAccrue(); });
-audio.addEventListener("ended", () => { stopTick(); playFinalize(); next(); });
+audio.addEventListener("ended", () => { stopTick(); playFinalize(); repeatOrNext(); });
 audio.addEventListener("error", () => { if (PB.mode === "html5") onPlaybackError(); });
 ["nbSeek", "npSeek"].forEach((id) => {
   const s = el(id);
