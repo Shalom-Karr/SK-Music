@@ -457,6 +457,56 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
   ensureWrite(path.join(DIST, INDEXNOW_KEY + ".txt"), INDEXNOW_KEY);
   console.log(`  indexnow key: ${SITE}/${INDEXNOW_KEY}.txt`);
 
+  // ── deep-link OG shells ────────────────────────────────────────────────────
+  // Pre-render a tiny static HTML shell for every artist + playlist deep link. A crawler or shared-link
+  // hit is then served straight from the asset layer (no Worker — these were ~28% of all Worker requests)
+  // with correct Open Graph tags. The shell shows the logo + title, then fetches "/" and document.writes
+  // the full SPA in place — which routes by pathname, so a real visitor lands on the same artist/playlist,
+  // URL unchanged. The Worker's renderDeepLinkShell stays as the fallback for any id not pre-baked (e.g. a
+  // new entity created between builds).
+  (() => {
+    const esc = (v) => String(v == null ? "" : v).replace(/[&<>"]/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const ogTags = ({ title, description, image, type }) => {
+      const t = [`<meta property="og:type" content="${esc(type)}">`,
+        `<meta property="og:title" content="${esc(title)}"><meta name="twitter:title" content="${esc(title)}">`,
+        `<meta property="og:description" content="${esc(description)}"><meta name="twitter:description" content="${esc(description)}">`];
+      if (image) t.push(`<meta property="og:image" content="${esc(image)}"><meta name="twitter:image" content="${esc(image)}">`);
+      return t.join("");
+    };
+    const shell = ({ title, description, image, type, urlPath }) =>
+      `<!doctype html><html lang="en"><head><meta charset="utf-8">` +
+      `<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0e0a0b">` +
+      `<title>${esc(title)} | SK Music</title><meta name="description" content="${esc(description)}">` +
+      `<link rel="canonical" href="${SITE}${urlPath}"><link rel="icon" type="image/svg+xml" href="/assets/skmusic_logo.svg">` +
+      `<meta property="og:site_name" content="SK Music"><meta property="og:url" content="${SITE}${urlPath}"><meta name="twitter:card" content="summary_large_image">` +
+      ogTags({ title, description, image, type }) +
+      `<style>html,body{margin:0;height:100%;background:#0e0a0b;color:#f5f5f5;font-family:system-ui,-apple-system,sans-serif}` +
+      `#s{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;box-sizing:border-box}` +
+      `#s img{width:84px;height:84px}#s h1{margin:0;font-size:17px;font-weight:600;opacity:.8;text-align:center}</style></head>` +
+      `<body><div id="s"><img src="/assets/skmusic_logo.svg" alt="SK Music"><h1>${esc(title)}</h1></div>` +
+      `<script>fetch("/").then(function(r){return r.text()}).then(function(h){document.open();document.write(h);document.close()}).catch(function(){});</script>` +
+      `<noscript><a href="/" style="color:#f5f5f5">Open SK Music</a></noscript></body></html>`;
+
+    const safeId = (id) => typeof id === "string" && /^[A-Za-z0-9_-]+$/.test(id);
+    let nA = 0, nP = 0;
+    for (const a of artists) {
+      if (!safeId(a.id)) continue;
+      ensureWrite(path.join(DIST, "artists", a.id + ".html"), shell({
+        title: a.name || "Artist", description: "Artist · SK Music",
+        image: a.thumbnail || null, type: "profile", urlPath: "/artists/" + a.id }));
+      nA++;
+    }
+    for (const p of playlists) {
+      if (!safeId(p.id)) continue;
+      ensureWrite(path.join(DIST, "playlists", p.id + ".html"), shell({
+        title: p.title || "Playlist", description: "Playlist · SK Music",
+        image: p.thumbnail || null, type: "music.playlist", urlPath: "/playlists/" + p.id }));
+      nP++;
+    }
+    console.log(`  deep-link OG shells: ${nA} artists + ${nP} playlists → asset-served (no Worker)`);
+  })();
+
   // ── admin taggers ──────────────────────────────────────────────────────────
   // Israeli and Chasidish taggers are both generated from one shared HTML template
   // by swapping the CFG constant and, when the whitelist is available, the ARTISTS array.
@@ -595,6 +645,17 @@ ensureWrite(path.join(DIST, "_headers"),
   "/favicon.ico\n  Cache-Control: public, max-age=604800\n" +
   "/sitemap.xml\n  Cache-Control: public, max-age=3600, s-maxage=21600\n" +
   "/sitemap-*\n  Cache-Control: public, max-age=3600, s-maxage=21600\n" +
-  "/robots.txt\n  Cache-Control: public, max-age=3600, s-maxage=21600\n");
+  "/robots.txt\n  Cache-Control: public, max-age=3600, s-maxage=21600\n" +
+  "/artists/*\n  Cache-Control: public, max-age=3600, s-maxage=21600\n" +
+  "/playlists/*\n  Cache-Control: public, max-age=3600, s-maxage=21600\n");
 
-console.log(`\ndist/ ready → ${fs.readdirSync(DATA).length} data files, ${fs.readdirSync(LIB).length} lib modules`);
+// Cloudflare Workers Assets caps a deployment at 20,000 files. The per-album data files (~13.8k) plus the
+// deep-link shells push us toward it — fail early with a clear message rather than letting wrangler reject
+// the whole upload at deploy time.
+const countFiles = (dir) => fs.readdirSync(dir, { withFileTypes: true })
+  .reduce((n, e) => n + (e.isDirectory() ? countFiles(path.join(dir, e.name)) : 1), 0);
+const totalFiles = countFiles(DIST);
+if (totalFiles > 19800)
+  throw new Error(`dist has ${totalFiles} files — too close to Cloudflare's 20,000-asset limit. Reduce per-entity files (e.g. album detail) before deploying.`);
+
+console.log(`\ndist/ ready → ${fs.readdirSync(DATA).length} data files, ${fs.readdirSync(LIB).length} lib modules, ${totalFiles} total assets (limit 20000)`);
