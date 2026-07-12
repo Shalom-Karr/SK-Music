@@ -732,6 +732,7 @@ fill="url(#royal)" stroke="none">
       <section class="view" id="v-kidzone"></section>
       <section class="view" id="v-library"></section>
       <section class="view" id="v-credits"></section>
+      <section class="view" id="v-redirector"></section>
       <section class="view" id="v-detail"></section>
       <section class="view" id="v-parental"></section>
     </main>
@@ -985,7 +986,7 @@ const TABS = [
   ["kidzone", "Kid Zone", ICON.kid, "Browse", 0],
   ["library", "Library", ICON.library, "You", 1],
 ];
-const TITLES = Object.fromEntries(TABS.map(([k, l]) => [k, l]));
+const TITLES = { ...Object.fromEntries(TABS.map(([k, l]) => [k, l])), redirector: "Send YouTube here" };
 
 /* ============================ state + filters ============================ */
 const state = { tab: "home", loaded: {}, detailOpen: false, nowOpen: false, queue: [], qi: -1 };
@@ -1163,6 +1164,7 @@ function go(k, fromRoute) {
   state.tab = k; state.detailOpen = false; closeSidebar();
   for (const [t] of TABS) el("v-" + t).classList.toggle("on", t === k);
   el("v-credits").classList.toggle("on", k === "credits");
+  el("v-redirector").classList.toggle("on", k === "redirector"); // in-app install page for the YouTube→SK Music add-on
   el("v-podcasts").classList.toggle("on", k === "podcasts"); // routable (coming-soon) though hidden from nav
   el("v-detail").classList.remove("on"); el("v-parental").classList.remove("on");
   el("tbTitle").textContent = TITLES[k] || "About";
@@ -1171,6 +1173,7 @@ function go(k, fromRoute) {
   renderNav(); el("creditsLink") && el("creditsLink").classList.toggle("on", k === "credits"); scrollTop();
   if (!fromRoute) pushURL(TAB_PATH[k] || "/");
   if (k === "credits" && !state.loaded.credits) loadCredits();
+  if (k === "redirector" && !state.loaded.redirector) loadRedirector();
   if (k === "home" && !state.loaded.home) loadHome();
   if (k === "foryou" && !state.loaded.foryou) loadForYou();
   if (k === "artists" && !state.loaded.artists) loadArtists();
@@ -1183,7 +1186,7 @@ function go(k, fromRoute) {
 const scrollTop = () => { el("content").scrollTo ? window.scrollTo(0, 0) : 0; document.querySelector("main")?.scrollTo(0, 0); window.scrollTo(0, 0); };
 
 /* ---- deep-linkable URL routing (shareable /artists/:id, /albums/:id, /playlists/:id, /songs/:id) ---- */
-const TAB_PATH = { home: "/", foryou: "/foryou", search: "/search", artists: "/artists", playlists: "/playlists", podcasts: "/podcasts", kidzone: "/kidzone", library: "/library", credits: "/about" };
+const TAB_PATH = { home: "/", foryou: "/foryou", search: "/search", artists: "/artists", playlists: "/playlists", podcasts: "/podcasts", kidzone: "/kidzone", library: "/library", credits: "/about", redirector: "/redirector" };
 const PATH_TAB = Object.fromEntries(Object.entries(TAB_PATH).map(([k, v]) => [v, k]));
 function pushURL(path, replace) { try { if (location.pathname + location.search !== path) { history[replace ? "replaceState" : "pushState"]({}, "", path); track("nav"); } } catch {} }
 function applyRoute(url) {
@@ -1213,6 +1216,7 @@ function applyRoute(url) {
     return;
   }
   if (p.toLowerCase() === "/about" || p.toLowerCase() === "/credits") return go("credits", true);
+  if (p.toLowerCase().replace(/\/$/, "") === "/redirector") return go("redirector", true);
   if (p === "/parental") { if (loggedIn()) return openParental(); return go("home", true); }
   go(PATH_TAB[p] || "home", true);
 }
@@ -1571,6 +1575,10 @@ function loadCredits() {
         </div>
       </div>
       <div class="credits-card">
+        <h3>Send YouTube here</h3>
+        <p>Install a small browser add-on that redirects YouTube &amp; YouTube Music links &mdash; and their filter block pages &mdash; straight to the matching page on SK Music. <a href="/redirector" onclick="go('redirector');return false" style="color:var(--primary);font-weight:700;text-decoration:none;cursor:pointer">Set it up &rarr;</a></p>
+      </div>
+      <div class="credits-card">
         <h3>License</h3>
         <p>Free software under the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU GPL v3.0</a>. &copy; 2026 Shalom Karr; portions derive from <a href="https://github.com/ZemerTeam/zemer-search" target="_blank" rel="noopener">zemer-search</a> by <a href="https://github.com/alltechdev" target="_blank" rel="noopener">alltechdev</a>, also GPL-3.0. The license permits commercial use &mdash; as a personal request (not a license condition), please ask before using SK Music in a paid product.</p>
       </div>
@@ -1584,6 +1592,41 @@ function loadCredits() {
           <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.94.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 22 12 10 10 0 0 0 12 2z"/></svg>
           <span>View source on GitHub</span>
         </a>
+      </div>
+    </div>`;
+}
+
+/* ---- Redirector: in-app install page for the YouTube → SK Music browser add-on ---- */
+function loadRedirector() {
+  state.loaded.redirector = true;
+  track("rd_view");
+  const codeStyle = "background:var(--surface-3);padding:1px 6px;border-radius:5px;font-size:13px";
+  el("v-redirector").innerHTML = `
+    <div class="credits-page">
+      <div class="hero" style="background:linear-gradient(120deg,#2a1420,var(--surface) 70%);margin-bottom:16px"><div class="eyebrow">Browser add-on</div><h1>Send YouTube here</h1><p>Redirect YouTube &amp; YouTube Music links &mdash; and their filter block pages &mdash; straight to the matching page on SK Music, before YouTube ever loads.</p></div>
+      <div class="credits-card">
+        <h3>What it does</h3>
+        <ul style="margin:2px 0 0;padding-left:18px;color:var(--muted);line-height:2">
+          <li>A video &rarr; that song on SK Music</li>
+          <li>A playlist &rarr; that playlist</li>
+          <li>A channel &rarr; that artist</li>
+          <li>Home, search, or anything else &rarr; the SK Music home page</li>
+        </ul>
+        <p style="margin-top:12px;color:var(--faint);font-size:13px">It exits inside embeds, so it never touches SK Music's own player.</p>
+      </div>
+      <div class="credits-card">
+        <h3>Install</h3>
+        <p>First install <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener">Tampermonkey</a> (Chrome, Edge, Brave, or Firefox). Then click:</p>
+        <a href="/redirector.user.js" target="_blank" rel="noopener" onclick="track('rd_install')" style="display:inline-block;margin-top:12px;background:linear-gradient(180deg,var(--primary-2),var(--primary));color:#fff;font-weight:800;padding:12px 22px;border-radius:12px;text-decoration:none">Install the add-on</a>
+      </div>
+      <div class="credits-card">
+        <h3>One-time setup <span style="color:var(--faint);font-weight:600">(required)</span></h3>
+        <p>Recent Chrome/Edge need user scripts switched on for Tampermonkey — do this once, or nothing will redirect.</p>
+        <p style="margin-top:10px"><b>Chrome / Brave:</b> open <code style="${codeStyle}">chrome://extensions</code> &rarr; Tampermonkey &rarr; <b>Details</b> &rarr; turn on <b>Allow User Scripts</b>.</p>
+        <img src="/assets/rd-chrome.png" alt="Chrome: Allow User Scripts" loading="lazy" style="width:100%;border-radius:10px;margin:10px 0;border:1px solid var(--line)">
+        <p><b>Edge:</b> open <code style="${codeStyle}">edge://extensions</code>, make sure Tampermonkey is <b>On</b>, and enable <b>Developer mode</b>.</p>
+        <img src="/assets/rd-edge.png" alt="Edge setup" loading="lazy" style="width:100%;border-radius:10px;margin:10px 0;border:1px solid var(--line)">
+        <p style="color:var(--faint);font-size:13px"><b>Firefox:</b> nothing extra — it works right after install.</p>
       </div>
     </div>`;
 }
@@ -1722,6 +1765,7 @@ async function openAlbum(id, fromRoute) {
 }
 async function openPlaylist(id, fromRoute) {
   detailLoading("Playlist");
+  if (!fromRoute) pushURL("/playlists/" + id); // reflect /playlists/:id in the URL instantly, before the contents fetch
   const d = await detailGet("/playlist?id=" + encodeURIComponent(id));
   if (!d) { el("v-detail").innerHTML = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>` + emptyState("Couldn't load playlist", "Try again in a moment."); return; }
   await ensureFilters(); // a followed playlist can mix artists — gate every track (female/chasid/video + parental)
@@ -1736,6 +1780,7 @@ async function openPlaylist(id, fromRoute) {
 }
 async function openCuratedPlaylist(id, fromRoute) {
   detailLoading("Curated Playlist");
+  if (!fromRoute) pushURL("/zemer-playlists/" + id); // reflect the URL instantly, before the contents fetch
   const d = await getJSON("/zemer-playlists?id=" + encodeURIComponent(id));
   if (!d || d.error || !d.playlist) return notAvailable("playlist");
   await ensureFilters();                                          // content + parental gate + the Acapella set (else acapella mode empties the page)

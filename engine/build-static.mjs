@@ -655,6 +655,12 @@ fs.cpSync(path.join(ROOT, "assets"), path.join(DIST, "assets"), {
 // The .ico is a real multi-size icon built from the logo — regenerate with `npm run favicon`.
 fs.copyFileSync(path.join(ROOT, "assets/favicon.ico"), path.join(DIST, "favicon.ico"));
 
+// Redirector add-on: the install page is an in-app SPA route (/redirector), so here we only ship the
+// userscript at /redirector.user.js (its @downloadURL — same origin, so it works behind filters) and its
+// two setup screenshots into /assets for that page to show.
+fs.copyFileSync(path.join(ROOT, "redirector/youtube-to-skmusic.user.js"), path.join(DIST, "redirector.user.js"));
+for (const png of ["chrome.png", "edge.png"]) fs.copyFileSync(path.join(ROOT, "redirector", png), path.join(DIST, "assets", "rd-" + png));
+
 // Admin analytics dashboard — Supabase auth + zemer_admin role required; noindex.
 ensureWrite(path.join(DIST, "analytics.html"), fs.readFileSync(path.join(ROOT, "assets/analytics.html"), "utf8"));
 

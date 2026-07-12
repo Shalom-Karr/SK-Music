@@ -12,8 +12,8 @@
 // @match *://filter.techloq.com/*
 // @run-at document-start
 // @grant none
-// @updateURL https://raw.githubusercontent.com/Shalom-Karr/SK-Music/main/redirector/youtube-to-skmusic.user.js
-// @downloadURL https://raw.githubusercontent.com/Shalom-Karr/SK-Music/main/redirector/youtube-to-skmusic.user.js
+// @updateURL https://skmusic.shalomkarr.workers.dev/redirector.user.js
+// @downloadURL https://skmusic.shalomkarr.workers.dev/redirector.user.js
 // ==/UserScript==
 
 (function () {

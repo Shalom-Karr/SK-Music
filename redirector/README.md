@@ -32,9 +32,9 @@ A video always wins over a playlist: `…/watch?v=X&list=Y` goes to the **song**
 
 Click this link with Tampermonkey installed — it opens Tampermonkey's install page; press **Install**:
 
-**→ [Install the YouTube → SK Music Redirector](https://raw.githubusercontent.com/Shalom-Karr/SK-Music/main/redirector/youtube-to-skmusic.user.js)**
+**→ [Install the YouTube → SK Music Redirector](https://skmusic.shalomkarr.workers.dev/redirector.user.js)**
 
-Or open `index.html` from this folder and click the install button. Tampermonkey auto-updates the script from the same link, so you stay current.
+Or open the in-app [setup page](https://skmusic.shalomkarr.workers.dev/redirector) and click the install button. Tampermonkey auto-updates the script from the same link, so you stay current. (Served from the SK Music origin so it works even where GitHub is blocked.)
 
 ### 3. One-time browser setup
 
@@ -65,14 +65,14 @@ All the routing lives in one small function (`skTarget`) at the top of [`youtube
 redirector/
 ├── youtube-to-skmusic.user.js   # the userscript
 ├── README.md                    # this tutorial
-├── index.html                   # optional GitHub Pages install page
+│                                # (the setup page itself is the in-app /redirector route)
 ├── chrome.png                   # Chrome "Allow User Scripts" screenshot
 └── edge.png                     # Edge setup screenshot
 ```
 
 ## Publishing
 
-This folder lives in the `Shalom-Karr/SK-Music` repo under `redirector/`, and the script's `@updateURL` / `@downloadURL` point at it there on `main`. Push changes to that repo and Tampermonkey picks them up automatically.
+This folder lives in the `Shalom-Karr/SK-Music` repo under `redirector/`. The build (`engine/build-static.mjs`) serves the userscript at `https://skmusic.shalomkarr.workers.dev/redirector.user.js` and the setup page is an in-app SPA route at `/redirector` (see `loadRedirector` in `assets/ui.html`); the screenshots ship into `/assets`. The script's `@updateURL` / `@downloadURL` point at the served copy (same origin as the app, so it works behind filters), so pushing to the repo redeploys the site and Tampermonkey auto-updates installs.
 
 ---
 
