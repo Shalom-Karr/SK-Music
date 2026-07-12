@@ -1597,10 +1597,20 @@ function loadCredits() {
 }
 
 /* ---- Redirector: in-app install page for the YouTube → SK Music browser add-on ---- */
+function copyRedir(btn, text) {
+  const done = () => { const o = btn.textContent; btn.textContent = "Copied ✓"; setTimeout(() => (btn.textContent = o), 1500); };
+  try { navigator.clipboard.writeText(text).then(done, () => done()); }
+  catch { try { const t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); done(); } catch {} }
+}
 function loadRedirector() {
   state.loaded.redirector = true;
   track("rd_view");
-  const codeStyle = "background:var(--surface-3);padding:1px 6px;border-radius:5px;font-size:13px";
+  const chip = "display:inline-block;margin:6px 8px 0 0;padding:9px 15px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;color:var(--text);text-decoration:none;font-weight:700;font-size:13px";
+  const cbtn = "background:linear-gradient(180deg,var(--primary-2),var(--primary));color:#fff;border:none;border-radius:8px;padding:7px 13px;font-weight:800;font-size:12px;cursor:pointer;flex:none";
+  const box = "display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:8px 0";
+  const code = "font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1";
+  const CH = "chrome://extensions/?id=dhdgffkkebhmkfjojejmpbldmpobfkfo";
+  const ED = "edge://extensions/?id=iikmkjmpaadaobahmlepeloendndfphd";
   el("v-redirector").innerHTML = `
     <div class="credits-page">
       <div class="hero" style="background:linear-gradient(120deg,#2a1420,var(--surface) 70%);margin-bottom:16px"><div class="eyebrow">Browser add-on</div><h1>Send YouTube here</h1><p>Redirect YouTube &amp; YouTube Music links &mdash; and their filter block pages &mdash; straight to the matching page on SK Music, before YouTube ever loads.</p></div>
@@ -1615,18 +1625,32 @@ function loadRedirector() {
         <p style="margin-top:12px;color:var(--faint);font-size:13px">It exits inside embeds, so it never touches SK Music's own player.</p>
       </div>
       <div class="credits-card">
-        <h3>Install</h3>
-        <p>First install <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener">Tampermonkey</a> (Chrome, Edge, Brave, or Firefox). Then click:</p>
-        <a href="/redirector.user.js" target="_blank" rel="noopener" onclick="track('rd_install')" style="display:inline-block;margin-top:12px;background:linear-gradient(180deg,var(--primary-2),var(--primary));color:#fff;font-weight:800;padding:12px 22px;border-radius:12px;text-decoration:none">Install the add-on</a>
+        <h3>1. Install Tampermonkey</h3>
+        <p>Add the Tampermonkey extension for your browser:</p>
+        <div style="margin-top:2px">
+          <a href="https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo" target="_blank" rel="noopener" style="${chip}">Chrome</a>
+          <a href="https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd" target="_blank" rel="noopener" style="${chip}">Edge</a>
+          <a href="https://addons.mozilla.org/en-US/firefox/addon/tampermonkey/" target="_blank" rel="noopener" style="${chip}">Firefox</a>
+          <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener" style="${chip}">Other</a>
+        </div>
       </div>
       <div class="credits-card">
-        <h3>One-time setup <span style="color:var(--faint);font-weight:600">(required)</span></h3>
-        <p>Recent Chrome/Edge need user scripts switched on for Tampermonkey — do this once, or nothing will redirect.</p>
-        <p style="margin-top:10px"><b>Chrome / Brave:</b> open <code style="${codeStyle}">chrome://extensions</code> &rarr; Tampermonkey &rarr; <b>Details</b> &rarr; turn on <b>Allow User Scripts</b>.</p>
-        <img src="/assets/rd-chrome.png" alt="Chrome: Allow User Scripts" loading="lazy" style="width:100%;border-radius:10px;margin:10px 0;border:1px solid var(--line)">
-        <p><b>Edge:</b> open <code style="${codeStyle}">edge://extensions</code>, make sure Tampermonkey is <b>On</b>, and enable <b>Developer mode</b>.</p>
-        <img src="/assets/rd-edge.png" alt="Edge setup" loading="lazy" style="width:100%;border-radius:10px;margin:10px 0;border:1px solid var(--line)">
-        <p style="color:var(--faint);font-size:13px"><b>Firefox:</b> nothing extra — it works right after install.</p>
+        <h3>2. Install the add-on</h3>
+        <p>Click below; a new tab opens &mdash; press <b>Install</b> there to confirm.</p>
+        <a href="/redirector.user.js" target="_blank" rel="noopener" onclick="track('rd_install')" style="display:inline-block;margin-top:10px;background:linear-gradient(180deg,var(--primary-2),var(--primary));color:#fff;font-weight:800;padding:12px 22px;border-radius:12px;text-decoration:none">Install YouTube &rarr; SK Music</a>
+      </div>
+      <div class="credits-card">
+        <h3>3. One-time setup <span style="color:var(--faint);font-weight:600">(required)</span></h3>
+        <p>Recent Chrome/Edge need user scripts switched on for Tampermonkey, or nothing will redirect. Browsers block direct links to settings, so copy the address and paste it into your address bar:</p>
+        <p style="margin-top:14px"><b>Chrome / Brave</b></p>
+        <div style="${box}"><span style="${code}">${CH}</span><button style="${cbtn}" onclick="copyRedir(this,'${CH}')">Copy</button></div>
+        <p style="color:var(--muted);font-size:13.5px">Then enable <b>Allow User Scripts</b> &mdash; the toggle turns blue.</p>
+        <img src="/assets/rd-chrome.png" alt="Chrome: Allow User Scripts" loading="lazy" style="width:100%;border-radius:10px;margin:8px 0;border:1px solid var(--line)">
+        <p style="margin-top:16px"><b>Microsoft Edge</b></p>
+        <div style="${box}"><span style="${code}">${ED}</span><button style="${cbtn}" onclick="copyRedir(this,'${ED}')">Copy</button></div>
+        <p style="color:var(--muted);font-size:13.5px">Make sure the Tampermonkey toggle (top-right) is <b>On</b>. Edge has no "Allow User Scripts" option; optionally enable <b>Allow in InPrivate</b>.</p>
+        <img src="/assets/rd-edge.png" alt="Edge setup" loading="lazy" style="width:100%;border-radius:10px;margin:8px 0;border:1px solid var(--line)">
+        <p style="color:var(--faint);font-size:13px;margin-top:10px"><b>Firefox:</b> nothing extra &mdash; it works right after install.</p>
       </div>
     </div>`;
 }
