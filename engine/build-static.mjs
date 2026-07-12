@@ -555,6 +555,11 @@ fs.cpSync(path.join(ROOT, "assets"), path.join(DIST, "assets"), {
   filter: (s) => !s.endsWith(".html"),
 });
 
+// favicon.ico at the ROOT: browsers auto-request /favicon.ico, so serving it as a static file keeps that
+// request on the asset layer instead of falling through to the Worker (it was ~15% of all Worker hits).
+// The .ico is a real multi-size icon built from the logo — regenerate with `npm run favicon`.
+fs.copyFileSync(path.join(ROOT, "assets/favicon.ico"), path.join(DIST, "favicon.ico"));
+
 // Admin analytics dashboard — Supabase auth + zemer_admin role required; noindex.
 ensureWrite(path.join(DIST, "analytics.html"), fs.readFileSync(path.join(ROOT, "assets/analytics.html"), "utf8"));
 
@@ -587,6 +592,7 @@ ensureWrite(path.join(DIST, "sw.js"), SW);
 // Cloudflare's edge) cache them instead of re-fetching the full multi-MB file on every request.
 ensureWrite(path.join(DIST, "_headers"),
   "/lib/*\n  Cache-Control: public, max-age=31536000, immutable\n" +
+  "/favicon.ico\n  Cache-Control: public, max-age=604800\n" +
   "/sitemap.xml\n  Cache-Control: public, max-age=3600, s-maxage=21600\n" +
   "/sitemap-*\n  Cache-Control: public, max-age=3600, s-maxage=21600\n" +
   "/robots.txt\n  Cache-Control: public, max-age=3600, s-maxage=21600\n");

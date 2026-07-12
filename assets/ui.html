@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e0a0b">
 <link rel="icon" type="image/svg+xml" href="/assets/skmusic_logo.svg">
+<link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="manifest" href="/assets/manifest.json">
 <link rel="apple-touch-icon" href="/assets/icon-180.png">
 <meta name="google-site-verification" content="JomKxioigLL4q8BlsKVvKrKZodnHHFU5vFXLdDjkSpw">
@@ -940,8 +941,9 @@ const NOTE = '<svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V
 const SID = (() => { try { let s = sessionStorage.getItem("zw_sid"); if (!s) { s = Date.now().toString(36) + Math.random().toString(36).slice(2, 8); sessionStorage.setItem("zw_sid", s); } return s; } catch { return ""; } })();
 const VID = (() => { try { let v = localStorage.getItem("zw_vid"); if (!v) { v = Date.now().toString(36) + Math.random().toString(36).slice(2, 10); localStorage.setItem("zw_vid", v); } return v; } catch { return ""; } })();
 const SCREEN = (() => { try { return `${screen.width}x${screen.height}`; } catch { return ""; } })();
-// Analytics are BATCHED: buffer events and flush as one array beacon (12 events, every 8s, or on tab-hide),
-// so N events cost 1 request + 1 Supabase insert instead of N. Server-insert time is ~accurate enough for
+// Analytics are BATCHED: buffer events and flush as one array beacon whenever the buffer hits 100 events,
+// 10 minutes pass, or the tab is hidden/closed — whichever comes first — so a session costs a handful of
+// Worker requests + Supabase inserts instead of one per event. Server-insert time is ~accurate enough for
 // day/month aggregates. flushEvents is also wired on pagehide/visibilitychange at boot (after playFinalize,
 // so a final "play" event is in the buffer before the flush).
 let _evBuf = [], _evTimer = null;
@@ -950,8 +952,8 @@ function track(event, meta) {
   const m = Object.assign({ vid: VID }, meta); // vid on every row → new-vs-returning; sid stays per-tab
   if (event === "load") { try { m.viewport = `${innerWidth}x${innerHeight}`; m.dpr = devicePixelRatio; m.pwa = matchMedia("(display-mode: standalone)").matches; } catch {} }
   _evBuf.push({ event, path: location.pathname, url: location.href, ref: document.referrer, sid: SID, screen: SCREEN, meta: m });
-  if (_evBuf.length >= 12) flushEvents();
-  else if (!_evTimer) _evTimer = setTimeout(flushEvents, 8000);
+  if (_evBuf.length >= 100) flushEvents();
+  else if (!_evTimer) _evTimer = setTimeout(flushEvents, 600000); // 10 min; pagehide/visibilitychange flush covers tab close
 }
 function flushEvents() {
   if (_evTimer) { clearTimeout(_evTimer); _evTimer = null; }

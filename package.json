@@ -13,6 +13,7 @@
     "build": "node engine/fetch-corpus.mjs && node engine/build-static.mjs",
     "build:static": "node engine/build-static.mjs",
     "build:code": "node engine/build-static.mjs --code",
+    "favicon": "node engine/make-favicon.mjs",
     "deploy": "npm run build && wrangler deploy",
     "dev": "wrangler dev"
   },
