@@ -50,24 +50,33 @@ function buildApiHeaders() {
 }
 
 /**
- * Ask the GitHub Releases API for the latest release of `ghRepo` and return
- * the first asset whose name ends in `.db.gz`. Throws if the API call fails
- * or no matching asset exists.
+ * Find the newest corpus snapshot in `ghRepo` and return its `.db.gz` asset.
+ *
+ * The repo publishes BOTH corpus snapshots (which carry a `.db.gz`) and unrelated releases
+ * (e.g. `httpcache-*`, which carry no database). `/releases/latest` can therefore point at an
+ * assetless release, so instead we list the recent releases (newest-first) and take the first one
+ * that actually has a `.db.gz`. Throws if the API call fails or none is found.
  */
 async function resolveDownloadAsset() {
-  const apiUrl = `https://api.github.com/repos/${ghRepo}/releases/latest`;
+  const apiUrl = `https://api.github.com/repos/${ghRepo}/releases?per_page=100`;
   const response = await fetch(apiUrl, { headers: buildApiHeaders() });
   if (!response.ok) {
     throw new Error(`GitHub API returned ${response.status} — check network connectivity and repo name`);
   }
 
-  const release = await response.json();
-  const asset = (release.assets || []).find((a) => a.name.endsWith(".db.gz"));
-  if (!asset) {
-    throw new Error(`No .db.gz asset found in release ${release.tag_name}`);
+  const releases = await response.json();
+  if (!Array.isArray(releases) || releases.length === 0) {
+    throw new Error("GitHub API returned no releases");
   }
 
-  return { tag: release.tag_name, asset };
+  // Releases come back newest-first; take the first non-draft one carrying a .db.gz asset.
+  for (const release of releases) {
+    if (release.draft) continue;
+    const asset = (release.assets || []).find((a) => a.name.endsWith(".db.gz"));
+    if (asset) return { tag: release.tag_name, asset };
+  }
+
+  throw new Error(`No release with a .db.gz asset found in the ${releases.length} most recent releases of ${ghRepo}`);
 }
 
 /**
