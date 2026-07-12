@@ -131,6 +131,22 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
     console.warn("  whitelist: skipped —", e.message);
   }
 
+  // Per-id content overrides (Zemer's blockedContentIds mirror): { global: [ids hidden for everyone],
+  // female: [ids hidden only when female is blocked] }. Each id is a videoId, playlistId, or channelId.
+  // This is how a MIXED item — a male-primary track featuring a woman — is caught, which the artist-level
+  // isFemale flag misses. Best-effort; empty on failure. Baked to /data/blocked-ids.json for the client.
+  let blockedIds = { global: [], female: [] };
+  try {
+    const res = await fetch("https://content.zemer.io/blockedContentIds");
+    if (res.ok) {
+      const b = await res.json();
+      blockedIds = { global: b.global || [], female: b.female || [] };
+      console.log(`  blocked ids: ${blockedIds.global.length} global + ${blockedIds.female.length} female`);
+    }
+  } catch (e) {
+    console.warn("  blocked ids: skipped —", e.message);
+  }
+
   // Paginated Supabase tag reader — streams all rows into a Map<channel_id, boolean>.
   const israeliFlags = new Map();
   const chasidFlags  = new Map();
@@ -338,6 +354,7 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
       featuredVideos:    sample(videoTracks, 16).map(trackShape),
     };
   }
+  emitJSON("blocked-ids.json",  blockedIds);
   emitJSON("home.json",         buildHomeFeed());
   emitJSON("home.kidzone.json", buildHomeFeed({ kidZone: true }));
 
@@ -684,7 +701,7 @@ ensureWrite(path.join(DIST, "playback-block-test.html"), fs.readFileSync(path.jo
 // Cache versioned per build: V changes → old caches evicted on activate.
 // Strategy: navigate = network-first, /lib = network-first, /data = cache-first.
 const SW = `const V = "skmusic-${BUILD}";
-const SHELL = ["/","/lib/engine.mjs?v=${BUILD}","/lib/engine-worker.mjs?v=${BUILD}","/lib/categories.mjs?v=${BUILD}","/lib/search.mjs?v=${BUILD}","/lib/normalize.mjs?v=${BUILD}","/lib/synonyms.mjs?v=${BUILD}","/data/meta.json","/data/home.json","/data/home.kidzone.json","/data/artists.json","/data/synonyms.json","/data/zemer-playlists.json"];
+const SHELL = ["/","/lib/engine.mjs?v=${BUILD}","/lib/engine-worker.mjs?v=${BUILD}","/lib/categories.mjs?v=${BUILD}","/lib/search.mjs?v=${BUILD}","/lib/normalize.mjs?v=${BUILD}","/lib/synonyms.mjs?v=${BUILD}","/data/meta.json","/data/home.json","/data/home.kidzone.json","/data/artists.json","/data/synonyms.json","/data/zemer-playlists.json","/data/blocked-ids.json"];
 self.addEventListener("install", (e) => { self.skipWaiting(); e.waitUntil(caches.open(V).then((c) => c.addAll(SHELL)).catch(() => {})); });
 self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== V).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", (e) => {

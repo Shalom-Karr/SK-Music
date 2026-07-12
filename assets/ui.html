@@ -1348,20 +1348,26 @@ let acapellaSet = null, acapellaTracks = null, acapellaArtists = null, _acLoad =
 // Retry on failure (reset _acLoad in the catch) so a transient network blip doesn't permanently leave the set
 // null — which would make browse fail-closed (empty) forever until a full reload.
 function loadAcapella() { return _acLoad || (_acLoad = getJSON("/zemer-playlists?id=acapella").then((d) => { const tr = (d && d.tracks) || null; if (!tr) throw new Error("no tracks"); acapellaTracks = tr; acapellaSet = new Set(acapellaTracks.map((t) => t.videoId)); acapellaArtists = new Set(acapellaTracks.map((t) => (t.artist || "").toLowerCase())); }).catch(() => { _acLoad = null; })); }
-const songOK = (t) => { const m = acapellaMode(); if (!m) return true; if (!acapellaSet || !t) return false; const inSet = acapellaSet.has(t.videoId); return m === "only" ? inSet : !inSet; }; // only → in the playlist; hide → not in it
+let blockGlobal = new Set(), blockFemale = new Set(), _blLoad = null;
+// Per-id content overrides (Zemer's blockedContentIds mirror): global ids are hidden for everyone, female
+// ids only under kol-isha filtering — this is how a MIXED item (a male-primary track featuring a woman) is
+// caught, which the artist-level isFemale flag misses.
+function loadBlockedIds() { return _blLoad || (_blLoad = fetch("/data/blocked-ids.json").then((r) => (r.ok ? r.json() : null)).then((d) => { if (d) { blockGlobal = new Set(d.global || []); blockFemale = new Set(d.female || []); } }).catch(() => { _blLoad = null; })); }
+const blockedId = (id) => !!id && (blockGlobal.has(id) || (noFemale() && blockFemale.has(id)));
+const songOK = (t) => { if (!t) return false; if (blockedId(t.videoId)) return false; const m = acapellaMode(); if (!m) return true; if (!acapellaSet) return false; const inSet = acapellaSet.has(t.videoId); return m === "only" ? inSet : !inSet; }; // per-id block + Acapella (only → in the playlist; hide → not in it)
 const acArtistOK = (name) => { const m = acapellaMode(); if (!m) return true; const n = (name || "").toLowerCase(); if (m === "only") return acapellaArtists && acapellaArtists.has(n); const a = _artistByName && _artistByName.get(n); return !(a && a.isAcapellaOnly); }; // hide → drop artists whose whole catalog is Acapella
 // gate(): parental (hiddenArtist) always; in Acapella mode, songs must be in the playlist and artists/albums/playlists
 // must belong to an artist who has an Acapella song.
 const gate = (list) => Array.isArray(list) ? list.filter((x) => x && !hiddenArtist(x.artist || x.name) && (x.videoId ? songOK(x) : acArtistOK(x.artist || x.name))) : (list || []);
 // Load the artist-flag map AND the parental profile before any content/parental gate runs — else the gate
 // silently no-ops (hiddenArtist returns false when _artistByName is null, and parental rules aren't loaded).
-async function ensureFilters() { await artistByName(); if (acapella()) await loadAcapella(); if (loggedIn() && !acct.profile) await onLogin(); }
+async function ensureFilters() { await Promise.all([artistByName(), loadBlockedIds()]); if (acapella()) await loadAcapella(); if (loggedIn() && !acct.profile) await onLogin(); }
 // One Trending Songs + one Trending Artists, merging TWO sources: SK Music's own play analytics (/trending,
 // play-ranked → listed first) and the upstream index trending playlists (auto-trending + Top 50; the acapella
 // top-50 in Acapella mode). Deduped by videoId/name and gated by the content filters.
 async function trendingSections() {
   const t = await fetch("/trending?days=30").then((r) => (r.ok ? r.json() : null)).catch(() => null);
-  await artistByName(); if (acapella()) await loadAcapella(); // flags + Acapella set so trending honours the filters
+  await artistByName(); await loadBlockedIds(); if (acapella()) await loadAcapella(); // flags + block-ids + Acapella set so trending honours the filters
   // /zp-live is a Worker route that proxies the upstream index + edge-caches (~6h) — so the twice-daily-updated
   // trending stays fresh, same-origin (works behind content filters), without re-baking.
   const zIds = acapellaMode() === "only" ? ["auto-acapella-top-50"] : ["auto-trending", "auto-top-50"];
@@ -1518,6 +1524,7 @@ let playlistsAll = [];
 // harvested membership → show as before (contents load live upstream). Most valuable during Sefira / the
 // Three Weeks, when only Acapella is allowed and many playlists contain none, so they'd open empty.
 function playlistHasAllowed(p) {
+  if (blockedId(p.id)) return false; // per-id override (global, or female-owned playlist under kol-isha)
   const wl = p.wl == null ? -1 : p.wl;
   if (wl === -1) return true;
   if (wl === 0) return false;
@@ -1770,7 +1777,7 @@ async function openArtist(id, fromRoute) {
   detailLoading("Artist", true);
   const d = await detailGet("/artist?id=" + encodeURIComponent(id)); if (!d || d.error) return notAvailable("artist");
   await ensureFilters(); // load artist flags + parental profile BEFORE gating (else the parental gate no-ops)
-  if ((noFemale() && d.artist.isFemale) || (noChasid() && d.artist.isChasid) || hiddenArtist(d.artist.name)) return blockedByFilter("artist");
+  if ((noFemale() && d.artist.isFemale) || (noChasid() && d.artist.isChasid) || hiddenArtist(d.artist.name) || blockedId(d.artist.id)) return blockedByFilter("artist");
   // Acapella mode: show THIS artist's tracks from the Acapella playlist itself (matched by artist name — the
   // same basis they appear in the Artists list), not the corpus catalog. Hide albums/singles/playlists.
   const acOn = acapella(); // when on, fail CLOSED: show the artist's Acapella tracks (or nothing if the set didn't load) — NEVER the full catalog
@@ -1829,10 +1836,11 @@ async function openSong(id, fromRoute, startAt) {
   const t = await getJSON("/track?v=" + encodeURIComponent(id));
   const deny = (title, sub, reason) => { track("blocked", Object.assign({ v: id, reason }, t && !t.error ? { title: t.title, artist: t.artist } : {})); blockedPage(title, sub); history.replaceState({}, "", "/song/" + id); };
   if (!t || t.error) return deny("Not in the catalog", "This song isn’t from a whitelisted artist, so it can’t be played here.", "not-whitelisted");
-  await artistByName(); // artist flags for the parental gate (Kid-Zone-only / artist allow-blocklist)
+  await artistByName(); await loadBlockedIds(); // artist flags + per-id overrides for the gate
   if (loggedIn() && !acct.profile) await onLogin(); // a fresh /song/:id load races the async login — load the parental profile BEFORE deciding
   if (acapella()) await loadAcapella(); // Acapella mode: need the playlist set before deciding
-  const reason = (t.isFemale && noFemale()) ? "hide female singers" : (t.isChasid && noChasid()) ? "hide Chassidish" : (t.isVideo && blockVideos()) ? "audio only" : (hiddenArtist(t.artist) ? "parental" : (!songOK({ videoId: id }) ? "acapella" : null));
+  if (blockGlobal.has(id)) return deny("Not available", "This song isn’t available on SK Music.", "global-block");
+  const reason = ((t.isFemale || blockFemale.has(id)) && noFemale()) ? "hide female singers" : (t.isChasid && noChasid()) ? "hide Chassidish" : (t.isVideo && blockVideos()) ? "audio only" : (hiddenArtist(t.artist) ? "parental" : (!songOK({ videoId: id }) ? "acapella" : null));
   if (reason) return deny("Access denied", reason === "parental" ? `“${t.title}” isn’t allowed by this account’s Parental Controls.` : reason === "acapella" ? (mourningPeriod() ? `“${t.title}” isn’t Acapella — instrumental music is set aside for ${mourningPeriod().indexOf("sefira") === 0 ? "Sefira" : "the Three Weeks"}.` : (acapellaMode() === "hide" ? `“${t.title}” is an Acapella song — you’ve set the Acapella filter to Hide.` : `“${t.title}” isn’t in the Acapella playlist. Change the Acapella filter to play it.`)) : `“${t.title}” is blocked by your content filter (${reason}). Change it in the filter menu to play this.`, reason);
   if (startAt > 0) PB.nextStart = startAt;
   playFrom(regQueue([{ videoId: id, title: t.title, artist: t.artist, isFemale: t.isFemale, isChasid: t.isChasid, isVideo: t.isVideo, durationSec: t.durationSec, explicit: t.explicit }]), 0); // playIndex → nowbar + saveRecent + track(play) + mediaSession + PB.load
