@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Core IPC + custom app commands for the remote SK Music SPA. The remote.urls grant extends the app-command default (now_playing, set_playback_state, updater_check, updater_restart) and core event listen/emit to the trusted worker origin the window loads.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["https://skmusic.shalomkarr.workers.dev"]
+  },
+  "permissions": ["core:default"]
+}
