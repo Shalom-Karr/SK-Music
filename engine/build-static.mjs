@@ -164,11 +164,13 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
   // tagged so the client's "Hide Acapella" filter can suppress the whole artist
   // rather than just individual tracks. Best-effort; skipped on any fetch error.
   const acapellaOnlySet = new Set();
+  let acapellaTrackSet = null;   // upstream Acapella playlist videoIds — the same set the client filters against
   try {
     const res = await fetch(`${CATALOG_BASE}/zemer-playlists?id=acapella`);
     if (res.ok) {
       const body = await res.json();
       const acSet = new Set(((body && body.tracks) || []).map((t) => t.videoId));
+      acapellaTrackSet = acSet;
       const perArtist = new Map();
       for (const t of tracks) {
         const e = perArtist.get(t.artistId) || { total: 0, ac: 0 };
@@ -191,6 +193,32 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
   for (const row of albumTrackRows) (albumTracksMap[row.albumId] ||= []).push(row.videoId);
   const trackById = new Map(tracks.map((t) => [t.videoId, t]));
 
+  // ── per-playlist emptiness signals ─────────────────────────────────────────
+  // For each playlist the corpus has harvested track membership for (community_playlist_track),
+  // count its whitelisted-corpus tracks and, of those, how many are Acapella. The client uses these
+  // to drop playlists that resolve to zero playable songs — chiefly during Sefira / the Three Weeks,
+  // when only Acapella is allowed and many playlists contain none. Membership exists for ~20% of
+  // playlists; the rest stay wl=-1 ("unknown") and render as before (contents load live upstream).
+  // Acapella track set: the upstream playlist the client filters against, unioned with the corpus snapshot
+  // as a robust fallback (the upstream fetch is best-effort). Keeping it generous means a playlist is only
+  // treated as Acapella-empty when NEITHER source has an Acapella track for it — so it never hides one that has.
+  const acapellaVideoIds = new Set(
+    db.prepare("SELECT refId FROM zemer_playlist_item WHERE playlistId = 'acapella' AND kind = 'track'").all().map((r) => r.refId),
+  );
+  if (acapellaTrackSet) for (const v of acapellaTrackSet) acapellaVideoIds.add(v);
+  const playlistCounts = new Map();   // playlistId → { wl, aca }
+  {
+    const seen = new Map();           // playlistId → Set(videoId), de-dupes repeated rows
+    for (const r of db.prepare("SELECT playlistId, videoId FROM community_playlist_track").all()) {
+      let s = seen.get(r.playlistId);
+      if (!s) { s = new Set(); seen.set(r.playlistId, s); playlistCounts.set(r.playlistId, { wl: 0, aca: 0 }); }
+      if (!trackById.has(r.videoId) || s.has(r.videoId)) continue;   // keep only whitelisted-corpus tracks, once
+      s.add(r.videoId);
+      const c = playlistCounts.get(r.playlistId);
+      c.wl++; if (acapellaVideoIds.has(r.videoId)) c.aca++;
+    }
+  }
+
   // ── interned dataset ───────────────────────────────────────────────────────
   // Compact array-of-arrays format minimises wire size for the ~4 MB full catalog.
   // The client unpacks into proper objects at startup.
@@ -198,7 +226,7 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
   //   artists[i]    = [id, name, thumb, flags]                  flags: 1=female 2=chasid 4=kidzone
   //   tracks[i]     = [videoId, title, artistIdx, flags, dur, plays]  flags: 1=video 2=explicit
   //   albums[i]     = [id, playlistId, title, artistIdx, isSingle, year, thumb]
-  //   playlists[i]  = [id, title, artistIdx, thumb]
+  //   playlists[i]  = [id, title, artistIdx, thumb, wl, aca]  wl: whitelisted-track count (-1 = unknown), aca: of those, Acapella
   //   albumTracks   = { [albumId]: [videoId, …] }
   const internedDataset = {
     v: 1,
@@ -206,7 +234,7 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
     tracks:      tracks.map((t) => [t.videoId, t.title, artistIndex.get(t.artistId) ?? -1, encodeTrackFlags(t), t.durationSec || 0, t.playCount || 0]),
     albums:      albums.map((a) => [a.id, a.playlistId || "", a.title, artistIndex.get(a.artistId) ?? -1, a.type === "single" ? 1 : 0, a.year || 0, a.thumbnail || ""]),
     albumTracks: albumTracksMap,
-    playlists:   playlists.map((p) => [p.id, p.title, artistIndex.get(p.artistId) ?? -1, p.thumbnail || ""]),
+    playlists:   playlists.map((p) => { const c = playlistCounts.get(p.id); return [p.id, p.title, artistIndex.get(p.artistId) ?? -1, p.thumbnail || "", c ? c.wl : -1, c ? c.aca : 0]; }),
   };
   emitGz("dataset.json.gz", internedDataset);
 

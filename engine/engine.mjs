@@ -24,7 +24,7 @@ export function inflate(d) {
     type: x[4] ? "single" : "album", year: x[5] || null, thumbnail: x[6] || null,
     isFemale: fem(x[3]), isChasid: chas(x[3]), isKidZone: kid(x[3]),
   }));
-  const playlists = d.playlists.map((p) => ({ id: p[0], title: p[1], artistId: aId(p[2]), artistName: aName(p[2]), thumbnail: p[3] || null, isFemale: fem(p[2]), isChasid: chas(p[2]), isKidZone: kid(p[2]) }));
+  const playlists = d.playlists.map((p) => ({ id: p[0], title: p[1], artistId: aId(p[2]), artistName: aName(p[2]), thumbnail: p[3] || null, isFemale: fem(p[2]), isChasid: chas(p[2]), isKidZone: kid(p[2]), wl: p[4] == null ? -1 : p[4], aca: p[5] || 0 }));
   return {
     tracks, artists, albums, playlists, albumTracks: d.albumTracks,
     trackById: new Map(tracks.map((t) => [t.videoId, t])),
@@ -107,7 +107,7 @@ export async function handle(url) {
   }
   if (path === "/playlists") {
     await ready();
-    const list = DS.playlists.filter((x) => artistOK(x, allowFem, kid, allowChas)).map((x) => ({ id: x.id, title: x.title, artist: x.artistName, thumbnail: x.thumbnail })).sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+    const list = DS.playlists.filter((x) => artistOK(x, allowFem, kid, allowChas)).map((x) => ({ id: x.id, title: x.title, artist: x.artistName, thumbnail: x.thumbnail, wl: x.wl, aca: x.aca })).sort((a, b) => (a.title || "").localeCompare(b.title || ""));
     return { count: list.length, playlists: list };
   }
   if (path === "/search") {

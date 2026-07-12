@@ -1506,12 +1506,25 @@ async function loadForYou() {
 
 /* ============================ PLAYLISTS ============================ */
 let playlistsAll = [];
+// Keep a playlist only if it resolves to >=1 song the user can actually hear. wl/aca are baked per-playlist
+// track counts (whitelisted-corpus tracks; of those, how many are Acapella). wl === -1 = corpus has no
+// harvested membership → show as before (contents load live upstream). Most valuable during Sefira / the
+// Three Weeks, when only Acapella is allowed and many playlists contain none, so they'd open empty.
+function playlistHasAllowed(p) {
+  const wl = p.wl == null ? -1 : p.wl;
+  if (wl === -1) return true;
+  if (wl === 0) return false;
+  const m = acapellaMode();
+  if (m === "only") return (p.aca || 0) > 0;
+  if (m === "hide") return (p.aca || 0) < wl;
+  return true;
+}
 async function loadPlaylists() {
   state.loaded.playlists = true; secN = 0; const v = el("v-playlists");
   v.innerHTML = `<div id="zpsec"></div><div class="searchbox" style="max-width:420px;margin:6px 0 18px">${ICON.search}<input id="pq" placeholder="Filter playlists" autocomplete="off"></div><div class="pgrid" id="pgrid">${Array.from({ length: 12 }, () => `<div class="sk-card"><div class="sk art"></div><div class="sk l1"></div><div class="sk l2"></div></div>`).join("")}</div>`;
   getJSON("/zemer-playlists").then((z) => { const zp = (z && z.playlists) || []; if (zp.length && el("zpsec")) el("zpsec").innerHTML = section("Curated Playlists", `<div class="rail">${zp.map(zpCard).join("")}</div>`); });
   await ensureFilters();
-  const d = await getJSON("/playlists?" + filterQS()); playlistsAll = gate((d && d.playlists) || []); // artist_mode blocklist / kid-only at the card level
+  const d = await getJSON("/playlists?" + filterQS()); playlistsAll = gate((d && d.playlists) || []).filter(playlistHasAllowed); // artist_mode blocklist / kid-only at the card level, then drop playlists with no hearable songs
   renderPlaylists(""); el("pq").addEventListener("input", (e) => renderPlaylists(e.target.value.trim().toLowerCase()));
 }
 function renderPlaylists(q) {
