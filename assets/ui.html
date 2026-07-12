@@ -734,6 +734,7 @@ fill="url(#royal)" stroke="none">
       <section class="view" id="v-library"></section>
       <section class="view" id="v-credits"></section>
       <section class="view" id="v-redirector"></section>
+      <section class="view" id="v-download"></section>
       <section class="view" id="v-detail"></section>
       <section class="view" id="v-parental"></section>
     </main>
@@ -989,7 +990,7 @@ const TABS = [
   ["kidzone", "Kid Zone", ICON.kid, "Browse", 0],
   ["library", "Library", ICON.library, "You", 1],
 ];
-const TITLES = { ...Object.fromEntries(TABS.map(([k, l]) => [k, l])), redirector: "Send YouTube here" };
+const TITLES = { ...Object.fromEntries(TABS.map(([k, l]) => [k, l])), redirector: "Send YouTube here", download: "Desktop app" };
 
 /* ============================ state + filters ============================ */
 const state = { tab: "home", loaded: {}, detailOpen: false, nowOpen: false, queue: [], qi: -1, repeat: false };
@@ -1168,6 +1169,7 @@ function go(k, fromRoute) {
   for (const [t] of TABS) el("v-" + t).classList.toggle("on", t === k);
   el("v-credits").classList.toggle("on", k === "credits");
   el("v-redirector").classList.toggle("on", k === "redirector"); // in-app install page for the YouTube→SK Music add-on
+  el("v-download").classList.toggle("on", k === "download"); // desktop-app installer page
   el("v-podcasts").classList.toggle("on", k === "podcasts"); // routable (coming-soon) though hidden from nav
   el("v-detail").classList.remove("on"); el("v-parental").classList.remove("on");
   el("tbTitle").textContent = TITLES[k] || "About";
@@ -1177,6 +1179,7 @@ function go(k, fromRoute) {
   if (!fromRoute) pushURL(TAB_PATH[k] || "/");
   if (k === "credits" && !state.loaded.credits) loadCredits();
   if (k === "redirector" && !state.loaded.redirector) loadRedirector();
+  if (k === "download" && !state.loaded.download) loadDownload();
   if (k === "home" && !state.loaded.home) loadHome();
   if (k === "foryou" && !state.loaded.foryou) loadForYou();
   if (k === "artists" && !state.loaded.artists) loadArtists();
@@ -1189,7 +1192,7 @@ function go(k, fromRoute) {
 const scrollTop = () => { el("content").scrollTo ? window.scrollTo(0, 0) : 0; document.querySelector("main")?.scrollTo(0, 0); window.scrollTo(0, 0); };
 
 /* ---- deep-linkable URL routing (shareable /artists/:id, /albums/:id, /playlists/:id, /songs/:id) ---- */
-const TAB_PATH = { home: "/", foryou: "/foryou", search: "/search", artists: "/artists", playlists: "/playlists", podcasts: "/podcasts", kidzone: "/kidzone", library: "/library", credits: "/about", redirector: "/redirector" };
+const TAB_PATH = { home: "/", foryou: "/foryou", search: "/search", artists: "/artists", playlists: "/playlists", podcasts: "/podcasts", kidzone: "/kidzone", library: "/library", credits: "/about", redirector: "/redirector", download: "/download" };
 const PATH_TAB = Object.fromEntries(Object.entries(TAB_PATH).map(([k, v]) => [v, k]));
 function pushURL(path, replace) { try { if (location.pathname + location.search !== path) { history[replace ? "replaceState" : "pushState"]({}, "", path); track("nav"); } } catch {} }
 function applyRoute(url) {
@@ -1220,6 +1223,7 @@ function applyRoute(url) {
   }
   if (p.toLowerCase() === "/about" || p.toLowerCase() === "/credits") return go("credits", true);
   if (p.toLowerCase().replace(/\/$/, "") === "/redirector") return go("redirector", true);
+  if (p.toLowerCase().replace(/\/$/, "") === "/download") return go("download", true);
   if (p === "/parental") { if (loggedIn()) return openParental(); return go("home", true); }
   go(PATH_TAB[p] || "home", true);
 }
@@ -1589,6 +1593,10 @@ function loadCredits() {
         <p>Install a small browser add-on that redirects YouTube &amp; YouTube Music links &mdash; and their filter block pages &mdash; straight to the matching page on SK Music. <a href="/redirector" onclick="go('redirector');return false" style="color:var(--primary);font-weight:700;text-decoration:none;cursor:pointer">Set it up &rarr;</a></p>
       </div>
       <div class="credits-card">
+        <h3>Get the desktop app</h3>
+        <p>SK Music runs as a native app on Windows, Mac &amp; Linux &mdash; a system-tray mini-player, media keys, and background play. <a href="/download" onclick="go('download');return false" style="color:var(--primary);font-weight:700;text-decoration:none;cursor:pointer">Download &rarr;</a></p>
+      </div>
+      <div class="credits-card">
         <h3>License</h3>
         <p>Free software under the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU GPL v3.0</a>. &copy; 2026 Shalom Karr; portions derive from <a href="https://github.com/ZemerTeam/zemer-search" target="_blank" rel="noopener">zemer-search</a> by <a href="https://github.com/alltechdev" target="_blank" rel="noopener">alltechdev</a>, also GPL-3.0. The license permits commercial use &mdash; as a personal request (not a license condition), please ask before using SK Music in a paid product.</p>
       </div>
@@ -1663,6 +1671,48 @@ function loadRedirector() {
         <p style="color:var(--faint);font-size:13px;margin-top:10px"><b>Firefox:</b> nothing extra &mdash; it works right after install.</p>
       </div>
     </div>`;
+}
+
+/* ---- Desktop app installer page (/download) — pulls the latest desktop-* GitHub release ---- */
+function loadDownload() {
+  state.loaded.download = true;
+  track("dl_view");
+  const ua = navigator.userAgent || "";
+  const os = /Windows/.test(ua) ? "win" : /Mac/.test(ua) ? "mac" : (/Linux|Android|CrOS/.test(ua) ? "linux" : "other");
+  const RELEASES = "https://github.com/Shalom-Karr/SK-Music/releases";
+  el("v-download").innerHTML = `
+    <div class="credits-page">
+      <div class="hero" style="background:linear-gradient(120deg,#141f2e,var(--surface) 70%);margin-bottom:16px"><div class="eyebrow">Desktop app</div><h1>SK Music for Desktop</h1><p>A fast native app &mdash; the full SK Music with a system-tray mini-player, media keys, and background play. Windows, macOS &amp; Linux.</p></div>
+      <div class="credits-card">
+        <h3>Download</h3>
+        <div id="dlBtns"><p style="color:var(--muted)">Loading the latest release&hellip;</p></div>
+        <p style="margin-top:14px;color:var(--faint);font-size:13px">All installers are hosted on <a href="${RELEASES}" target="_blank" rel="noopener">GitHub Releases</a>.</p>
+      </div>
+      <div class="credits-card">
+        <h3>What's native</h3>
+        <ul style="margin:2px 0 0;padding-left:18px;color:var(--muted);line-height:2">
+          <li>System-tray mini-player &mdash; keeps playing with the window closed</li>
+          <li>Keyboard media keys (play / pause / next) + now-playing</li>
+          <li><code style="background:var(--surface-3);padding:1px 6px;border-radius:5px">skmusic://</code> links open in the app</li>
+          <li>Automatic updates</li>
+        </ul>
+      </div>
+    </div>`;
+  const label = { win: "Download for Windows", mac: "Download for macOS", linux: "Download for Linux" };
+  const btn = (href, text, primary) => `<a href="${href}" target="_blank" rel="noopener" onclick="track('dl_click')" style="display:inline-block;margin:6px 8px 0 0;padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:800;${primary ? "background:linear-gradient(180deg,var(--primary-2),var(--primary));color:#fff" : "background:var(--surface-2);border:1px solid var(--line);color:var(--text)"}">${text}</a>`;
+  fetch("https://api.github.com/repos/Shalom-Karr/SK-Music/releases?per_page=15")
+    .then((r) => (r.ok ? r.json() : []))
+    .then((rels) => {
+      const box = el("dlBtns"); if (!box) return;
+      const rel = (rels || []).find((x) => (x.tag_name || "").indexOf("desktop-") === 0);
+      if (!rel || !rel.assets || !rel.assets.length) { box.innerHTML = `<p style="color:var(--muted)">No desktop build is published yet &mdash; it builds automatically on the next update. Watch <a href="${RELEASES}" target="_blank" rel="noopener">Releases</a>.</p>`; return; }
+      const find = (re) => { const a = rel.assets.find((x) => re.test(x.name)); return a ? a.browser_download_url : null; };
+      const urls = { win: find(/setup\.exe$/i) || find(/\.exe$/i) || find(/\.msi$/i), mac: find(/\.dmg$/i), linux: find(/\.AppImage$/i) || find(/\.deb$/i) };
+      let html = urls[os] ? btn(urls[os], label[os], true) : "";
+      for (const k of ["win", "mac", "linux"]) if (k !== os && urls[k]) html += btn(urls[k], label[k], false);
+      box.innerHTML = html || `<a href="${RELEASES}/latest" target="_blank" rel="noopener" onclick="track('dl_click')" style="${"display:inline-block;padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:800;background:linear-gradient(180deg,var(--primary-2),var(--primary));color:#fff"}">Open the latest release &rarr;</a>`;
+    })
+    .catch(() => { const box = el("dlBtns"); if (box) box.innerHTML = `<a href="${RELEASES}/latest" target="_blank" rel="noopener" onclick="track('dl_click')" style="display:inline-block;padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:800;background:linear-gradient(180deg,var(--primary-2),var(--primary));color:#fff">Get the desktop app &rarr;</a>`; });
 }
 
 /* ============================ SEARCH ============================ */
