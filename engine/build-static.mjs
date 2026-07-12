@@ -194,29 +194,38 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
   const trackById = new Map(tracks.map((t) => [t.videoId, t]));
 
   // ── per-playlist emptiness signals ─────────────────────────────────────────
-  // For each playlist the corpus has harvested track membership for (community_playlist_track),
-  // count its whitelisted-corpus tracks and, of those, how many are Acapella. The client uses these
-  // to drop playlists that resolve to zero playable songs — chiefly during Sefira / the Three Weeks,
-  // when only Acapella is allowed and many playlists contain none. Membership exists for ~20% of
-  // playlists; the rest stay wl=-1 ("unknown") and render as before (contents load live upstream).
-  // Acapella track set: the upstream playlist the client filters against, unioned with the corpus snapshot
-  // as a robust fallback (the upstream fetch is best-effort). Keeping it generous means a playlist is only
-  // treated as Acapella-empty when NEITHER source has an Acapella track for it — so it never hides one that has.
+  // Per playlist: the AUTHORITATIVE whitelisted-track count from the corpus (community_playlist.whitelisted)
+  // plus the Acapella count from harvested track membership. The client uses these to drop playlists that
+  // resolve to zero hearable songs — chiefly during Sefira / the Three Weeks, when only Acapella is allowed
+  // and many playlists contain none. Corpus data only, no live fetch: the ~372 playlists the corpus has data
+  // for get counts; the rest stay wl=-1 ("unknown") and render as before (contents load live on open).
+  // Acapella set = the upstream Acapella playlist the client filters against, unioned with the corpus
+  // snapshot; a playlist is only treated as Acapella-empty when NEITHER source has an Acapella track for it.
   const acapellaVideoIds = new Set(
     db.prepare("SELECT refId FROM zemer_playlist_item WHERE playlistId = 'acapella' AND kind = 'track'").all().map((r) => r.refId),
   );
   if (acapellaTrackSet) for (const v of acapellaTrackSet) acapellaVideoIds.add(v);
-  const playlistCounts = new Map();   // playlistId → { wl, aca }
+  const playlistCounts = new Map();   // playlistId → { wl, aca }; absent → wl=-1 ("unknown", shown as before)
   {
-    const seen = new Map();           // playlistId → Set(videoId), de-dupes repeated rows
+    // wl: authoritative count (never undercounts, so it won't false-hide a playlist that actually has songs).
+    const wlCount = new Map(
+      db.prepare("SELECT id, whitelisted FROM community_playlist").all().map((r) => [r.id, r.whitelisted]),
+    );
+    // aca: how many of the playlist's harvested tracks are Acapella (de-duped).
+    const acaCount = new Map(), seen = new Map();
     for (const r of db.prepare("SELECT playlistId, videoId FROM community_playlist_track").all()) {
+      if (!acapellaVideoIds.has(r.videoId)) continue;
       let s = seen.get(r.playlistId);
-      if (!s) { s = new Set(); seen.set(r.playlistId, s); playlistCounts.set(r.playlistId, { wl: 0, aca: 0 }); }
-      if (!trackById.has(r.videoId) || s.has(r.videoId)) continue;   // keep only whitelisted-corpus tracks, once
+      if (!s) { s = new Set(); seen.set(r.playlistId, s); acaCount.set(r.playlistId, 0); }
+      if (s.has(r.videoId)) continue;
       s.add(r.videoId);
-      const c = playlistCounts.get(r.playlistId);
-      c.wl++; if (acapellaVideoIds.has(r.videoId)) c.aca++;
+      acaCount.set(r.playlistId, acaCount.get(r.playlistId) + 1);
     }
+    for (const p of playlists) {
+      const wl = wlCount.get(p.id);
+      if (wl != null) playlistCounts.set(p.id, { wl, aca: acaCount.get(p.id) || 0 });
+    }
+    console.log(`  playlist counts: ${playlistCounts.size}/${playlists.length} from corpus (authoritative whitelisted + Acapella); rest unknown → shown`);
   }
 
   // ── interned dataset ───────────────────────────────────────────────────────
