@@ -633,6 +633,10 @@ ensureWrite(path.join(DIST, "analytics.html"), fs.readFileSync(path.join(ROOT, "
 // Network connectivity test page — diagnoses filter/whitelist blocks and a real playback test.
 ensureWrite(path.join(DIST, "test.html"), fs.readFileSync(path.join(ROOT, "assets/connectivity.html"), "utf8"));
 
+// Deep playback diagnostic — served at /playback-block-test (asset layer, via html_handling; no Worker).
+// Isolates each layer of the YouTube stack (domain → iframe_api → embed → media) to pinpoint a block.
+ensureWrite(path.join(DIST, "playback-block-test.html"), fs.readFileSync(path.join(ROOT, "assets/playback-block-test.html"), "utf8"));
+
 // ── service worker ─────────────────────────────────────────────────────────────
 // Cache versioned per build: V changes → old caches evicted on activate.
 // Strategy: navigate = network-first, /lib = network-first, /data = cache-first.

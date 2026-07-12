@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>SK Music — Why is playback blocked?</title>
+<style>
+  :root{--bg:#0e0a0b;--card:#171012;--line:#241a1d;--text:#f3e9ea;--muted:#a89295;--ok:#34d399;--warn:#f5b544;--bad:#ff5d6b;--accent:#ff5d6b;
+    font-family:'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:radial-gradient(900px 500px at 80% -10%,rgba(255,93,107,.10),transparent 60%),var(--bg);color:var(--text);min-height:100vh;padding:22px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-size:22px;font-weight:800;letter-spacing:-.3px}
+  .sub{color:var(--muted);font-size:14px;margin:6px 0 18px}
+  .device{display:flex;align-items:center;gap:13px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:16px}
+  .device .dicon{font-size:28px;flex:none;line-height:1}
+  .device .dos{font-weight:800;font-size:16px}
+  .device .dbr{color:var(--muted);font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
+  .techloq{display:flex;align-items:center;gap:8px;background:rgba(245,181,68,.12);border:1px solid rgba(245,181,68,.42);color:var(--warn);border-radius:12px;padding:11px 15px;margin-bottom:14px;font-weight:700;font-size:14px}
+  .techloq[hidden]{display:none}
+  .grp{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:6px 0 8px}
+  /* layered chain */
+  .row{display:flex;align-items:flex-start;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:8px}
+  .num{width:24px;height:24px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:#2a1e21;color:var(--muted)}
+  .row.ok .num{background:rgba(52,211,153,.18);color:var(--ok)}.row.bad .num{background:rgba(255,93,107,.2);color:var(--bad)}.row.skip .num{opacity:.5}
+  .row.warn .num{background:rgba(245,181,68,.2);color:var(--warn)}.rstate.warn{color:var(--warn)}
+  .row.run .num{animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.35}}
+  .rmeta{flex:1;min-width:0}
+  .rlabel{font-weight:700;font-size:14.5px}
+  .rwhat{color:var(--muted);font-size:12.5px;margin-top:1px}
+  .rstate{font-size:13px;font-weight:800;text-align:right;flex:none;max-width:46%}
+  .rstate .rsmall{font-size:11px;font-weight:600;color:var(--muted);margin-top:2px}
+  .rstate.ok{color:var(--ok)}.rstate.bad{color:var(--bad)}.rstate.run,.rstate.skip{color:var(--muted)}
+  .verdict{border-radius:14px;padding:18px;margin:20px 0 10px;border:2px solid var(--line);background:var(--card)}
+  .verdict.ok{border-color:rgba(52,211,153,.55);background:linear-gradient(180deg,rgba(52,211,153,.10),var(--card))}
+  .verdict.bad{border-color:rgba(255,93,107,.6);background:linear-gradient(180deg,rgba(255,93,107,.10),var(--card))}
+  .verdict .vt{font-size:18px;font-weight:800;letter-spacing:-.2px}
+  .verdict.ok .vt{color:var(--ok)}.verdict.bad .vt{color:var(--bad)}
+  .verdict .vd{font-size:14.5px;color:var(--text);margin-top:8px}
+  .verdict .vallow{margin-top:12px;font-size:13.5px;color:var(--muted)}
+  .verdict code{background:#0b0708;padding:2px 7px;border-radius:5px;font-size:13px;color:var(--text);display:inline-block;margin:2px 3px 2px 0}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 4px}
+  button{background:linear-gradient(180deg,#ff6f7c,var(--accent));color:#fff;border:none;border-radius:11px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer}
+  button.ghost{background:var(--card);border:1px solid var(--line);color:var(--text)}
+  button:disabled{opacity:.55;cursor:default}
+  textarea{width:100%;height:210px;margin-top:12px;background:#0b0708;border:1px solid var(--line);border-radius:12px;color:#cdbfc1;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;padding:12px;resize:vertical;white-space:pre}
+  .hint{color:var(--muted);font-size:13px;margin-top:10px}
+  a{color:#ff8f99}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Why is music playback blocked?</h1>
+  <div class="sub">This tests each layer of YouTube playback separately — the domain, the player script, the video embed, and the media servers — to find the <b>exact</b> thing your network is blocking. Nothing plays out loud. When it finishes, tap <b>Share result</b> and send it (or the highlighted line) to whoever manages your internet filter.</div>
+
+  <div id="device" class="device"><span class="dicon">🖥️</span><div><div class="dos">Detecting device…</div><div class="dbr"></div></div></div>
+  <div id="techloq" class="techloq" hidden>🛡️ Techloq filter detected on this network</div>
+
+  <div class="grp">The playback chain — the first ✗ is what's blocking you</div>
+  <div id="chain"></div>
+
+  <div id="verdict"></div>
+
+  <div class="bar">
+    <button id="run">Re-run</button>
+    <button class="ghost" id="share">Share result</button>
+    <button class="ghost" id="copy">Copy</button>
+    <button class="ghost" id="download">Download</button>
+  </div>
+  <textarea id="log" readonly spellcheck="false"></textarea>
+  <div class="hint">Run this on the device and Wi-Fi/data that has the problem. Full app connection test: <a href="/test">/test</a></div>
+</div>
+
+<script>
+const APP = location.origin;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+let LINES = [];
+
+// The five layers of the YouTube playback stack, in the order a request travels. The FIRST one that fails
+// is the root cause — everything downstream can't be reached past it.
+const LAYERS = [
+  { key: "internet", n: 1, label: "Internet / the app itself", what: "can this device reach anything at all" },
+  { key: "domain",   n: 2, label: "youtube.com (the domain)",  what: "is www.youtube.com reachable" },
+  { key: "script",   n: 3, label: "Player script (iframe_api)", what: "www.youtube.com/iframe_api loads + runs" },
+  { key: "embed",    n: 4, label: "Video embed player",         what: "youtube.com/embed opens + talks back" },
+  { key: "media",    n: 5, label: "Media servers (googlevideo)", what: "the actual audio/video streams" },
+];
+
+function detectPlatform() {
+  const ua = navigator.userAgent || "", touch = navigator.maxTouchPoints || 0;
+  let os = "Unknown device", icon = "🖥️";
+  if (/iPhone|iPod/.test(ua)) { os = "iPhone"; icon = "📱"; }
+  else if (/iPad/.test(ua) || (/Macintosh/.test(ua) && touch > 1)) { os = "iPad"; icon = "📱"; }
+  else if (/Android/.test(ua)) { os = /Mobile/.test(ua) ? "Android phone" : "Android tablet"; icon = "📱"; }
+  else if (/CrOS/.test(ua)) { os = "ChromeOS"; icon = "💻"; }
+  else if (/Windows NT/.test(ua)) { os = "Windows"; icon = "🪟"; }
+  else if (/Macintosh|Mac OS X/.test(ua)) { os = "Mac"; icon = "💻"; }
+  else if (/Linux/.test(ua)) { os = "Linux"; icon = "🐧"; }
+  let br = "browser";
+  if (/Edg\//.test(ua)) br = "Edge"; else if (/OPR\/|Opera/.test(ua)) br = "Opera";
+  else if (/CriOS/.test(ua)) br = "Chrome (iOS)"; else if (/FxiOS/.test(ua)) br = "Firefox (iOS)";
+  else if (/Firefox\//.test(ua)) br = "Firefox"; else if (/Chrome\//.test(ua)) br = "Chrome";
+  else if (/Safari\//.test(ua)) br = "Safari";
+  const m = ua.match(/OS (\d+[_\.]\d+)/) || ua.match(/Android (\d+(?:\.\d+)?)/);
+  if (m && /iPhone|iPad|iPod|Android/.test(ua)) os += " " + m[1].replace(/_/g, ".");
+  return { os, icon, br };
+}
+function ytErr(c) {
+  return ({ 2: "invalid parameter", 5: "HTML5 player error", 100: "video not found", 101: "embedding disabled", 150: "embedding disabled" })[c] || "unknown error";
+}
+
+// ── layer probes ──────────────────────────────────────────────────────────────
+// Techloq detection: filter.techloq.com is Techloq's own filter host. If the device can reach it, the
+// user is behind Techloq → show the badge; if the request is dropped, hide it (no Techloq on this network).
+async function detectTechloq() {
+  try {
+    const c = new AbortController(); const to = setTimeout(() => c.abort(), 5000);
+    await fetch("https://filter.techloq.com/", { mode: "no-cors", cache: "no-store", signal: c.signal });
+    clearTimeout(to); return true;
+  } catch { return false; }
+}
+async function testInternet() {
+  const t0 = performance.now();
+  try { const r = await fetch(APP + "/data/meta.json?cb=" + Date.now(), { cache: "no-store" });
+    return r.ok ? { s: "ok", d: "app reachable (HTTP " + r.status + ")", ms: ms(t0) } : { s: "bad", d: "app returned HTTP " + r.status, ms: ms(t0) };
+  } catch (e) { return { s: "bad", d: "can't reach the app — " + emsg(e), ms: ms(t0) }; }
+}
+// Reachability of www.youtube.com. A no-cors fetch resolves opaque if the host answers and throws if the
+// network/filter drops it — reliable, unlike loading favicon.ico as an <img> (which fails for non-block
+// reasons). If a later layer succeeds, the verdict also back-fills this as OK regardless.
+async function testDomain() {
+  const t0 = performance.now();
+  try {
+    const r = await fetch("https://www.youtube.com/", { mode: "no-cors", cache: "no-store" });
+    return { s: "ok", d: "www.youtube.com answered (" + (r.type || "opaque") + ")", ms: ms(t0) };
+  } catch (e) { return { s: "bad", d: "www.youtube.com unreachable — " + emsg(e), ms: ms(t0) }; }
+}
+function testScript() {
+  return new Promise((resolve) => {
+    const t0 = performance.now(); let settled = false;
+    const done = (r) => { if (settled) return; settled = true; clearTimeout(to); resolve(r); };
+    if (window.YT && window.YT.Player) return done({ s: "ok", d: "already loaded", ms: 0 });
+    const to = setTimeout(() => done({ s: "bad", d: "didn't load in 12s — iframe_api is blocked", ms: ms(t0) }), 12000);
+    window.onYouTubeIframeAPIReady = () => done({ s: "ok", d: "loaded — window.YT is ready", ms: ms(t0) });
+    const s = document.createElement("script");
+    s.src = "https://www.youtube.com/iframe_api";
+    s.onerror = () => done({ s: "bad", d: "script failed to load — iframe_api is blocked", ms: ms(t0) });
+    document.head.appendChild(s);
+  });
+}
+// Embed (L4) + media (L5) share one real player. onInit is called the moment the embed is ready (or fails);
+// the returned promise resolves with the media result once playback buffers/plays, errors, or times out.
+function testEmbedAndMedia(onInit) {
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    let initDone = false, mediaDone = false, player = null, mediaTO = null;
+    const cleanup = () => { clearTimeout(readyTO); clearTimeout(mediaTO); try { player && player.destroy(); } catch {} };
+    const init = (r) => { if (!initDone) { initDone = true; onInit(r); } };
+    const media = (r) => { if (mediaDone) return; mediaDone = true; cleanup(); resolve(r); };
+    const readyTO = setTimeout(() => {
+      init({ s: "bad", d: "player never became ready in 12s — youtube.com/embed can't open or reply", ms: ms(t0) });
+      media({ s: "skip", d: "not reached — the embed never loaded" });
+    }, 12000);
+    const holder = document.createElement("div");
+    holder.style.cssText = "position:absolute;left:-9999px;top:-9999px;width:200px;height:120px";
+    document.body.appendChild(holder);
+    try {
+      player = new YT.Player(holder, {
+        videoId: "dQw4w9WgXcQ", playerVars: { autoplay: 0, playsinline: 1 },
+        events: {
+          onReady: (e) => {
+            clearTimeout(readyTO);
+            init({ s: "ok", d: "embed initialized — youtube.com/embed reachable", ms: ms(t0) });
+            try { e.target.mute(); e.target.playVideo(); } catch {}
+            mediaTO = setTimeout(() => media({ s: "bad", d: "player is ready but never buffered/played in 10s — the media host is blocked", ms: ms(t0) }), 10000);
+          },
+          onStateChange: (e) => { if (e.data === 1 || e.data === 3) media({ s: "ok", d: "media is " + (e.data === 1 ? "playing" : "buffering") + " — googlevideo reachable", ms: ms(t0) }); },
+          // An error means YouTube RESPONDED, so the embed path itself works — the test video just can't play
+          // here (embedding permission / availability). That's NOT a network block, so mark the embed OK and
+          // the media layer "unconfirmed" (warn) rather than falsely reporting media as blocked.
+          onError: (e) => { const c = e && e.data; init({ s: "ok", d: "embed initialized — youtube.com/embed reachable", ms: ms(t0) }); media({ s: "warn", d: "test video returned error " + c + " (" + ytErr(c) + ") — not a network block; media couldn't be confirmed", ms: ms(t0) }); },
+        },
+      });
+    } catch (e) { init({ s: "bad", d: "player threw: " + emsg(e), ms: ms(t0) }); media({ s: "bad", d: "player threw: " + emsg(e), ms: ms(t0) }); }
+  });
+}
+const ms = (t0) => Math.round(performance.now() - t0);
+const emsg = (e) => (e && e.message) || "network error";
+
+// ── UI ──────────────────────────────────────────────────────────────────────
+function setRow(key, r) {
+  const el = document.getElementById("L-" + key); if (!el) return;
+  const cls = r.s === "ok" ? "ok" : r.s === "skip" ? "skip" : r.s === "warn" ? "warn" : "bad";
+  el.className = "row " + cls;
+  const st = el.querySelector(".rstate"); st.className = "rstate " + cls;
+  const tag = r.s === "ok" ? "✓ OK" : r.s === "skip" ? "— skipped" : r.s === "warn" ? "△ unconfirmed" : "✗ BLOCKED";
+  st.innerHTML = `${tag}<div class="rsmall">${esc(r.d)}${r.ms != null ? " · " + r.ms + "ms" : ""}</div>`;
+}
+
+function verdict(R) {
+  const order = ["internet", "domain", "script", "embed", "media"];
+  // Downstream-implies-upstream: the request travels the layers in order, so if a LATER layer succeeded,
+  // every earlier one must have worked too. Repair any flaky upstream "bad" that a later success disproves.
+  let deepestOk = -1;
+  order.forEach((k, i) => { if (R[k] && R[k].s === "ok") deepestOk = i; });
+  for (let i = 0; i < deepestOk; i++) {
+    if (R[order[i]] && R[order[i]].s !== "ok") { R[order[i]] = { s: "ok", d: "reachable (a later layer succeeded through it)" }; setRow(order[i], R[order[i]]); }
+  }
+  // Root cause = first hard-BLOCKED layer after the deepest success. "warn"/"skip" are not blocks.
+  let fail = null;
+  for (let i = deepestOk + 1; i < order.length; i++) { if (R[order[i]] && R[order[i]].s === "bad") { fail = order[i]; break; } }
+  const V = {
+    internet: { t: "No internet on this device", d: "The app itself is unreachable, so this isn't a YouTube-specific block — check the Wi-Fi/data connection first, then re-run.", allow: null },
+    domain:   { t: "All of youtube.com is blocked", d: "Your filter is blocking the entire www.youtube.com domain, so nothing YouTube can load.", allow: ["www.youtube.com", "*.youtube.com"] },
+    script:   { t: "The YouTube player script is blocked", d: "youtube.com is partly reachable, but the player code (iframe_api) won't load, so the player can't even start.", allow: ["www.youtube.com/iframe_api", "www.youtube.com"] },
+    embed:    { t: "The video embed is blocked", d: "The player script loads, but the actual embedded player (youtube.com/embed) can't open or talk back to the page — this is the layer being filtered.", allow: ["www.youtube.com/embed/", "www.youtube.com"] },
+    media:    { t: "The media servers are blocked", d: "The player opens fine, but the real audio/video won't stream. This is the single most common filter block for music apps.", allow: ["*.googlevideo.com", "redirector.googlevideo.com"] },
+  };
+  const v = $("verdict");
+  if (!fail) {
+    const mediaWarn = R.media && R.media.s === "warn";
+    v.className = "verdict ok";
+    v.innerHTML = `<div class="vt">✅ Your network isn't blocking playback</div><div class="vd">` +
+      (mediaWarn
+        ? "The player script and the video embed are both reachable. The media layer couldn't be fully confirmed with the test video (it returned a permission error, not a network error), but nothing here is being blocked."
+        : "Every layer passed — nothing on this network is blocking YouTube playback.") +
+      " If music still won't play in the app, it isn't a network block — reload the app or try another song.</div>";
+    LINES.push("VERDICT: not blocked" + (mediaWarn ? " (media unconfirmed — test-video permission error)" : " — all layers pass"));
+    return;
+  }
+  const info = V[fail];
+  v.className = "verdict bad";
+  v.innerHTML = `<div class="vt">⛔ ${esc(info.t)}</div><div class="vd">${esc(info.d)}</div>` +
+    (info.allow ? `<div class="vallow"><b>Send this to whoever manages your filter — ask them to allow:</b><br>${info.allow.map((a) => "<code>" + esc(a) + "</code>").join("")}</div>` : "");
+  LINES.push("VERDICT: blocked at layer '" + fail + "' — " + info.t + (info.allow ? " | allow: " + info.allow.join(", ") : ""));
+}
+
+async function run() {
+  $("run").disabled = true; LINES = [];
+  const plat = detectPlatform();
+  $("device").innerHTML = `<span class="dicon">${plat.icon}</span><div><div class="dos">${esc(plat.os)}</div><div class="dbr">${esc(plat.br)} · screen ${screen.width}×${screen.height}</div></div>`;
+  $("verdict").innerHTML = ""; $("techloq").hidden = true;
+  const techloqPromise = detectTechloq(); // runs alongside the layer tests
+
+  const chain = $("chain"); chain.innerHTML = "";
+  for (const L of LAYERS) {
+    const el = document.createElement("div"); el.className = "row run"; el.id = "L-" + L.key;
+    el.innerHTML = `<span class="num">${L.n}</span><div class="rmeta"><div class="rlabel">${esc(L.label)}</div><div class="rwhat">${esc(L.what)}</div></div><div class="rstate run">testing…</div>`;
+    chain.appendChild(el);
+  }
+
+  LINES.push("SK Music — Playback Block Diagnosis", new Date().toISOString(),
+    "Device: " + plat.os + " · " + plat.br, "Screen " + screen.width + "x" + screen.height,
+    "UA: " + navigator.userAgent, "Origin: " + APP, "".padEnd(50, "-"));
+
+  const R = {};
+  R.internet = await testInternet(); setRow("internet", R.internet); logLine(1, "Internet/app", R.internet);
+  R.domain = await testDomain(); setRow("domain", R.domain); logLine(2, "youtube.com domain", R.domain);
+  R.script = await testScript(); setRow("script", R.script); logLine(3, "iframe_api script", R.script);
+
+  if (R.script.s === "ok") {
+    R.media = await testEmbedAndMedia((initR) => { R.embed = initR; setRow("embed", initR); logLine(4, "embed player", initR); });
+    setRow("media", R.media); logLine(5, "media/googlevideo", R.media);
+  } else {
+    R.embed = { s: "skip", d: "not tested — the player script is blocked upstream" }; setRow("embed", R.embed); logLine(4, "embed player", R.embed);
+    R.media = { s: "skip", d: "not tested — the player script is blocked upstream" }; setRow("media", R.media); logLine(5, "media/googlevideo", R.media);
+  }
+
+  const techloq = await techloqPromise;
+  $("techloq").hidden = !techloq;
+  LINES.push("Filter: " + (techloq ? "Techloq DETECTED (filter.techloq.com is reachable)" : "no Techloq detected"), "".padEnd(50, "-"));
+  verdict(R);
+  $("log").value = LINES.join("\n");
+  $("run").disabled = false;
+}
+function logLine(n, name, r) { LINES.push(`[${r.s === "ok" ? "OK  " : r.s === "skip" ? "SKIP" : "BLK "}] L${n} ${name} — ${r.d}${r.ms != null ? " (" + r.ms + "ms)" : ""}`); }
+
+const logText = () => $("log").value || "(run the test first)";
+function flash(id, msg) { const b = $(id), o = b.textContent; b.textContent = msg; setTimeout(() => (b.textContent = o), 1600); }
+$("run").onclick = run;
+$("copy").onclick = async () => { try { await navigator.clipboard.writeText(logText()); flash("copy", "Copied ✓"); } catch { $("log").focus(); $("log").select(); document.execCommand("copy"); flash("copy", "Copied ✓"); } };
+$("download").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([logText()], { type: "text/plain" })); a.download = "sk-music-playback-block.txt"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
+$("share").onclick = async () => {
+  if (navigator.share) { try { await navigator.share({ title: "SK Music — Playback Block Diagnosis", text: logText() }); return; } catch {} }
+  try { await navigator.clipboard.writeText(logText()); flash("share", "Copied ✓ — paste in a message"); } catch { $("log").focus(); $("log").select(); }
+};
+if (!navigator.share) $("share").style.display = "none";
+
+run();
+</script>
+</body>
+</html>

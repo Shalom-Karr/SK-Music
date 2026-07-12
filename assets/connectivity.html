@@ -12,7 +12,25 @@
   body{background:radial-gradient(900px 500px at 80% -10%,rgba(255,93,107,.10),transparent 60%),var(--bg);color:var(--text);min-height:100vh;padding:22px;line-height:1.5;-webkit-font-smoothing:antialiased}
   .wrap{max-width:760px;margin:0 auto}
   h1{font-size:22px;font-weight:800;letter-spacing:-.3px}
-  .sub{color:var(--muted);font-size:14px;margin:6px 0 20px}
+  .sub{color:var(--muted);font-size:14px;margin:6px 0 18px}
+  /* device banner */
+  .device{display:flex;align-items:center;gap:13px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:14px}
+  .device .dicon{font-size:28px;flex:none;line-height:1}
+  .device .dos{font-weight:800;font-size:16px}
+  .device .dbr{color:var(--muted);font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
+  .techloq{display:flex;align-items:center;gap:8px;background:rgba(245,181,68,.12);border:1px solid rgba(245,181,68,.42);color:var(--warn);border-radius:12px;padding:11px 15px;margin-bottom:14px;font-weight:700;font-size:14px}
+  .techloq[hidden]{display:none}
+  /* hero = the main thing */
+  .hero{display:flex;gap:16px;align-items:flex-start;border-radius:16px;padding:20px;margin-bottom:20px;border:2px solid var(--line);background:var(--card)}
+  .hero.ok{border-color:rgba(52,211,153,.55);background:linear-gradient(180deg,rgba(52,211,153,.10),var(--card))}
+  .hero.bad{border-color:rgba(255,93,107,.6);background:linear-gradient(180deg,rgba(255,93,107,.10),var(--card))}
+  .hero.run{border-color:var(--line)}
+  .hero .hero-icon{font-size:38px;flex:none;line-height:1.1}
+  .hero.run .hero-icon{animation:pulse 1s infinite}
+  .hero-title{font-size:19px;font-weight:800;letter-spacing:-.2px}
+  .hero.ok .hero-title{color:var(--ok)}.hero.bad .hero-title{color:var(--bad)}
+  .hero-desc{color:var(--muted);font-size:14px;margin-top:5px}
+  .hero-desc code{background:#0b0708;padding:1px 6px;border-radius:5px;font-size:12.5px;color:var(--text)}
   .bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
   button{background:linear-gradient(180deg,#ff6f7c,var(--accent));color:#fff;border:none;border-radius:11px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer}
   button.ghost{background:var(--card);border:1px solid var(--line);color:var(--text)}
@@ -32,6 +50,7 @@
   .verdict.ok{border-color:rgba(52,211,153,.4)}.verdict.bad{border-color:rgba(255,93,107,.45)}
   .verdict b{font-size:16px}
   .verdict code{background:#0b0708;padding:1px 6px;border-radius:5px;font-size:13px}
+  .cta{display:block;text-align:center;margin-top:14px;background:linear-gradient(180deg,#ff6f7c,var(--accent));color:#fff;text-decoration:none;border-radius:11px;padding:13px 16px;font-size:15px;font-weight:800}
   textarea{width:100%;height:240px;margin-top:12px;background:#0b0708;border:1px solid var(--line);border-radius:12px;color:#cdbfc1;
     font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;padding:12px;resize:vertical;white-space:pre}
   .hint{color:var(--muted);font-size:13px;margin-top:10px}
@@ -40,13 +59,27 @@
 <body>
 <div class="wrap">
   <h1>SK Music · Connection Test</h1>
-  <div class="sub">Checks whether your network — a filter like Techloq, school/work Wi-Fi, or a phone content-filter/whitelist — is blocking anything SK Music needs, especially music playback. Nothing plays out loud. When it finishes, tap <b>Share log</b> (or Copy / Download) and send it to whoever set up the filter.</div>
+  <div class="sub">Checks whether your network — a filter like Techloq, school/work Wi-Fi, or a phone content-filter — is blocking music playback. Nothing plays out loud. When it finishes, tap <b>Share log</b> (or Copy / Download) and send it to whoever set up the filter.</div>
+
+  <div id="device" class="device"><span class="dicon">🖥️</span><div><div class="dos">Detecting device…</div><div class="dbr"></div></div></div>
+  <div id="techloq" class="techloq" hidden>🛡️ Techloq filter detected on this network</div>
+
+  <!-- THE MAIN TEST -->
+  <div id="hero" class="hero run">
+    <span class="hero-icon" id="hero-icon">🎵</span>
+    <div>
+      <div class="hero-title" id="hero-title">Testing music playback…</div>
+      <div class="hero-desc" id="hero-desc">Starting the real YouTube player — this is the test that actually matters.</div>
+    </div>
+  </div>
+
   <div class="bar">
     <button id="run">Re-run test</button>
     <button class="ghost" id="share">Share log</button>
     <button class="ghost" id="copy">Copy log</button>
     <button class="ghost" id="download">Download</button>
   </div>
+  <div class="grp">Other checks (support the app, but playback above is what counts)</div>
   <div id="results"></div>
   <div id="verdict"></div>
   <textarea id="log" readonly spellcheck="false"></textarea>
@@ -55,20 +88,18 @@
 
 <script>
 const APP = location.origin;
-// Probeable hosts (a bare fetch is representative for these — allowed or blocked outright, not Referer-gated).
-// The YouTube *player* is deliberately NOT probed by fetch: a plain fetch of youtube.com/embed reports
-// "blocked" even when playback works, because filters allow the embed only from a real iframe (Referer /
-// Sec-Fetch). So playback gets its own test that actually initializes the player.
+// Only hosts a browser fetch can HONESTLY test are probed by fetch. The YouTube player script + media host
+// (youtube.com/iframe_api, *.googlevideo.com) are deliberately NOT fetched: they send no CORS headers and are
+// Referer-gated, so a fetch ALWAYS fails ("Failed to fetch") even when playback works perfectly. Those are
+// covered by the real player test in the hero above, which is the only trustworthy signal for YouTube.
 const TARGETS = [
-  { grp: "App itself (should always pass)", label: "App page", url: APP + "/?diag=1" },
-  { grp: "App itself (should always pass)", label: "Catalog data", url: APP + "/data/meta.json" },
-  { grp: "App itself (should always pass)", label: "Search + trending API", url: APP + "/trending?days=1" },
-  { grp: "Music (YouTube)", label: "Player script (iframe_api)", url: "https://www.youtube.com/iframe_api" },
-  { grp: "Music (YouTube)", label: "Media host (googlevideo)", url: "https://redirector.googlevideo.com/" },
-  { grp: "Images", label: "Song thumbnails (ytimg)", url: "https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg", img: true },
-  { grp: "Images", label: "Artist thumbnails (ggpht)", url: "https://yt3.ggpht.com/favicon.ico", img: true },
-  { grp: "Search & analytics", label: "Complete Search (search.zemer.io)", url: "https://search.zemer.io/search?q=a" },
-  { grp: "Search & analytics", label: "Analytics write (Supabase)", url: "POST jxttqcouabdptftlvfnd.supabase.co insert", supa: true },
+  { grp: "SK Music app (should always pass)", label: "App page loads",        url: APP + "/?diag=1" },
+  { grp: "SK Music app (should always pass)", label: "Catalog data",          url: APP + "/data/meta.json" },
+  { grp: "Music catalog (Zemer)",             label: "Zemer API (search.zemer.io)", url: "https://search.zemer.io/health" },
+  { grp: "Music catalog (Zemer)",             label: "Trending (via SK Music server)", url: APP + "/trending?days=1" },
+  { grp: "Images",                            label: "Song thumbnails (ytimg)",  url: "https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg", img: true },
+  { grp: "Images",                            label: "Artist thumbnails (ggpht)", url: "https://yt3.ggpht.com/favicon.ico", img: true },
+  { grp: "Analytics",                         label: "Analytics write (Supabase)", url: "POST jxttqcouabdptftlvfnd.supabase.co insert", supa: true },
 ];
 const SUPA_URL = "https://jxttqcouabdptftlvfnd.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4dHRxY291YWJkcHRmdGx2Zm5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTc2OTAsImV4cCI6MjA5ODc5MzY5MH0.DiTcbcKTqXZTJfOqEXfvckiObinN0g15BDbLmAmmdsY";
@@ -77,22 +108,53 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 let LINES = [];
 
-// opaqueredirect => a filter bounced the request (on Techloq that's filter.techloq.com; the exact target
-// isn't readable cross-origin). opaque => reached the host. throw => unreachable/denied (typical of a phone
-// whitelist that just drops non-listed hosts instead of redirecting).
-async function probeFetch(url) {
+// Techloq detection: filter.techloq.com is Techloq's own filter host. Reachable → the device is behind
+// Techloq (show the badge); request dropped → no Techloq on this network (badge stays hidden).
+async function detectTechloq() {
+  try {
+    const c = new AbortController(); const to = setTimeout(() => c.abort(), 5000);
+    await fetch("https://filter.techloq.com/", { mode: "no-cors", cache: "no-store", signal: c.signal });
+    clearTimeout(to); return true;
+  } catch { return false; }
+}
+// Human-readable OS + browser from the UA (works on every browser; no reliance on userAgentData).
+function detectPlatform() {
+  const ua = navigator.userAgent || "";
+  const touch = navigator.maxTouchPoints || 0;
+  let os = "Unknown device", icon = "🖥️";
+  if (/iPhone|iPod/.test(ua)) { os = "iPhone"; icon = "📱"; }
+  else if (/iPad/.test(ua) || (/Macintosh/.test(ua) && touch > 1)) { os = "iPad"; icon = "📱"; }
+  else if (/Android/.test(ua)) { os = /Mobile/.test(ua) ? "Android phone" : "Android tablet"; icon = "📱"; }
+  else if (/CrOS/.test(ua)) { os = "ChromeOS"; icon = "💻"; }
+  else if (/Windows NT/.test(ua)) { os = "Windows"; icon = "🪟"; }
+  else if (/Macintosh|Mac OS X/.test(ua)) { os = "Mac"; icon = "💻"; }
+  else if (/Linux/.test(ua)) { os = "Linux"; icon = "🐧"; }
+  let br = "browser";
+  if (/Edg\//.test(ua)) br = "Edge";
+  else if (/OPR\/|Opera/.test(ua)) br = "Opera";
+  else if (/CriOS/.test(ua)) br = "Chrome (iOS)";
+  else if (/FxiOS/.test(ua)) br = "Firefox (iOS)";
+  else if (/Firefox\//.test(ua)) br = "Firefox";
+  else if (/Chrome\//.test(ua)) br = "Chrome";
+  else if (/Safari\//.test(ua)) br = "Safari";
+  const m = ua.match(/OS (\d+[_\.]\d+)/) || ua.match(/Android (\d+(?:\.\d+)?)/) || ua.match(/Windows NT (\d+\.\d+)/);
+  if (m && /iPhone|iPad|iPod|Android/.test(ua)) os += " " + m[1].replace(/_/g, ".");
+  return { os, icon, br };
+}
+
+// Readable-status probe: CORS fetch so we can report the ACTUAL HTTP status (200 or not), not just reachability.
+// A filter block, DNS drop, or missing CORS surfaces as a thrown "Failed to fetch" → shown as blocked.
+async function probeStatus(url) {
   const t0 = performance.now();
   try {
-    const r = await fetch(url, { mode: "no-cors", redirect: "manual", cache: "no-store" });
+    const r = await fetch(url, { mode: "cors", cache: "no-store" });
     const ms = Math.round(performance.now() - t0);
-    if (r.type === "opaqueredirect") return { s: "bad", d: "redirected by a filter (blocked)", ms };
-    return { s: "ok", d: "reachable", ms };
+    return r.ok ? { s: "ok", d: "HTTP " + r.status, ms } : { s: "bad", d: "HTTP " + r.status + " — server error", ms };
   } catch (e) {
-    return { s: "bad", d: "unreachable/denied — " + ((e && e.message) || "network error"), ms: Math.round(performance.now() - t0) };
+    return { s: "bad", d: "blocked / unreachable — " + ((e && e.message) || "network error"), ms: Math.round(performance.now() - t0) };
   }
 }
-// Supabase: a SELECT is RLS-blocked by design, so probe with a real WRITE (anon inserts are allowed) — that
-// actually tells you whether the browser can reach and write to Supabase. Rows are tagged event="conntest".
+// Supabase: a SELECT is RLS-blocked by design, so probe with a real WRITE (anon inserts are allowed).
 async function probeSupabaseWrite() {
   const t0 = performance.now();
   try {
@@ -102,7 +164,7 @@ async function probeSupabaseWrite() {
       body: JSON.stringify({ event: "conntest", path: "/test", meta: { src: "connectivity" } }),
     });
     const ms = Math.round(performance.now() - t0);
-    return r.ok ? { s: "ok", d: "write succeeded — Supabase reachable", ms } : { s: "bad", d: "write rejected — HTTP " + r.status, ms };
+    return r.ok ? { s: "ok", d: "write succeeded — reachable", ms } : { s: "bad", d: "write rejected — HTTP " + r.status, ms };
   } catch (e) {
     return { s: "bad", d: "unreachable — " + ((e && e.message) || "network error"), ms: Math.round(performance.now() - t0) };
   }
@@ -117,13 +179,13 @@ function probeImg(url) {
     im.src = url + (url.includes("?") ? "&" : "?") + "cb=" + Date.now();
   });
 }
-// The real test: does the YouTube player actually start? Uses a genuine iframe, exactly like the app —
-// so it reflects real playback (which a filter may allow even while blocking youtube.com browsing).
+// THE MAIN TEST: does the real YouTube player start? A genuine iframe, exactly like the app. Distinguishes
+// the three failure modes so the verdict can name the exact block: script blocked, embed/media blocked, timeout.
 function testPlayback() {
   return new Promise((resolve) => {
     let settled = false;
-    const done = (s, d) => { if (settled) return; settled = true; clearTimeout(to); resolve({ s, d }); };
-    const to = setTimeout(() => done("bad", "player never initialized in 14s — playback is blocked"), 14000);
+    const done = (r) => { if (settled) return; settled = true; clearTimeout(to); resolve(r); };
+    const to = setTimeout(() => done({ s: "bad", reason: "timeout", d: "player never started in 15s — the video embed or media host is blocked" }), 15000);
     const start = () => {
       try {
         const holder = document.createElement("div");
@@ -132,17 +194,17 @@ function testPlayback() {
         new YT.Player(holder, {
           videoId: "dQw4w9WgXcQ", playerVars: { autoplay: 0 },
           events: {
-            onReady: (e) => { try { e.target.mute(); } catch {} done("ok", "player initialized — playback works"); setTimeout(() => { try { e.target.destroy(); } catch {} }, 300); },
-            onError: (e) => done("bad", "player error code " + (e && e.data)),
+            onReady: (e) => { try { e.target.mute(); } catch {} done({ s: "ok", d: "player initialized — playback works" }); setTimeout(() => { try { e.target.destroy(); } catch {} }, 300); },
+            onError: (e) => done({ s: "bad", reason: "error", code: e && e.data, d: "player error code " + (e && e.data) + " — media/embed blocked or video unavailable" }),
           },
         });
-      } catch (e) { done("bad", "player threw: " + ((e && e.message) || e)); }
+      } catch (e) { done({ s: "bad", reason: "threw", d: "player threw: " + ((e && e.message) || e) }); }
     };
     if (window.YT && window.YT.Player) return start();
     window.onYouTubeIframeAPIReady = start;
     const s = document.createElement("script");
     s.src = "https://www.youtube.com/iframe_api";
-    s.onerror = () => done("bad", "player script (iframe_api) is blocked");
+    s.onerror = () => done({ s: "bad", reason: "script", d: "player script (iframe_api) blocked — youtube.com won't load at all" });
     document.head.appendChild(s);
   });
 }
@@ -157,11 +219,26 @@ function setRow(el, r) {
   const st = el.querySelector(".rstate"); st.className = "rstate " + r.s;
   st.innerHTML = `${r.s === "ok" ? "OK" : "BLOCKED"}<div class="rms">${esc(r.d)}${r.ms != null ? " · " + r.ms + "ms" : ""}</div>`;
 }
+function setHero(cls, icon, title, descHtml) {
+  const h = $("hero"); h.className = "hero " + cls;
+  $("hero-icon").textContent = icon; $("hero-title").textContent = title; $("hero-desc").innerHTML = descHtml;
+}
 
 async function run() {
   $("run").disabled = true; LINES = [];
   const res = $("results"); res.innerHTML = ""; $("verdict").innerHTML = "";
-  LINES.push("SK Music Connection Test", new Date().toISOString(), "UA: " + navigator.userAgent, "Screen " + screen.width + "x" + screen.height + " · viewport " + innerWidth + "x" + innerHeight, "Origin: " + APP, "".padEnd(46, "-"));
+
+  const plat = detectPlatform();
+  $("device").innerHTML = `<span class="dicon">${plat.icon}</span><div><div class="dos">${esc(plat.os)}</div><div class="dbr">${esc(plat.br)} · screen ${screen.width}×${screen.height}</div></div>`;
+  setHero("run", "🎵", "Testing music playback…", "Starting the real YouTube player — this is the test that actually matters.");
+  $("techloq").hidden = true; const techloqPromise = detectTechloq(); // runs alongside the checks
+
+  LINES.push("SK Music Connection Test", new Date().toISOString(),
+    "Device: " + plat.os + " · " + plat.br, "Screen " + screen.width + "x" + screen.height + " · viewport " + innerWidth + "x" + innerHeight,
+    "UA: " + navigator.userAgent, "Origin: " + APP, "".padEnd(46, "-"));
+
+  // Kick off the main test immediately; run the quick checks alongside it.
+  const playbackPromise = testPlayback();
 
   let lastGrp = "";
   const rows = TARGETS.map((t) => {
@@ -169,29 +246,39 @@ async function run() {
     const el = rowEl(t); res.appendChild(el); return { t, el };
   });
 
-  const blocked = [];
+  const blocked = [], results = {};
   for (const { t, el } of rows) {
-    const r = t.img ? await probeImg(t.url) : t.supa ? await probeSupabaseWrite() : await probeFetch(t.url);
-    setRow(el, r);
-    LINES.push(`[${r.s === "ok" ? "OK " : "BLK"}] ${t.label} — ${t.url || "POST insert"} — ${r.d}${r.ms != null ? " (" + r.ms + "ms)" : ""}`);
+    const r = t.img ? await probeImg(t.url) : t.supa ? await probeSupabaseWrite() : await probeStatus(t.url);
+    setRow(el, r); results[t.label] = r;
+    LINES.push(`[${r.s === "ok" ? "OK " : "BLK"}] ${t.label} — ${t.url} — ${r.d}${r.ms != null ? " (" + r.ms + "ms)" : ""}`);
     if (r.s === "bad") blocked.push(t.label);
   }
 
-  const g = document.createElement("div"); g.className = "grp"; g.textContent = "Playback test (the important one)"; res.appendChild(g);
-  const pel = rowEl({ label: "Start the music player", url: "YouTube IFrame player (real iframe)" }); res.appendChild(pel);
-  const pb = await testPlayback(); setRow(pel, pb);
-  LINES.push(`[${pb.s === "ok" ? "OK " : "BLK"}] Playback (YouTube IFrame player) — ${pb.d}`);
-  const playbackOk = pb.s === "ok";
+  const pb = await playbackPromise;
+  const imgOk = results["Song thumbnails (ytimg)"] && results["Song thumbnails (ytimg)"].s === "ok";
+  if (pb.s === "ok") {
+    setHero("ok", "✅", "Music playback works on this device", "The real YouTube player started and can play — SK Music will work here.");
+  } else if (pb.reason === "script") {
+    setHero("bad", "⛔", "Music playback is blocked", "The YouTube player script is blocked — <code>www.youtube.com/iframe_api</code> won’t load, so nothing YouTube works. Ask whoever manages the filter to allow <code>www.youtube.com</code>.");
+  } else {
+    setHero("bad", "⛔", "Music playback is blocked",
+      `The player ${pb.reason === "timeout" ? "never started" : "failed (error " + (pb.code || "?") + ")"} — the video embed or media host is blocked. Ask the filter to allow <code>youtube.com/embed</code>, <code>*.googlevideo.com</code>, and <code>www.youtube.com/iframe_api</code>.` +
+      (imgOk ? " YouTube images DO load here, so it’s specifically the video player/media that’s blocked — not all of YouTube." : ""));
+  }
+  LINES.push(`[${pb.s === "ok" ? "OK " : "BLK"}] MAIN — Music playback (real YouTube player) — ${pb.d}`);
+
+  const techloq = await techloqPromise; $("techloq").hidden = !techloq;
+  LINES.push("Filter: " + (techloq ? "Techloq DETECTED (filter.techloq.com reachable)" : "no Techloq detected"));
 
   const v = $("verdict");
-  if (playbackOk && !blocked.length) {
-    v.className = "verdict ok"; v.innerHTML = "<b>✅ Everything works.</b> Your network isn't blocking SK Music.";
-  } else if (!playbackOk) {
-    v.className = "verdict bad"; v.innerHTML = "<b>⛔ Music playback is blocked on this network.</b> The player can't start. On a filter like Techloq the fix is to allow the YouTube <b>embed player</b> + media — send this log and ask them to allow <code>youtube.com/embed</code>, <code>*.googlevideo.com</code>, and <code>www.youtube.com/iframe_api</code>." + (blocked.length ? "<br><br>Also blocked: " + esc(blocked.join(", ")) + "." : "");
+  if (pb.s === "ok" && !blocked.length) {
+    v.className = "verdict ok"; v.innerHTML = "<b>✅ Everything works.</b> Your network isn’t blocking SK Music.";
+  } else if (pb.s !== "ok") {
+    v.className = "verdict bad"; v.innerHTML = "<b>⛔ Music playback is blocked on this network.</b> The exact fix is in the box at the top — send this log to whoever manages the filter." + (blocked.length ? "<br><br>Also blocked: " + esc(blocked.join(", ")) + "." : "") + "<a class=\"cta\" href=\"/playback-block-test\">🔎 Click here for a more detailed test to figure out why your playback is blocked</a>";
   } else {
-    v.className = "verdict bad"; v.innerHTML = "<b>⚠️ Playback works, but some things are blocked:</b> " + esc(blocked.join(", ")) + " (thumbnails/search may not load). Send the log below.";
+    v.className = "verdict bad"; v.innerHTML = "<b>⚠️ Playback works, but some things are blocked:</b> " + esc(blocked.join(", ")) + " — thumbnails or search may be degraded. Send the log below.";
   }
-  LINES.push("".padEnd(46, "-"), "VERDICT: " + (playbackOk && !blocked.length ? "all clear" : (!playbackOk ? "PLAYBACK BLOCKED" : "partial — " + blocked.join(", "))));
+  LINES.push("".padEnd(46, "-"), "VERDICT: " + (pb.s === "ok" && !blocked.length ? "all clear" : (pb.s !== "ok" ? "PLAYBACK BLOCKED" : "partial — " + blocked.join(", "))));
   $("log").value = LINES.join("\n");
   $("run").disabled = false;
 }
