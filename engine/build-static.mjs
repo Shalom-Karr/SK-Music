@@ -742,13 +742,18 @@ ensureWrite(path.join(DIST, "sw.js"), SW);
 // html5 fallback (/stream) + engine worker (/lib) + analytics beacon (/a) are all same-origin.
 const CSP = [
   "default-src 'self'",
+  // script-src-elem stated explicitly: the desktop WebView2 doesn't fall back script-src-elem→script-src,
+  // so without this the YouTube IFrame API (loaded as a <script> element) is flagged in the desktop app.
   "script-src 'self' 'unsafe-inline' https://www.youtube.com https://static.cloudflareinsights.com",
+  "script-src-elem 'self' 'unsafe-inline' https://www.youtube.com https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https://i.ytimg.com https://*.ytimg.com https://*.ggpht.com https://*.googleusercontent.com",
   "media-src 'self' blob:",
   "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
-  "connect-src 'self' https://search.zemer.io https://content.zemer.io https://*.supabase.co https://api.github.com https://cloudflareinsights.com",
+  // ipc: + ipc.localhost are the Tauri desktop app's IPC transport (invoke → now_playing/set_playback_state);
+  // harmless for browsers, required so the desktop media bridge isn't blocked.
+  "connect-src 'self' https://search.zemer.io https://content.zemer.io https://*.supabase.co https://api.github.com https://cloudflareinsights.com ipc: http://ipc.localhost https://ipc.localhost",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "object-src 'none'",
