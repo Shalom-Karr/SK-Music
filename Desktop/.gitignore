@@ -1,3 +1,5 @@
 target/
 node_modules/
 dist/
+# Tauri build-generated ACL schemas — regenerated on every build.
+src-tauri/gen/schemas/

@@ -1991,6 +1991,7 @@ function playIndex(i, dir) {
   pushURL("/song/" + t.videoId, true); // shareable per-song URL reflecting what's playing (no history spam)
   playBegin(t); // start a play-duration session — the `play` event fires on end/skip with real listen time
   if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: t.title || "", artist: t.artist || "", album: "SK Music", artwork: [{ src: art, sizes: "480x360", type: "image/jpeg" }] });
+  skNowPlaying(t, art); // desktop app: drive the native OS media session (Windows SMTC / Linux MPRIS) with real SK Music metadata
   PB.load(t.videoId); setPlayIcons();
 }
 // Move the "now playing" indicator (EQ bars + highlight) to the current song across any visible list,
@@ -2026,7 +2027,7 @@ function paintQueue() {
 }
 
 /* progress + state — unified across both engines */
-function setPlayIcons() { const p = PB.paused() || !state.queue.length; el("nbPlay").innerHTML = p ? ICON.play : ICON.pause; el("npPlay").innerHTML = p ? ICON.play : ICON.pause; if ("mediaSession" in navigator) try { navigator.mediaSession.playbackState = p ? "paused" : "playing"; } catch {} }
+function setPlayIcons() { const p = PB.paused() || !state.queue.length; el("nbPlay").innerHTML = p ? ICON.play : ICON.pause; el("npPlay").innerHTML = p ? ICON.play : ICON.pause; if ("mediaSession" in navigator) try { navigator.mediaSession.playbackState = p ? "paused" : "playing"; } catch {} skPlaybackState(); }
 function paintSeek(input) { const max = +input.max || 1000; input.style.setProperty("--p", (input.value / max * 100) + "%"); }
 let tickTimer = null, seeking = false, toastTimer, streamFails = 0;
 function startTick() { if (!tickTimer) tickTimer = setInterval(tick, 300); }
@@ -2037,6 +2038,7 @@ function tick() {
   if (!seeking) { el("nbSeek").value = el("npSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); }
   el("nbCur").textContent = el("npCur").textContent = fmt(c);
   el("nbDur").textContent = el("npDur").textContent = d ? fmt(d) : "0:00";
+  skTick(c);
 }
 function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing · 2 paused · 3 buffering · 5 cued
   if (code === 1) { streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); } // rate resets on each load
@@ -2070,6 +2072,31 @@ if ("mediaSession" in navigator) {
   navigator.mediaSession.setActionHandler("nexttrack", next);
   navigator.mediaSession.setActionHandler("previoustrack", prev);
 }
+/* ---- Native desktop (Tauri) bridge -------------------------------------------------------------
+   No-ops in a browser. In the SK Music desktop app the YouTube iframe's own media session would
+   otherwise hijack the Windows "now playing" flyout with the raw video title, so we drive the native
+   OS media session (Windows SMTC / Linux MPRIS) from Rust (media.rs) with real SK Music metadata, and
+   accept transport commands (media keys, SMTC buttons, tray Play/Pause/Next/Prev) back through
+   window.__skMediaControl. Contract documented in Desktop/src-tauri/src/media.rs. */
+const SK_NATIVE = !!(window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === "function");
+function skInvoke(cmd, payload) { if (SK_NATIVE) try { window.__TAURI__.core.invoke(cmd, { payload }); } catch (e) {} }
+function skNowPlaying(t, art) { if (SK_NATIVE && t) skInvoke("now_playing", { title: t.title || "", artist: t.artist || "", album: "SK Music", artUrl: art || "", durationMs: t.durationSec ? Math.round(t.durationSec * 1000) : undefined, positionMs: 0, playing: true }); }
+function skPlaybackState() { if (SK_NATIVE) skInvoke("set_playback_state", { playing: !(PB.paused() || !state.queue.length), positionMs: Math.round((PB.cur() || 0) * 1000) }); }
+let _skPosAt = 0;
+function skTick(c) { if (!SK_NATIVE || seeking) return; const now = performance.now(); if (now - _skPosAt < 1000) return; _skPosAt = now; skInvoke("set_playback_state", { playing: !PB.paused(), positionMs: Math.round((c || 0) * 1000) }); }
+if (SK_NATIVE) window.__skMediaControl = (action) => { try {
+  if (action === "play") PB.play();
+  else if (action === "pause") PB.pause();
+  else if (action === "toggle") toggle();
+  else if (action === "next") next();
+  else if (action === "previous") prev();
+  else if (action === "stop") PB.pause();
+  else if (action === "seekforward") seekBy(10);
+  else if (action === "seekback") seekBy(-10);
+  else if (action.indexOf("seekby:") === 0) seekBy((+action.slice(7) || 0) / 1000);
+  else if (action.indexOf("setposition:") === 0) PB.seek((+action.slice(12) || 0) / 1000);
+  else if (action.indexOf("setvolume:") === 0) PB.setVol(Math.max(0, Math.min(1, +action.slice(10) || 0)));
+} catch (e) {} };
 // Arrow seek: a quick tap jumps ±15s; holding scrubs, starting at ~1s/sec and accelerating.
 let scrubTimer = null, scrubStart = 0, tapDir = 0;
 function stopScrub() { if (scrubTimer) { clearInterval(scrubTimer); scrubTimer = null; } }

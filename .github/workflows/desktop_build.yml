@@ -24,7 +24,6 @@ jobs:
       matrix:
         include:
           - platform: windows-latest
-          - platform: macos-latest
           - platform: ubuntu-22.04
     runs-on: ${{ matrix.platform }}
     steps:
@@ -65,7 +64,6 @@ jobs:
             Native SK Music desktop app (Tauri 2 — a fast native shell around the web app).
             Download the installer for your OS:
             - **Windows:** the `*-setup.exe`
-            - **macOS:** the `*.dmg`
             - **Linux:** the `*.AppImage` or `*.deb`
           releaseDraft: false
           prerelease: false

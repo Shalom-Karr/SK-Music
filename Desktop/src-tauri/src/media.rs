@@ -114,16 +114,15 @@ fn build(app: &tauri::AppHandle) -> Result<MediaControls, String> {
         Some(handle.0 as *mut std::ffi::c_void)
     };
 
-    #[cfg(target_os = "windows")]
+    // souvlaki's PlatformConfig.hwnd is a field on EVERY platform (Some on Windows, None elsewhere) — not
+    // cfg-gated — so both branches must set it or non-Windows builds fail with a missing-field error.
+    #[cfg(not(target_os = "windows"))]
+    let hwnd: Option<*mut std::ffi::c_void> = None;
+
     let config = PlatformConfig {
         dbus_name: "sk_music",
         display_name: "SK Music",
         hwnd,
-    };
-    #[cfg(not(target_os = "windows"))]
-    let config = PlatformConfig {
-        dbus_name: "sk_music",
-        display_name: "SK Music",
     };
 
     let mut controls = MediaControls::new(config).map_err(|e| format!("{e:?}"))?;
@@ -181,6 +180,12 @@ fn forward(app: &tauri::AppHandle, action: &str) {
          }})({a});"
     );
     let _ = window.eval(js);
+}
+
+/// Relay a transport action from the tray menu into the webview player — the same channel OS
+/// media keys use. Public so `tray.rs` can drive Play/Pause/Next/Previous.
+pub fn control(app: &tauri::AppHandle, action: &str) {
+    forward(app, action);
 }
 
 fn focus_main(app: &tauri::AppHandle) {
@@ -258,6 +263,9 @@ pub fn now_playing(app: tauri::AppHandle, payload: NowPlaying) -> Result<(), Str
                 eprintln!("[media] set_playback failed: {e:?}");
             }
         });
+        // Mirror the track onto the tray (tooltip + now-playing line), independent of SMTC availability.
+        let playing = payload.playing.unwrap_or(true) && !payload.stopped.unwrap_or(false);
+        crate::tray::set_now_playing(nonempty(&payload.title), nonempty(&payload.artist), playing);
     })
     .map_err(|e| e.to_string())
 }
@@ -274,6 +282,7 @@ pub fn set_playback_state(app: tauri::AppHandle, payload: PlaybackState) -> Resu
                 eprintln!("[media] set_playback failed: {e:?}");
             }
         });
+        crate::tray::set_playing(payload.playing.unwrap_or(true) && !payload.stopped.unwrap_or(false));
     })
     .map_err(|e| e.to_string())
 }
