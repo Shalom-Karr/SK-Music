@@ -532,6 +532,15 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
       if (image) t.push(`<meta property="og:image" content="${esc(image)}"><meta name="twitter:image" content="${esc(image)}">`);
       return t.join("");
     };
+    // schema.org JSON-LD for Google rich results — MusicGroup for artists, MusicPlaylist for playlists.
+    // `<` is escaped so the JSON can't break out of the <script>.
+    const ldTag = ({ title, image, type, urlPath }) => {
+      const T = type === "profile" ? "MusicGroup" : type === "music.playlist" ? "MusicPlaylist" : null;
+      if (!T || !title) return "";
+      const o = { "@context": "https://schema.org", "@type": T, name: title, url: SITE + urlPath };
+      if (image) o.image = image;
+      return `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, "\\u003c")}</script>`;
+    };
     const shell = ({ title, description, image, type, urlPath }) =>
       `<!doctype html><html lang="en"><head><meta charset="utf-8">` +
       `<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0e0a0b">` +
@@ -539,6 +548,7 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
       `<link rel="canonical" href="${SITE}${urlPath}"><link rel="icon" type="image/svg+xml" href="/assets/skmusic_logo.svg">` +
       `<meta property="og:site_name" content="SK Music"><meta property="og:url" content="${SITE}${urlPath}"><meta name="twitter:card" content="summary_large_image">` +
       ogTags({ title, description, image, type }) +
+      ldTag({ title, image, type, urlPath }) +
       `<style>html,body{margin:0;height:100%;background:#0e0a0b;color:#f5f5f5;font-family:system-ui,-apple-system,sans-serif}` +
       `#s{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;box-sizing:border-box}` +
       `#s img{width:84px;height:84px}#s h1{margin:0;font-size:17px;font-weight:600;opacity:.8;text-align:center}</style></head>` +
@@ -721,7 +731,37 @@ ensureWrite(path.join(DIST, "sw.js"), SW);
 // and a new build changes BUILD → new paths → the browser refetches.
 // _headers: versioned /lib is immutable; sitemaps + robots get a real cache lifetime so crawlers (and
 // Cloudflare's edge) cache them instead of re-fetching the full multi-MB file on every request.
+// Content-Security-Policy. Ships REPORT-ONLY first: it never blocks anything, only reports would-be
+// violations to /csp-report (+ the devtools console), so the allowlist can be proven against real
+// web AND desktop-webview traffic (Tauri IPC included) before flipping to an enforcing
+// `Content-Security-Policy`. 'unsafe-inline' is unavoidable — the app is one file of inline JS + inline
+// on* handlers — so the hardening value is in locking down connect/frame/object/base-uri: injected code
+// can't exfiltrate to a foreign host or load a hostile frame. Every origin below is audited from actual
+// runtime use: YouTube IFrame API + player frame, Google Fonts, i.ytimg thumbnails, Supabase RPC,
+// search/content.zemer.io, api.github.com (desktop download page), Cloudflare Insights beacon; the
+// html5 fallback (/stream) + engine worker (/lib) + analytics beacon (/a) are all same-origin.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://www.youtube.com https://static.cloudflareinsights.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https://i.ytimg.com https://*.ytimg.com https://*.ggpht.com https://*.googleusercontent.com",
+  "media-src 'self' blob:",
+  "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
+  "connect-src 'self' https://search.zemer.io https://content.zemer.io https://*.supabase.co https://api.github.com https://cloudflareinsights.com",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+  "report-uri /csp-report",
+].join("; ");
 ensureWrite(path.join(DIST, "_headers"),
+  "/*\n" +
+  "  Content-Security-Policy-Report-Only: " + CSP + "\n" +
+  "  X-Content-Type-Options: nosniff\n" +
+  "  Referrer-Policy: strict-origin-when-cross-origin\n" +
   "/lib/*\n  Cache-Control: public, max-age=31536000, immutable\n" +
   "/favicon.ico\n  Cache-Control: public, max-age=604800\n" +
   "/sitemap.xml\n  Cache-Control: public, max-age=3600, s-maxage=21600\n" +
