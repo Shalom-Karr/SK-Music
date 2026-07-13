@@ -25,7 +25,19 @@ const escAttr = (v) =>
 
 // Assemble the full OG + Twitter Card meta tag string from a descriptor object.
 // image and type are optional; title and description are always emitted.
-function buildMetaTags({ title, description, image, type }) {
+// schema.org JSON-LD for Google rich results. `<` is escaped so the JSON can never break out of the
+// <script>. Returns "" for unknown/empty types so callers can append unconditionally.
+function jsonLdTag({ type, title, image, artist, url }) {
+  const T = { "music.song": "MusicRecording", profile: "MusicGroup", "music.album": "MusicAlbum", "music.playlist": "MusicPlaylist" }[type];
+  if (!T || !title) return "";
+  const o = { "@context": "https://schema.org", "@type": T, name: title };
+  if (url) o.url = url;
+  if (image) o.image = image;
+  if (artist && (T === "MusicRecording" || T === "MusicAlbum")) o.byArtist = { "@type": "MusicGroup", name: artist };
+  return `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, "\\u003c")}</script>`;
+}
+
+function buildMetaTags({ title, description, image, type, artist, url }) {
   const parts = [];
   if (type) parts.push(`<meta property="og:type" content="${escAttr(type)}">`);
   parts.push(
@@ -42,6 +54,8 @@ function buildMetaTags({ title, description, image, type }) {
       `<meta name="twitter:image" content="${escAttr(image)}">`
     );
   }
+  const ld = jsonLdTag({ type, title, image, artist, url });
+  if (ld) parts.push(ld);
   return parts.join("");
 }
 
@@ -128,6 +142,8 @@ async function resolveEntityPreview(env, baseUrl, request, entityType, entityId)
             description: `${artist} · SK Music`,
             image: `https://i.ytimg.com/vi/${entityId}/hqdefault.jpg`,
             type: "music.song",
+            artist,
+            url: request.url,
           }),
         };
       }
@@ -143,6 +159,7 @@ async function resolveEntityPreview(env, baseUrl, request, entityType, entityId)
               description: "Artist · SK Music",
               image: data.artist.thumbnail,
               type: "profile",
+              url: request.url,
             }),
           };
         }
@@ -159,6 +176,8 @@ async function resolveEntityPreview(env, baseUrl, request, entityType, entityId)
               description: `${data.album.artist} · SK Music`,
               image: data.album.thumbnail,
               type: "music.album",
+              artist: data.album.artist,
+              url: request.url,
             }),
           };
         }
@@ -176,6 +195,8 @@ async function resolveEntityPreview(env, baseUrl, request, entityType, entityId)
               image: data.playlist.thumbnail
                 ? new URL(data.playlist.thumbnail, baseUrl).toString()
                 : null,
+              type: "music.playlist",
+              url: request.url,
             }),
           };
         }
@@ -714,6 +735,24 @@ async function handleUpdateManifest(ctx) {
   }
 }
 
+// Collect CSP violation reports (the policy ships report-only) so the allowlist can be verified against
+// real web + desktop-webview traffic before flipping to an enforcing policy. Logs one compact line
+// (visible via Workers logs / observability); always 204; never throws.
+async function handleCspReport(request) {
+  try {
+    const body = await request.json();
+    const r = (body && body["csp-report"]) || body || {};
+    console.log("[csp-report]", JSON.stringify({
+      directive: r["violated-directive"] || r["effective-directive"],
+      blocked: r["blocked-uri"],
+      doc: r["document-uri"],
+    }));
+  } catch {
+    // ignore malformed reports
+  }
+  return new Response(null, { status: 204 });
+}
+
 // ─── Entry points ─────────────────────────────────────────────────────────────
 
 export default {
@@ -759,6 +798,8 @@ export default {
     // Desktop auto-updater: serve the newest signed desktop release manifest (edge-cached). 204 =
     // up-to-date/no manifest yet.
     if (pathname.startsWith("/updates/")) return handleUpdateManifest(ctx);
+    // CSP violation reports (policy ships report-only) — logged so the allowlist can be tuned.
+    if (pathname === "/csp-report" && request.method === "POST") return handleCspReport(request);
 
     // Admin / tool pages — KV override always wins; never cache these responses.
     if (pathname === "/analytics" || pathname === "/analytics/") {
