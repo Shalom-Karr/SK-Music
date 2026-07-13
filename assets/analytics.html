@@ -178,6 +178,10 @@
 const SUPABASE_URL = 'https://jxttqcouabdptftlvfnd.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4dHRxY291YWJkcHRmdGx2Zm5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTc2OTAsImV4cCI6MjA5ODc5MzY5MH0.DiTcbcKTqXZTJfOqEXfvckiObinN0g15BDbLmAmmdsY';
 const TABLE = 'zemer_analytics';
+// Only the columns the dashboard actually reads. select=* also pulled url / user_agent / region —
+// which are never used here — so this trims the paginated download's payload (user_agent especially
+// is a long string on every row). `id` is included for potential keyset paging / de-dupe.
+const COLS = 'id,created_at,event,path,referrer,ip,country,city,browser,os,device,screen,session,meta';
 
 // tiny Supabase client over fetch
 let SESSION = JSON.parse(localStorage.getItem('sk_session') || 'null');
@@ -208,6 +212,17 @@ async function sbSelect(qs) {
   if (r.status === 401) { sbSignOut(); throw new Error('Session expired — sign in again.'); }
   const j = await r.json();
   if (!r.ok) throw new Error(j.message || j.hint || 'Query failed');
+  return j;
+}
+async function sbRpc(fn, body) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SESSION?.access_token || SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (r.status === 401) { sbSignOut(); throw new Error('Session expired — sign in again.'); }
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.message || j.hint || 'RPC failed');
   return j;
 }
 
@@ -254,16 +269,42 @@ $('range').addEventListener('click', (e) => {
 });
 $('refreshBtn').addEventListener('click', () => load(true)); // incremental (new rows only)
 
-/* ---------- data (cached + incremental) ---------- */
+/* ---------- data ---------- */
+// Fast path: one server-side aggregation RPC (dashboard_summary) returns every stat/panel as compact JSONB in a
+// single round-trip. Fallback: if that RPC isn't deployed yet or anything goes wrong (HTTP/404, non-OK, bad
+// shape, a throw while mapping/rendering), aggregate client-side (loadClientSide) exactly as before. Net: output
+// is identical to today, and fast once supabase/dashboard-summary.sql is applied.
+async function load(incremental) {
+  try {
+    await loadSummary();
+    console.log('[analytics] fast path: dashboard_summary RPC');
+  } catch (e) {
+    console.warn('[analytics] RPC path unavailable — falling back to client-side aggregation:', e && e.message);
+    await loadClientSide(incremental);
+  }
+}
+
+async function loadSummary() {
+  const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'UTC';
+  const S = await sbRpc('dashboard_summary', { p_hours: RANGE_H, p_tz: tz, p_top: 30 });
+  if (!S || typeof S !== 'object' || S.events == null || !Array.isArray(S.by_song) || !Array.isArray(S.by_artist)) throw new Error('Unexpected dashboard_summary shape');
+  // RPC only returns aggregates — pull a small raw slice for the Recent events table.
+  const range = RANGE_H > 0 ? '&created_at=gte.' + new Date(Date.now() - RANGE_H * 3600e3).toISOString() : '';
+  const rawRows = await sbSelect(`select=${COLS}&order=created_at.desc&limit=80${range}`) || [];
+  paint(modelFromSummary(S), rawRows);
+}
+
+/* ---------- fallback: client-side fetch-all + JS aggregation (cached + incremental) ---------- */
 // Keep the fetched rows in memory. A full fetch only runs on first load / range change; the 60s auto-refresh
 // and the Refresh button just pull rows NEWER than the watermark and merge — so we don't re-download the whole
 // (growing) table every minute. The range window is re-applied on each merge so old rows fall off.
 let CACHE = { rows: [], newest: null, rangeH: null };
-async function load(incremental) {
+async function loadClientSide(incremental) {
+  console.log('[analytics] client-side aggregation path');
   const rangeStart = RANGE_H > 0 ? new Date(Date.now() - RANGE_H * 3600e3).toISOString() : null;
   try {
     if (incremental && CACHE.rangeH === RANGE_H && CACHE.newest) { // pull only new rows since last time
-      const chunk = await sbSelect(`select=*&order=created_at.desc&limit=1000&created_at=gt.${encodeURIComponent(CACHE.newest)}`) || [];
+      const chunk = await sbSelect(`select=${COLS}&order=created_at.desc&limit=1000&created_at=gt.${encodeURIComponent(CACHE.newest)}`) || [];
       if (chunk.length) { CACHE.rows = chunk.concat(CACHE.rows); CACHE.newest = chunk[0].created_at; }
       if (rangeStart) CACHE.rows = CACHE.rows.filter((r) => r.created_at >= rangeStart); // slide the window forward
       render(CACHE.rows);
@@ -274,7 +315,7 @@ async function load(incremental) {
     const PAGE = 1000, MAX_PAGES = 500;
     const all = [];
     for (let p = 0; p < MAX_PAGES; p++) {
-      const chunk = await sbSelect(`select=*&order=created_at.desc&limit=${PAGE}&offset=${p * PAGE}${range}`) || [];
+      const chunk = await sbSelect(`select=${COLS}&order=created_at.desc&limit=${PAGE}&offset=${p * PAGE}${range}`) || [];
       all.push(...chunk);
       if (all.length && p === 0 && chunk.length === PAGE) $('content').innerHTML = `<div class="loading">Loading events… ${num(all.length)}+</div>`;
       if (chunk.length < PAGE) break; // last page
@@ -300,12 +341,13 @@ function barList(pairs, cls = '', max = 8) {
     <div class="bar ${cls}"><div class="lab"><span class="name">${esc(name)}</span><span class="cnt mono">${num(n)}</span></div>
     <div class="track"><div class="fill" style="width:${(n / hi * 100).toFixed(1)}%"></div></div></div>`).join('')}</div>`;
 }
-function timeChart(rows) {
+// samples: [[epochMs, weight], ...] — client passes weight 1 per row; RPC path passes hourly [[ms, count]].
+function timeChart(samples) {
   const buckets = RANGE_H && RANGE_H <= 48 ? 24 : 30;
-  const spanH = RANGE_H > 0 ? RANGE_H : (() => { if (!rows.length) return 24; const oldest = new Date(rows[rows.length - 1].created_at).getTime(); return Math.max(1, (Date.now() - oldest) / 3600e3); })();
+  const spanH = RANGE_H > 0 ? RANGE_H : (() => { if (!samples.length) return 24; let oldest = Infinity; for (const s of samples) if (s[0] < oldest) oldest = s[0]; return Math.max(1, (Date.now() - oldest) / 3600e3); })();
   const stepMs = (spanH * 3600e3) / buckets, now = Date.now();
   const counts = new Array(buckets).fill(0);
-  for (const r of rows) { const t = new Date(r.created_at).getTime(); const i = Math.floor((now - t) / stepMs); if (i >= 0 && i < buckets) counts[buckets - 1 - i]++; }
+  for (const [t, c] of samples) { const i = Math.floor((now - t) / stepMs); if (i >= 0 && i < buckets) counts[buckets - 1 - i] += c; }
   const hi = Math.max(1, ...counts);
   const fmt = (i) => { const d = new Date(now - (buckets - i) * stepMs); return spanH <= 48 ? d.toLocaleTimeString([], { hour: '2-digit' }) : (d.getMonth() + 1) + '/' + d.getDate(); };
   const cols = counts.map((c, i) => `<div class="col" style="height:${(c / hi * 100).toFixed(1)}%"><span>${num(c)} · ${fmt(i)}</span></div>`).join('');
@@ -348,11 +390,20 @@ function referrers(rows) {
   for (const d of firstBySession.values()) m.set(d, (m.get(d) || 0) + 1);
   return [...m.entries()].sort((a, b) => b[1] - a[1]);
 }
-function heatmap(rows) {
+function heatGridFromRows(rows) {
+  const g = Array.from({ length: 7 }, () => new Array(24).fill(0));
+  for (const r of rows) { const d = new Date(r.created_at); g[d.getDay()][d.getHours()]++; }
+  return g;
+}
+function heatGridFromCells(cells) { // [[dow(0=Sun..6=Sat), hour(0-23), count], ...]
+  const g = Array.from({ length: 7 }, () => new Array(24).fill(0));
+  for (const [dow, hr, c] of cells) if (g[dow] && hr >= 0 && hr < 24) g[dow][hr] = c;
+  return g;
+}
+function heatmapGrid(grid) {
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const grid = Array.from({ length: 7 }, () => new Array(24).fill(0));
   let hi = 0;
-  for (const r of rows) { const d = new Date(r.created_at); const c = ++grid[d.getDay()][d.getHours()]; if (c > hi) hi = c; }
+  for (const row of grid) for (const c of row) if (c > hi) hi = c;
   if (!hi) return '<div class="empty" style="padding:20px">No data</div>';
   const body = grid.map((row, wd) => `<div class="hm-row"><span class="hm-day">${days[wd]}</span>${row.map((c, h) => `<span class="hm-cell" title="${days[wd]} ${h}:00 — ${c} event${c === 1 ? '' : 's'}" style="background:${c ? `rgba(91,140,255,${(0.14 + 0.86 * c / hi).toFixed(3)})` : 'var(--bg2)'}"></span>`).join('')}</div>`).join('');
   const axis = `<div class="hm-row"><span class="hm-day"></span>${Array.from({ length: 24 }, (_, h) => `<span class="hm-hr">${h % 6 === 0 ? h : ''}</span>`).join('')}</div>`;
@@ -361,8 +412,8 @@ function heatmap(rows) {
 
 const SHARE_COLORS = ['#ff5d6b','#5b8cff','#34d399','#f5b544','#a78bfa','#f472b6','#2dd4bf','#fb923c','#60a5fa','#94a3b8'];
 // 100%-stacked share bar + legend: what % of plays each artist/song is.
-function shareBar(pairs, topN = 9) {
-  const total = pairs.reduce((a, p) => a + p[1], 0);
+function shareBar(pairs, topN = 9, total = null) {
+  total = total != null ? total : pairs.reduce((a, p) => a + p[1], 0); // RPC caps pairs to p_top; plays_total keeps "Other" correct
   if (!total) return '<div class="empty" style="padding:24px">No plays yet — press play on the site.</div>';
   const top = pairs.slice(0, topN);
   const otherN = total - top.reduce((a, p) => a + p[1], 0);
@@ -388,8 +439,7 @@ function newReturning(rows) {
   for (const [v, s] of daysByVid) { const fd = first.get(v); for (const dk of s) { let e = days.get(dk); if (!e) { e = { nw: 0, rt: 0 }; days.set(dk, e); } if (dk === fd) e.nw++; else e.rt++; } }
   return [...days.entries()].sort((a, b) => a[0] - b[0]).map(([day, e]) => ({ day, nw: e.nw, rt: e.rt }));
 }
-function newRetChart(rows) {
-  const data = newReturning(rows);
+function newRetChart(data) { // data: [{day, nw, rt}, ...] sorted asc
   if (!data.length) return '<div class="empty" style="padding:20px">No visitor data yet</div>';
   const hi = Math.max(1, ...data.map((d) => d.nw + d.rt));
   const bars = data.map((d) => {
@@ -402,8 +452,8 @@ function newRetChart(rows) {
 let LAST_ROWS = [], TABLE_FILTER = 'all';
 window.setTableFilter = (ev) => { TABLE_FILTER = ev; renderTable(); };
 
-function render(rows) {
-  LAST_ROWS = rows;
+// Normalize the raw rows into the same view-model shape the RPC produces, so one renderer serves both paths.
+function modelFromRows(rows) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const todayN = rows.filter((r) => new Date(r.created_at) >= today).length;
   const ss = sessionStats(rows), vs = visitorStats(rows);
@@ -412,65 +462,113 @@ function render(rows) {
   const likes = rows.filter((r) => r.event === 'like' && r.meta?.on !== false);
   const likePairs = topSongs(likes).map((s) => [s.artist ? `${s.title} · ${s.artist}` : s.title, s.n]);
   const zeroSearch = tally(rows.filter((r) => r.event === 'search' && (r.meta?.count === 0 || r.meta?.count === '0')), null, (r) => r.meta?.q);
-  const avg = ss.avgMin < 1 ? (ss.avgMin * 60).toFixed(0) + 's' : ss.avgMin.toFixed(1) + 'm';
+  return {
+    events: rows.length, eventsToday: todayN,
+    visitors: vs.visitors, visitorsReturning: vs.returning, returningPct: vs.returningPct,
+    sessions: ss.count, plays: plays.length, likes: likes.length, playsTotal: plays.length,
+    avg: ss.avgMin < 1 ? (ss.avgMin * 60).toFixed(0) + 's' : ss.avgMin.toFixed(1) + 'm',
+    bouncePct: ss.bounce, eventsPerSession: ss.count ? (rows.length / ss.count).toFixed(1) : '0',
+    visitorsIp: new Set(rows.map((r) => r.ip).filter(Boolean)).size,
+    artistPairs: tally(plays, null, (r) => r.meta?.artist), songPairs,
+    eventPairs: tally(rows, 'event'), zeroSearchPairs: zeroSearch,
+    likedSongPairs: likePairs, likedArtistPairs: tally(likes, null, (r) => r.meta?.artist),
+    pathPairs: tally(rows, 'path'), referrerPairs: referrers(rows),
+    searchPairs: tally(rows.filter((r) => r.event === 'search'), null, (r) => r.meta?.q),
+    devicePairs: tally(rows, 'device'), screenPairs: tally(rows, null, (r) => r.screen || r.meta?.screen),
+    countryPairs: tally(rows, 'country'), browserPairs: tally(rows, 'browser'), osPairs: tally(rows, 'os'),
+    viewportPairs: tally(rows.filter((r) => r.event === 'load'), null, (r) => r.meta?.viewport),
+    newRet: newReturning(rows), timeSamples: rows.map((r) => [new Date(r.created_at).getTime(), 1]),
+    heatGrid: heatGridFromRows(rows), rangeLabel: RANGE_H ? RANGE_H + 'h' : 'all',
+  };
+}
 
-  $('content').innerHTML = `
+// Same view-model, sourced from the dashboard_summary RPC's JSONB (keys defined in supabase/dashboard-summary.sql).
+function modelFromSummary(S) {
+  const visitors = +S.visitors || 0, returning = +S.visitors_returning || 0, avgMin = +S.avg_session_min || 0;
+  return {
+    events: +S.events || 0, eventsToday: +S.events_today || 0,
+    visitors, visitorsReturning: returning, returningPct: visitors ? returning / visitors * 100 : 0,
+    sessions: +S.sessions || 0, plays: +S.plays || 0, likes: +S.likes || 0, playsTotal: +S.plays_total || 0,
+    avg: avgMin < 1 ? (avgMin * 60).toFixed(0) + 's' : avgMin.toFixed(1) + 'm',
+    bouncePct: +S.bounce_pct || 0, eventsPerSession: (+S.sessions) ? (+S.events_per_session).toFixed(1) : '0',
+    visitorsIp: +S.visitors_ip || 0,
+    artistPairs: S.by_artist || [], songPairs: S.by_song || [],
+    eventPairs: S.by_event || [], zeroSearchPairs: S.zero_search || [],
+    likedSongPairs: S.liked_songs || [], likedArtistPairs: S.liked_artists || [],
+    pathPairs: S.by_path || [], referrerPairs: S.by_referrer || [], searchPairs: S.top_search || [],
+    devicePairs: S.by_device || [], screenPairs: S.by_screen || [], countryPairs: S.by_country || [],
+    browserPairs: S.by_browser || [], osPairs: S.by_os || [], viewportPairs: S.by_viewport || [],
+    newRet: (S.new_returning || []).map(([d, nw, rt]) => ({ day: d, nw, rt })),
+    timeSamples: (S.hourly || []).map(([h, c]) => [new Date(h).getTime(), c]),
+    heatGrid: heatGridFromCells(S.heatmap || []), rangeLabel: RANGE_H ? RANGE_H + 'h' : 'all',
+  };
+}
+
+function render(rows) { paint(modelFromRows(rows), rows); }
+
+function paint(m, tableRows) {
+  LAST_ROWS = tableRows;
+  $('content').innerHTML = contentHTML(m);
+  renderTable();
+}
+
+function contentHTML(m) {
+  return `
     <div class="grid stats">
-      <div class="stat a"><div class="k">Events</div><div class="v mono">${num(rows.length)}</div><div class="s">${num(todayN)} today</div></div>
-      <div class="stat b"><div class="k">Visitors</div><div class="v mono">${num(vs.visitors)}</div><div class="s">${num(vs.returning)} returning</div></div>
-      <div class="stat c"><div class="k">Sessions</div><div class="v mono">${num(ss.count)}</div><div class="s">${vs.returningPct.toFixed(0)}% returning</div></div>
-      <div class="stat d"><div class="k">Plays</div><div class="v mono">${num(plays.length)}</div><div class="s">songs started</div></div>
+      <div class="stat a"><div class="k">Events</div><div class="v mono">${num(m.events)}</div><div class="s">${num(m.eventsToday)} today</div></div>
+      <div class="stat b"><div class="k">Visitors</div><div class="v mono">${num(m.visitors)}</div><div class="s">${num(m.visitorsReturning)} returning</div></div>
+      <div class="stat c"><div class="k">Sessions</div><div class="v mono">${num(m.sessions)}</div><div class="s">${m.returningPct.toFixed(0)}% returning</div></div>
+      <div class="stat d"><div class="k">Plays</div><div class="v mono">${num(m.plays)}</div><div class="s">songs started</div></div>
     </div>
     <div class="grid stats">
-      <div class="stat b"><div class="k">Avg session</div><div class="v mono">${avg}</div><div class="s">time on site</div></div>
-      <div class="stat a"><div class="k">Bounce rate</div><div class="v mono">${ss.bounce.toFixed(0)}%</div><div class="s">single-event sessions</div></div>
-      <div class="stat d"><div class="k">Events / session</div><div class="v mono">${ss.count ? (rows.length / ss.count).toFixed(1) : '0'}</div><div class="s">depth</div></div>
-      <div class="stat c"><div class="k">Visitors (IP)</div><div class="v mono">${num(new Set(rows.map((r) => r.ip).filter(Boolean)).size)}</div><div class="s">unique IPs</div></div>
+      <div class="stat b"><div class="k">Avg session</div><div class="v mono">${m.avg}</div><div class="s">time on site</div></div>
+      <div class="stat a"><div class="k">Bounce rate</div><div class="v mono">${m.bouncePct.toFixed(0)}%</div><div class="s">single-event sessions</div></div>
+      <div class="stat d"><div class="k">Events / session</div><div class="v mono">${m.eventsPerSession}</div><div class="s">depth</div></div>
+      <div class="stat c"><div class="k">Visitors (IP)</div><div class="v mono">${num(m.visitorsIp)}</div><div class="s">unique IPs</div></div>
     </div>
 
     <div class="grid cols">
-      <div class="panel"><h3>Listening by artist <span class="n">% of ${num(plays.length)} plays</span></h3>${shareBar(tally(plays, null, (r) => r.meta?.artist))}</div>
-      <div class="panel"><h3>Listening by song <span class="n">% of ${num(plays.length)} plays</span></h3>${shareBar(songPairs)}</div>
+      <div class="panel"><h3>Listening by artist <span class="n">% of ${num(m.plays)} plays</span></h3>${shareBar(m.artistPairs, 9, m.playsTotal)}</div>
+      <div class="panel"><h3>Listening by song <span class="n">% of ${num(m.plays)} plays</span></h3>${shareBar(m.songPairs, 9, m.playsTotal)}</div>
     </div>
 
     <div class="grid cols3">
-      <div class="panel"><h3>New vs returning <span class="n">daily</span></h3>${newRetChart(rows)}</div>
-      <div class="panel"><h3>Activity over time <span class="n">${RANGE_H ? RANGE_H + 'h' : 'all'}</span></h3>${timeChart(rows)}</div>
-      <div class="panel"><h3>Event types</h3>${barList(tally(rows, 'event'), 'rose')}</div>
+      <div class="panel"><h3>New vs returning <span class="n">daily</span></h3>${newRetChart(m.newRet)}</div>
+      <div class="panel"><h3>Activity over time <span class="n">${m.rangeLabel}</span></h3>${timeChart(m.timeSamples)}</div>
+      <div class="panel"><h3>Event types</h3>${barList(m.eventPairs, 'rose')}</div>
     </div>
 
     <div class="grid cols3">
-      <div class="panel"><h3>Top songs played <span class="n">${num(plays.length)} plays</span></h3>${barList(songPairs, 'rose')}</div>
-      <div class="panel"><h3>Top artists played</h3>${barList(tally(plays, null, (r) => r.meta?.artist), 'green')}</div>
-      <div class="panel"><h3>Searches, 0 results <span class="n">content gaps</span></h3>${barList(zeroSearch, 'gold')}</div>
+      <div class="panel"><h3>Top songs played <span class="n">${num(m.plays)} plays</span></h3>${barList(m.songPairs, 'rose')}</div>
+      <div class="panel"><h3>Top artists played</h3>${barList(m.artistPairs, 'green')}</div>
+      <div class="panel"><h3>Searches, 0 results <span class="n">content gaps</span></h3>${barList(m.zeroSearchPairs, 'gold')}</div>
     </div>
 
     <div class="grid cols">
-      <div class="panel"><h3>Most liked songs <span class="n">${num(likes.length)} likes</span></h3>${barList(likePairs, 'rose')}</div>
-      <div class="panel"><h3>Most liked artists</h3>${barList(tally(likes, null, (r) => r.meta?.artist), 'green')}</div>
+      <div class="panel"><h3>Most liked songs <span class="n">${num(m.likes)} likes</span></h3>${barList(m.likedSongPairs, 'rose')}</div>
+      <div class="panel"><h3>Most liked artists</h3>${barList(m.likedArtistPairs, 'green')}</div>
     </div>
 
     <div class="grid cols3">
-      <div class="panel"><h3>Top pages</h3>${barList(tally(rows, 'path'))}</div>
-      <div class="panel"><h3>Traffic sources <span class="n">by session</span></h3>${barList(referrers(rows), 'green')}</div>
-      <div class="panel"><h3>Top searches</h3>${barList(tally(rows.filter((r) => r.event === 'search'), null, (r) => r.meta?.q), 'gold')}</div>
+      <div class="panel"><h3>Top pages</h3>${barList(m.pathPairs)}</div>
+      <div class="panel"><h3>Traffic sources <span class="n">by session</span></h3>${barList(m.referrerPairs, 'green')}</div>
+      <div class="panel"><h3>Top searches</h3>${barList(m.searchPairs, 'gold')}</div>
     </div>
 
     <div class="grid cols3">
-      <div class="panel"><h3>Devices</h3>${barList(tally(rows, 'device'), 'gold')}</div>
-      <div class="panel"><h3>Screen sizes</h3>${barList(tally(rows, null, (r) => r.screen || r.meta?.screen), 'green')}</div>
-      <div class="panel"><h3>Countries</h3>${barList(tally(rows, 'country'))}</div>
+      <div class="panel"><h3>Devices</h3>${barList(m.devicePairs, 'gold')}</div>
+      <div class="panel"><h3>Screen sizes</h3>${barList(m.screenPairs, 'green')}</div>
+      <div class="panel"><h3>Countries</h3>${barList(m.countryPairs)}</div>
     </div>
     <div class="grid cols3">
-      <div class="panel"><h3>Browsers</h3>${barList(tally(rows, 'browser'), 'green')}</div>
-      <div class="panel"><h3>Operating systems</h3>${barList(tally(rows, 'os'), 'gold')}</div>
-      <div class="panel"><h3>Viewports <span class="n">on load</span></h3>${barList(tally(rows.filter((r) => r.event === 'load'), null, (r) => r.meta?.viewport))}</div>
+      <div class="panel"><h3>Browsers</h3>${barList(m.browserPairs, 'green')}</div>
+      <div class="panel"><h3>Operating systems</h3>${barList(m.osPairs, 'gold')}</div>
+      <div class="panel"><h3>Viewports <span class="n">on load</span></h3>${barList(m.viewportPairs)}</div>
     </div>
 
-    <div class="panel" style="margin-top:14px"><h3>Activity heatmap <span class="n">your local time · hour × day</span></h3>${heatmap(rows)}</div>
+    <div class="panel" style="margin-top:14px"><h3>Activity heatmap <span class="n">your local time · hour × day</span></h3>${heatmapGrid(m.heatGrid)}</div>
 
     <div class="tablewrap" id="tblwrap"></div>`;
-  renderTable();
 }
 
 function renderTable() {
