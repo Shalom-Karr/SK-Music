@@ -753,7 +753,10 @@ const CSP = [
   "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
   // ipc: + ipc.localhost are the Tauri desktop app's IPC transport (invoke → now_playing/set_playback_state);
   // harmless for browsers, required so the desktop media bridge isn't blocked.
-  "connect-src 'self' https://search.zemer.io https://content.zemer.io https://*.supabase.co https://api.github.com https://cloudflareinsights.com ipc: http://ipc.localhost https://ipc.localhost",
+  // filter.techloq.com + www.youtube.com fetches: the /test, /connectivity and /playback-block-test
+  // diagnostic pages probe them to tell the user WHAT their filter is blocking — those probes must not
+  // themselves be CSP-blocked (that would be a false diagnosis). Only used by those pages.
+  "connect-src 'self' https://search.zemer.io https://content.zemer.io https://*.supabase.co https://api.github.com https://cloudflareinsights.com https://filter.techloq.com https://www.youtube.com ipc: http://ipc.localhost https://ipc.localhost",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "object-src 'none'",
