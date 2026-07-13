@@ -676,6 +676,44 @@ async function tryKvOverride(env, path) {
   });
 }
 
+// Desktop auto-updater manifest. Proxies the signed `latest.json` from the newest published
+// `desktop-*` GitHub release so the app checks updates against the trusted skmusic origin. The
+// manifest's URLs point at the GitHub release assets (installers), so github must be reachable to
+// apply an update — same as the manual /download path. The GitHub API subrequest is edge-cached
+// (cf.cacheTtl) and the built manifest is cached ~10min, keeping us well under the API rate limit.
+const UPDATE_REPO = "Shalom-Karr/SK-Music";
+async function handleUpdateManifest(ctx) {
+  const cache = caches.default;
+  const cacheKey = new Request("https://sk-music.internal/__updates_latest.json");
+  const hit = await cache.match(cacheKey);
+  if (hit) return hit;
+  const noUpdate = () => new Response(null, { status: 204, headers: { "Cache-Control": "public, max-age=300" } });
+  try {
+    const gh = { "User-Agent": "sk-music-updater", Accept: "application/vnd.github+json" };
+    const rel = await fetch(`https://api.github.com/repos/${UPDATE_REPO}/releases?per_page=20`, {
+      headers: gh,
+      cf: { cacheTtl: 300, cacheEverything: true },
+    });
+    if (!rel.ok) return noUpdate();
+    const releases = await rel.json();
+    const desktop = Array.isArray(releases)
+      ? releases.find((r) => !r.draft && !r.prerelease && (r.tag_name || "").startsWith("desktop-v"))
+      : null;
+    const asset = desktop && (desktop.assets || []).find((a) => a.name === "latest.json");
+    if (!asset) return noUpdate();
+    const man = await fetch(asset.browser_download_url, { headers: gh, cf: { cacheTtl: 300, cacheEverything: true } });
+    if (!man.ok) return noUpdate();
+    const resp = new Response(await man.text(), {
+      status: 200,
+      headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=600" },
+    });
+    ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+    return resp;
+  } catch (e) {
+    return noUpdate();
+  }
+}
+
 // ─── Entry points ─────────────────────────────────────────────────────────────
 
 export default {
@@ -718,11 +756,9 @@ export default {
     if (pathname === "/trending") return handleTrending(request, url, env, ctx);
     if (pathname === "/a" && request.method === "POST")
       return handleAnalyticsBeacon(request, env, ctx);
-    // Desktop auto-updater manifest endpoint. No signed artifacts are published yet
-    // (tauri.conf createUpdaterArtifacts=false), so always answer "up to date" (204). This keeps the
-    // app's "Check for updates" clean instead of erroring on a missing/HTML manifest; flip to a real
-    // signed manifest here once release signing is enabled.
-    if (pathname.startsWith("/updates/")) return new Response(null, { status: 204 });
+    // Desktop auto-updater: serve the newest signed desktop release manifest (edge-cached). 204 =
+    // up-to-date/no manifest yet.
+    if (pathname.startsWith("/updates/")) return handleUpdateManifest(ctx);
 
     // Admin / tool pages — KV override always wins; never cache these responses.
     if (pathname === "/analytics" || pathname === "/analytics/") {
