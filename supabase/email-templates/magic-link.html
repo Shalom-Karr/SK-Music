@@ -1,0 +1,51 @@
+<!--
+  SK Music — Supabase "Magic Link" email template.
+  Paste into: Supabase Dashboard → Authentication → Email Templates → Magic Link → Message body (HTML).
+  Supabase variables used: {{ .ConfirmationURL }} (the sign-in link), {{ .Token }} (6-digit code alt).
+  Robust, table-based, inline-styled dark theme. Renders well in Gmail / Apple Mail / Outlook.com / mobile.
+-->
+<!doctype html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark light">
+<title>Sign in to SK Music</title>
+<!--[if mso]><style>body,table,td,a{font-family:Arial,Helvetica,sans-serif !important}</style><![endif]-->
+</head>
+<body style="margin:0;padding:0;background:#0e0a0b;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your one-tap sign-in link for SK Music (expires in 1 hour).</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0e0a0b;">
+  <tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+      <!-- brand -->
+      <tr><td align="center" style="padding:8px 0 26px;">
+        <span style="font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:bold;color:#ff5d6b;letter-spacing:.5px;">&#9834; SK Music</span>
+      </td></tr>
+      <!-- card -->
+      <tr><td style="background:#181112;border:1px solid rgba(255,240,235,.10);border-radius:18px;padding:38px 34px;">
+        <h1 style="margin:0 0 12px;font-family:Georgia,'Times New Roman',serif;font-size:24px;line-height:1.25;color:#f6ece8;font-weight:bold;">Sign in to SK Music</h1>
+        <p style="margin:0 0 26px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#b09a93;">Tap the button below to sign in. No password needed &mdash; this link signs you in on this device.</p>
+        <!-- bulletproof button -->
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td align="center" bgcolor="#ff5d6b" style="border-radius:11px;">
+            <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="{{ .ConfirmationURL }}" style="height:46px;v-text-anchor:middle;width:220px;" arcsize="24%" fillcolor="#ff5d6b" stroke="f"><center style="color:#2a0407;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;">Sign in to SK Music</center></v:roundrect><![endif]-->
+            <!--[if !mso]><!-- -->
+            <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:13px 30px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#2a0407;text-decoration:none;border-radius:11px;">Sign in to SK Music</a>
+            <!--<![endif]-->
+          </td>
+        </tr></table>
+        <p style="margin:26px 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;color:#7c6963;">Or use this code: <span style="color:#f0b35a;font-weight:bold;letter-spacing:2px;">{{ .Token }}</span></p>
+        <p style="margin:18px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#7c6963;">This link expires in 1 hour. If the button doesn't work, copy this URL:<br><a href="{{ .ConfirmationURL }}" style="color:#ff8189;word-break:break-all;">{{ .ConfirmationURL }}</a></p>
+      </td></tr>
+      <!-- footer -->
+      <tr><td align="center" style="padding:22px 16px 4px;">
+        <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#5c4d48;">You received this because someone asked for a sign-in link for your SK Music account. If it wasn't you, you can safely ignore this email.</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>

@@ -606,10 +606,16 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 @keyframes splp{0%,100%{opacity:.42}50%{opacity:1}}
 #spfx{position:fixed;inset:0;z-index:9001;pointer-events:none}
 @media(prefers-reduced-motion:reduce){#splogo.bob{animation:none}}
+/* ============================ a11y (additive only) ============================ */
+button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+#maincontent:focus-visible,#maincontent:focus{outline:none}
+.skip-link{position:fixed;left:8px;top:-64px;z-index:10000;background:var(--surface-3);color:var(--text);padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:600;box-shadow:var(--shadow);transition:top .15s}
+.skip-link:focus{top:8px}
 </style>
 <!--CF_ANALYTICS-->
 </head>
 <body>
+<a class="skip-link" href="#maincontent">Skip to content</a>
 <div id="splash"><div id="splogo" class="bob"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 688 300" width="688" height="300" preserveAspectRatio="xMidYMid meet">
 <defs>
   <linearGradient id="musicgold" x1="0%" y1="8%" x2="100%" y2="92%">
@@ -652,7 +658,7 @@ fill="url(#royal)" stroke="none">
 </svg>
 <g transform="translate(281.01,208.39) scale(0.16913)" fill="url(#musicgold)"><path d="M251.50-686.50L421.50-260L410.50-242.50L570.50-684Q574-694 577.25-697Q580.50-700 586-700L754-700Q756-700 757.25-699Q758.50-698 758.50-697Q758.50-695.50 757.25-694.50Q756-693.50 753-693L710.50-686.50Q702-685 698-678.50Q694-672 694.50-661L739-36Q740-23.50 743-19.25Q746-15 756.50-13L796.50-7Q799.50-6.50 800.75-6Q802-5.50 802-3.50Q802-2 801-1Q800 0 798 0L538.50 0Q536.50 0 535.25-1Q534-2 534-3Q534-5 535.25-5.75Q536.50-6.50 540-7L580-13Q590.50-15.50 594.75-20Q599-24.50 598.50-36L556-631.50L564-638L364.50-68.50Q361.50-61 359.25-58.75Q357-56.50 355-56.50Q354-56.50 352.50-57.50Q351-58.50 349.50-61.25Q348-64 346-69L126.50-628.50L133.50-642.50L93-73Q92-52 106.25-36.75Q120.50-21.50 145-14.50L186-7Q189-6 190-5.50Q191-5 191-3Q191-2 190.25-1Q189.50 0 187 0L-2 0Q-4 0-5-1Q-6-2-6-3Q-6-5-4.25-5.75Q-2.50-6.50-1-7L29-14.50Q51.50-21 66.50-36.25Q81.50-51.50 83-73.50L122.50-621Q125-651.50 121.25-667.75Q117.50-684 104.50-686L67.50-691.50Q62.50-692.50 60-693.25Q57.50-694 57.50-696Q57.50-700 65-700L237-700Q241.50-700 245-697.25Q248.50-694.50 251.50-686.50M1154.50-14.50L1154.50-80L1154.50-83L1154.50-391.50Q1154.50-394.50 1153.25-396Q1152-397.50 1148-397.50L1115.50-397.50Q1113-398 1112-398.75Q1111-399.50 1111-401Q1111-403 1112.25-403.75Q1113.50-404.50 1115.50-405L1259-445Q1263-446 1265-446.50Q1267-447 1269-447Q1271.50-447 1273-445.25Q1274.50-443.50 1274.50-441L1274.50-27.50Q1274.50-21 1277-17Q1279.50-13 1286.50-11.50L1313.50-7Q1317-7 1318-5.75Q1319-4.50 1319-3Q1319-2 1318-1Q1317 0 1315 0L1168 0Q1161.50 0 1158-3.50Q1154.50-7 1154.50-14.50M871.50-117L871.50-391.50Q871.50-394.50 869.75-396Q868-397.50 864.50-397.50L831.50-397.50Q829.50-398 828.50-398.75Q827.50-399.50 827.50-401Q827.50-403 828.75-403.75Q830-404.50 832-405L975-445Q980-446.50 981.75-446.75Q983.50-447 985.50-447Q988.50-447 989.50-445.25Q990.50-443.50 990.50-441L990.50-129.50Q990.50-85 1010.50-64.50Q1030.50-44 1063.50-44Q1085-44 1106.50-53Q1128-62 1149.50-81.50L1167-97L1172-92L1154-75.50Q1102-29.50 1060.75-10.50Q1019.50 8.50 984.50 8.50Q935 8.50 903.25-21.75Q871.50-52 871.50-117M1536 0Q1570.50 0 1590.75-18.25Q1611-36.50 1611-65.50Q1611-86 1601.50-102.50Q1592-119 1569.25-133Q1546.50-147 1507-159.50Q1448-179 1414.25-202.25Q1380.50-225.50 1366.50-254.25Q1352.50-283 1352.50-319.50Q1352.50-382 1395-416Q1437.50-450 1508.50-450Q1539-450 1558.50-444.25Q1578-438.50 1588.75-432.50Q1599.50-426.50 1602.50-426.50Q1607-426.50 1619.75-432.50Q1632.50-438.50 1644.75-444.25Q1657-450 1660.50-450Q1662.50-450 1664.25-449.25Q1666-448.50 1666.50-444.50L1693-300.50Q1694-297 1693.50-294.25Q1693-291.50 1691.50-290.50Q1689.50-290 1688.25-291Q1687-292 1685.50-293Q1657-349 1630-381.25Q1603-413.50 1574.75-427.25Q1546.50-441 1513-441Q1475.50-441 1455-422.25Q1434.50-403.50 1434.50-371.50Q1434.50-351 1444.25-334Q1454-317 1478.75-302.75Q1503.50-288.50 1549.50-275Q1602-260 1634-238Q1666-216 1680.25-187.25Q1694.50-158.50 1694.50-123.50Q1694.50-83 1674.75-53Q1655-23 1621.25-6.75Q1587.50 9.50 1545 9.50Q1517.50 9.50 1497.50 1.75Q1477.50-6 1465.25-13.75Q1453-21.50 1450.50-21.50Q1447-21.50 1436.50-14.25Q1426-7 1414.75 0Q1403.50 7 1399.50 7Q1397 7 1394.75 4.75Q1392.50 2.50 1391.50-2.50L1369.50-126Q1369-131 1369.50-133.75Q1370-136.50 1371.50-137Q1372.50-138 1374-137Q1375.50-136 1376.50-134.50Q1416.50-61.50 1456.50-30.75Q1496.50 0 1536 0M1904.50-442L1904.50-27.50Q1904.50-21 1907.50-17Q1910.50-13 1917-11.50L1944-7Q1947.50-7 1948.50-5.75Q1949.50-4.50 1949.50-3Q1949.50-2 1948.25-1Q1947 0 1945 0L1744 0Q1742.50 0 1741.25-1Q1740-2 1740-3Q1740-4.50 1741-5.25Q1742-6 1744.50-6.50L1773.50-11.50Q1780-13.50 1782.75-17.25Q1785.50-21 1785.50-27.50L1785.50-392.50Q1785.50-395.50 1784-397.25Q1782.50-399 1779-399L1746-399Q1744-399 1743-399.75Q1742-400.50 1742-402.50Q1742-404.50 1743.25-405Q1744.50-405.50 1746-406L1889-446Q1894-447.50 1895.75-447.75Q1897.50-448 1899.50-448Q1902.50-448 1903.50-446.25Q1904.50-444.50 1904.50-442M1843-511Q1811.50-511 1791.75-532Q1772-553 1772-583Q1772-613.50 1791.75-634.50Q1811.50-655.50 1843-655.50Q1874.50-655.50 1895-634.50Q1915.50-613.50 1915.50-583Q1915.50-553 1895-532Q1874.50-511 1843-511M2366.50-331Q2366.50-305 2351.50-289Q2336.50-273 2310-273Q2283.50-273 2267.75-289.50Q2252-306 2252-337L2252-373.50Q2252-404.50 2235.25-422.50Q2218.50-440.50 2190-440.50Q2160-440.50 2138-419.25Q2116-398 2104.25-359.50Q2092.50-321 2092.50-268Q2092.50-202 2111-156.75Q2129.50-111.50 2162.25-88.25Q2195-65 2237-65Q2282.50-65 2315-85.25Q2347.50-105.50 2359.50-149.50Q2359.50-151.50 2360.50-152Q2361.50-152.50 2362.50-152.50Q2363.50-152 2364.25-151Q2365-150 2364.50-148Q2355-97.50 2329-62.50Q2303-27.50 2264.50-9Q2226 9.50 2176.50 9.50Q2120 9.50 2075.25-15.50Q2030.50-40.50 2004.50-89.50Q1978.50-138.50 1978.50-210Q1978.50-278.50 2006.50-332.50Q2034.50-386.50 2084.25-417.75Q2134-449 2199.50-449Q2253.50-449 2290.50-433.75Q2327.50-418.50 2347-391.75Q2366.50-365 2366.50-331"/></g>
 </svg></div><div id="sploading">loading</div></div>
-<canvas id="spfx"></canvas>
+<canvas id="spfx" aria-hidden="true"></canvas>
 <script>
 /* Boot splash — self-contained, runs before the app. Skips on returning/cached visits (the SW already
    controls the page); otherwise the logo bounces with "loading" until window.__appReady() fires (the app
@@ -688,7 +694,7 @@ fill="url(#royal)" stroke="none">
 <div id="app">
   <aside id="sidebar">
     <div class="brand"><img class="blogo" src="/assets/skmusic_logo_with_words.svg" alt="SK Music" width="216" height="94"></div>
-    <nav id="nav"></nav>
+    <nav id="nav" aria-label="Primary"></nav>
     <div class="side-foot">
       <a class="side-source" href="https://github.com/Shalom-Karr/SK-Music" target="_blank" rel="noopener" title="View source on GitHub">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.94.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 22 12 10 10 0 0 0 12 2z"/></svg>
@@ -704,26 +710,26 @@ fill="url(#royal)" stroke="none">
 
   <div id="content">
     <header id="topbar">
-      <button class="iconbtn hamburger" id="hamburger" onclick="toggleSidebar()" title="Menu"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
+      <button class="iconbtn hamburger" id="hamburger" onclick="toggleSidebar()" title="Menu" aria-label="Menu" aria-controls="sidebar" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
       <div class="tb-title" id="tbTitle">Home</div>
       <div class="searchbox" id="tbSearch" style="display:none">
-        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14"/></svg>
-        <input id="q" type="search" placeholder="Search songs, artists, albums…" autocomplete="off">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14"/></svg>
+        <input id="q" type="search" placeholder="Search songs, artists, albums…" autocomplete="off" aria-label="Search songs, artists, albums">
       </div>
       <div class="tb-spacer"></div>
       <div class="tb-stat" id="tbStat" title="Live catalog"></div>
-      <button class="iconbtn filterbtn" id="filterBtn" style="width:44px;height:44px" title="Content filters" onclick="toggleMenu(event)">
-        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M10 18h4v-2h-4zM3 6v2h18V6zm3 7h12v-2H6z"/></svg>
+      <button class="iconbtn filterbtn" id="filterBtn" style="width:44px;height:44px" title="Content filters" aria-label="Content filters" aria-haspopup="true" aria-expanded="false" onclick="toggleMenu(event)">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M10 18h4v-2h-4zM3 6v2h18V6zm3 7h12v-2H6z"/></svg>
       </button>
       <div id="acctWrap">
         <div id="acctChip"></div>
-        <div class="acctmenu" id="acctMenu">
-          <div class="am-row" id="parentalLink" onclick="openParental()"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2M9 6a3 3 0 0 1 6 0v2H9zm3 11a2 2 0 1 1 0-4 2 2 0 0 1 0 4"/></svg><span>Parental Controls</span></div>
-          <div class="am-row" onclick="acctSignOut()"><svg viewBox="0 0 24 24"><path d="M16 13v-2H7V8l-5 4 5 4v-3zM20 3h-9a2 2 0 0 0-2 2v4h2V5h9v14h-9v-4H9v4a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2"/></svg><span>Sign out</span></div>
+        <div class="acctmenu" id="acctMenu" role="menu">
+          <div class="am-row" id="parentalLink" role="menuitem" tabindex="0" onclick="openParental()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2M9 6a3 3 0 0 1 6 0v2H9zm3 11a2 2 0 1 1 0-4 2 2 0 0 1 0 4"/></svg><span>Parental Controls</span></div>
+          <div class="am-row" role="menuitem" tabindex="0" onclick="acctSignOut()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 13v-2H7V8l-5 4 5 4v-3zM20 3h-9a2 2 0 0 0-2 2v4h2V5h9v14h-9v-4H9v4a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2"/></svg><span>Sign out</span></div>
         </div>
       </div>
     </header>
-    <main>
+    <main id="maincontent" tabindex="-1">
       <section class="view" id="v-home"></section>
       <section class="view" id="v-foryou"></section>
       <section class="view" id="v-search"></section>
@@ -740,7 +746,7 @@ fill="url(#royal)" stroke="none">
     </main>
   </div>
   <div id="drawerScrim" onclick="closeSidebar()"></div>
-  <div class="authmodal" id="authModal" data-mode="in" onclick="if(event.target===this)closeAuth()">
+  <div class="authmodal" id="authModal" data-mode="in" role="dialog" aria-modal="true" aria-labelledby="authTitle" onclick="if(event.target===this)closeAuth()">
     <div class="authcard">
       <button class="authclose" onclick="closeAuth()" aria-label="Close">✕</button>
       <div class="authlogo"><svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg></div>
@@ -753,13 +759,15 @@ fill="url(#royal)" stroke="none">
       <form onsubmit="submitAuth(event)" autocomplete="on">
         <div class="authfield"><svg class="authic" viewBox="0 0 24 24"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2m0 4-8 5-8-5V6l8 5 8-5z"/></svg><input id="authEmail" type="email" placeholder="Email" autocomplete="email" spellcheck="false"></div>
         <div class="authfield pw"><svg class="authic" viewBox="0 0 24 24"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2M9 6a3 3 0 0 1 6 0v2H9zm3 11a2 2 0 1 1 0-4 2 2 0 0 1 0 4"/></svg><input id="authPw" type="password" placeholder="Password" autocomplete="current-password"><button type="button" class="autheye" onclick="togglePw(this)" aria-label="Show password"><svg viewBox="0 0 24 24"><path d="M12 5c-7.3 0-11 7-11 7s3.7 7 11 7 11-7 11-7-3.7-7-11-7m0 11.5A4.5 4.5 0 1 1 12 7.5a4.5 4.5 0 0 1 0 9m0-7A2.5 2.5 0 1 0 12 14.5 2.5 2.5 0 0 0 12 9.5"/></svg></button></div>
+        <div id="authForgotRow" style="text-align:right;margin:-4px 2px 8px"><button type="button" onclick="authSendReset()" style="background:none;border:0;padding:2px 0;color:var(--muted);font:inherit;font-size:12.5px;cursor:pointer;text-decoration:underline">Forgot password?</button></div>
         <div class="authmsg" id="authMsg"></div>
         <button class="authbtn" id="authSubmit" type="submit">Sign in</button>
+        <button type="button" class="authbtn danger" id="authMagicBtn" style="margin-top:10px" onclick="authSendMagic()">Email me a login link</button>
       </form>
       <div class="authfoot">Your library syncs securely — we never post anything.</div>
     </div>
   </div>
-  <div class="authmodal" id="pinModal" data-mode="set" onclick="if(event.target===this)closePinModal()">
+  <div class="authmodal" id="pinModal" data-mode="set" role="dialog" aria-modal="true" aria-labelledby="pinTitle" onclick="if(event.target===this)closePinModal()">
     <div class="authcard" style="max-width:362px">
       <button class="authclose" onclick="closePinModal()" aria-label="Close">✕</button>
       <div class="authlogo"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2M9 6a3 3 0 0 1 6 0v2H9zm3 11a2 2 0 1 1 0-4 2 2 0 0 1 0 4"/></svg></div>
@@ -773,7 +781,7 @@ fill="url(#royal)" stroke="none">
       </form>
     </div>
   </div>
-  <div class="authmodal" id="confirmPinModal" onclick="if(event.target===this)closeConfirmPin()">
+  <div class="authmodal" id="confirmPinModal" role="dialog" aria-modal="true" aria-labelledby="confirmPinTitle" onclick="if(event.target===this)closeConfirmPin()">
     <div class="authcard" style="max-width:362px">
       <button class="authclose" onclick="closeConfirmPin()" aria-label="Close">✕</button>
       <div class="authlogo"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2M9 6a3 3 0 0 1 6 0v2H9zm3 11a2 2 0 1 1 0-4 2 2 0 0 1 0 4"/></svg></div>
@@ -786,13 +794,27 @@ fill="url(#royal)" stroke="none">
       </form>
     </div>
   </div>
+  <div class="authmodal" id="resetModal" role="dialog" aria-modal="true" aria-labelledby="resetTitle" onclick="if(event.target===this)closeReset()">
+    <div class="authcard" style="max-width:362px">
+      <button class="authclose" onclick="closeReset()" aria-label="Close">✕</button>
+      <div class="authlogo"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2M9 6a3 3 0 0 1 6 0v2H9zm3 11a2 2 0 1 1 0-4 2 2 0 0 1 0 4"/></svg></div>
+      <h2 id="resetTitle">Set a new password</h2>
+      <p class="authsub" id="resetSub">Choose a new password for your account.</p>
+      <form onsubmit="submitReset(event)" autocomplete="on">
+        <div class="authfield pw"><svg class="authic" viewBox="0 0 24 24"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2M9 6a3 3 0 0 1 6 0v2H9zm3 11a2 2 0 1 1 0-4 2 2 0 0 1 0 4"/></svg><input id="resetPw" type="password" placeholder="New password (6+ characters)" autocomplete="new-password"><button type="button" class="autheye" onclick="togglePinEye(this,'resetPw')" aria-label="Show password"><svg viewBox="0 0 24 24"><path d="M12 5c-7.3 0-11 7-11 7s3.7 7 11 7 11-7 11-7-3.7-7-11-7m0 11.5A4.5 4.5 0 1 1 12 7.5a4.5 4.5 0 0 1 0 9m0-7A2.5 2.5 0 1 0 12 14.5 2.5 2.5 0 0 0 12 9.5"/></svg></button></div>
+        <div class="authfield"><svg class="authic" viewBox="0 0 24 24"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2M9 6a3 3 0 0 1 6 0v2H9zm3 11a2 2 0 1 1 0-4 2 2 0 0 1 0 4"/></svg><input id="resetPw2" type="password" placeholder="Confirm new password" autocomplete="new-password"></div>
+        <div class="authmsg" id="resetMsg"></div>
+        <button class="authbtn" id="resetSubmit" type="submit">Update password</button>
+      </form>
+    </div>
+  </div>
 </div>
 
 <!-- content-filter menu -->
 <div class="menu" id="menu">
   <h4>Content filters</h4>
   <div id="freeFilters"><!-- DJ / Chasidish / Israeli / Acapella: free by default; syncFilterUI moves them into the locked section when a PIN is set -->
-    <div class="toggle" id="tgDJ" onclick="flipFilter('noDJ')"><div><span>Hide DJ sets</span><small>Exclude DJ / remix artists</small></div><div class="sw"></div></div>
+    <div class="toggle" id="tgDJ" role="button" tabindex="0" onclick="flipFilter('noDJ')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Hide DJ sets</span><small>Exclude DJ / remix artists</small></div><div class="sw"></div></div>
     <div class="isr-row" id="chasidRow"><div><span>Chasidish</span><small>Filter by Chasidic / non-Chasidic</small></div><div class="isr-seg" id="chasidSeg"><button data-v="" onclick="setChasid('')">All</button><button data-v="only" onclick="setChasid('only')">Only</button><button data-v="hide" onclick="setChasid('hide')">Hide</button></div></div>
     <div class="isr-row" id="isrRow"><div><span>Israeli artists</span><small>Filter by Israeli / non-Israeli</small></div><div class="isr-seg" id="isrSeg"><button data-v="" onclick="setIsraeli('')">All</button><button data-v="only" onclick="setIsraeli('only')">Only</button><button data-v="hide" onclick="setIsraeli('hide')">Hide</button></div></div>
     <div class="isr-row" id="acapRow"><div><span>Acapella</span><small>Only, or hide, Acapella songs</small></div><div class="isr-seg" id="acapSeg"><button data-v="" onclick="setAcapella('')">All</button><button data-v="only" onclick="setAcapella('only')">Only</button><button data-v="hide" onclick="setAcapella('hide')">Hide</button></div></div>
@@ -800,76 +822,76 @@ fill="url(#royal)" stroke="none">
   <div class="locked-sec" id="lockedSec">
     <div class="locked-hd"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2M9 6a3 3 0 0 1 6 0v2H9z"/></svg>Locked by Parental Controls</div>
     <div id="lockedFilters"></div><!-- parent-set filters get moved here when locked -->
-    <div class="toggle locked" id="tgFemale" onclick="gotoParental()"><div><span>Hide female singers</span><small>Kol isha — change in Parental Controls</small></div><div class="sw"></div></div>
-    <div class="toggle locked" id="tgAcapLocked" onclick="flipFilter('acapella')" style="display:none"><div><span>Acapella</span><small id="acapLockSub">Required for Sefira / the Three Weeks</small></div><div class="sw"></div></div>
+    <div class="toggle locked" id="tgFemale" role="button" tabindex="0" onclick="gotoParental()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Hide female singers</span><small>Kol isha — change in Parental Controls</small></div><div class="sw"></div></div>
+    <div class="toggle locked" id="tgAcapLocked" role="button" tabindex="0" onclick="flipFilter('acapella')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" style="display:none"><div><span>Acapella</span><small id="acapLockSub">Required for Sefira / the Three Weeks</small></div><div class="sw"></div></div>
   </div>
   <div id="filterReset" style="padding:8px 12px 2px"><button class="btn-ghost" style="height:36px;width:100%;justify-content:center;font-size:13px" onclick="resetFilters()">Reset filters</button></div>
 </div>
 <div class="menu" id="shareMenu" style="z-index:200">
   <h4>Share song</h4>
-  <div class="toggle" onclick="shareSong(false)"><div><span>Copy / share link</span><small>From the start</small></div></div>
-  <div class="toggle" onclick="shareSong(true)"><div><span>Start at a time</span><small>Begins at <b id="shareAt">0:00</b></small></div></div>
+  <div class="toggle" role="button" tabindex="0" onclick="shareSong(false)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Copy / share link</span><small>From the start</small></div></div>
+  <div class="toggle" role="button" tabindex="0" onclick="shareSong(true)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Start at a time</span><small>Begins at <b id="shareAt">0:00</b></small></div></div>
 </div>
 
 <!-- now-playing bar -->
-<footer id="nowbar">
-  <div id="nbProgress"></div>
-  <div class="nb-track" onclick="openNow()">
-    <div class="art"><img id="nbArt" alt=""><div class="ph" id="nbPh"></div></div>
+<footer id="nowbar" role="region" aria-label="Now playing">
+  <div id="nbProgress" aria-hidden="true"></div>
+  <div class="nb-track" role="button" tabindex="0" aria-label="Open now playing" onclick="openNow()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+    <div class="art"><img id="nbArt" alt=""><div class="ph" id="nbPh" aria-hidden="true"></div></div>
     <div class="nb-meta"><div class="nb-t" id="nbTitle"></div><div class="nb-s" id="nbArtist"></div></div>
   </div>
   <div class="nb-center">
     <div class="nb-controls">
-      <button class="iconbtn skip" onclick="seekBy(-15)" title="Back 15s"><svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12.5" y="15.6" font-size="8" text-anchor="middle" font-weight="700" fill="currentColor">15</text></svg></button>
-      <button class="iconbtn prev" onclick="prev()" title="Previous"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
-      <button class="iconbtn nb-play" id="nbPlay" onclick="toggle()" title="Play/Pause"></button>
-      <button class="iconbtn" onclick="next()" title="Next"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zM16 6v12h2V6z"/></svg></button>
-      <button class="iconbtn skip" onclick="seekBy(15)" title="Forward 15s"><svg viewBox="0 0 24 24"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="11.5" y="15.6" font-size="8" text-anchor="middle" font-weight="700" fill="currentColor">15</text></svg></button>
-      <button class="iconbtn rpt" onclick="toggleRepeat()" title="Repeat this song"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg></button>
+      <button class="iconbtn skip" onclick="seekBy(-15)" title="Back 15s" aria-label="Back 15 seconds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12.5" y="15.6" font-size="8" text-anchor="middle" font-weight="700" fill="currentColor">15</text></svg></button>
+      <button class="iconbtn prev" onclick="prev()" title="Previous" aria-label="Previous"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
+      <button class="iconbtn nb-play" id="nbPlay" onclick="toggle()" title="Play/Pause" aria-label="Play"></button>
+      <button class="iconbtn" onclick="next()" title="Next" aria-label="Next"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18l8.5-6L6 6zM16 6v12h2V6z"/></svg></button>
+      <button class="iconbtn skip" onclick="seekBy(15)" title="Forward 15s" aria-label="Forward 15 seconds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="11.5" y="15.6" font-size="8" text-anchor="middle" font-weight="700" fill="currentColor">15</text></svg></button>
+      <button class="iconbtn rpt" onclick="toggleRepeat()" title="Repeat this song" aria-label="Repeat this song" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg></button>
     </div>
     <div class="nb-seek">
       <span class="nb-time" id="nbCur">0:00</span>
-      <input type="range" class="seek" id="nbSeek" min="0" max="1000" value="0">
+      <input type="range" class="seek" id="nbSeek" min="0" max="1000" value="0" aria-label="Seek">
       <span class="nb-time r" id="nbDur">0:00</span>
     </div>
   </div>
   <div class="nb-right">
-    <button class="iconbtn heart" id="nbLike" onclick="toggleLikeCurrent()" title="Like" style="width:40px;height:40px"><svg viewBox="0 0 24 24"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg></button>
-    <button class="iconbtn rateBtn" onclick="cycleRate()" title="Playback speed">1×</button>
-    <button class="iconbtn" onclick="openNow()" title="Queue" style="width:40px;height:40px"><svg viewBox="0 0 24 24" width="21" height="21"><path d="M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v6l5-3z"/></svg></button>
+    <button class="iconbtn heart" id="nbLike" onclick="toggleLikeCurrent()" title="Like" aria-label="Like" aria-pressed="false" style="width:40px;height:40px"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg></button>
+    <button class="iconbtn rateBtn" onclick="cycleRate()" title="Playback speed" aria-label="Playback speed">1×</button>
+    <button class="iconbtn" onclick="openNow()" title="Queue" aria-label="Queue" style="width:40px;height:40px"><svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><path d="M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v6l5-3z"/></svg></button>
     <div class="nb-vol">
-      <button class="iconbtn" id="volBtn" onclick="toggleMute()" style="width:34px;height:34px"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 10v4h4l5 5V5L7 10zm13.5 2A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4"/></svg></button>
-      <input type="range" class="seek" id="vol" min="0" max="100" value="100">
+      <button class="iconbtn" id="volBtn" onclick="toggleMute()" title="Mute" aria-label="Toggle mute" style="width:34px;height:34px"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 10v4h4l5 5V5L7 10zm13.5 2A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4"/></svg></button>
+      <input type="range" class="seek" id="vol" min="0" max="100" value="100" aria-label="Volume">
     </div>
-    <button class="iconbtn" onclick="openNow()" title="Full screen" style="width:38px;height:38px"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z"/></svg></button>
+    <button class="iconbtn" onclick="openNow()" title="Full screen" aria-label="Full screen" style="width:38px;height:38px"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z"/></svg></button>
   </div>
 </footer>
 
 <!-- fullscreen now playing -->
 <div id="now">
-  <div class="np-bg" id="npBg"></div>
+  <div class="np-bg" id="npBg" aria-hidden="true"></div>
   <div class="np-head">
-    <button class="iconbtn" onclick="closeNow()" title="Collapse"><svg viewBox="0 0 24 24" width="26" height="26"><path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg></button>
+    <button class="iconbtn" onclick="closeNow()" title="Collapse" aria-label="Collapse"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg></button>
     <div class="lbl">Now Playing</div>
-    <button class="iconbtn rateBtn" onclick="cycleRate()" title="Playback speed">1×</button>
+    <button class="iconbtn rateBtn" onclick="cycleRate()" title="Playback speed" aria-label="Playback speed">1×</button>
   </div>
   <div class="np-body">
     <div class="np-main">
-      <div class="art np-art"><img id="npArt" alt=""><div class="ph"><svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg></div></div>
+      <div class="art np-art"><img id="npArt" alt=""><div class="ph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg></div></div>
       <div class="np-info">
         <div style="min-width:0"><div class="np-title" id="npTitle"></div><div class="np-artist" id="npArtist"></div></div>
-        <button class="iconbtn heart" id="npLike" onclick="toggleLikeCurrent()" title="Like" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg></button>
-        <button class="iconbtn" id="npShare" onclick="openShare(event)" title="Share" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0 0 6c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92z"/></svg></button>
+        <button class="iconbtn heart" id="npLike" onclick="toggleLikeCurrent()" title="Like" aria-label="Like" aria-pressed="false" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg></button>
+        <button class="iconbtn" id="npShare" onclick="openShare(event)" title="Share" aria-label="Share" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0 0 6c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92z"/></svg></button>
       </div>
-      <div class="np-seek"><input type="range" class="seek" id="npSeek" min="0" max="1000" value="0">
+      <div class="np-seek"><input type="range" class="seek" id="npSeek" min="0" max="1000" value="0" aria-label="Seek">
         <div class="np-times"><span id="npCur">0:00</span><span id="npDur">0:00</span></div></div>
       <div class="np-controls">
-        <button class="iconbtn skip" onclick="seekBy(-15)" title="Back 15s"><svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12.5" y="15.6" font-size="8" text-anchor="middle" font-weight="700" fill="currentColor">15</text></svg></button>
-        <button class="iconbtn" onclick="prev()"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
-        <button class="iconbtn big" id="npPlay" onclick="toggle()"></button>
-        <button class="iconbtn" onclick="next()"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zM16 6v12h2V6z"/></svg></button>
-        <button class="iconbtn skip" onclick="seekBy(15)" title="Forward 15s"><svg viewBox="0 0 24 24"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="11.5" y="15.6" font-size="8" text-anchor="middle" font-weight="700" fill="currentColor">15</text></svg></button>
-        <button class="iconbtn skip rpt" onclick="toggleRepeat()" title="Repeat this song"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg></button>
+        <button class="iconbtn skip" onclick="seekBy(-15)" title="Back 15s" aria-label="Back 15 seconds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12.5" y="15.6" font-size="8" text-anchor="middle" font-weight="700" fill="currentColor">15</text></svg></button>
+        <button class="iconbtn" onclick="prev()" aria-label="Previous"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
+        <button class="iconbtn big" id="npPlay" onclick="toggle()" aria-label="Play"></button>
+        <button class="iconbtn" onclick="next()" aria-label="Next"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18l8.5-6L6 6zM16 6v12h2V6z"/></svg></button>
+        <button class="iconbtn skip" onclick="seekBy(15)" title="Forward 15s" aria-label="Forward 15 seconds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="11.5" y="15.6" font-size="8" text-anchor="middle" font-weight="700" fill="currentColor">15</text></svg></button>
+        <button class="iconbtn skip rpt" onclick="toggleRepeat()" title="Repeat this song" aria-label="Repeat this song" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg></button>
       </div>
     </div>
     <div class="np-upnext"><h4>Up Next</h4><div class="rows" id="npQueue"></div></div>
@@ -877,7 +899,7 @@ fill="url(#royal)" stroke="none">
 </div>
 
 <div id="ytwrap" aria-hidden="true"><div id="ytplayer"></div></div>
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <audio id="audio" preload="metadata"></audio>
 
 <script>
@@ -939,7 +961,9 @@ async function fetchJSON(url, opt) {
 // stay as thin aliases so their call-sites don't change.
 const apiGet = (path, opt) => getJSON(path, opt);
 const detailGet = (path) => getJSON(path);
-const NOTE = '<svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg>';
+const NOTE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg>';
+// a11y: keyboard activation for clickable non-button elements (Enter/Space triggers the element's own click)
+const KDACT = "if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}";
 
 /* Analytics — beacon every click/nav to the Worker /a, which enriches with IP/geo/device and writes one
    row to Supabase. Fire-and-forget (sendBeacon), only on the static deploy. */
@@ -980,7 +1004,7 @@ const ICON = {
   pause: '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>',
   heart: '<svg viewBox="0 0 24 24"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg>',
 };
-const EQ = '<span class="eq"><i></i><i></i><i></i></span>';
+const EQ = '<span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>';
 const TABS = [
   ["home", "Home", ICON.home, "Discover", 1],
   ["foryou", "For You", ICON.foryou, "Discover", 1],
@@ -1144,8 +1168,8 @@ function syncFilterUI() {
   el("filterBtn").querySelector(".dot")?.remove();
   if (anyFilter()) { const d = document.createElement("span"); d.className = "dot"; el("filterBtn").appendChild(d); }
 }
-function toggleMenu(e) { e.stopPropagation(); const m = el("menu"); const on = m.classList.toggle("on"); if (on) { const r = el("filterBtn").getBoundingClientRect(); m.style.top = (r.bottom + 8) + "px"; m.style.right = (innerWidth - r.right) + "px"; } }
-document.addEventListener("click", (e) => { if (!el("menu").contains(e.target) && e.target !== el("filterBtn")) el("menu").classList.remove("on"); const sm = el("shareMenu"), ns = el("npShare"); if (sm && !sm.contains(e.target) && (!ns || !ns.contains(e.target))) sm.classList.remove("on"); const aw = el("acctWrap"); if (aw && !aw.contains(e.target)) closeAcctMenu(); });
+function toggleMenu(e) { e.stopPropagation(); const m = el("menu"); const on = m.classList.toggle("on"); el("filterBtn").setAttribute("aria-expanded", on); if (on) { const r = el("filterBtn").getBoundingClientRect(); m.style.top = (r.bottom + 8) + "px"; m.style.right = (innerWidth - r.right) + "px"; } }
+document.addEventListener("click", (e) => { if (!el("menu").contains(e.target) && e.target !== el("filterBtn")) { el("menu").classList.remove("on"); el("filterBtn").setAttribute("aria-expanded", "false"); } const sm = el("shareMenu"), ns = el("npShare"); if (sm && !sm.contains(e.target) && (!ns || !ns.contains(e.target))) sm.classList.remove("on"); const aw = el("acctWrap"); if (aw && !aw.contains(e.target)) closeAcctMenu(); });
 function reloadCurrent() { ({ home: loadHome, foryou: loadForYou, artists: loadArtists, playlists: loadPlaylists, podcasts: loadPodcasts, kidzone: loadKid, search: doSearch, library: loadLibrary }[state.tab] || (() => {}))(); }
 
 /* ============================ navigation + history ============================ */
@@ -1153,16 +1177,16 @@ function renderNav() {
   let html = "", grp = "", open = false;
   for (const [k, l, ic, group] of TABS) {
     if (group !== grp) { if (open) html += "</div>"; grp = group; html += `<div class="navgrp"><div class="navsec">${group}</div>`; open = true; }
-    html += `<div class="navlink ${k === "kidzone" ? "kid" : ""} ${k === state.tab && !state.detailOpen ? "on" : ""}" onclick="go('${k}')">${ic}<span>${l}</span></div>`;
+    html += `<div class="navlink ${k === "kidzone" ? "kid" : ""} ${k === state.tab && !state.detailOpen ? "on" : ""}" role="link" tabindex="0" ${k === state.tab && !state.detailOpen ? 'aria-current="page"' : ""} onclick="go('${k}')" onkeydown="${KDACT}">${ic}<span>${l}</span></div>`;
   }
   // About sits at the end of the last group (below Library)
-  html += `<div class="navlink ${state.tab === "credits" && !state.detailOpen ? "on" : ""}" onclick="go('credits')" id="creditsLink"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20m1 15h-2v-6h2zm0-8h-2V7h2z"/></svg><span>About</span></div>`;
+  html += `<div class="navlink ${state.tab === "credits" && !state.detailOpen ? "on" : ""}" role="link" tabindex="0" ${state.tab === "credits" && !state.detailOpen ? 'aria-current="page"' : ""} onclick="go('credits')" onkeydown="${KDACT}" id="creditsLink"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20m1 15h-2v-6h2zm0-8h-2V7h2z"/></svg><span>About</span></div>`;
   if (open) html += "</div>";
   el("nav").innerHTML = html;
-  if (el("tabbar")) el("tabbar").innerHTML = TABS.filter((t) => t[4]).map(([k, l, ic]) => `<div class="tab ${k === "kidzone" ? "kid" : ""} ${k === state.tab && !state.detailOpen ? "on" : ""}" onclick="go('${k}')">${ic}<span>${l}</span></div>`).join("");
+  if (el("tabbar")) el("tabbar").innerHTML = TABS.filter((t) => t[4]).map(([k, l, ic]) => `<div class="tab ${k === "kidzone" ? "kid" : ""} ${k === state.tab && !state.detailOpen ? "on" : ""}" role="link" tabindex="0" ${k === state.tab && !state.detailOpen ? 'aria-current="page"' : ""} onclick="go('${k}')" onkeydown="${KDACT}">${ic}<span>${l}</span></div>`).join("");
 }
-function toggleSidebar() { document.body.classList.toggle("drawer-open"); }
-function closeSidebar() { document.body.classList.remove("drawer-open"); }
+function toggleSidebar() { const o = document.body.classList.toggle("drawer-open"); el("hamburger") && el("hamburger").setAttribute("aria-expanded", o); }
+function closeSidebar() { document.body.classList.remove("drawer-open"); el("hamburger") && el("hamburger").setAttribute("aria-expanded", "false"); }
 function go(k, fromRoute) {
   if (state.tab === "parental" && k !== "parental") { acct.pinOK = false; acct.pin = ""; } // leaving Parental Controls re-locks it AND drops the cached PIN (PIN required to re-enter / change filters)
   state.tab = k; state.detailOpen = false; closeSidebar();
@@ -1247,7 +1271,7 @@ async function refreshStat() {
 /* ============================ render helpers ============================ */
 const queues = new Map(); let qSeq = 0;
 function regQueue(tracks) { const id = "q" + (++qSeq); queues.set(id, tracks); return id; }
-const artHTML = (src, ph, round) => `<div class="art${round ? " round" : ""}"><img loading="lazy" src="${src || ""}" onerror="this.classList.add('hide')"${src ? "" : ' class="hide"'}><div class="ph">${ph || NOTE}</div></div>`;
+const artHTML = (src, ph, round) => `<div class="art${round ? " round" : ""}"><img loading="lazy" alt="" src="${src || ""}" onerror="this.classList.add('hide')"${src ? "" : ' class="hide"'}><div class="ph" aria-hidden="true">${ph || NOTE}</div></div>`;
 
 /* ============================ likes ============================ */
 let _liked = null;
@@ -1285,38 +1309,38 @@ function shareSong(withTime) {
 }
 function refreshLikeUI(id) {
   const on = isLiked(id);
-  try { document.querySelectorAll(`[data-like="${CSS.escape(id)}"]`).forEach((b) => b.classList.toggle("on", on)); } catch {}
+  try { document.querySelectorAll(`[data-like="${CSS.escape(id)}"]`).forEach((b) => { b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); b.setAttribute("aria-label", on ? "Unlike" : "Like"); }); } catch {}
   const cur = state.queue[state.qi];
-  if (cur) { const c = isLiked(cur.videoId); el("nbLike") && el("nbLike").classList.toggle("on", c); el("npLike") && el("npLike").classList.toggle("on", c); }
+  if (cur) { const c = isLiked(cur.videoId); const ll = c ? "Unlike" : "Like"; el("nbLike") && (el("nbLike").classList.toggle("on", c), el("nbLike").setAttribute("aria-pressed", c), el("nbLike").setAttribute("aria-label", ll)); el("npLike") && (el("npLike").classList.toggle("on", c), el("npLike").setAttribute("aria-pressed", c), el("npLike").setAttribute("aria-label", ll)); }
 }
-const heartAt = (qid, i, id) => `<button class="iconbtn heart ${isLiked(id) ? "on" : ""}" data-like="${id}" title="Like" onclick="event.stopPropagation();toggleLikeAt('${qid}',${i})">${ICON.heart}</button>`;
+const heartAt = (qid, i, id) => `<button class="iconbtn heart ${isLiked(id) ? "on" : ""}" data-like="${id}" title="Like" aria-label="${isLiked(id) ? "Unlike" : "Like"}" aria-pressed="${isLiked(id)}" onclick="event.stopPropagation();toggleLikeAt('${qid}',${i})">${ICON.heart}</button>`;
 
 function songRow(t, qid, i, opt) {
   opt = opt || {};
   const playing = state.queue[state.qi] && state.queue[state.qi].videoId === t.videoId;
   const lead = opt.index ? `<div class="idx">${playing ? "" : i + 1}</div><div class="idx-play">${ICON.play}</div>` : "";
-  const thumb = `<img class="thumb" loading="lazy" src="${yt(t.videoId)}" onerror="this.style.visibility='hidden'">`;
-  return `<div class="row ${playing ? "playing" : ""}" data-v="${t.videoId}" data-n="${opt.index ? i + 1 : ""}" onclick="${opt.searchKind ? `sClick('${opt.searchKind}',${i},'${t.videoId}');` : ""}playFrom('${qid}',${i})">
+  const thumb = `<img class="thumb" alt="" loading="lazy" src="${yt(t.videoId)}" onerror="this.style.visibility='hidden'">`;
+  return `<div class="row ${playing ? "playing" : ""}" role="button" tabindex="0" data-v="${t.videoId}" data-n="${opt.index ? i + 1 : ""}" onkeydown="${KDACT}" onclick="${opt.searchKind ? `sClick('${opt.searchKind}',${i},'${t.videoId}');` : ""}playFrom('${qid}',${i})">
     ${opt.index ? lead : thumb}
     ${opt.index && !opt.noThumb ? thumb : ""}
     <div class="text"><div class="title">${playing ? EQ : ""}<span style="overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</span>${t.explicit ? '<span class="tag">E</span>' : ""}${t.isVideo ? '<span class="tag">VIDEO</span>' : ""}</div>
     <div class="sub">${[esc(opt.hideArtist ? "" : (t.artist || opt.artist || "")), opt.plays && t.playCount ? plays(t.playCount) + " plays" : "", opt.date && t.addedAt ? ago(t.addedAt) : ""].filter(Boolean).join(" · ")}</div></div>
     ${heartAt(qid, i, t.videoId)}
     ${t.durationSec ? `<div class="dur">${fmt(t.durationSec)}</div>` : ""}
-    <button class="iconbtn rowbtn" style="width:40px;height:40px" onclick="event.stopPropagation();playFrom('${qid}',${i})">${ICON.play}</button></div>`;
+    <button class="iconbtn rowbtn" style="width:40px;height:40px" aria-label="Play" onclick="event.stopPropagation();playFrom('${qid}',${i})">${ICON.play}</button></div>`;
 }
 function songRows(tracks, opt) { const qid = regQueue(tracks); return `<div class="rows">${tracks.map((t, i) => songRow(t, qid, i, opt)).join("")}</div>`; }
 function songCard(t, qid, i) {
-  return `<div class="card" onclick="playFrom('${qid}',${i})">${artHTML(yt(t.videoId))}<button class="play-fab" onclick="event.stopPropagation();playFrom('${qid}',${i})">${ICON.play}</button><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist || "")}</div></div>`;
+  return `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="playFrom('${qid}',${i})">${artHTML(yt(t.videoId))}<button class="play-fab" aria-label="Play" onclick="event.stopPropagation();playFrom('${qid}',${i})">${ICON.play}</button><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist || "")}</div></div>`;
 }
 function songCards(tracks) { const qid = regQueue(tracks); return `<div class="rail">${tracks.map((t, i) => songCard(t, qid, i)).join("")}</div>`; }
 function quickPicks(tracks) { const qid = regQueue(tracks); return `<div class="qpgrid">${tracks.map((t, i) => songRow(t, qid, i)).join("")}</div>`; }
-const albumCard = (a) => `<div class="card" onclick="openAlbum('${a.id}')" onmouseenter="pf('album','${a.id}')">${artHTML(a.thumbnail)}<div class="t">${esc(a.title)}</div><div class="s">${esc(a.artist || "")}${a.year ? " · " + a.year : ""}</div></div>`;
-const playlistCard = (p) => `<div class="card" onclick="openPlaylist('${p.id}')">${artHTML(p.thumbnail)}<div class="t">${esc(p.title)}</div><div class="s">${esc(p.artist || "Playlist")}</div></div>`;
+const albumCard = (a) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openAlbum('${a.id}')" onmouseenter="pf('album','${a.id}')">${artHTML(a.thumbnail)}<div class="t">${esc(a.title)}</div><div class="s">${esc(a.artist || "")}${a.year ? " · " + a.year : ""}</div></div>`;
+const playlistCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openPlaylist('${p.id}')">${artHTML(p.thumbnail)}<div class="t">${esc(p.title)}</div><div class="s">${esc(p.artist || "Playlist")}</div></div>`;
 // Curated playlist card — SVG cover; click → the curated detail (albums + songs).
-const zpCard = (p) => `<div class="card" onclick="openCuratedPlaylist('${p.id}')">${artHTML(p.thumbnail)}<div class="t">${esc(p.title)}</div><div class="s">${num(p.trackCount || 0)} songs</div></div>`;
-const artistCard = (a) => `<div class="card round" onclick="openArtist('${a.id}')" onmouseenter="pf('artist','${a.id}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="t">${esc(a.name || "")}</div></div>`;
-const artistCell = (a) => `<div class="gcell" onclick="openArtist('${a.id}')" onmouseenter="pf('artist','${a.id}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="n">${esc(a.name || "")}</div></div>`;
+const zpCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openCuratedPlaylist('${p.id}')">${artHTML(p.thumbnail)}<div class="t">${esc(p.title)}</div><div class="s">${num(p.trackCount || 0)} songs</div></div>`;
+const artistCard = (a) => `<div class="card round" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${a.id}')" onmouseenter="pf('artist','${a.id}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="t">${esc(a.name || "")}</div></div>`;
+const artistCell = (a) => `<div class="gcell" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${a.id}')" onmouseenter="pf('artist','${a.id}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="n">${esc(a.name || "")}</div></div>`;
 let secN = 0, expSeq = 0;
 function section(title, body, more) { if (!body) return ""; const d = (secN++ % 8) * 0.05; return `<div class="section" style="animation-delay:${d}s"><div class="sechead"><h2>${title}</h2>${more || ""}</div>${body}</div>`; }
 
@@ -1539,7 +1563,7 @@ function playlistHasAllowed(p) {
 }
 async function loadPlaylists() {
   state.loaded.playlists = true; secN = 0; const v = el("v-playlists");
-  v.innerHTML = `<div id="zpsec"></div><div class="searchbox" style="max-width:420px;margin:6px 0 18px">${ICON.search}<input id="pq" placeholder="Filter playlists" autocomplete="off"></div><div class="pgrid" id="pgrid">${Array.from({ length: 12 }, () => `<div class="sk-card"><div class="sk art"></div><div class="sk l1"></div><div class="sk l2"></div></div>`).join("")}</div>`;
+  v.innerHTML = `<div id="zpsec"></div><div class="searchbox" style="max-width:420px;margin:6px 0 18px">${ICON.search}<input id="pq" placeholder="Filter playlists" autocomplete="off" aria-label="Filter playlists"></div><div class="pgrid" id="pgrid">${Array.from({ length: 12 }, () => `<div class="sk-card"><div class="sk art"></div><div class="sk l1"></div><div class="sk l2"></div></div>`).join("")}</div>`;
   getJSON("/zemer-playlists").then((z) => { const zp = (z && z.playlists) || []; if (zp.length && el("zpsec")) el("zpsec").innerHTML = section("Curated Playlists", `<div class="rail">${zp.map(zpCard).join("")}</div>`); });
   await ensureFilters();
   const d = await getJSON("/playlists?" + filterQS()); playlistsAll = gate((d && d.playlists) || []).filter(playlistHasAllowed); // artist_mode blocklist / kid-only at the card level, then drop playlists with no hearable songs
@@ -1748,9 +1772,9 @@ async function doSearch() {
 function sClick(kind, rank, id) { const q = (el("q") && el("q").value || "").trim(); if (q) track("click", { q, kind, rank, id }); }
 function renderResults() {
   const c = sData && sData.categories; if (!c) return;
-  const artistRow = (x, i) => `<div class="row" onclick="sClick('artists',${i},'${x.id}');openArtist('${x.id}')">${artHTML(x.thumbnail, ICON.artist, true).replace('class="art round"', 'class="art round" style="width:46px;height:46px;flex:none"')}<div class="text"><div class="title">${esc(x.name)}</div><div class="sub">Artist</div></div></div>`;
-  const albumRow = (x, i) => `<div class="row" onclick="sClick('albums',${i},'${x.id}');openAlbum('${x.id}')"><img class="thumb" src="${x.thumbnail || ""}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${esc(x.title)}</div><div class="sub">${esc(x.artist || "")}${x.year ? " · " + x.year : ""}</div></div></div>`;
-  const plRow = (x, i) => `<div class="row" onclick="sClick('playlists',${i},'${x.id}');openPlaylist('${x.id}')"><img class="thumb" src="${x.thumbnail || ""}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${esc(x.title)}</div><div class="sub">${esc(x.artist || "Playlist")}</div></div></div>`;
+  const artistRow = (x, i) => `<div class="row" role="button" tabindex="0" onkeydown="${KDACT}" onclick="sClick('artists',${i},'${x.id}');openArtist('${x.id}')">${artHTML(x.thumbnail, ICON.artist, true).replace('class="art round"', 'class="art round" style="width:46px;height:46px;flex:none"')}<div class="text"><div class="title">${esc(x.name)}</div><div class="sub">Artist</div></div></div>`;
+  const albumRow = (x, i) => `<div class="row" role="button" tabindex="0" onkeydown="${KDACT}" onclick="sClick('albums',${i},'${x.id}');openAlbum('${x.id}')"><img class="thumb" alt="" src="${x.thumbnail || ""}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${esc(x.title)}</div><div class="sub">${esc(x.artist || "")}${x.year ? " · " + x.year : ""}</div></div></div>`;
+  const plRow = (x, i) => `<div class="row" role="button" tabindex="0" onkeydown="${KDACT}" onclick="sClick('playlists',${i},'${x.id}');openPlaylist('${x.id}')"><img class="thumb" alt="" src="${x.thumbnail || ""}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${esc(x.title)}</div><div class="sub">${esc(x.artist || "Playlist")}</div></div></div>`;
   const render = (k) => {
     const arr = gate(c[k] || []); if (!arr.length) return ""; // parental + Acapella gate (songs by set, artist/album/playlist by Acapella-artist)
     if (k === "songs" || k === "videos") return songRows(arr, { index: true, searchKind: k });
@@ -1931,7 +1955,7 @@ const PB = {
 };
 const RATES = [1, 1.25, 1.5, 2, 0.75];
 function cycleRate() { PB.setRate(RATES[(RATES.indexOf(PB.rate) + 1) % RATES.length]); updateRateUI(); }
-function updateRateUI() { const l = (PB.rate === 1 ? "1×" : PB.rate + "×"); document.querySelectorAll(".rateBtn").forEach((b) => { b.textContent = l; b.classList.toggle("on", PB.rate !== 1); }); }
+function updateRateUI() { const l = (PB.rate === 1 ? "1×" : PB.rate + "×"); document.querySelectorAll(".rateBtn").forEach((b) => { b.textContent = l; b.classList.toggle("on", PB.rate !== 1); b.setAttribute("aria-label", "Playback speed " + l); }); }
 window.onYouTubeIframeAPIReady = function () {
   PB.yt = new YT.Player("ytplayer", {
     height: "180", width: "320",
@@ -2012,7 +2036,7 @@ function next() { if (state.qi < state.queue.length - 1) playIndex(state.qi + 1,
 function prev() { if (PB.cur() > 3 || state.qi <= 0) PB.seek(0); else playIndex(state.qi - 1, -1); }
 // Repeat one: when a song ends with repeat on, replay it instead of advancing (manual next/prev still work).
 function repeatOrNext() { if (state.repeat && state.qi >= 0) playIndex(state.qi); else next(); }
-function toggleRepeat() { state.repeat = !state.repeat; document.querySelectorAll(".rpt").forEach((b) => b.classList.toggle("on", state.repeat)); showToast(state.repeat ? "Repeat this song" : "Repeat off", 1300); }
+function toggleRepeat() { state.repeat = !state.repeat; document.querySelectorAll(".rpt").forEach((b) => { b.classList.toggle("on", state.repeat); b.setAttribute("aria-pressed", state.repeat); }); showToast(state.repeat ? "Repeat this song" : "Repeat off", 1300); }
 function seekBy(d) { if (!state.queue.length) return; const dur = PB.dur(); if (!dur) return; PB.seek(Math.max(0, Math.min(dur - 0.5, PB.cur() + d))); }
 function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); paintQueue(); }
 function closeNow() { state.nowOpen = false; el("now").classList.remove("on"); }
@@ -2021,13 +2045,13 @@ function toggleMute() { PB.setMuted(!PB.muted); el("vol").value = PB.muted ? 0 :
 function paintQueue() {
   const up = state.queue.slice(state.qi).map((t, k) => {
     const i = state.qi + k, playing = k === 0;
-    return `<div class="row ${playing ? "playing" : ""}" onclick="playIndex(${i})"><img class="thumb" src="${yt(t.videoId)}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${playing ? EQ : ""}${esc(t.title)}</div><div class="sub">${esc(t.artist || "")}</div></div></div>`;
+    return `<div class="row ${playing ? "playing" : ""}" role="button" tabindex="0" onkeydown="${KDACT}" onclick="playIndex(${i})"><img class="thumb" alt="" src="${yt(t.videoId)}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${playing ? EQ : ""}${esc(t.title)}</div><div class="sub">${esc(t.artist || "")}</div></div></div>`;
   }).join("");
   el("npQueue").innerHTML = up || "";
 }
 
 /* progress + state — unified across both engines */
-function setPlayIcons() { const p = PB.paused() || !state.queue.length; el("nbPlay").innerHTML = p ? ICON.play : ICON.pause; el("npPlay").innerHTML = p ? ICON.play : ICON.pause; if ("mediaSession" in navigator) try { navigator.mediaSession.playbackState = p ? "paused" : "playing"; } catch {} skPlaybackState(); }
+function setPlayIcons() { const p = PB.paused() || !state.queue.length; const pl = p ? "Play" : "Pause"; el("nbPlay").innerHTML = p ? ICON.play : ICON.pause; el("npPlay").innerHTML = p ? ICON.play : ICON.pause; el("nbPlay").setAttribute("aria-label", pl); el("npPlay").setAttribute("aria-label", pl); if ("mediaSession" in navigator) try { navigator.mediaSession.playbackState = p ? "paused" : "playing"; } catch {} skPlaybackState(); }
 function paintSeek(input) { const max = +input.max || 1000; input.style.setProperty("--p", (input.value / max * 100) + "%"); }
 let tickTimer = null, seeking = false, toastTimer, streamFails = 0;
 function startTick() { if (!tickTimer) tickTimer = setInterval(tick, 300); }
@@ -2151,6 +2175,7 @@ function consumeAuthHash() {
     const hs = location.hash || "";
     if (hs.indexOf("access_token=") < 0) return false;
     const p = new URLSearchParams(hs.replace(/^#/, ""));
+    if (p.get("type") === "recovery") return false; // password-reset return → the "Set a new password" form claims it (maybeShowRecovery), not a silent login
     const at = p.get("access_token"); if (!at) return false;
     let user = null;
     try { let s = at.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"); s += "=".repeat((4 - s.length % 4) % 4); const b = JSON.parse(atob(s)); user = { id: b.sub, email: b.email }; } catch {} // pad base64url so atob doesn't reject
@@ -2302,8 +2327,8 @@ function renderAcct() {
   const c = el("acctChip"); if (!c) return;
   if (loggedIn()) {
     const em = acctEmail() || "Account";
-    c.innerHTML = `<div class="acct on" onclick="toggleAcctMenu(event)"><div class="acct-av">${esc((em[0] || "?").toUpperCase())}</div><div class="acct-em">${esc(em)}</div></div>`;
-  } else c.innerHTML = `<div class="acct" onclick="openAuth('in')"><div class="acct-av">＋</div><div class="acct-em">Sign in / Sign up</div></div>`;
+    c.innerHTML = `<div class="acct on" role="button" tabindex="0" aria-haspopup="true" onkeydown="${KDACT}" onclick="toggleAcctMenu(event)"><div class="acct-av" aria-hidden="true">${esc((em[0] || "?").toUpperCase())}</div><div class="acct-em">${esc(em)}</div></div>`;
+  } else c.innerHTML = `<div class="acct" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openAuth('in')"><div class="acct-av" aria-hidden="true">＋</div><div class="acct-em">Sign in / Sign up</div></div>`;
   const pl = el("parentalLink"); if (pl) pl.style.display = loggedIn() ? "" : "none";
 }
 function toggleAcctMenu(e) { e && e.stopPropagation(); el("acctMenu").classList.toggle("on"); }
@@ -2330,6 +2355,8 @@ function renderAuthMode() {
   el("authSubmit").textContent = up ? "Create account" : "Sign in";
   el("authPw").placeholder = up ? "Create a password (6+ characters)" : "Password";
   el("authPw").setAttribute("autocomplete", up ? "new-password" : "current-password");
+  const fr = el("authForgotRow"); if (fr) fr.style.display = up ? "none" : ""; // passwordless helpers are sign-in only
+  const mb = el("authMagicBtn"); if (mb) mb.style.display = up ? "none" : "";
   document.querySelectorAll(".authseg-btn").forEach((b) => b.classList.toggle("on", b.dataset.m === (up ? "up" : "in")));
 }
 async function submitAuth(ev) {
@@ -2344,6 +2371,62 @@ async function submitAuth(ev) {
   if (!r.ok) { msg.textContent = r.error; return; }
   if (r.needsConfirm) { el("authModal").dataset.mode = "in"; renderAuthMode(); msg.classList.add("ok"); msg.textContent = "Almost there — check your email to confirm, then sign in."; return; }
   closeAuth(); showToast("Signed in — welcome" + (acctEmail() ? ", " + esc(acctEmail().split("@")[0]) : "") + "!", 2600);
+}
+
+// --- passwordless: forgot-password (email reset) + magic-link login ---
+// Both POST to GoTrue with the anon apikey (same headers as sbAuthCall) and land the user back on this origin,
+// where the URL hash carries the tokens: recovery → the "Set a new password" form (maybeShowRecovery);
+// magiclink/signup → a silent login via consumeAuthHash (see boot). Reuses the auth modal's email field + authMsg.
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+async function authSendReset() {
+  const email = el("authEmail").value.trim();
+  if (!EMAIL_RE.test(email)) { el("authEmail").focus(); showToast("Enter your email above first, then tap “Forgot password?”.", 3400); return; }
+  clearAuthMsg();
+  const r = await sbAuthCall("recover?redirect_to=" + encodeURIComponent(location.origin), { email });
+  if (!r.ok) { showToast(r.error, 3600); return; }
+  const m = el("authMsg"); m.classList.add("ok"); m.textContent = "Check your email for a password-reset link.";
+}
+async function authSendMagic() {
+  const email = el("authEmail").value.trim();
+  if (!EMAIL_RE.test(email)) { el("authEmail").focus(); showToast("Enter your email above first, then tap “Email me a login link”.", 3400); return; }
+  clearAuthMsg();
+  const btn = el("authMagicBtn"); if (btn) btn.disabled = true;
+  const r = await sbAuthCall("otp?redirect_to=" + encodeURIComponent(location.origin), { email, create_user: true });
+  if (btn) btn.disabled = false;
+  if (!r.ok) { showToast(r.error, 3600); return; }
+  const m = el("authMsg"); m.classList.add("ok"); m.textContent = "Check your email for a login link.";
+}
+
+// --- password reset: the return from a #type=recovery link ---
+let _recovery = null; // { access_token, refresh_token } captured from the recovery hash
+function jwtUser(at) { try { let s = at.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"); s += "=".repeat((4 - s.length % 4) % 4); const b = JSON.parse(atob(s)); return { id: b.sub, email: b.email }; } catch { return null; } }
+function maybeShowRecovery() {
+  try {
+    const p = new URLSearchParams((location.hash || "").replace(/^#/, ""));
+    if (p.get("type") !== "recovery" || !p.get("access_token")) return false;
+    _recovery = { access_token: p.get("access_token"), refresh_token: p.get("refresh_token") };
+    history.replaceState(null, "", location.pathname + location.search); // strip the tokens from the address bar
+    openReset();
+    return true;
+  } catch { return false; }
+}
+function openReset() { const m = el("resetModal"); if (!m) return; el("resetPw").value = ""; el("resetPw2").value = ""; el("resetPw").type = "password"; const msg = el("resetMsg"); msg.textContent = ""; msg.classList.remove("ok"); m.classList.add("on"); setTimeout(() => el("resetPw") && el("resetPw").focus(), 60); }
+function closeReset() { el("resetModal").classList.remove("on"); }
+async function submitReset(ev) {
+  ev && ev.preventDefault();
+  const pw = el("resetPw").value, pw2 = el("resetPw2").value, msg = el("resetMsg"); msg.textContent = ""; msg.classList.remove("ok");
+  if (pw.length < 6) { msg.textContent = "Password must be at least 6 characters."; el("resetPw").focus(); return; }
+  if (pw !== pw2) { msg.textContent = "Passwords don’t match."; el("resetPw2").focus(); return; }
+  if (!_recovery || !_recovery.access_token) { msg.textContent = "This reset link has expired — request a new one."; return; }
+  const btn = el("resetSubmit"); btn.disabled = true; btn.innerHTML = `<span class="authspin"></span>Updating…`;
+  try {
+    const r = await fetch(SB_URL + "/auth/v1/user", { method: "PUT", headers: { apikey: SB_KEY, "Content-Type": "application/json", Authorization: "Bearer " + _recovery.access_token }, body: JSON.stringify({ password: pw }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { btn.disabled = false; btn.textContent = "Update password"; msg.textContent = j.error_description || j.msg || j.error || j.message || "Couldn’t update the password."; return; }
+    acct.session = { access_token: _recovery.access_token, refresh_token: _recovery.refresh_token, user: (j && j.id) ? { id: j.id, email: j.email } : jwtUser(_recovery.access_token) }; // recovery token is a full session — establish it like sbSignIn
+    _recovery = null; saveSession(); closeReset(); await onLogin();
+    showToast("Password updated.", 2600);
+  } catch { btn.disabled = false; btn.textContent = "Update password"; msg.textContent = "Network error — try again."; }
 }
 
 // PIN is now enforced server-side (DB hard lock): bcrypt hash + verification + lockout live in the
@@ -2547,7 +2630,8 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
     }).catch(() => {});
     if (hadController) { let refreshing = false; navigator.serviceWorker.addEventListener("controllerchange", () => { if (!refreshing) { refreshing = true; location.reload(); } }); }
   }
-  if (!consumeAuthHash()) restoreSession(); // email-confirm/OAuth hash → session, else restore the saved one
+  if (!consumeAuthHash()) restoreSession(); // email-confirm/OAuth/magic-link hash → session, else restore the saved one
+  maybeShowRecovery(); // password-reset link (#type=recovery) → open the "Set a new password" form
   renderAcct(); if (loggedIn()) onLogin(); // accounts: load profile/likes/filters
   renderNav(); initSearch(); syncFilterUI(); setPlayIcons();
   refreshStat(); setInterval(() => { if (document.visibilityState !== "hidden") refreshStat(); }, 30000); // the corpus stat is near-static; poll slowly and pause on hidden tabs (battery/requests)
