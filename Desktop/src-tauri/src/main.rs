@@ -14,6 +14,15 @@ mod tray;
 mod updater;
 
 fn main() {
+    // Keep playing while hidden to the tray. WebView2/Chromium otherwise throttles background timers and
+    // suspends occluded/hidden renderers, which freezes the YouTube-IFrame audio. These flags disable that
+    // — they MUST be set before the webview is created.
+    #[cfg(target_os = "windows")]
+    std::env::set_var(
+        "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+        "--disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion",
+    );
+
     tauri::Builder::default()
         // single-instance MUST be registered BEFORE deep-link: a second launch
         // (including one triggered by a skmusic:// deep link) is forwarded here so the

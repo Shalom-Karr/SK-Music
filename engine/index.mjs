@@ -718,6 +718,11 @@ export default {
     if (pathname === "/trending") return handleTrending(request, url, env, ctx);
     if (pathname === "/a" && request.method === "POST")
       return handleAnalyticsBeacon(request, env, ctx);
+    // Desktop auto-updater manifest endpoint. No signed artifacts are published yet
+    // (tauri.conf createUpdaterArtifacts=false), so always answer "up to date" (204). This keeps the
+    // app's "Check for updates" clean instead of erroring on a missing/HTML manifest; flip to a real
+    // signed manifest here once release signing is enabled.
+    if (pathname.startsWith("/updates/")) return new Response(null, { status: 204 });
 
     // Admin / tool pages — KV override always wins; never cache these responses.
     if (pathname === "/analytics" || pathname === "/analytics/") {
