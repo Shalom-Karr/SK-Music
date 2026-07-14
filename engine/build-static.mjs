@@ -731,10 +731,11 @@ ensureWrite(path.join(DIST, "sw.js"), SW);
 // and a new build changes BUILD → new paths → the browser refetches.
 // _headers: versioned /lib is immutable; sitemaps + robots get a real cache lifetime so crawlers (and
 // Cloudflare's edge) cache them instead of re-fetching the full multi-MB file on every request.
-// Content-Security-Policy. Ships REPORT-ONLY first: it never blocks anything, only reports would-be
-// violations to /csp-report (+ the devtools console), so the allowlist can be proven against real
-// web AND desktop-webview traffic (Tauri IPC included) before flipping to an enforcing
-// `Content-Security-Policy`. 'unsafe-inline' is unavoidable — the app is one file of inline JS + inline
+// Content-Security-Policy — now ENFORCING. It ran report-only first for a full day of real web +
+// desktop-webview traffic; that surfaced and fixed every real violation (Tauri IPC http://ipc.localhost,
+// WebView2's script-src-elem non-fallback, the diagnostic pages' techloq/youtube probes, gstatic
+// thumbnails). report-uri stays on so any straggler still reports even though it's blocked.
+// 'unsafe-inline' is unavoidable — the app is one file of inline JS + inline
 // on* handlers — so the hardening value is in locking down connect/frame/object/base-uri: injected code
 // can't exfiltrate to a foreign host or load a hostile frame. Every origin below is audited from actual
 // runtime use: YouTube IFrame API + player frame, Google Fonts, i.ytimg thumbnails, Supabase RPC,
@@ -748,7 +749,10 @@ const CSP = [
   "script-src-elem 'self' 'unsafe-inline' https://www.youtube.com https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "img-src 'self' data: blob: https://i.ytimg.com https://*.ytimg.com https://*.ggpht.com https://*.googleusercontent.com",
+  // Thumbnails are data-driven across many Google hosts (ytimg, ggpht, googleusercontent, gstatic, …),
+  // so pin the inert image channel to any-https rather than whack-a-mole a host list. The exfil-relevant
+  // directives (connect/script/frame/object/base) stay tight.
+  "img-src 'self' data: blob: https:",
   "media-src 'self' blob:",
   "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
   // ipc: + ipc.localhost are the Tauri desktop app's IPC transport (invoke → now_playing/set_playback_state);
@@ -767,7 +771,7 @@ const CSP = [
 ].join("; ");
 ensureWrite(path.join(DIST, "_headers"),
   "/*\n" +
-  "  Content-Security-Policy-Report-Only: " + CSP + "\n" +
+  "  Content-Security-Policy: " + CSP + "\n" +
   "  X-Content-Type-Options: nosniff\n" +
   "  Referrer-Policy: strict-origin-when-cross-origin\n" +
   "/lib/*\n  Cache-Control: public, max-age=31536000, immutable\n" +
