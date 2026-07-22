@@ -22,3 +22,4 @@ dist/
 
 # local editor/agent config
 .claude/
+.vercel

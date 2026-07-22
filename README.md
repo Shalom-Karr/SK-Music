@@ -1,91 +1,199 @@
-# SK Music
+# SK Music for iOS
 
-A fast, kosher, **filtered YouTube music web client** — search and stream a whitelisted catalog of Jewish
-music, filtered by construction. It ships as a **static site on Cloudflare Workers**: the browser does the
-searching over a prebuilt index, and playback runs through the official YouTube IFrame player.
+A fork/variant of the original **[SK Music](https://github.com/Shalom-Karr/SK-Music)** project that enables
+**background audio playback on iPhone and iPad**.
 
-Live: **https://skmusic.shalomkarr.workers.dev**
+The original app streams through the YouTube IFrame API, which iOS pauses as soon as you switch apps or lock the screen.
+This version downloads the actual audio track from YouTube and plays it through the PWA's own `<audio>` element,
+while caching each song in **Cloudflare R2** so subsequent plays are instant, seekable, and work offline-ish.
+
+Live example: `https://<your-worker-url>.workers.dev`
 
 ---
 
-## What it is
+## What changed vs. the original SK Music
 
-- **Whitelisted catalog** — every song comes from a pre-approved artist, so the app is "accurate by
-  construction." The catalog is fetched at build time and baked into the deploy; it is not committed here.
-- **Client-side search** — the whole index is interned into one compressed dataset and searched in the
-  browser (Hebrew-aware, fuzzy), off the main thread via a Web Worker. No search backend to run.
-- **Static-first** — `dist/` (the SPA + the search engine + the baked catalog + assets) is served by a thin
-  Cloudflare Worker that adds only what can't be static: live playlist contents, trending, server-rendered
-  link previews, and anonymous play analytics.
-- **PWA** — installable, with a service worker that caches the shell for fast repeat loads.
+| Original `Shalom-Karr/SK-Music` | This iOS version |
+|---|---|
+| Playback via embedded YouTube IFrame API | Playback via native HTML5 `<audio>` with a direct M4A stream |
+| iOS pauses audio on app switch / screen lock | iOS keeps playing in the background |
+| Streams directly from YouTube on every play | First play downloads and caches the M4A in Cloudflare R2; later plays served from R2 |
+| Skipping when the IFrame API fails or is blocked | Reliable fallback stream with CORS and CSP support |
+| No proxy / yt-dlp layer | Vercel serverless backend runs `yt-dlp` with optional proxy/cookies to bypass YouTube bot checks |
 
-## Layout
+## Architecture
 
 ```
-engine/    the Cloudflare Worker (index.mjs) + the client-side search engine (ES modules → dist/lib) +
-           the build: fetch-corpus.mjs (pull the catalog snapshot) → build-static.mjs (bake dist/),
-           and store.mjs (reads the SQLite catalog, build-time only)
-assets/    the SPA (ui.html) + analytics.html (admin) + connectivity.html + taggers, plus logo, PWA
-           icons, web manifest, OG image
-supabase/  schema.sql + tag/pin SQL (the backend: analytics, parental controls, artist tags)
-docs/      architecture, filters + parental controls, backend, credentials
+assets/       the PWA (ui.html), logos, manifest, icons
+engine/       Cloudflare Worker (index.mjs), client search engine, static build scripts
+vercel-backend/  Vercel function that runs yt-dlp and streams audio from YouTube
+supabase/     analytics + parental-control schema
 ```
 
-## Run & build
+1. The PWA asks the Cloudflare Worker for `/stream?v=VIDEO_ID`.
+2. The Worker checks the `AUDIO_BUCKET` R2 bucket:
+   - **Hit** — serves the cached M4A with `Range`/`206` support.
+   - **Miss** — fetches the Vercel backend, which uses `yt-dlp` to extract the audio URL. The Worker `tee()`s the
+     response, returns one branch to the player, and writes the other branch to R2 in the background via `waitUntil()`.
+3. The Vercel backend uses `--load-info-json` so YouTube is only queried once per song, and can use a proxy/cookies
+   to avoid bot-check errors.
+
+## Prerequisites
+
+- Node.js 22+ and npm
+- A Cloudflare account (Worker + R2 + KV)
+- A Vercel account
+- (Optional but recommended) a residential/mobile proxy URL for `yt-dlp`, or a YouTube cookies export, to avoid
+  YouTube's "Sign in to confirm you're not a bot" errors.
+
+## 1. Clone and install
 
 ```bash
-npm install          # one native dep: better-sqlite3 (prebuilt for your platform)
-npm run build        # fetch the catalog snapshot, then bake dist/
-npm run dev          # wrangler dev — serves dist/ + the Worker locally
+git clone https://github.com/etatrackcustomerservice/SK-music-ios-new.git
+cd SK-music-ios-new
+npm install
+cd vercel-backend
+npm install
+cd ..
 ```
 
-`npm run build` downloads the latest public catalog snapshot (`CORPUS_REPO`) and generates `dist/`. See
-`.env.example` for the (optional) configuration — everything has a working default.
+`better-sqlite3` is a native dependency; `npm install` will build it for your platform.
 
-## Deploy
+## 2. Cloudflare setup
 
-Deploys to **Cloudflare Workers Static Assets** via GitHub Actions on every push to `main` (and daily, to
-pick up catalog updates). Add a `CLOUDFLARE_API_TOKEN` repository secret to enable auto-deploy. To deploy
-from your machine instead:
+1. Create a Cloudflare Worker project.
+2. Create an **R2 bucket** named `sk-music-audio`. This is where cached audio files live.
+3. Create a **KV namespace** and note its ID (used for page overrides / trending playlist caching).
+4. Note your **Cloudflare account ID**.
+5. Create a **Cloudflare API token** with:
+   - `Cloudflare Workers:Edit`
+   - `Account:Read`
+   - `Cloudflare R2:Edit` (or at least read/write for the `sk-music-audio` bucket)
+
+### Update `wrangler.jsonc`
+
+```json
+{
+  "name": "skmusic",
+  "main": "engine/index.mjs",
+  "account_id": "<your-cloudflare-account-id>",
+  "compatibility_date": "2025-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "kv_namespaces": [{ "binding": "PAGES", "id": "<your-kv-namespace-id>" }],
+  "r2_buckets": [{ "binding": "AUDIO_BUCKET", "bucket_name": "sk-music-audio" }],
+  "vars": { "STREAM_SERVER_URL": "https://<your-vercel-project>.vercel.app" },
+  "triggers": { "crons": ["15 8,20 * * *"] },
+  "observability": { "enabled": true }
+}
+```
+
+## 3. Vercel setup
+
+1. In the Vercel dashboard, create a project linked to the `vercel-backend` folder.
+2. Set the following environment variables in **Project → Settings → Environment Variables**:
+
+| Variable | Value | Purpose |
+|---|---|---|
+| `YTDLP_PROXY` | `http://host:port` (optional) | Residential/mobile proxy for `yt-dlp` to avoid bot checks |
+| `YOUTUBE_COOKIES` | Netscape-format cookies for `youtube.com` (optional) | Helps bypass YouTube login challenges |
+| `CLOUDFLARE_API_TOKEN` | your token (only needed if the Vercel function also uploads to R2; **not used** in the final Worker-cache version) | kept for legacy/future use |
+| `CLOUDFLARE_ACCOUNT_ID` | your account id | same as above |
+| `R2_BUCKET_NAME` | `sk-music-audio` | same as above |
+
+3. Make sure `vercel.json` is present at `vercel-backend/vercel.json`:
+
+```json
+{
+  "functions": {
+    "api/stream.js": {
+      "maxDuration": 300
+    }
+  }
+}
+```
+
+4. Deploy the backend:
 
 ```bash
-npm run deploy       # build + wrangler deploy
+cd vercel-backend
+npx vercel --prod
 ```
 
-Worker name and account live in `wrangler.jsonc`.
+Copy the production URL (e.g. `https://<your-vercel-project>.vercel.app`) into `wrangler.jsonc` as `STREAM_SERVER_URL`.
+
+## 4. Build and deploy the Worker
+
+```bash
+# From the repo root
+npm run build    # fetches the catalog and bakes dist/
+npx wrangler deploy
+```
+
+To deploy from CI, add `CLOUDFLARE_API_TOKEN` as a **GitHub repository secret** at
+`Settings → Secrets and variables → Actions`. The included `.github/workflows/` (if present) will run
+`npm run deploy` on every push to `main`.
+
+## 5. Pre-warm the audio cache (optional but recommended)
+
+The first listener to request a song pays the YouTube-download cost. For a smooth launch, warm the cache for the
+songs you care about:
+
+```bash
+for id in VIDEO_ID1 VIDEO_ID2; do
+  curl -s -o /dev/null "https://<your-worker>/stream?v=$id"
+done
+```
+
+For long mixes or slow proxies, you may need to run the warmer with a long timeout, or download through the Vercel
+backend and upload the M4A directly to R2.
+
+## Run locally
+
+```bash
+npm install
+npm run build
+npm run dev    # wrangler dev
+```
+
+In another terminal:
+
+```bash
+cd vercel-backend
+npm install
+npx vercel dev
+```
+
+## iOS background audio
+
+Because the PWA now plays a real `<audio>` stream instead of a YouTube iframe, Safari/iOS treats it like any other
+audio app. Once installed to the home screen, the PWA will keep playing when you switch apps, lock the screen, or use
+the system media controls.
 
 ## Credits
 
-The whitelisted music **catalog** and **artist whitelist** that SK Music streams come from **Zemer** by
-[alltechdev](https://github.com/alltechdev) — the [`zemer-app`](https://github.com/ZemerTeam/zemer-app) and
-[`zemer-search`](https://github.com/ZemerTeam/zemer-search) projects. SK Music is an independent web client
-with its own search engine; full credit and thanks to alltechdev for the catalog that makes this possible.
+This project is based on the original **SK Music** by **[Shalom Karr](https://github.com/Shalom-Karr)**.
 
-## Acknowledgments
+- Original repository: <https://github.com/Shalom-Karr/SK-Music>
+- Announcement thread on jtechforums: <https://forums.jtechforums.org/t/sk-music-the-long-awaited-release-of-a-kosher-music-web-client/7839>
 
-A big thank you to [alltechdev](https://github.com/alltechdev)
-([ars18](https://forums.jtechforums.org/u/ars18) on jtechforums) for a lot of advice and tips throughout the build.
+Special thanks to **[@Shalom_Karr](https://forums.jtechforums.org/u/Shalom_Karr)** and the
+[jtechforums.org](https://forums.jtechforums.org) community for the original app, the catalog ideas, and the feedback
+that led to this iOS-background-playback fork.
 
-Thanks also to the community at [jtechforums.org](https://forums.jtechforums.org) —
-[pleasesmiletoday](https://forums.jtechforums.org/u/pleasesmiletoday) for ideas on what to build out and for
-tagging singers, and [jask](https://forums.jtechforums.org/u/jask),
-[ys770](https://forums.jtechforums.org/u/ys770), [flippy](https://forums.jtechforums.org/u/flippy), and
-[the-curious](https://forums.jtechforums.org/u/the-curious) for help tagging singers.
-
-## Disclaimer
-
-SK Music is an independent, non-commercial project for **personal and educational use**. It is **not
-affiliated with, endorsed by, or sponsored by YouTube or Google**. Playback uses the official YouTube
-IFrame Player API; the app does not host, download, or re-encode any audio or video. Respect
-[YouTube's Terms of Service](https://www.youtube.com/t/terms). Use at your own risk.
+The whitelisted music catalog and artist whitelist come from **Zemer** by
+[alltechdev](https://github.com/alltechdev) / [`zemer-search`](https://github.com/ZemerTeam/zemer-search).
 
 ## License
 
 SK Music is free software under the **GNU General Public License v3.0** — see [LICENSE](LICENSE).
 
-Copyright © 2026 Shalom Karr. Portions derive from
-[`zemer-search`](https://github.com/ZemerTeam/zemer-search) by
+Copyright © 2026 Shalom Karr. Portions derive from [`zemer-search`](https://github.com/ZemerTeam/zemer-search) by
 [alltechdev](https://github.com/alltechdev), also licensed GPL-3.0.
 
-The GPL permits commercial use. As a personal request — **not** a condition of the license — please contact
-the author before using SK Music, or substantial parts of it, in a paid or commercial product.
+The GPL permits commercial use. As a personal request — **not** a condition of the license — please contact the author
+before using SK Music, or substantial parts of it, in a paid or commercial product.
