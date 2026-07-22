@@ -1949,10 +1949,63 @@ function blockedByFilter(kind) { blockedPage("Access denied", `This ${kind} is b
 // corpus videoIds are ever loaded, and the iframe is off-screen with no controls, so no YouTube UI shows.
 // If the IFrame API itself can't load, we fall back to the server-proxied /stream path (the <audio> tag).
 const audio = el("audio");
+const isIOSDevice = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+// iOS suspends JS when the screen is locked / app is backgrounded, so the audio.ended event never fires.
+// A ScriptProcessorNode on a running AudioContext keeps the JS thread alive and lets us force timeupdate
+// events; when the currentTime is close to the end, we seek to duration so the ended event fires while
+// Safari still considers the play() call in its handler part of the same playback session.
+let iosAudioCtx = null, iosScriptNode = null, iosKeepAliveAt = 0, iosAdvanceGuard = false;
+function ensureIOSKeepAlive() {
+  if (!isIOSDevice() || iosAudioCtx) return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  try {
+    iosAudioCtx = new AC();
+    const osc = iosAudioCtx.createOscillator();
+    const gain = iosAudioCtx.createGain();
+    gain.gain.value = 0;
+    osc.connect(gain).connect(iosAudioCtx.destination);
+    osc.start();
+    const sp = iosAudioCtx.createScriptProcessor(2048, 1, 1);
+    sp.onaudioprocess = () => {
+      const now = performance.now();
+      if (now - iosKeepAliveAt < 100) return;
+      iosKeepAliveAt = now;
+      try { audio.dispatchEvent(new Event("timeupdate")); } catch {}
+    };
+    sp.connect(iosAudioCtx.destination);
+  } catch (e) { console.warn("[ios keepalive] init failed", e); }
+}
+function resumeIOSKeepAlive() {
+  if (iosAudioCtx && iosAudioCtx.state === "suspended") iosAudioCtx.resume().catch(() => {});
+}
+function onIOSAudioTimeUpdate() {
+  if (PB.mode !== "html5" || iosAdvanceGuard || !audio.duration || !isFinite(audio.duration)) return;
+  if (audio.paused || audio.ended) return;
+  if (audio.currentTime >= audio.duration - 0.15) {
+    iosAdvanceGuard = true;
+    try { audio.currentTime = audio.duration; } catch {}
+    setTimeout(() => { iosAdvanceGuard = false; }, 2000);
+  }
+}
+if (isIOSDevice()) audio.addEventListener("timeupdate", onIOSAudioTimeUpdate);
 const PB = {
-  mode: "yt", yt: null, ready: false, pending: null, nextStart: 0, vol: 1, muted: false, rate: 1,
-  load(id, startSec) { startSec = startSec || this.nextStart || 0; this.nextStart = 0; if (this.mode === "yt") { const a = startSec ? { videoId: id, startSeconds: startSec } : id; if (this.ready) this.yt.loadVideoById(a); else this.pending = a; } else { audio.src = "/stream?v=" + encodeURIComponent(id); if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); } },
-  play() { this.mode === "yt" ? this.ready && this.yt.playVideo() : audio.play().catch(() => {}); },
+  mode: isIOSDevice() ? "html5" : "yt", yt: null, ready: false, pending: null, nextStart: 0, vol: 1, muted: false, rate: 1,
+  load(id, startSec) {
+    startSec = startSec || this.nextStart || 0; this.nextStart = 0;
+    if (this.mode === "yt") { const a = startSec ? { videoId: id, startSeconds: startSec } : id; if (this.ready) this.yt.loadVideoById(a); else this.pending = a; }
+    else {
+      iosAdvanceGuard = false;
+      audio.src = "/stream?v=" + encodeURIComponent(id);
+      if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true });
+      audio.play().catch((e) => { console.warn("[html5 load] play blocked", e); });
+      if (isIOSDevice()) { ensureIOSKeepAlive(); resumeIOSKeepAlive(); }
+    }
+  },
+  play() {
+    if (this.mode === "yt") { if (this.ready) this.yt.playVideo(); }
+    else { audio.play().catch((e) => { console.warn("[html5 play] play blocked", e); }); if (isIOSDevice()) { ensureIOSKeepAlive(); resumeIOSKeepAlive(); } }
+  },
   pause() { this.mode === "yt" ? this.ready && this.yt.pauseVideo() : audio.pause(); },
   stop() { this.pending = null; if (this.mode === "yt") { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
   paused() { return this.mode === "yt" ? (!this.ready || this.yt.getPlayerState() !== 1) : audio.paused; }, // methods exist only after onReady
@@ -2082,7 +2135,18 @@ function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing �
 }
 function showToast(msg, ms) { const t = el("toast"); t.innerHTML = msg; t.classList.add("on"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), ms || 4200); }
 function onPlaybackError() {
-  const t = state.queue[state.qi]; if (!t) return; streamFails++;
+  const t = state.queue[state.qi]; if (!t) return;
+  // YouTube IFrame errors (embed disabled, removed, etc.) are common on desktop.
+  // Fall back to the server-proxied /stream audio for the current track instead
+  // of immediately skipping.
+  if (PB.mode === "yt" && streamFails === 0) {
+    console.warn("YT player error for", t.videoId, "→ falling back to /stream");
+    PB.stop();
+    PB.mode = "html5";
+    PB.load(t.videoId);
+    return;
+  }
+  streamFails++;
   el("nbArtist").textContent = (t.artist || "") + " · unavailable";
   if (streamFails >= 3) { showToast(PB.mode === "yt" ? "<b>Couldn't play these tracks.</b> Some videos disable embedding, or playback is restricted on this network." : "<b>Streaming is blocked on this network.</b> Search &amp; browse still work — playback needs an unfiltered connection.", 6500); return; }
   showToast(`Couldn't play “${esc(t.title || "track")}” — skipping…`);

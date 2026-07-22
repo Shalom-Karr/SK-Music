@@ -753,7 +753,7 @@ const CSP = [
   // so pin the inert image channel to any-https rather than whack-a-mole a host list. The exfil-relevant
   // directives (connect/script/frame/object/base) stay tight.
   "img-src 'self' data: blob: https:",
-  "media-src 'self' blob:",
+  "media-src 'self' blob: https://*.vercel.app",
   "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
   // ipc: + ipc.localhost are the Tauri desktop app's IPC transport (invoke → now_playing/set_playback_state);
   // harmless for browsers, required so the desktop media bridge isn't blocked.
