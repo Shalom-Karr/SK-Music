@@ -158,7 +158,9 @@ Promise.all([
   getJSON("/trending?days=" + days + "&b=" + Math.floor(Date.now() / 600000), { headers: { Accept: "application/json" }, cache: "no-cache" }),
   getJSON("/data/artists.json"),
   getJSON("/data/blocked-ids.json"),
-  F.acapella ? getJSON("/zemer-playlists?id=acapella") : Promise.resolve(null),
+  // The baked asset, NOT /zemer-playlists?id= — that's an in-app engine route; from a standalone
+  // page it falls through to the SPA shell and parses as nothing, leaving only title-matching.
+  F.acapella ? getJSON("/data/zemer-playlist/acapella.json") : Promise.resolve(null),
 ]).then(([d, cat, blocked, ac]) => {
   if (!d) throw new Error("no data");
   const flags = new Map((cat && cat.artists || []).map((a) => [a.id, a]));
