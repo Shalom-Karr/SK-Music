@@ -132,15 +132,18 @@ function artistRow(a, i) {
     ${cell(web, "w")}${cell(app, "z")}${cell(web + app, "total")}</tr>`;
 }
 
-// The &b= 10-minute bucket busts intermediary caches (content-filter proxies) that would otherwise
-// pin an old copy of the JSON past the server's own cache lifetime.
-fetch("/trending?days=" + days + "&b=" + Math.floor(Date.now() / 600000), { headers: { Accept: "application/json" } })
+// The &b= 10-minute bucket busts intermediary caches (content-filter proxies), and cache:"no-cache"
+// keeps the browser's own HTTP cache from pinning an old copy — this page should always show current data.
+fetch("/trending?days=" + days + "&b=" + Math.floor(Date.now() / 600000), { headers: { Accept: "application/json" }, cache: "no-cache" })
   .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
   .then((d) => {
+    // The API ranks by blended reach score (right for the app's rails); a table with a visible
+    // Total column reads as broken unless it's ordered by that total.
+    const byTotal = (a, b) => ((b.plays || 0) + (b.appPlays || 0)) - ((a.plays || 0) + (a.appPlays || 0));
     document.getElementById("songs").innerHTML =
-      (d.songs || []).map(songRow).join("") || '<tr><td colspan="5" class="skel">No plays yet.</td></tr>';
+      (d.songs || []).sort(byTotal).map(songRow).join("") || '<tr><td colspan="5" class="skel">No plays yet.</td></tr>';
     document.getElementById("artists").innerHTML =
-      (d.artists || []).map(artistRow).join("") || '<tr><td colspan="5" class="skel">No plays yet.</td></tr>';
+      (d.artists || []).sort(byTotal).map(artistRow).join("") || '<tr><td colspan="5" class="skel">No plays yet.</td></tr>';
     if (!d.app) document.getElementById("appNote").textContent = "Zemer app stats are refreshing — reload in a minute for the blend.";
     // Progressive avatar upgrade: swap initials for real artist photos once the catalog index loads.
     fetch("/data/artists.json").then((r) => (r.ok ? r.json() : null)).then((cat) => {
