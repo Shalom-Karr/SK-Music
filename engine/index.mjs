@@ -619,12 +619,13 @@ async function handleTrending(request, url, env, ctx) {
       cur.appPlays = e.plays || 0; cur.appDevices = e.devices || 0;
       cur.skipRate = e.skipRate ?? null;
       if (!cur.artistId) cur.artistId = e.artistId || null;
+      if (e.offCatalog) cur.offCatalog = true;
       cur.sources.push("app");
     } else {
       byVid.set(e.videoId, {
         videoId: e.videoId, title: e.title, artist: e.artist, artistId: e.artistId || null,
         plays: 0, appPlays: e.plays || 0, appDevices: e.devices || 0,
-        skipRate: e.skipRate ?? null, sources: ["app"],
+        skipRate: e.skipRate ?? null, ...(e.offCatalog ? { offCatalog: true } : {}), sources: ["app"],
       });
     }
   }
@@ -707,6 +708,51 @@ const resolveArtistId = (idx, name) => {
   return idx.exact.get(n) || idx.prefix.get(n) || idx.exact.get(n.split(" - ")[0].trim()) || null;
 };
 
+// ── same-song title matching ──
+// The app frequently plays a channel's plain-YouTube upload while our corpus catalogs the
+// YouTube Music release of the SAME song under a different videoId. Titles are the bridge:
+// normalize hard (any-language letters/digits only), and generate looser variants — each " | "
+// dual-language segment, with and without "(ווקאלי)"-style parenthetical suffixes.
+const normTitle = (s) =>
+  String(s || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+
+function titleVariants(title) {
+  const raw = String(title || "");
+  const out = new Set();
+  for (const part of [raw, ...raw.split("|")]) {
+    for (const cand of [part, part.replace(/[([].*?[)\]]/g, " ")]) {
+      const n = normTitle(cand);
+      if (n) out.add(n);
+    }
+  }
+  return out;
+}
+
+// title+artist → videoId over the whole catalog. A key claimed by two different tracks is
+// poisoned (null) so we never remap onto a guess — e.g. an artist with three distinct
+// "Lecha Dodi" recordings simply doesn't remap and the play stays on its original id.
+function buildTitleIndex(og, idx) {
+  const map = new Map();
+  for (const [vid, [title, artistName]] of Object.entries(og)) {
+    const aid = resolveArtistId(idx, artistName);
+    if (!aid) continue;
+    for (const v of titleVariants(title)) {
+      const k = v + "|" + aid;
+      map.set(k, map.has(k) && map.get(k) !== vid ? null : vid);
+    }
+  }
+  return map;
+}
+
+const remapByTitle = (titleIdx, title, artistId) => {
+  if (!artistId) return null;
+  for (const v of titleVariants(title)) {
+    const hit = titleIdx.get(v + "|" + artistId);
+    if (hit) return hit;
+  }
+  return null;
+};
+
 // Module-level cache: the /trending merge needs the name index on every edge-cache miss;
 // artists.json is ~550 KB, so parse it once per isolate.
 let artistIndexCache = null;
@@ -739,22 +785,48 @@ async function refreshExternalTrending(env) {
   const idx = buildArtistNameIndex((artistsFile && artistsFile.artists) || []);
   const nameById = new Map(((artistsFile && artistsFile.artists) || []).map((a) => [a.id, a.name]));
 
-  // Songs: og.json membership = "in our whitelisted catalog"; take OUR canonical title/artist,
-  // not theirs. Aggregate per-artist listening from the same rows as a floor…
+  // Songs, in three tiers. (1) Catalog id → take OUR canonical title/artist. (2) Not a catalog
+  // id but the same song exists in the catalog under another id (their app plays the channel's
+  // plain-YouTube upload; we index the YouTube Music release) → remap the play onto our id.
+  // (3) No remap but the artist resolves to a whitelisted channel → KEEP the original id, marked
+  // offCatalog — everything in these stats was played inside the whitelist-locked Zemer app, so
+  // the id is kosher by construction and our player handles any videoId. Only rows their tracker
+  // never titled (deleted videos etc.) are dropped — there's nothing to attribute them to.
+  const titleIdx = buildTitleIndex(og, idx);
   const songs = [];
+  const songByVid = new Map(); // kept videoId → songs[] row (remaps can collapse two of their rows onto one song)
   const agg = new Map(); // artistId → { id, name, plays, devices }
   for (const p of stats.topPlays || []) {
-    const entry = og[p.videoId];
-    if (!entry) continue;
-    const [title, artistName] = entry;
-    const artistId = resolveArtistId(idx, artistName);
-    songs.push({
-      videoId: p.videoId, title, artist: artistName, artistId,
-      plays: p.n || 0, devices: p.devices || 0,
-      skipRate: typeof p.skipRate === "number" ? p.skipRate : null,
-    });
+    let vid = p.videoId;
+    let entry = og[vid];
+    let offCatalog = false;
+    if (!entry) {
+      const aid = resolveArtistId(idx, p.artist);
+      if (!aid || !normTitle(p.title)) continue;
+      const remap = remapByTitle(titleIdx, p.title, aid);
+      if (remap) { vid = remap; entry = og[vid]; }
+      else offCatalog = true;
+    }
+    const artistId = resolveArtistId(idx, entry ? entry[1] : p.artist);
+    const prev = songByVid.get(vid);
+    if (prev) {
+      prev.plays += p.n || 0;
+      prev.devices = Math.max(prev.devices, p.devices || 0); // the two versions' device sets may overlap → max
+    } else {
+      const row = {
+        videoId: vid,
+        title: entry ? entry[0] : p.title,
+        artist: entry ? entry[1] : (nameById.get(artistId) || p.artist),
+        artistId,
+        plays: p.n || 0, devices: p.devices || 0,
+        skipRate: typeof p.skipRate === "number" ? p.skipRate : null,
+      };
+      if (offCatalog) row.offCatalog = true;
+      songByVid.set(vid, row);
+      songs.push(row);
+    }
     if (artistId) {
-      const a = agg.get(artistId) || { id: artistId, name: nameById.get(artistId) || artistName, plays: 0, devices: 0 };
+      const a = agg.get(artistId) || { id: artistId, name: nameById.get(artistId) || p.artist, plays: 0, devices: 0 };
       a.plays += p.n || 0;
       a.devices = Math.max(a.devices, p.devices || 0); // per-song device sets overlap → max, never sum
       agg.set(artistId, a);
