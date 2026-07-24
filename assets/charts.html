@@ -77,6 +77,7 @@ footer a{color:var(--muted);text-decoration:underline}
     <span class="chip"><span class="dot" style="background:var(--primary)"></span>SK Music (web)</span>
     <span class="chip"><span class="dot" style="background:var(--gold)"></span>Zemer app</span>
     <span id="appNote"></span>
+    <span id="filterNote"></span>
   </div>
   <section>
     <h2>Trending Songs</h2>
@@ -114,6 +115,18 @@ const cell = (n, cls) => `<td class="num ${cls}">${n ? num(n) : '<span style="co
 const days = Math.min(365, Math.max(1, parseInt(new URLSearchParams(location.search).get("days") || "30", 10) || 30));
 document.getElementById("sub").textContent = `Top songs and artists across both players, last ${days} days.`;
 
+// ── Content filters — same localStorage keys and defaults as the app (assets/ui.html) ──
+const ls = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch { return d; } };
+const F = {
+  noFemale: ls("zw_noFemale", "1") === "1", // kol isha — ON by default, like the app
+  noDJ: ls("zw_noDJ", "0") === "1",
+  chasid: ls("zw_chasid", ""),   // "" | only | hide
+  israeli: ls("zw_israeli", ""),
+  acapella: (() => { const v = ls("zw_acapella", ""); return v === "1" ? "only" : (v === "only" || v === "hide") ? v : ""; })(),
+};
+// Same detection the app uses: curated playlist membership OR the title says acapella.
+const AC_RX = /a\s?-?c+a?p+el+l?a|ווקאלי|אקפלה|\bvocal (version|set|cover)\b|\(vocal\)/i;
+
 function songRow(s, i) {
   const web = s.plays || 0, app = s.appPlays || 0;
   return `<tr>
@@ -135,34 +148,65 @@ function artistRow(a, i) {
     ${cell(web, "w")}${cell(app, "z")}${cell(web + app, "total")}</tr>`;
 }
 
+const getJSON = (u, opt) => fetch(u, opt).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+
 // The &b= 10-minute bucket busts intermediary caches (content-filter proxies), and cache:"no-cache"
 // keeps the browser's own HTTP cache from pinning an old copy — this page should always show current data.
-fetch("/trending?days=" + days + "&b=" + Math.floor(Date.now() / 600000), { headers: { Accept: "application/json" }, cache: "no-cache" })
-  .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
-  .then((d) => {
-    // The API ranks by blended reach score (right for the app's rails); a table with a visible
-    // Total column reads as broken unless it's ordered by that total.
-    const byTotal = (a, b) => ((b.plays || 0) + (b.appPlays || 0)) - ((a.plays || 0) + (a.appPlays || 0));
-    document.getElementById("songs").innerHTML =
-      (d.songs || []).sort(byTotal).map(songRow).join("") || '<tr><td colspan="5" class="skel">No plays yet.</td></tr>';
-    document.getElementById("artists").innerHTML =
-      (d.artists || []).sort(byTotal).map(artistRow).join("") || '<tr><td colspan="5" class="skel">No plays yet.</td></tr>';
-    if (!d.app) document.getElementById("appNote").textContent = "Zemer app stats are refreshing — reload in a minute for the blend.";
-    // Progressive avatar upgrade: swap initials for real artist photos once the catalog index loads.
-    fetch("/data/artists.json").then((r) => (r.ok ? r.json() : null)).then((cat) => {
-      if (!cat) return;
-      const thumb = new Map((cat.artists || []).map((a) => [a.id, a.thumbnail]));
-      document.querySelectorAll(".avatar[data-artist]").forEach((el) => {
-        const t = thumb.get(el.dataset.artist);
-        if (t) el.innerHTML = `<img loading="lazy" alt="" src="${esc(t)}">`;
-      });
-    }).catch(() => {});
-  })
-  .catch(() => {
-    const fail = '<tr><td colspan="5" class="skel">Couldn\'t load trending right now.</td></tr>';
-    document.getElementById("songs").innerHTML = fail;
-    document.getElementById("artists").innerHTML = fail;
+// artists.json + blocked-ids feed the content filters (and artist avatars); the Acapella playlist loads
+// only when that filter is active.
+Promise.all([
+  getJSON("/trending?days=" + days + "&b=" + Math.floor(Date.now() / 600000), { headers: { Accept: "application/json" }, cache: "no-cache" }),
+  getJSON("/data/artists.json"),
+  getJSON("/data/blocked-ids.json"),
+  F.acapella ? getJSON("/zemer-playlists?id=acapella") : Promise.resolve(null),
+]).then(([d, cat, blocked, ac]) => {
+  if (!d) throw new Error("no data");
+  const flags = new Map((cat && cat.artists || []).map((a) => [a.id, a]));
+  const blockedGlobal = new Set((blocked && blocked.global) || []);
+  const blockedFemale = new Set((blocked && blocked.female) || []);
+  const acSet = new Set(((ac && ac.tracks) || []).map((t) => t.videoId));
+  const acArtists = new Set(((ac && ac.tracks) || []).map((t) => (t.artist || "").toLowerCase()));
+
+  // Mirrors the app's hiddenArtist(): unknown artists (no id / not in the catalog index) pass.
+  const artistHidden = (id) => {
+    const f = id && flags.get(id);
+    if (!f) return false;
+    return (F.noFemale && f.isFemale) || (F.noDJ && f.isDJ) ||
+      (F.chasid === "only" && !f.isChasid) || (F.chasid === "hide" && f.isChasid) ||
+      (F.israeli === "only" && !f.isIsraeli) || (F.israeli === "hide" && f.isIsraeli);
+  };
+  const isAc = (s) => acSet.has(s.videoId) || AC_RX.test(s.title || "");
+  const songVisible = (s) =>
+    !blockedGlobal.has(s.videoId) && !(F.noFemale && blockedFemale.has(s.videoId)) &&
+    !artistHidden(s.artistId) &&
+    (F.acapella === "only" ? isAc(s) : F.acapella === "hide" ? !isAc(s) : true);
+  const artistVisible = (a) =>
+    !artistHidden(a.id) &&
+    (F.acapella === "only" ? (acArtists.has((a.artist || "").toLowerCase()) || (a.id && flags.get(a.id) || {}).isAcapellaOnly) :
+     F.acapella === "hide" ? !((a.id && flags.get(a.id) || {}).isAcapellaOnly) : true);
+
+  // The API ranks by blended reach score (right for the app's rails); a table with a visible
+  // Total column reads as broken unless it's ordered by that total.
+  const byTotal = (a, b) => ((b.plays || 0) + (b.appPlays || 0)) - ((a.plays || 0) + (a.appPlays || 0));
+  const songs = (d.songs || []).filter(songVisible).sort(byTotal);
+  const artists = (d.artists || []).filter(artistVisible).sort(byTotal);
+  document.getElementById("songs").innerHTML =
+    songs.map(songRow).join("") || '<tr><td colspan="5" class="skel">Nothing to show under your current content filters.</td></tr>';
+  document.getElementById("artists").innerHTML =
+    artists.map(artistRow).join("") || '<tr><td colspan="5" class="skel">Nothing to show under your current content filters.</td></tr>';
+  if (!d.app) document.getElementById("appNote").textContent = "Zemer app stats are refreshing — reload in a minute for the blend.";
+  const filtered = ((d.songs || []).length - songs.length) + ((d.artists || []).length - artists.length);
+  if (filtered) document.getElementById("filterNote").textContent = `${filtered} entries hidden by your content filters (set in the app).`;
+  // Artist avatars from the same catalog index (no extra fetch).
+  document.querySelectorAll(".avatar[data-artist]").forEach((el) => {
+    const f = flags.get(el.dataset.artist);
+    if (f && f.thumbnail) el.innerHTML = `<img loading="lazy" alt="" src="${esc(f.thumbnail)}">`;
   });
+}).catch(() => {
+  const fail = '<tr><td colspan="5" class="skel">Couldn\'t load trending right now.</td></tr>';
+  document.getElementById("songs").innerHTML = fail;
+  document.getElementById("artists").innerHTML = fail;
+});
 </script>
 </body>
 </html>

@@ -1393,7 +1393,12 @@ let blockGlobal = new Set(), blockFemale = new Set(), _blLoad = null;
 // caught, which the artist-level isFemale flag misses.
 function loadBlockedIds() { return _blLoad || (_blLoad = fetch("/data/blocked-ids.json").then((r) => (r.ok ? r.json() : null)).then((d) => { if (d) { blockGlobal = new Set(d.global || []); blockFemale = new Set(d.female || []); } }).catch(() => { _blLoad = null; })); }
 const blockedId = (id) => !!id && (blockGlobal.has(id) || (noFemale() && blockFemale.has(id)));
-const songOK = (t) => { if (!t) return false; if (blockedId(t.videoId)) return false; const m = acapellaMode(); if (!m) return true; if (!acapellaSet) return false; const inSet = acapellaSet.has(t.videoId); return m === "only" ? inSet : !inSet; }; // per-id block + Acapella (only → in the playlist; hide → not in it)
+// Acapella = curated-playlist membership OR the title says so ("Acapella", "ווקאלי", "vocal version").
+// The app-blended trending surfaces vocal tracks the playlist doesn't know (off-catalog uploads,
+// alternate-id versions) — both Hide and Only must still classify those correctly.
+const AC_TITLE_RX = /a\s?-?c+a?p+el+l?a|ווקאלי|אקפלה|\bvocal (version|set|cover)\b|\(vocal\)/i; // acapella/accapella/acappella/a cappella/a-capella + Hebrew + vocal-version forms
+const acapellaTrack = (t) => !!(acapellaSet && acapellaSet.has(t.videoId)) || !!(t.title && AC_TITLE_RX.test(t.title));
+const songOK = (t) => { if (!t) return false; if (blockedId(t.videoId)) return false; const m = acapellaMode(); if (!m) return true; if (!acapellaSet) return false; return m === "only" ? acapellaTrack(t) : !acapellaTrack(t); }; // per-id block + Acapella (only → Acapella tracks; hide → everything else)
 const acArtistOK = (name) => { const m = acapellaMode(); if (!m) return true; const n = (name || "").toLowerCase(); if (m === "only") return acapellaArtists && acapellaArtists.has(n); const a = _artistByName && _artistByName.get(n); return !(a && a.isAcapellaOnly); }; // hide → drop artists whose whole catalog is Acapella
 // gate(): parental (hiddenArtist) always; in Acapella mode, songs must be in the playlist and artists/albums/playlists
 // must belong to an artist who has an Acapella song.
@@ -1871,14 +1876,25 @@ async function openArtist(id, fromRoute) {
   const d = await detailGet("/artist?id=" + encodeURIComponent(id)); if (!d || d.error) return notAvailable("artist");
   await ensureFilters(); // load artist flags + parental profile BEFORE gating (else the parental gate no-ops)
   if ((noFemale() && d.artist.isFemale) || (noChasid() && d.artist.isChasid) || hiddenArtist(d.artist.name) || blockedId(d.artist.id)) return blockedByFilter("artist");
-  // Acapella mode: show THIS artist's tracks from the Acapella playlist itself (matched by artist name — the
-  // same basis they appear in the Artists list), not the corpus catalog. Hide albums/singles/playlists.
-  const acOn = acapella(); // when on, fail CLOSED: show the artist's Acapella tracks (or nothing if the set didn't load) — NEVER the full catalog
+  // Acapella filter, per mode — "only" and "hide" are OPPOSITES here (a single any-mode branch used to
+  // show just the Acapella tracks even in Hide, the exact inverse of what Hide means):
+  //   only → the artist's Acapella tracks: playlist membership (matched by artist name, fail closed if
+  //          the set didn't load) UNION title-detected catalog songs. Albums/singles/playlists hide.
+  //   hide → the artist's normal catalog MINUS Acapella tracks (playlist + title detection).
+  const am = acapellaMode(), acOnly = am === "only";
   const nm = (d.artist.name || "").toLowerCase();
-  const songs = acOn ? ((acapellaTracks || []).filter((t) => (t.artist || "").toLowerCase() === nm)) : d.songs;
-  const videos = (acOn || blockVideos()) ? [] : d.videos, albums = acOn ? [] : d.albums, singles = acOn ? [] : d.singles, plists = acOn ? [] : (d.playlists || []); // Audio-only hides the Videos section + keeps videos out of the play queue
+  let songs = d.songs || [];
+  if (acOnly) {
+    const seen = new Set();
+    songs = [...(acapellaTracks || []).filter((t) => (t.artist || "").toLowerCase() === nm), ...(d.songs || []).filter((t) => acapellaTrack(t))]
+      .filter((t) => t.videoId && !seen.has(t.videoId) && seen.add(t.videoId));
+  } else if (am === "hide") {
+    songs = (d.songs || []).filter((t) => !acapellaTrack(t));
+  }
+  const videos = (acOnly || blockVideos()) ? [] : (am === "hide" ? (d.videos || []).filter((t) => !acapellaTrack(t)) : d.videos);
+  const albums = acOnly ? [] : d.albums, singles = acOnly ? [] : d.singles, plists = acOnly ? [] : (d.playlists || []); // Audio-only hides the Videos section + keeps videos out of the play queue
   const n = (songs?.length || 0) + (videos?.length || 0);
-  pushDetail({ path: "/artists/" + id, kind: "Artist", title: d.artist.name, sub: acOn ? `<b>${num(n)}</b> Acapella songs` : `<b>${num(n)}</b> songs · <b>${num(d.albums?.length || 0)}</b> albums`, thumb: d.artist.thumbnail, round: true, artistName: d.artist.name, sections: [
+  pushDetail({ path: "/artists/" + id, kind: "Artist", title: d.artist.name, sub: acOnly ? `<b>${num(n)}</b> Acapella songs` : `<b>${num(n)}</b> songs · <b>${num(d.albums?.length || 0)}</b> albums`, thumb: d.artist.thumbnail, round: true, artistName: d.artist.name, sections: [
     { label: "Songs", tracks: songs, plays: true, collapse: 6 }, { label: "Albums", items: albums, render: albumCard }, { label: "Singles & EPs", items: singles, render: albumCard },
     { label: "Videos", tracks: videos, collapse: 6 }, { label: "Playlists", items: plists, render: playlistCard } ] }, fromRoute);
 }
@@ -1933,7 +1949,7 @@ async function openSong(id, fromRoute, startAt) {
   if (loggedIn() && !acct.profile) await onLogin(); // a fresh /song/:id load races the async login — load the parental profile BEFORE deciding
   if (acapella()) await loadAcapella(); // Acapella mode: need the playlist set before deciding
   if (blockGlobal.has(id)) return deny("Not available", "This song isn’t available on SK Music.", "global-block");
-  const reason = ((t.isFemale || blockFemale.has(id)) && noFemale()) ? "hide female singers" : (t.isChasid && noChasid()) ? "hide Chassidish" : (t.isVideo && blockVideos()) ? "audio only" : (hiddenArtist(t.artist) ? "parental" : (!songOK({ videoId: id }) ? "acapella" : null));
+  const reason = ((t.isFemale || blockFemale.has(id)) && noFemale()) ? "hide female singers" : (t.isChasid && noChasid()) ? "hide Chassidish" : (t.isVideo && blockVideos()) ? "audio only" : (hiddenArtist(t.artist) ? "parental" : (!songOK({ videoId: id, title: t.title }) ? "acapella" : null));
   if (reason) return deny("Access denied", reason === "parental" ? `“${t.title}” isn’t allowed by this account’s Parental Controls.` : reason === "acapella" ? (mourningPeriod() ? `“${t.title}” isn’t Acapella — instrumental music is set aside for ${mourningPeriod().indexOf("sefira") === 0 ? "Sefira" : "the Three Weeks"}.` : (acapellaMode() === "hide" ? `“${t.title}” is an Acapella song — you’ve set the Acapella filter to Hide.` : `“${t.title}” isn’t in the Acapella playlist. Change the Acapella filter to play it.`)) : `“${t.title}” is blocked by your content filter (${reason}). Change it in the filter menu to play this.`, reason);
   if (startAt > 0) PB.nextStart = startAt;
   playFrom(regQueue([{ videoId: id, title: t.title, artist: t.artist, isFemale: t.isFemale, isChasid: t.isChasid, isVideo: t.isVideo, durationSec: t.durationSec, explicit: t.explicit }]), 0); // playIndex → nowbar + saveRecent + track(play) + mediaSession + PB.load
@@ -2016,11 +2032,11 @@ addEventListener("pagehide", flushEvents); addEventListener("visibilitychange", 
 function playIndex(i, dir) {
   if (i < 0 || i >= state.queue.length) return;
   const am = acapellaMode();
-  if (am) { // Acapella filter: only → play only playlist songs; hide → never play a playlist song
+  if (am) { // Acapella filter: only → play only Acapella tracks; hide → never play one (playlist OR title-detected)
     if (!acapellaSet) { loadAcapella().then(() => { if (acapellaSet) playIndex(i, dir); }); showToast("Loading Acapella…", 1500); return; } // fail CLOSED: don't play until the set is ready
-    const ok = (v) => am === "only" ? acapellaSet.has(v) : !acapellaSet.has(v);
+    const ok = (trk) => am === "only" ? acapellaTrack(trk) : !acapellaTrack(trk);
     const step = dir || 1; let j = i; // scan in the travel direction (no wrap) so end-of-queue stops instead of looping
-    while (j >= 0 && j < state.queue.length && !ok(state.queue[j].videoId)) j += step;
+    while (j >= 0 && j < state.queue.length && !ok(state.queue[j])) j += step;
     if (j < 0 || j >= state.queue.length) { showToast(am === "only" ? "No more Acapella songs in this queue." : "No more non-Acapella songs in this queue.", 2600); return; }
     i = j;
   }
