@@ -175,6 +175,17 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
 
   const getWhitelistMeta = (id) => whitelistMeta.get(id) || {};
 
+  // Last-known-good Acapella playlist, committed to the repo. The upstream index REMOVES the
+  // acapella auto-playlist outside Sefira / the Three Weeks (404), but the app's Acapella filter
+  // (only/hide) needs its id list year-round — so every consumer below prefers the live playlist
+  // and falls back to this copy when the live one is missing or empty. Refresh it by copying a
+  // fresh dist/data/zemer-playlist/acapella.json over data/acapella-fallback.json while upstream
+  // has the playlist up.
+  const acapellaFallback = (() => {
+    try { return JSON.parse(fs.readFileSync(path.join(ROOT, "data/acapella-fallback.json"), "utf8")); }
+    catch { return null; }
+  })();
+
   // ── acapella-only artist detection ────────────────────────────────────────
   // Artists whose entire corpus catalog falls inside the acapella playlist get
   // tagged so the client's "Hide Acapella" filter can suppress the whole artist
@@ -182,9 +193,13 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
   const acapellaOnlySet = new Set();
   let acapellaTrackSet = null;   // upstream Acapella playlist videoIds — the same set the client filters against
   try {
-    const res = await fetch(`${CATALOG_BASE}/zemer-playlists?id=acapella`);
-    if (res.ok) {
-      const body = await res.json();
+    let body = null;
+    try {
+      const res = await fetch(`${CATALOG_BASE}/zemer-playlists?id=acapella`);
+      if (res.ok) body = await res.json();
+    } catch { /* fall through to the committed copy */ }
+    if (!body || !(body.tracks || []).length) body = acapellaFallback;
+    if (body) {
       const acSet = new Set(((body && body.tracks) || []).map((t) => t.videoId));
       acapellaTrackSet = acSet;
       const perArtist = new Map();
@@ -429,9 +444,8 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
       const listBody = await fetchJSON("/zemer-playlists");
       catalogList = listBody.playlists || [];
     } catch (e) {
-      emitJSON("zemer-playlists.json", { count: 0, playlists: [] });
-      console.warn(`  !! curated playlists: LIST FETCH FAILED from ${CATALOG_BASE} — ${e.message}. Section will render EMPTY. !!`);
-      return; // never throw — the build must still succeed even if the upstream index is down
+      console.warn(`  !! curated playlists: LIST FETCH FAILED from ${CATALOG_BASE} — ${e.message}. Section renders empty (plus the acapella fallback below). !!`);
+      catalogList = []; // never throw — continue so the acapella fallback still bakes
     }
     console.log(`  curated playlists: fetched ${catalogList.length} from ${CATALOG_BASE}, baking details + covers…`);
 
@@ -455,8 +469,19 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
       }
     }
 
+    // The Acapella detail MUST exist in every build — the client's Acapella filter reads it. When
+    // upstream dropped the playlist (seasonal 404) bake the committed last-known-good copy instead,
+    // and give it a list entry so it stays reachable from the Curated Playlists rail.
+    if (!successfulPlaylists.some((p) => p.id === "acapella") && acapellaFallback) {
+      ensureWrite(path.join(DATA, "zemer-playlist", "acapella.json"), JSON.stringify(acapellaFallback));
+      try { fs.copyFileSync(path.join(ROOT, "data/acapella-fallback.svg"), path.join(DATA, "zemer-playlist", "acapella.svg")); } catch { /* card falls back to placeholder */ }
+      const meta = acapellaFallback.playlist || {};
+      successfulPlaylists.push({ id: "acapella", title: meta.title || "Acapella", trackCount: (acapellaFallback.tracks || []).length, thumbnail: coverPath("acapella") });
+      console.log(`  curated playlists: acapella restored from data/acapella-fallback.json (${(acapellaFallback.tracks || []).length} tracks — upstream has it removed off-season)`);
+    }
+
     emitJSON("zemer-playlists.json", { count: successfulPlaylists.length, playlists: successfulPlaylists });
-    if (successfulPlaylists.length && successfulPlaylists.length === catalogList.length) {
+    if (successfulPlaylists.length && successfulPlaylists.length >= catalogList.length) {
       console.log(`  curated playlists: baked ${successfulPlaylists.length}/${catalogList.length} (from ${CATALOG_BASE})`);
     } else {
       console.warn(`  !! curated playlists: baked ${successfulPlaylists.length}/${catalogList.length} — ${successfulPlaylists.length ? "some playlists missing" : "SECTION WILL BE EMPTY"} !!`);
