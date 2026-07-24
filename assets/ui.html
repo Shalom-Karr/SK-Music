@@ -1413,7 +1413,10 @@ async function trendingSections() {
   // trending stays fresh, same-origin (works behind content filters), without re-baking.
   const zIds = acapellaMode() === "only" ? ["auto-acapella-top-50"] : ["auto-trending", "auto-top-50"];
   const zLists = await Promise.all(zIds.map((id) => fetch("/zp-live?id=" + id).then((r) => (r.ok ? r.json() : null)).then((d) => (d && d.tracks) || []).catch(() => [])));
-  const skSongs = ((t && t.songs) || []).map((s) => ({ videoId: s.videoId || s.video_id, title: s.title, artist: s.artist })); // /trending may return snake_case video_id
+  // Rails order by TOTAL listens (web + app) desc, left to right — the raw-popularity view; the
+  // API's blended reach score only decides which items make the list.
+  const byTotal = (a, b) => ((b.plays || 0) + (b.appPlays || 0)) - ((a.plays || 0) + (a.appPlays || 0));
+  const skSongs = ((t && t.songs) || []).slice().sort(byTotal).map((s) => ({ videoId: s.videoId || s.video_id, title: s.title, artist: s.artist })); // /trending may return snake_case video_id
   const zSongs = zLists.flat().map((s) => ({ videoId: s.videoId || s.video_id, title: s.title, artist: s.artist }));
   const seen = new Set(), songs = [];
   for (const s of [...skSongs, ...zSongs]) { if (!s.videoId || seen.has(s.videoId) || hiddenArtist(s.artist) || !songOK(s)) continue; seen.add(s.videoId); songs.push(s); }
@@ -1421,7 +1424,7 @@ async function trendingSections() {
   // (name lookup only as fallback for unresolved/legacy rows); songs' artists pad out the rail after.
   const aSeen = new Set(), artCards = [];
   const pushCard = (a) => { if (!a || aSeen.has(a.id) || hiddenArtist(a.name) || !acArtistOK(a.name)) return; aSeen.add(a.id); artCards.push(a); };
-  for (const x of ((t && t.artists) || [])) pushCard((x.id && _artistById.get(x.id)) || _artistByName.get((x.artist || "").toLowerCase()));
+  for (const x of ((t && t.artists) || []).slice().sort(byTotal)) pushCard((x.id && _artistById.get(x.id)) || _artistByName.get((x.artist || "").toLowerCase()));
   for (const s of songs) pushCard(_artistByName.get((s.artist || "").toLowerCase()));
   if (!songs.length && !artCards.length) return "";
   let h = "";
