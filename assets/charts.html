@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Trending | SK Music</title>
+<meta name="description" content="Top trending songs and artists across SK Music web and the Zemer app, with per-source play counts.">
+<meta name="theme-color" content="#0e0a0b">
+<link rel="icon" type="image/svg+xml" href="/assets/skmusic_logo.svg">
+<meta property="og:site_name" content="SK Music">
+<meta property="og:title" content="Trending | SK Music"><meta name="twitter:title" content="Trending | SK Music">
+<meta property="og:description" content="Top trending songs and artists across SK Music web and the Zemer app."><meta name="twitter:description" content="Top trending songs and artists across SK Music web and the Zemer app.">
+<meta property="og:image" content="/assets/og.png"><meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#0e0a0b; --bg-grad-1:#17100f; --bg-grad-2:#0b0809;
+  --surface:#181112; --surface-2:#211719; --surface-3:#2c1f21;
+  --line:rgba(255,240,235,.08); --line-2:rgba(255,240,235,.14);
+  --text:#f6ece8; --muted:#b09a93; --faint:#7c6963;
+  --primary:#ff5d6b; --gold:#f0b35a;
+  --r-lg:18px; --r-md:12px; --r-sm:8px;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;min-height:100vh;color:var(--text);font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  background:radial-gradient(1200px 500px at 70% -10%,rgba(255,93,107,.07),transparent 60%),linear-gradient(180deg,var(--bg-grad-1),var(--bg) 22%,var(--bg-grad-2))}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:980px;margin:0 auto;padding:28px 20px 60px}
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+header img{width:52px;height:52px}
+h1{font-family:Fraunces,serif;font-weight:700;font-size:34px;margin:0;letter-spacing:.3px}
+.sub{color:var(--muted);font-size:14px;margin:2px 0 0;width:100%}
+.open{margin-left:auto;background:var(--primary);color:#2a0407;font-weight:700;font-size:14px;padding:9px 16px;border-radius:999px;white-space:nowrap}
+.open:hover{filter:brightness(1.07)}
+.legend{display:flex;gap:14px;align-items:center;margin:18px 0 22px;color:var(--muted);font-size:13px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:7px}
+.dot{width:10px;height:10px;border-radius:3px}
+section{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 16px;margin-bottom:22px;min-width:0}
+h2{font-family:Fraunces,serif;font-weight:600;font-size:21px;margin:0 0 4px;padding:0 6px}
+.note{color:var(--faint);font-size:12.5px;margin:0 0 10px;padding:0 6px}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:520px}
+th{font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line-2);white-space:nowrap}
+th.num,td.num{text-align:right;font-variant-numeric:tabular-nums}
+th .dot{display:inline-block;vertical-align:-1px;margin-right:6px}
+td{padding:8px 10px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--surface-2)}
+td.rank{color:var(--faint);font-size:13px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums;width:30px}
+.who{display:flex;align-items:center;gap:11px;min-width:0}
+.who img.art{width:40px;height:40px;border-radius:var(--r-sm);object-fit:cover;background:var(--surface-3);display:block;flex:none}
+.avatar{width:40px;height:40px;border-radius:50%;background:var(--surface-3);color:var(--muted);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;overflow:hidden;flex:none}
+.avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.who .meta{min-width:0}
+.who .t{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px}
+.who .s{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px;margin-top:1px}
+td.w{color:var(--primary);font-weight:600}
+td.z{color:var(--gold);font-weight:600}
+td.total{font-weight:700}
+.skel{color:var(--faint);font-size:13px;padding:16px 10px}
+footer{color:var(--faint);font-size:12.5px;margin-top:4px;line-height:1.6}
+footer a{color:var(--muted);text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="/assets/skmusic_logo.svg" alt="">
+    <h1>Trending</h1>
+    <a class="open" href="/">Open SK Music</a>
+    <p class="sub" id="sub">Top songs and artists across both players, last 30 days.</p>
+  </header>
+  <div class="legend">
+    <span class="chip"><span class="dot" style="background:var(--primary)"></span>SK Music (web)</span>
+    <span class="chip"><span class="dot" style="background:var(--gold)"></span>Zemer app</span>
+    <span id="appNote"></span>
+  </div>
+  <section>
+    <h2>Trending Songs</h2>
+    <p class="note">Qualified plays — short skips don't count.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th class="num">#</th><th>Song</th><th class="num"><span class="dot" style="background:var(--primary)"></span>SK Music</th><th class="num"><span class="dot" style="background:var(--gold)"></span>Zemer App</th><th class="num">Total</th></tr></thead>
+        <tbody id="songs"><tr><td colspan="5" class="skel">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+  <section>
+    <h2>Trending Artists</h2>
+    <p class="note">All plays credited to the artist, both players combined.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th class="num">#</th><th>Artist</th><th class="num"><span class="dot" style="background:var(--primary)"></span>SK Music</th><th class="num"><span class="dot" style="background:var(--gold)"></span>Zemer App</th><th class="num">Total</th></tr></thead>
+        <tbody id="artists"><tr><td colspan="5" class="skel">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+  <footer>
+    SK Music counts come from this site's own play analytics; Zemer app counts come from the app's public
+    <a href="https://tracking.zemer.io/" rel="noopener">usage stats</a>, matched to the same catalog and refreshed twice daily.
+    Ranking blends both sources, weighting the app side by unique listeners.
+  </footer>
+</div>
+<script>
+const esc = (v) => String(v == null ? "" : v).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const num = (n) => Number(n || 0).toLocaleString("en-US");
+const cell = (n, cls) => `<td class="num ${cls}">${n ? num(n) : '<span style="color:var(--faint);font-weight:400">—</span>'}</td>`;
+const days = Math.min(365, Math.max(1, parseInt(new URLSearchParams(location.search).get("days") || "30", 10) || 30));
+document.getElementById("sub").textContent = `Top songs and artists across both players, last ${days} days.`;
+
+function songRow(s, i) {
+  const web = s.plays || 0, app = s.appPlays || 0;
+  return `<tr>
+    <td class="rank">${i + 1}</td>
+    <td><a class="who" href="/song/${esc(s.videoId)}">
+      <img class="art" loading="lazy" alt="" src="https://i.ytimg.com/vi/${esc(s.videoId)}/mqdefault.jpg" onerror="this.style.visibility='hidden'">
+      <span class="meta"><span class="t">${esc(s.title)}</span><br><span class="s">${esc(s.artist || "")}</span></span></a></td>
+    ${cell(web, "w")}${cell(app, "z")}${cell(web + app, "total")}</tr>`;
+}
+
+function artistRow(a, i) {
+  const web = a.plays || 0, app = a.appPlays || 0;
+  const initial = esc((a.artist || "?").trim().charAt(0).toUpperCase());
+  const who = `<span class="avatar" data-artist="${esc(a.id || "")}">${initial}</span>
+      <span class="meta"><span class="t">${esc(a.artist)}</span></span>`;
+  return `<tr>
+    <td class="rank">${i + 1}</td>
+    <td>${a.id ? `<a class="who" href="/artists/${esc(a.id)}">${who}</a>` : `<span class="who">${who}</span>`}</td>
+    ${cell(web, "w")}${cell(app, "z")}${cell(web + app, "total")}</tr>`;
+}
+
+fetch("/trending?days=" + days, { headers: { Accept: "application/json" } })
+  .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then((d) => {
+    document.getElementById("songs").innerHTML =
+      (d.songs || []).map(songRow).join("") || '<tr><td colspan="5" class="skel">No plays yet.</td></tr>';
+    document.getElementById("artists").innerHTML =
+      (d.artists || []).map(artistRow).join("") || '<tr><td colspan="5" class="skel">No plays yet.</td></tr>';
+    if (!d.app) document.getElementById("appNote").textContent = "Zemer app stats are refreshing — reload in a minute for the blend.";
+    // Progressive avatar upgrade: swap initials for real artist photos once the catalog index loads.
+    fetch("/data/artists.json").then((r) => (r.ok ? r.json() : null)).then((cat) => {
+      if (!cat) return;
+      const thumb = new Map((cat.artists || []).map((a) => [a.id, a.thumbnail]));
+      document.querySelectorAll(".avatar[data-artist]").forEach((el) => {
+        const t = thumb.get(el.dataset.artist);
+        if (t) el.innerHTML = `<img loading="lazy" alt="" src="${esc(t)}">`;
+      });
+    }).catch(() => {});
+  })
+  .catch(() => {
+    const fail = '<tr><td colspan="5" class="skel">Couldn\'t load trending right now.</td></tr>';
+    document.getElementById("songs").innerHTML = fail;
+    document.getElementById("artists").innerHTML = fail;
+  });
+</script>
+</body>
+</html>

@@ -2661,6 +2661,9 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refreshStat(); });
   // Route from the URL: a shared /artists/:id (etc.) opens directly, with Home seeded underneath so Back works.
   const path = location.pathname;
+  // /trending in a browser = the public charts page, but SPA-mode navigations short-circuit to this shell
+  // before the Worker can content-negotiate — so hand the visit to the real page (an asset at /charts).
+  if (path === "/trending") { location.replace("/charts" + location.search); return; }
   if (path === "/search") { applyRoute(location.href); } // honour ?query= / ?filter= on first load (a tab path, but query-driven)
   else if (path === "/" || PATH_TAB[path]) { go(PATH_TAB[path] || "home", true); }
   else { history.replaceState({}, "", "/"); go("home", true); history.pushState({}, "", path + location.search); applyRoute(location.href); }
