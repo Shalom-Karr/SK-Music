@@ -55,8 +55,8 @@ td.rank{color:var(--faint);font-size:13px;font-weight:600;text-align:right;font-
 .avatar{width:40px;height:40px;border-radius:50%;background:var(--surface-3);color:var(--muted);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;overflow:hidden;flex:none}
 .avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
 .who .meta{min-width:0}
-.who .t{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px}
-.who .s{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px;margin-top:1px}
+.who .t{display:block;font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px}
+.who .s{display:block;color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px;margin-top:1px}
 td.w{color:var(--primary);font-weight:600}
 td.z{color:var(--gold);font-weight:600}
 td.total{font-weight:700}
@@ -106,6 +106,9 @@ footer a{color:var(--muted);text-decoration:underline}
 </div>
 <script>
 const esc = (v) => String(v == null ? "" : v).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+// Long names (dual-language titles especially) clip to 80% of their characters; the full text
+// rides along in the title attribute, so hovering shows it as a native tooltip.
+const clip = (s) => { s = String(s == null ? "" : s); return s.length > 40 ? s.slice(0, Math.ceil(s.length * 0.8)).trimEnd() + "…" : s; };
 const num = (n) => Number(n || 0).toLocaleString("en-US");
 const cell = (n, cls) => `<td class="num ${cls}">${n ? num(n) : '<span style="color:var(--faint);font-weight:400">—</span>'}</td>`;
 const days = Math.min(365, Math.max(1, parseInt(new URLSearchParams(location.search).get("days") || "30", 10) || 30));
@@ -117,7 +120,7 @@ function songRow(s, i) {
     <td class="rank">${i + 1}</td>
     <td><a class="who" href="/song/${esc(s.videoId)}">
       <img class="art" loading="lazy" alt="" src="https://i.ytimg.com/vi/${esc(s.videoId)}/mqdefault.jpg" onerror="this.style.visibility='hidden'">
-      <span class="meta"><span class="t">${esc(s.title)}</span><br><span class="s">${esc(s.artist || "")}</span></span></a></td>
+      <span class="meta"><span class="t" title="${esc(s.title)}">${esc(clip(s.title))}</span><span class="s" title="${esc(s.artist || "")}">${esc(clip(s.artist || ""))}</span></span></a></td>
     ${cell(web, "w")}${cell(app, "z")}${cell(web + app, "total")}</tr>`;
 }
 
@@ -125,7 +128,7 @@ function artistRow(a, i) {
   const web = a.plays || 0, app = a.appPlays || 0;
   const initial = esc((a.artist || "?").trim().charAt(0).toUpperCase());
   const who = `<span class="avatar" data-artist="${esc(a.id || "")}">${initial}</span>
-      <span class="meta"><span class="t">${esc(a.artist)}</span></span>`;
+      <span class="meta"><span class="t" title="${esc(a.artist)}">${esc(clip(a.artist))}</span></span>`;
   return `<tr>
     <td class="rank">${i + 1}</td>
     <td>${a.id ? `<a class="who" href="/artists/${esc(a.id)}">${who}</a>` : `<span class="who">${who}</span>`}</td>
