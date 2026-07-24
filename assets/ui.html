@@ -2671,7 +2671,19 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
       document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reg.update(); });
       setInterval(() => reg.update(), 3600000);
     }).catch(() => {});
-    if (hadController) { let refreshing = false; navigator.serviceWorker.addEventListener("controllerchange", () => { if (!refreshing) { refreshing = true; location.reload(); } }); }
+    // Reload once when a new SW takes over — but NEVER while the window is hidden. In the desktop app the
+    // window closes to the tray (webview stays alive, background-timer throttling is disabled), so a hidden
+    // reload would silently re-run boot, re-open the current /song/:id URL and AUTOPLAY it — audio starting on
+    // its own an hour after the app was "closed". Defer the refresh until the window is visible again; an
+    // already-playing track keeps playing until then.
+    if (hadController) {
+      let refreshing = false;
+      const reloadForUpdate = () => { if (refreshing) return; refreshing = true; location.reload(); };
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (document.visibilityState === "visible") reloadForUpdate();
+        else document.addEventListener("visibilitychange", function onVis() { if (document.visibilityState === "visible") { document.removeEventListener("visibilitychange", onVis); reloadForUpdate(); } });
+      });
+    }
   }
   if (!consumeAuthHash()) restoreSession(); // email-confirm/OAuth/magic-link hash → session, else restore the saved one
   maybeShowRecovery(); // password-reset link (#type=recovery) → open the "Set a new password" form
