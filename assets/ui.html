@@ -1406,7 +1406,8 @@ async function ensureFilters() { await Promise.all([artistByName(), loadBlockedI
 // listed first) — plus the upstream index trending playlists (auto-trending + Top 50; the acapella
 // top-50 in Acapella mode). Deduped by videoId/artistId and gated by the content filters.
 async function trendingSections() {
-  const t = await fetch("/trending?days=30").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const t = await fetch("/trending?days=30&b=" + Math.floor(Date.now() / 600000)).then((r) => (r.ok ? r.json() : null)).catch(() => null); // &b= 10-min bucket busts filter-proxy caches so the app-blended ranking actually reaches clients
+
   await artistByName(); await loadBlockedIds(); if (acapella()) await loadAcapella(); // flags + block-ids + Acapella set so trending honours the filters
   // /zp-live is a Worker route that proxies the upstream index + edge-caches (~6h) — so the twice-daily-updated
   // trending stays fresh, same-origin (works behind content filters), without re-baking.

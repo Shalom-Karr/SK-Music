@@ -594,7 +594,9 @@ async function handleTrending(request, url, env, ctx) {
   let ext = null;
   if (env.PAGES) {
     try { ext = await env.PAGES.get(EXT_TRENDING_KEY, "json"); } catch { /* malformed → web-only */ }
-    if (!ext) ctx.waitUntil(refreshExternalTrending(env));
+    // Self-heal, then evict this cache entry so the very next request serves the blend instead of
+    // waiting out the web-only copy's TTL.
+    if (!ext) ctx.waitUntil(refreshExternalTrending(env).then(() => edgeCache.delete(cacheKey)).catch(() => {}));
   }
   const idx = await getArtistNameIndex(env);
   const extSongs = (ext && Array.isArray(ext.songs)) ? ext.songs : [];
@@ -655,9 +657,11 @@ async function handleTrending(request, url, env, ctx) {
     .sort((a, b) => b.score - a.score)
     .slice(0, 30);
 
+  // A blend-less response is a transient state (KV gap; the self-heal above is already running) —
+  // cache it briefly, not for the full 30 min, so nobody is pinned to web-only trending.
   const res = Response.json(
     { days, songs: mergedSongs, artists: mergedArtists, app: ext ? { fetchedAt: ext.fetchedAt, days: ext.days } : null },
-    { headers: { "Cache-Control": "public, max-age=1800" } }
+    { headers: { "Cache-Control": `public, max-age=${ext ? 1800 : 120}` } }
   );
   ctx.waitUntil(edgeCache.put(cacheKey, res.clone()));
   return res;
