@@ -132,7 +132,9 @@ function artistRow(a, i) {
     ${cell(web, "w")}${cell(app, "z")}${cell(web + app, "total")}</tr>`;
 }
 
-fetch("/trending?days=" + days, { headers: { Accept: "application/json" } })
+// The &b= 10-minute bucket busts intermediary caches (content-filter proxies) that would otherwise
+// pin an old copy of the JSON past the server's own cache lifetime.
+fetch("/trending?days=" + days + "&b=" + Math.floor(Date.now() / 600000), { headers: { Accept: "application/json" } })
   .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
   .then((d) => {
     document.getElementById("songs").innerHTML =
