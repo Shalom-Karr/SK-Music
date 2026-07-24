@@ -1052,7 +1052,15 @@ export default {
     // Live data routes.
     if (pathname === "/playlist") return servePlaylist(url, ctx);
     if (pathname === "/zp-live") return handleLivePlaylist(url, env, ctx);
-    if (pathname === "/trending") return handleTrending(request, url, env, ctx);
+    if (pathname === "/trending") {
+      // Content negotiation: browser navigations (Accept: text/html) get the human-readable charts
+      // page; the app's fetch() and API callers (Accept: */*) keep getting JSON. Fetch the extensionless
+      // canonical (/charts, not /charts.html) — the asset layer 307s .html URLs to it.
+      if (request.method === "GET" && (request.headers.get("Accept") || "").includes("text/html")) {
+        return env.ASSETS.fetch(new Request(new URL("/charts", url), request));
+      }
+      return handleTrending(request, url, env, ctx);
+    }
     if (pathname === "/a" && request.method === "POST")
       return handleAnalyticsBeacon(request, env, ctx);
     // Desktop auto-updater: serve the newest signed desktop release manifest (edge-cached). 204 =

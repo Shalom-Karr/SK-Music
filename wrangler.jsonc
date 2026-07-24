@@ -7,6 +7,12 @@
   "account_id": "536d945663a8a3a20a671cf695c2e027",
   "compatibility_date": "2025-09-01",
   "compatibility_flags": ["nodejs_compat"],
+  // NOTE: run_worker_first is deliberately ABSENT. The array form makes every non-listed asset-miss
+  // serve the SPA without ever invoking the Worker (breaking /playlist, /zp-live, /a, …), and the
+  // boolean form routes all ~19k asset requests through the Worker. Browser navigations to /trending
+  // therefore get the SPA (Cloudflare's SPA-mode navigation short-circuit); the SPA router immediately
+  // location.replace()s them to /charts, and non-navigation requests still reach the Worker's
+  // /trending content negotiation.
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",

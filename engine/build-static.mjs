@@ -703,6 +703,11 @@ ensureWrite(path.join(DIST, "analytics.html"), fs.readFileSync(path.join(ROOT, "
 // Network connectivity test page — diagnoses filter/whitelist blocks and a real playback test.
 ensureWrite(path.join(DIST, "test.html"), fs.readFileSync(path.join(ROOT, "assets/connectivity.html"), "utf8"));
 
+// Public trending charts page — served at /charts by the asset layer, and at /trending for browser
+// navigations (the Worker content-negotiates; fetch() clients keep getting the JSON API). Deliberately
+// NOT named trending.html: an asset at that path would shadow the /trending route entirely.
+ensureWrite(path.join(DIST, "charts.html"), fs.readFileSync(path.join(ROOT, "assets/charts.html"), "utf8"));
+
 // Deep playback diagnostic — served at /playback-block-test (asset layer, via html_handling; no Worker).
 // Isolates each layer of the YouTube stack (domain → iframe_api → embed → media) to pinpoint a block.
 ensureWrite(path.join(DIST, "playback-block-test.html"), fs.readFileSync(path.join(ROOT, "assets/playback-block-test.html"), "utf8"));
@@ -717,7 +722,7 @@ self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) =
 self.addEventListener("fetch", (e) => {
   const u = new URL(e.request.url);
   if (e.request.method !== "GET" || u.origin !== location.origin || u.pathname === "/playlist") return;
-  if (e.request.mode === "navigate") { e.respondWith(fetch(e.request).then((r) => { if (r.ok) { const cp = r.clone(); caches.open(V).then((c) => c.put("/", cp)); } return r; }).catch(() => caches.open(V).then((c) => c.match("/")))); return; }
+  if (e.request.mode === "navigate") { e.respondWith(fetch(e.request).then((r) => { if (r.ok && u.pathname === "/") { const cp = r.clone(); caches.open(V).then((c) => c.put("/", cp)); } return r; }).catch(() => caches.open(V).then((c) => c.match("/")))); return; } // cache the shell only from real root visits — /trending, /analytics, /test return OTHER html that must never poison the offline "/"
   if (u.pathname.startsWith("/lib/")) { // engine code: network-first so a freshly-served shell never runs against a stale engine (falls back to cache offline)
     e.respondWith(fetch(e.request).then((r) => { if (r.ok) { const cp = r.clone(); caches.open(V).then((c) => c.put(e.request, cp)); } return r; }).catch(() => caches.open(V).then((c) => c.match(e.request))));
   } else if (u.pathname.startsWith("/data/")) { // data: cache-first (large + stable; the versioned cache + post-deploy reload refresh it)
