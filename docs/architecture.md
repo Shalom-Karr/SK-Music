@@ -182,7 +182,7 @@ a KV namespace (`PAGES`), a cron (`15 8,20 * * *`), and observability. Routes, i
 | KV page override | For page-like GETs (`.html/.js/.css/.json/.xml/.txt`, excluding `/data` & `/lib`), serve a KV-published override first — lets you replace a single page without a full deploy. |
 | `GET /playlist?id=` | Live-fetches a YouTube community playlist via the `youtubei` `browse` endpoint, recursively collects every track row + continuation token (robust to layout changes), edge-caches non-empty results 30 min. The browser then filters to the whitelisted corpus. |
 | `GET /zp-live?id=` | Serves a curated **trending** playlist from KV (`PAGES`), refreshed by the cron; falls back to a live edge-cached fetch from `https://search.zemer.io/zemer-playlists`. Same-origin so it works behind content filters. |
-| `GET /trending?days=` | Calls the Supabase RPCs `top_songs` + `top_artists` with the anon key, maps `video_id`→`videoId`, edge-caches 30 min. Feeds the home "Trending" rails. |
+| `GET /trending?days=` | Blends two play populations into one id-resolved ranking: our web plays (Supabase RPCs `top_songs` + `top_artists`, anon key) and the Zemer Android app's listening stats (KV `ext-trending-v1`, written by the cron from `tracking.zemer.io/stats/public` — videoIds filtered to our catalog via `og.json`, artist names resolved to channel ids via `artists.json`). Score = web-play share + app unique-**device** share, each normalized to its own top item. Songs carry `videoId`+`artistId`, artists carry `id`; legacy keys (`title`/`artist`) are kept for cached clients. Edge-caches 30 min. Feeds the home "Trending" rails. |
 | `POST /a` | **Analytics beacon.** Accepts a batched array of events, enriches each with server-derived IP/country/city/region + parsed browser/OS/device, and bulk-inserts one row per event into the Supabase analytics table in a single POST (`ctx.waitUntil`, never blocks the beacon). Returns 204. See [backend.md](backend.md). |
 | `GET /analytics` | The admin dashboard (`analytics.html`), served `no-store` (KV override wins). |
 | `GET /test` | The connectivity self-test page (`assets/connectivity.html`). |
@@ -190,9 +190,13 @@ a KV namespace (`PAGES`), a cron (`15 8,20 * * *`), and observability. Routes, i
 | Deep-link OG | `GET /song/:id`, `/artists/:id`, `/albums/:id`, `/zemer-playlists/:id` — fetches the app shell and replaces the baked `<!--OG-->…<!--/OG-->` block with an entity-specific Open Graph/Twitter preview (title/artist/cover from `og.json` or the per-entity JSON), so a shared link unfurls correctly. Any lookup failure falls back to the generic block; the SPA still boots normally. |
 | everything else | `env.ASSETS.fetch` → static file, or the SPA `index.html` fallback. |
 
-`scheduled()` runs `refreshTrending()` on the cron: it pulls the fresh curated trending playlists
-(`auto-trending`, `auto-top-50`, `auto-acapella-top-50`) from the upstream and writes them to KV ~15 min
-after the upstream regenerates them (08:15 / 20:15 UTC).
+`scheduled()` runs two jobs on the cron (08:15 / 20:15 UTC, ~15 min after the upstream regenerates):
+`refreshTrending()` pulls the fresh curated trending playlists (`auto-trending`, `auto-top-50`,
+`auto-acapella-top-50`) into KV, and `refreshExternalTrending()` pulls the Zemer app's public listening
+stats (`tracking.zemer.io/stats/public?days=30`), resolves them to catalog song/artist ids (dropping
+anything outside the whitelist by construction), and parks the result in KV (`ext-trending-v1`, 13 h TTL)
+for `/trending` to blend at read time. Both are best-effort — a failed fetch just leaves the previous KV
+copy (or web-only trending) in place.
 
 ---
 

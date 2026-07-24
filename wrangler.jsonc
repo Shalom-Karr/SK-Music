@@ -17,7 +17,9 @@
   "kv_namespaces": [{ "binding": "PAGES", "id": "c19c9b17d6bb45f9a103d067a901a438" }],
   // Refresh the curated trending playlists into KV 15 min after the upstream index regenerates them
   // (it updates at 08:00/20:00 UTC — both fixed UTC, so 08:15/20:15 UTC never drifts with DST).
-  // scheduled() → refreshTrending() in engine/index.mjs.
+  // The same tick also pulls the Zemer app's listening stats (tracking.zemer.io /stats/public) and
+  // resolves them to catalog song/artist ids for the /trending blend.
+  // scheduled() → refreshTrending() + refreshExternalTrending() in engine/index.mjs.
   "triggers": { "crons": ["15 8,20 * * *"] },
   "observability": { "enabled": true }
 }
