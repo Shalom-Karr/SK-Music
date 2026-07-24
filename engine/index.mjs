@@ -552,7 +552,7 @@ async function handleTrending(request, url, env, ctx) {
     Math.max(1, parseInt(url.searchParams.get("days") || "30", 10) || 30)
   );
   const edgeCache = caches.default;
-  const cacheKey = new Request(`https://sk/trending?days=${days}&v=2`); // v2: id-resolved + app-blended shape
+  const cacheKey = new Request(`https://sk/trending?days=${days}&v=3`); // v3: abandons pre-fix web-only entries that were cached for 30 min per colo
   const cached = await edgeCache.match(cacheKey);
   if (cached) return cached;
 
