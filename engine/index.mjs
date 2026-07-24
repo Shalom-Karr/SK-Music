@@ -542,15 +542,17 @@ async function handleAnalyticsBeacon(request, env, ctx) {
 
 // ─── Trending (/trending) ────────────────────────────────────────────────────
 
-// Return aggregated top-played songs and artists over a configurable day window.
-// Pulls from Supabase RPCs; edge-cached for 30 minutes.
+// Return aggregated top-played songs and artists over a configurable day window, blended from
+// TWO populations: our own web plays (Supabase RPCs, day-window follows ?days) and the Zemer
+// app's listening stats (KV, cron-resolved to catalog ids, fixed 30-day window). Both songs and
+// artists carry catalog ids so the client can merge/route without name matching. Edge-cached 30 min.
 async function handleTrending(request, url, env, ctx) {
   const days = Math.min(
     365,
     Math.max(1, parseInt(url.searchParams.get("days") || "30", 10) || 30)
   );
   const edgeCache = caches.default;
-  const cacheKey = new Request(`https://sk/trending?days=${days}`);
+  const cacheKey = new Request(`https://sk/trending?days=${days}&v=2`); // v2: id-resolved + app-blended shape
   const cached = await edgeCache.match(cacheKey);
   if (cached) return cached;
 
@@ -571,8 +573,8 @@ async function handleTrending(request, url, env, ctx) {
         .catch(() => []);
 
     const [rawSongs, rawArtists] = await Promise.all([
-      callRpc("top_songs", { days, lim: 24 }),
-      callRpc("top_artists", { days, lim: 20 }),
+      callRpc("top_songs", { days, lim: 40 }),
+      callRpc("top_artists", { days, lim: 30 }),
     ]);
     songs = (Array.isArray(rawSongs) ? rawSongs : []).map((x) => ({
       videoId: x.video_id,
@@ -586,12 +588,198 @@ async function handleTrending(request, url, env, ctx) {
     }));
   }
 
+  // Blend in the Zemer app's listening stats (KV, cron-refreshed, already resolved to catalog
+  // ids). Missing KV (fresh namespace / expired) → serve web-only now and self-heal in the
+  // background so the next cache miss has it.
+  let ext = null;
+  if (env.PAGES) {
+    try { ext = await env.PAGES.get(EXT_TRENDING_KEY, "json"); } catch { /* malformed → web-only */ }
+    if (!ext) ctx.waitUntil(refreshExternalTrending(env));
+  }
+  const idx = await getArtistNameIndex(env);
+  const extSongs = (ext && Array.isArray(ext.songs)) ? ext.songs : [];
+  const extArtists = (ext && Array.isArray(ext.artists)) ? ext.artists : [];
+
+  // Union by videoId. Score = web share + app share, each normalized to its own top item so
+  // neither platform's absolute volume dominates; app share is DEVICE-weighted (unique listeners),
+  // which one looping device can't inflate. Cross-platform hits naturally rise to the top.
+  const maxWeb = Math.max(1, ...songs.map((s) => s.plays || 0));
+  const maxApp = Math.max(1, ...extSongs.map((s) => s.devices || 0));
+  const byVid = new Map();
+  for (const s of songs) {
+    byVid.set(s.videoId, {
+      videoId: s.videoId, title: s.title, artist: s.artist,
+      artistId: resolveArtistId(idx, s.artist),
+      plays: s.plays || 0, appPlays: 0, appDevices: 0, skipRate: null, sources: ["web"],
+    });
+  }
+  for (const e of extSongs) {
+    const cur = byVid.get(e.videoId);
+    if (cur) {
+      cur.appPlays = e.plays || 0; cur.appDevices = e.devices || 0;
+      cur.skipRate = e.skipRate ?? null;
+      if (!cur.artistId) cur.artistId = e.artistId || null;
+      cur.sources.push("app");
+    } else {
+      byVid.set(e.videoId, {
+        videoId: e.videoId, title: e.title, artist: e.artist, artistId: e.artistId || null,
+        plays: 0, appPlays: e.plays || 0, appDevices: e.devices || 0,
+        skipRate: e.skipRate ?? null, sources: ["app"],
+      });
+    }
+  }
+  const mergedSongs = [...byVid.values()]
+    .map((s) => ({ ...s, score: +(s.plays / maxWeb + s.appDevices / maxApp).toFixed(4) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 40);
+
+  // Artists: same union, keyed by resolved channel id (name-keyed fallback for the rare
+  // web-side name that doesn't resolve — it still shows, it just can't merge).
+  const maxWebA = Math.max(1, ...artists.map((a) => a.plays || 0));
+  const maxAppA = Math.max(1, ...extArtists.map((a) => a.devices || 0));
+  const byArtist = new Map();
+  for (const a of artists) {
+    const id = resolveArtistId(idx, a.artist);
+    byArtist.set(id || "name:" + normArtistName(a.artist), {
+      id, artist: a.artist, plays: a.plays || 0, appPlays: 0, appDevices: 0, sources: ["web"],
+    });
+  }
+  for (const e of extArtists) {
+    const cur = byArtist.get(e.id);
+    if (cur) { cur.appPlays = e.plays || 0; cur.appDevices = e.devices || 0; cur.sources.push("app"); }
+    else byArtist.set(e.id, { id: e.id, artist: e.name, plays: 0, appPlays: e.plays || 0, appDevices: e.devices || 0, sources: ["app"] });
+  }
+  const mergedArtists = [...byArtist.values()]
+    .map((a) => ({ ...a, score: +(a.plays / maxWebA + a.appDevices / maxAppA).toFixed(4) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 30);
+
   const res = Response.json(
-    { days, songs, artists },
+    { days, songs: mergedSongs, artists: mergedArtists, app: ext ? { fetchedAt: ext.fetchedAt, days: ext.days } : null },
     { headers: { "Cache-Control": "public, max-age=1800" } }
   );
   ctx.waitUntil(edgeCache.put(cacheKey, res.clone()));
   return res;
+}
+
+// ─── External listening stats (tracking.zemer.io) ────────────────────────────
+
+// The Zemer Android app reports plays to tracking.zemer.io ("Zemer Usage Stats"); its public
+// aggregate — GET /stats/public — carries topPlays (videoId-keyed, ~200) and topArtists
+// (name-keyed, ~50) over a 30-day window. The cron below resolves both to OUR catalog ids
+// (videoId membership in og.json doubles as the whitelist filter; artist names → channel ids
+// via artists.json) and parks the result in KV for /trending to blend at read time.
+const EXT_TRENDING_KEY = "ext-trending-v1";
+
+// Fetch a dist/data JSON through the assets binding (routes purely on pathname, so a synthetic
+// origin is fine — scheduled() has no incoming request to derive one from).
+async function fetchAssetJSON(env, path) {
+  try {
+    const res = await env.ASSETS.fetch("https://assets" + path);
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+const normArtistName = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+
+// Exact name → id map, plus an unambiguous prefix map: channel names often differ only by a
+// " - Hebrew" suffix between their index and ours ("Shmulik Sukkot - שמוליק סוכות" vs
+// "Shmulik Sukkot"), so a stripped-suffix key resolves those — but only when it's unique.
+function buildArtistNameIndex(artists) {
+  const exact = new Map(), prefix = new Map(), dupes = new Set();
+  for (const a of artists) {
+    const n = normArtistName(a.name);
+    if (n) exact.set(n, a.id);
+    const p = n.split(" - ")[0].trim();
+    if (p && p !== n) {
+      if (prefix.has(p) && prefix.get(p) !== a.id) dupes.add(p);
+      else prefix.set(p, a.id);
+    }
+  }
+  for (const d of dupes) prefix.delete(d);
+  return { exact, prefix };
+}
+
+const resolveArtistId = (idx, name) => {
+  const n = normArtistName(name);
+  return idx.exact.get(n) || idx.prefix.get(n) || idx.exact.get(n.split(" - ")[0].trim()) || null;
+};
+
+// Module-level cache: the /trending merge needs the name index on every edge-cache miss;
+// artists.json is ~550 KB, so parse it once per isolate.
+let artistIndexCache = null;
+async function getArtistNameIndex(env) {
+  if (!artistIndexCache) {
+    const f = await fetchAssetJSON(env, "/data/artists.json");
+    artistIndexCache = buildArtistNameIndex((f && f.artists) || []);
+  }
+  return artistIndexCache;
+}
+
+// Cron half: pull the public stats, resolve to catalog ids, store in KV.
+// TTL bridges two cron cycles with margin (same rationale as refreshTrending).
+async function refreshExternalTrending(env) {
+  if (!env.PAGES) return;
+  let stats = null;
+  try {
+    const res = await fetch("https://tracking.zemer.io/stats/public?days=30", {
+      signal: AbortSignal.timeout(20000),
+    });
+    if (res.ok) stats = await res.json();
+  } catch { /* best-effort — stale KV (or none) simply means web-only trending */ }
+  if (!stats || (!Array.isArray(stats.topPlays) && !Array.isArray(stats.topArtists))) return;
+
+  const [og, artistsFile] = await Promise.all([
+    fetchAssetJSON(env, "/data/og.json"),
+    fetchAssetJSON(env, "/data/artists.json"),
+  ]);
+  if (!og) return;
+  const idx = buildArtistNameIndex((artistsFile && artistsFile.artists) || []);
+  const nameById = new Map(((artistsFile && artistsFile.artists) || []).map((a) => [a.id, a.name]));
+
+  // Songs: og.json membership = "in our whitelisted catalog"; take OUR canonical title/artist,
+  // not theirs. Aggregate per-artist listening from the same rows as a floor…
+  const songs = [];
+  const agg = new Map(); // artistId → { id, name, plays, devices }
+  for (const p of stats.topPlays || []) {
+    const entry = og[p.videoId];
+    if (!entry) continue;
+    const [title, artistName] = entry;
+    const artistId = resolveArtistId(idx, artistName);
+    songs.push({
+      videoId: p.videoId, title, artist: artistName, artistId,
+      plays: p.n || 0, devices: p.devices || 0,
+      skipRate: typeof p.skipRate === "number" ? p.skipRate : null,
+    });
+    if (artistId) {
+      const a = agg.get(artistId) || { id: artistId, name: nameById.get(artistId) || artistName, plays: 0, devices: 0 };
+      a.plays += p.n || 0;
+      a.devices = Math.max(a.devices, p.devices || 0); // per-song device sets overlap → max, never sum
+      agg.set(artistId, a);
+    }
+  }
+  // …then let topArtists override where it matches: it's the per-artist truth (devices deduped
+  // across the artist's whole catalog, not just their charting songs).
+  for (const t of stats.topArtists || []) {
+    const artistId = resolveArtistId(idx, t.artist);
+    if (!artistId) continue;
+    const a = agg.get(artistId) || { id: artistId, name: nameById.get(artistId) || t.artist, plays: 0, devices: 0 };
+    a.plays = Math.max(a.plays, t.n || 0);
+    a.devices = Math.max(a.devices, t.devices || 0);
+    agg.set(artistId, a);
+  }
+
+  // Rank by unique listeners first — reach, not volume (mirrors the upstream dashboard's own sort).
+  songs.sort((x, y) => y.devices - x.devices || y.plays - x.plays);
+  const artists = [...agg.values()].sort((x, y) => y.devices - x.devices || y.plays - x.plays);
+
+  await env.PAGES.put(
+    EXT_TRENDING_KEY,
+    JSON.stringify({ fetchedAt: Date.now(), days: 30, songs: songs.slice(0, 100), artists: artists.slice(0, 50) }),
+    { expirationTtl: 46800 }
+  );
 }
 
 // ─── Live upstream playlist proxy (/zp-live) ─────────────────────────────────
@@ -850,8 +1038,9 @@ export default {
     return env.ASSETS.fetch(request);
   },
 
-  // Cron trigger: keep the upstream trending playlists warm in KV.
+  // Cron trigger: keep the upstream trending playlists + the app listening stats warm in KV.
   async scheduled(event, env, ctx) {
     ctx.waitUntil(refreshTrending(env));
+    ctx.waitUntil(refreshExternalTrending(env));
   },
 };

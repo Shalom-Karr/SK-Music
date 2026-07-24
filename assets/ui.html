@@ -1356,12 +1356,13 @@ function section(title, body, more) { if (!body) return ""; const d = (secN++ % 
 
 // Trending rails from real play analytics (top played songs + artists over N days). Aggregates come from the
 // Worker /trending route (Supabase-backed, edge-cached). Empty string until there's data → collapses cleanly.
-let _artistByName = null, _artistList = null;
+let _artistByName = null, _artistById = null, _artistList = null;
 async function artistByName() {
   if (_artistByName) return _artistByName;
   const d = await getJSON("/artists"); // full catalog incl. gender flags (no filter param)
   _artistList = (d && d.artists) || []; // keep the raw list too so the Artists page reuses it (no 2nd fetch)
   _artistByName = new Map(_artistList.map((a) => [(a.name || "").toLowerCase(), a]));
+  _artistById = new Map(_artistList.map((a) => [a.id, a])); // /trending artists arrive id-keyed
   return _artistByName;
 }
 // Content-filter safety net: is this artist hidden by the current filters? (kol isha / chasidish)
@@ -1400,9 +1401,10 @@ const gate = (list) => Array.isArray(list) ? list.filter((x) => x && !hiddenArti
 // Load the artist-flag map AND the parental profile before any content/parental gate runs — else the gate
 // silently no-ops (hiddenArtist returns false when _artistByName is null, and parental rules aren't loaded).
 async function ensureFilters() { await Promise.all([artistByName(), loadBlockedIds()]); if (acapella()) await loadAcapella(); if (loggedIn() && !acct.profile) await onLogin(); }
-// One Trending Songs + one Trending Artists, merging TWO sources: SK Music's own play analytics (/trending,
-// play-ranked → listed first) and the upstream index trending playlists (auto-trending + Top 50; the acapella
-// top-50 in Acapella mode). Deduped by videoId/name and gated by the content filters.
+// One Trending Songs + one Trending Artists, merging THREE sources: SK Music's own web plays and the
+// Zemer app's listening stats — pre-blended and id-resolved by the Worker /trending (score-ranked →
+// listed first) — plus the upstream index trending playlists (auto-trending + Top 50; the acapella
+// top-50 in Acapella mode). Deduped by videoId/artistId and gated by the content filters.
 async function trendingSections() {
   const t = await fetch("/trending?days=30").then((r) => (r.ok ? r.json() : null)).catch(() => null);
   await artistByName(); await loadBlockedIds(); if (acapella()) await loadAcapella(); // flags + block-ids + Acapella set so trending honours the filters
@@ -1414,9 +1416,12 @@ async function trendingSections() {
   const zSongs = zLists.flat().map((s) => ({ videoId: s.videoId || s.video_id, title: s.title, artist: s.artist }));
   const seen = new Set(), songs = [];
   for (const s of [...skSongs, ...zSongs]) { if (!s.videoId || seen.has(s.videoId) || hiddenArtist(s.artist) || !songOK(s)) continue; seen.add(s.videoId); songs.push(s); }
-  const aSeen = new Set(), names = [];
-  for (const n of [...((t && t.artists) || []).map((a) => a.artist), ...songs.map((s) => s.artist)]) { const k = (n || "").toLowerCase(); if (!k || aSeen.has(k) || hiddenArtist(n) || !acArtistOK(n)) continue; aSeen.add(k); names.push(n); }
-  const artCards = names.map((n) => _artistByName.get((n || "").toLowerCase())).filter(Boolean);
+  // Artist cards: /trending artists carry catalog ids → direct _artistById hits in blended-score order
+  // (name lookup only as fallback for unresolved/legacy rows); songs' artists pad out the rail after.
+  const aSeen = new Set(), artCards = [];
+  const pushCard = (a) => { if (!a || aSeen.has(a.id) || hiddenArtist(a.name) || !acArtistOK(a.name)) return; aSeen.add(a.id); artCards.push(a); };
+  for (const x of ((t && t.artists) || [])) pushCard((x.id && _artistById.get(x.id)) || _artistByName.get((x.artist || "").toLowerCase()));
+  for (const s of songs) pushCard(_artistByName.get((s.artist || "").toLowerCase()));
   if (!songs.length && !artCards.length) return "";
   let h = "";
   if (songs.length) h += section("Trending Songs", songCards(songs.slice(0, 24)));
