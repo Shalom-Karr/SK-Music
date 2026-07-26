@@ -939,6 +939,58 @@ async function refreshTrending(env) {
   }
 }
 
+// ─── Zemer home rows (/zemer-home-rows) ──────────────────────────────────────
+
+// Upstream /home-rows: telemetry-ranked Top Albums / Videos / Artists computed twice daily
+// from the Zemer app fleet's 30-day device reach. Served same-origin (works behind content
+// filters) with the same KV → edge cache → live priority as /zp-live; the cron keeps KV warm.
+const HOME_ROWS_KV_KEY = "home-rows:v1";
+
+async function fetchUpstreamHomeRows() {
+  try {
+    const res = await fetch("https://search.zemer.io/home-rows", { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) return null;
+    const text = await res.text();
+    return text && text.length > 2 ? text : null;
+  } catch {
+    return null;
+  }
+}
+
+async function handleHomeRows(env, ctx) {
+  if (env.PAGES) {
+    const kvText = await env.PAGES.get(HOME_ROWS_KV_KEY);
+    if (kvText) {
+      return new Response(kvText, {
+        headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" },
+      });
+    }
+  }
+
+  const edgeCache = caches.default;
+  const cacheKey = new Request("https://sk/zemer-home-rows");
+  const edgeHit = await edgeCache.match(cacheKey);
+  if (edgeHit) return edgeHit;
+
+  const text = await fetchUpstreamHomeRows();
+  if (text == null) {
+    return Response.json({ error: "unavailable" }, { status: 502, headers: { "Cache-Control": "no-store" } });
+  }
+  if (env.PAGES && ctx) ctx.waitUntil(env.PAGES.put(HOME_ROWS_KV_KEY, text, { expirationTtl: 10800 }));
+  const response = new Response(text, {
+    headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=10800" },
+  });
+  if (ctx) ctx.waitUntil(edgeCache.put(cacheKey, response.clone()));
+  return response;
+}
+
+// Cron half: same 13 h TTL bridging discipline as refreshTrending.
+async function refreshHomeRows(env) {
+  if (!env.PAGES) return;
+  const text = await fetchUpstreamHomeRows();
+  if (text) await env.PAGES.put(HOME_ROWS_KV_KEY, text, { expirationTtl: 46800 });
+}
+
 // ─── KV page overrides ────────────────────────────────────────────────────────
 
 // Derive the correct MIME type from a file path extension.
@@ -1056,6 +1108,7 @@ export default {
     // Live data routes.
     if (pathname === "/playlist") return servePlaylist(url, ctx);
     if (pathname === "/zp-live") return handleLivePlaylist(url, env, ctx);
+    if (pathname === "/zemer-home-rows") return handleHomeRows(env, ctx);
     if (pathname === "/trending") {
       // Content negotiation: browser navigations (Accept: text/html) get the human-readable charts
       // page; the app's fetch() and API callers (Accept: */*) keep getting JSON. Fetch the extensionless
@@ -1126,5 +1179,6 @@ export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil(refreshTrending(env));
     ctx.waitUntil(refreshExternalTrending(env));
+    ctx.waitUntil(refreshHomeRows(env));
   },
 };

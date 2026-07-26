@@ -1438,6 +1438,22 @@ async function trendingSections() {
   return h;
 }
 const railOf = (title, items, render) => items && items.length ? section(title, `<div class="rail${render === artistCard ? " round" : ""}">${items.map(render).join("")}</div>`) : "";
+// Zemer app fleet rows — upstream /home-rows (Top Albums/Videos/Artists ranked by 30-day device
+// reach across the Zemer app), proxied same-origin by the Worker and refreshed twice daily via the
+// cron. Rendered at the BOTTOM of Home and For You; every row passes the content + parental gate.
+async function zemerRowsSections() {
+  const d = await fetch("/zemer-home-rows").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  if (!d) return "";
+  await artistByName(); await loadBlockedIds(); if (acapella()) await loadAcapella(); // gate() needs flags + block-ids + Acapella set loaded — don't rely on a sibling section having done it
+  const songs = gate((d.topVideos || []).map((t) => ({ videoId: t.videoId, title: t.title, artist: t.artist, explicit: t.explicit, isVideo: t.isVideo, durationSec: t.durationSec })));
+  const albums = gate((d.topAlbums || []).map((a) => ({ id: a.id, playlistId: a.playlistId, title: a.title, artist: a.artist, year: a.year, thumbnail: a.thumbnail })));
+  const artists = gate((d.topArtists || []).map((a) => ({ id: a.id, name: a.name, thumbnail: a.thumbnail })));
+  let h = "";
+  if (songs.length) h += section("Zemer Trending Songs", songCards(songs.slice(0, 19)));
+  h += railOf("Zemer Trending Albums", albums.slice(0, 24), albumCard);
+  h += railOf("Zemer Trending Artists", artists.slice(0, 18), artistCard);
+  return h;
+}
 const skRail = (n, round) => `<div class="rail${round ? " round" : ""}">${Array.from({ length: n || 6 }, () => `<div class="sk-card"><div class="sk art"${round ? ' style="border-radius:50%"' : ""}></div><div class="sk l1"></div><div class="sk l2"></div></div>`).join("")}</div>`;
 
 /* ============================ HOME ============================ */
@@ -1454,7 +1470,7 @@ async function loadHome() {
     window.__appReady && window.__appReady();
     return;
   }
-  const [d, trend, zpl] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections(), getJSON("/zemer-playlists")]);
+  const [d, trend, zpl, zemerRows] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections(), getJSON("/zemer-playlists"), zemerRowsSections()]);
   await artistByName(); // load artist flags so the parental gate (artist allow/blocklist + kid-only) applies below
   const quick = gate(d.quickPicks), newS = gate(d.newSongs), recent = gate(readRecent()), vids = gate(d.featuredVideos);
   let h = `<div class="hero"><div class="eyebrow">Kosher music, by construction</div><h1>Only the music you trust.</h1><p>Every song here comes from a whitelisted artist's full catalog — searched, not filtered. Nothing outside it.</p><span class="heb">מוזיקה</span></div>` + (trend || "");
@@ -1467,6 +1483,7 @@ async function loadHome() {
   h += railOf("Artists You'll Like", gate(d.featuredArtists), artistCard);
   h += railOf("Albums", gate(d.featuredAlbums), albumCard);
   if (!blockVideos() && vids.length) h += section("Music Videos", songCards(vids));
+  h += zemerRows || "";
   v.innerHTML = h || emptyState("No content yet", "The catalog is still being built.");
   window.__appReady && window.__appReady();
 }
@@ -1553,7 +1570,7 @@ async function loadForYou() {
   state.loaded.foryou = true; secN = 0; const v = el("v-foryou");
   const hero = `<div class="hero" style="background:linear-gradient(120deg,#2a1220,var(--surface) 70%)"><div class="eyebrow">Your mix</div><h1>For You</h1><p>A personalized blend of what you play and the whole whitelisted catalog — it sharpens as you listen.</p><span class="heb">בשבילך</span></div>`;
   v.innerHTML = hero + section("Made for you", skRail(6));
-  const [d, trend] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections()]);
+  const [d, trend, zemerRows] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections(), zemerRowsSections()]);
   await ensureFilters();                                              // artist map + parental profile + Acapella set (the /home payload is NOT parental-gated server-side — gate() must run here)
   const recent = gate(readRecent()), liked = gate(readLiked());       // gate() = content + parental (allow/blocklist, kid-only) + Acapella
   const taste = tasteArtists([...liked, ...liked, ...recent]);         // likes weighted 2× over plays
@@ -1566,6 +1583,7 @@ async function loadForYou() {
   h += railOf("New for you", gate(d.latestReleases), albumCard);
   h += railOf(taste.length ? "Your artists" : "Artists to explore", gate(taste.length ? taste.slice(0, 16) : d.featuredArtists), artistCard);
   const fresh = gate(d.newSongs); if (fresh.length) h += section("Fresh songs", songCards(fresh));
+  h += zemerRows || "";
   v.innerHTML = (trend || mix.length || qp.length || recent.length || liked.length) ? h : hero + emptyState("Play a few songs", "For You fills in as you listen. Browse Home to get started.");
 }
 
