@@ -307,8 +307,11 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 .sechead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 4px 14px}
 .sechead h2{font-family:Fraunces,serif;font-weight:600;font-size:21px;letter-spacing:.2px;margin:0}
-.sechead h2.sec-title{cursor:pointer;transition:color .15s}
-.sechead h2.sec-title:hover{color:var(--primary)}
+.sechead h2.sec-title{display:inline-flex;align-items:center;gap:8px;cursor:pointer;transition:color .15s;text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--faint)}
+.sechead h2.sec-title:hover{color:var(--primary);text-decoration-color:var(--primary)}
+.sec-ic{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;color:var(--faint);transition:color .15s,transform .15s}
+.sec-ic svg{width:100%;height:100%;fill:currentColor}
+.sechead h2.sec-title:hover .sec-ic{color:var(--primary);transform:translateX(2px)}
 .sechead .more{font-size:12.5px;font-weight:600;color:var(--faint);cursor:pointer}
 .sechead .more:hover{color:var(--primary)}
 
@@ -1364,9 +1367,10 @@ function section(title, body, more, meta) {
   if (!meta.qid) { const qm = body.match(/playFrom\('(q\d+)',/); if (qm) meta.qid = qm[1]; }
   if (!meta.albums) { const am = [...body.matchAll(/openAlbum\('([^']+)'\)/g)]; if (am.length) meta.albums = am.map((m) => m[1]); }
   const d = (secN++ % 8) * 0.05;
+  const secIcon = '<span class="sec-ic">' + ICON.play + '</span>';
   let h2 = `<h2>${esc(title)}</h2>`;
-  if (meta.qid) h2 = `<h2 class="sec-title" role="button" tabindex="0" data-qid="${meta.qid}" onkeydown="${KDACT}" onclick="openSectionQueue(this)">${esc(title)}</h2>`;
-  else if (meta.albums && meta.albums.length) h2 = `<h2 class="sec-title" role="button" tabindex="0" data-albums="${encodeURIComponent(JSON.stringify(meta.albums))}" onkeydown="${KDACT}" onclick="openSectionQueue(this)">${esc(title)}</h2>`;
+  if (meta.qid) h2 = `<h2 class="sec-title" role="button" tabindex="0" data-qid="${meta.qid}" onkeydown="${KDACT}" onclick="openSectionQueue(this)">${esc(title)}${secIcon}</h2>`;
+  else if (meta.albums && meta.albums.length) h2 = `<h2 class="sec-title" role="button" tabindex="0" data-albums="${encodeURIComponent(JSON.stringify(meta.albums))}" onkeydown="${KDACT}" onclick="openSectionQueue(this)">${esc(title)}${secIcon}</h2>`;
   return `<div class="section" style="animation-delay:${d}s"><div class="sechead">${h2}${more || ""}</div>${body}</div>`;
 }
 
