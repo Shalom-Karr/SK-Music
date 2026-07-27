@@ -2226,11 +2226,29 @@ audio.addEventListener("loadstart", () => { if (PB.mode === "html5") setBufferin
 audio.addEventListener("waiting", () => { if (PB.mode === "html5") setBuffering(true); });
 audio.addEventListener("stalled", () => { if (PB.mode === "html5") setBuffering(true); });
 audio.addEventListener("playing", () => { if (PB.mode === "html5") { isBuffering = false; streamFails = 0; startTick(); audio.playbackRate = PB.rate; setPlayIcons(); playResume(); resetIOSAudioBase(); } });
-audio.addEventListener("pause", () => { stopTick(); setPlayIcons(); playAccrue(); });
+audio.addEventListener("pause", () => { setBuffering(false); stopTick(); playAccrue(); });
 audio.addEventListener("seeked", resetIOSAudioBase);
 audio.addEventListener("ended", onHtml5Ended);
 audio.addEventListener("error", () => { setBuffering(false); if (PB.mode === "html5") onPlaybackError(); });
 audio.addEventListener("abort", () => setBuffering(false));
+let html5WasPlayingBeforeHidden = false;
+function onAppForeground() {
+  if (PB.mode !== "html5") return;
+  if (html5WasPlayingBeforeHidden && audio.paused && !audio.ended && audio.currentTime > 0) {
+    if ("audioSession" in navigator) try { navigator.audioSession.type = "playback"; } catch {}
+    PB.play();
+  }
+  html5WasPlayingBeforeHidden = false;
+}
+function onAppBackground() {
+  if (PB.mode === "html5") html5WasPlayingBeforeHidden = !audio.paused;
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") onAppBackground();
+  else onAppForeground();
+});
+window.addEventListener("pagehide", onAppBackground);
+window.addEventListener("pageshow", onAppForeground);
 ["nbSeek", "npSeek"].forEach((id) => {
   const s = el(id);
   s.addEventListener("input", () => { seeking = true; paintSeek(s); el("nbCur").textContent = el("npCur").textContent = fmt((s.value / 1000) * PB.dur()); });
