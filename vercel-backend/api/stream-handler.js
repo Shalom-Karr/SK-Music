@@ -30,7 +30,7 @@ function cookieFilePath() {
 }
 
 function baseYtDlpArgs() {
-  const args = ["--no-warnings", "--no-update", "--no-cache-dir", "--force-ipv4"];
+  const args = ["--no-warnings", "--no-update", "--no-cache-dir", "--force-ipv4", "--js-runtimes", "node"];
   if (process.env.YTDLP_PROXY) args.push("--proxy", process.env.YTDLP_PROXY);
   if (process.env.YTDLP_EXTRACTOR_ARGS) args.push("--extractor-args", process.env.YTDLP_EXTRACTOR_ARGS);
   const cookies = cookieFilePath();
@@ -145,7 +145,7 @@ function spawnYtDlp(binaryPath, extraArgs) {
   return spawn(binaryPath, [
     ...baseYtDlpArgs(),
     ...extraArgs,
-  ], { stdio: ["ignore", "pipe", "pipe"] });
+  ], { stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, PATH: `${process.env.PATH}:${path.dirname(process.execPath)}` } });
 }
 
 async function getInfo(binaryPath, youtubeUrl) {
