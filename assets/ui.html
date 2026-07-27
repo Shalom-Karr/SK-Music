@@ -2044,8 +2044,15 @@ const PB = {
   },
   dur() {
     if (this.mode === "yt") return this.ready ? (this.yt.getDuration() || 0) : 0;
-    const d = audio.duration;
-    return (isFinite(d) && d > 0) ? d : (this.fallbackDur || 0);
+    const d = audio.duration, fb = this.fallbackDur;
+    // iOS Safari commonly reports the duration of some YouTube m4a streams as roughly twice
+    // the real length. The catalog duration (from YouTube metadata) is accurate, so trust it
+    // when the browser-reported duration is grossly off.
+    if (isFinite(d) && d > 0 && fb > 0) {
+      const ratio = d / fb;
+      if (ratio > 1.5 || ratio < 0.65) return fb;
+    }
+    return (isFinite(d) && d > 0) ? d : (fb || 0);
   },
   setVol(v) { this.vol = v; this.muted = false; if (this.mode === "yt") { if (this.ready) { this.yt.unMute(); this.yt.setVolume(Math.round(v * 100)); } } else { audio.muted = false; audio.volume = v; } },
   setMuted(m) { this.muted = m; if (this.mode === "yt") { if (this.ready) m ? this.yt.mute() : this.yt.unMute(); } else audio.muted = m; },
