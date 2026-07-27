@@ -1990,6 +1990,7 @@ function onHtml5Ended() {
 }
 function onHtml5TimeUpdate() {
   if (PB.mode !== "html5" || iosAdvanceGuard || audio.paused || audio.ended) return;
+  tick();
   const dur = PB.dur();
   if (dur && audio.currentTime >= dur - 0.15) {
     iosAdvanceGuard = true;
