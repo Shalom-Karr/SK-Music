@@ -307,6 +307,8 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 .sechead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 4px 14px}
 .sechead h2{font-family:Fraunces,serif;font-weight:600;font-size:21px;letter-spacing:.2px;margin:0}
+.sechead h2.sec-title{cursor:pointer;transition:color .15s}
+.sechead h2.sec-title:hover{color:var(--primary)}
 .sechead .more{font-size:12.5px;font-weight:600;color:var(--faint);cursor:pointer}
 .sechead .more:hover{color:var(--primary)}
 
@@ -1238,6 +1240,7 @@ function applyRoute(url) {
   if ((m = p.match(/^\/albums\/(.+)$/))) return openAlbum(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/zemer-playlists\/(.+)$/))) return openCuratedPlaylist(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/playlists\/(.+)$/))) return openPlaylist(decodeURIComponent(m[1]), true);
+  if (p === "/queue") { const qid = u.searchParams.get("qid") || ""; const title = u.searchParams.get("title") || "Queue"; if (qid && queues.get(qid)) return openQueue(title, qid, true); go("home", true); return; }
   if ((m = p.match(/^\/songs?\/(.+)$/))) return openSong(decodeURIComponent(m[1]), true, parseInt(u.searchParams.get("t") || "0", 10) || 0);
   if ((m = p.match(/^\/search\/(.+)$/))) { go("search", true); const qv = decodeURIComponent(m[1]); setTimeout(() => { const b = el("q"); if (b) { b.value = qv; doSearch(); } }, 60); return; }
   if (p === "/search") { // /search?query=ss[&filter=nofemale,audioonly] — prefill + run.
@@ -1354,7 +1357,7 @@ const zpCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="$
 const artistCard = (a) => `<div class="card round" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${a.id}')" onmouseenter="pf('artist','${a.id}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="t">${esc(a.name || "")}</div></div>`;
 const artistCell = (a) => `<div class="gcell" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${a.id}')" onmouseenter="pf('artist','${a.id}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="n">${esc(a.name || "")}</div></div>`;
 let secN = 0, expSeq = 0;
-function section(title, body, more) { if (!body) return ""; const d = (secN++ % 8) * 0.05; return `<div class="section" style="animation-delay:${d}s"><div class="sechead"><h2>${title}</h2>${more || ""}</div>${body}</div>`; }
+function section(title, body, more) { if (!body) return ""; const d = (secN++ % 8) * 0.05; const qm = body.match(/playFrom\('(q\d+)',/); const h2 = qm ? `<h2 class="sec-title" role="button" tabindex="0" data-qid="${qm[1]}" onkeydown="${KDACT}" onclick="openSectionQueue(this)">${esc(title)}</h2>` : `<h2>${esc(title)}</h2>`; return `<div class="section" style="animation-delay:${d}s"><div class="sechead">${h2}${more || ""}</div>${body}</div>`; }
 
 // Trending rails from real play analytics (top played songs + artists over N days). Aggregates come from the
 // Worker /trending route (Supabase-backed, edge-cached). Empty string until there's data → collapses cleanly.
@@ -1851,6 +1854,8 @@ function renderDetailView(v) {
 }
 function pushDetail(v, fromRoute) { renderDetailView(v); if (!fromRoute) pushURL(v.path); }
 function shufflePlay(qid) { const q = queues.get(qid); if (!q || !q.length) return; const s = q.slice(); for (let i = s.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[s[i], s[j]] = [s[j], s[i]]; } state.queue = s; playIndex(0); }
+function openQueue(title, qid, fromRoute) { const tracks = queues.get(qid); if (!tracks || !tracks.length) return; const v = { path: `/queue?qid=${qid}&title=${encodeURIComponent(title)}`, kind: "Queue", title, sub: `<b>${num(tracks.length)}</b> songs`, thumb: tracks[0] ? yt(tracks[0].videoId) : "", sections: [{ label: "Tracks", tracks }] }; renderDetailView(v); if (!fromRoute) pushURL(v.path); showDetail(); }
+function openSectionQueue(el) { openQueue(el.textContent.trim(), el.getAttribute("data-qid")); }
 function detailLoading(kind, round) {
   el("tbTitle").textContent = kind; el("tbTitle").style.display = ""; el("tbSearch").style.display = "none";
   el("v-detail").innerHTML = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
