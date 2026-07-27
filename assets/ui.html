@@ -2019,6 +2019,9 @@ const PB = {
     else {
       iosAdvanceGuard = false;
       setBuffering(true);
+      // Reset the iOS audio clock so the progress bar doesn't use the previous song's time base
+      // before the new playback actually starts.
+      if (iosAudioCtx) { iosBaseCur = 0; iosLastCur = 0; iosBaseCtx = iosAudioCtx.currentTime; }
       const src = "/stream?v=" + encodeURIComponent(id);
       audio.src = src;
       // Try to get the real duration from the backend before Safari misreports it.
@@ -2027,7 +2030,7 @@ const PB = {
       fetch(src, { method: "HEAD" })
         .then((r) => {
           const d = r.headers.get("x-duration");
-          if (d) { this.fallbackDur = parseFloat(d) || this.fallbackDur; tick(); }
+          if (d) { this.fallbackDur = parseFloat(d) || this.fallbackDur; }
         })
         .catch(() => {});
       if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true });
@@ -2045,6 +2048,9 @@ const PB = {
   seek(sec) { this.mode === "yt" ? this.ready && this.yt.seekTo(sec, true) : (audio.currentTime = sec); },
   cur() {
     if (this.mode === "yt") return this.ready ? this.yt.getCurrentTime() || 0 : 0;
+    // Until the audio element has a non-zero position, don't extrapolate from the AudioContext;
+    // this prevents the progress bar from creeping forward before real playback begins.
+    if (audio.currentTime === 0) return 0;
     if (iosAudioCtx && iosAudioCtx.state === "running" && !audio.paused && !audio.ended) {
       const aCur = audio.currentTime;
       if (Math.abs(aCur - iosLastCur) > 0.02) { iosLastCur = iosBaseCur = aCur; iosBaseCtx = iosAudioCtx.currentTime; }
