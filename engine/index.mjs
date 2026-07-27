@@ -848,6 +848,11 @@ export default {
 
     // Everything else — static assets, /data/*, /lib/*, SPA fallback.
     // The SPA index.html bakes in the default OG block for unmatched client-side routes.
+    // Strip cache-busting query strings from /data and /lib URLs before looking up static assets.
+    if (pathname.startsWith("/data/") || pathname.startsWith("/lib/")) {
+      const clean = new Request(new URL(pathname, url), request);
+      return env.ASSETS.fetch(clean);
+    }
     return env.ASSETS.fetch(request);
   },
 

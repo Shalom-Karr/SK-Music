@@ -29,6 +29,7 @@ jobs:
       - name: Fetch latest catalog snapshot
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE: "1"
         run: node engine/fetch-corpus.mjs
       - name: Build static bundle
         run: node engine/build-static.mjs
