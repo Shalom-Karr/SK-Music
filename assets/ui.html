@@ -1957,6 +1957,7 @@ const isIOSDevice = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navig
 // events; when the currentTime is close to the end, we seek to duration so the ended event fires while
 // Safari still considers the play() call in its handler part of the same playback session.
 let iosAudioCtx = null, iosScriptNode = null, iosKeepAliveAt = 0, iosAdvanceGuard = false;
+let iosBaseCur = 0, iosBaseCtx = 0, iosLastCur = 0;
 function ensureIOSKeepAlive() {
   if (!isIOSDevice() || iosAudioCtx) return;
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -1981,6 +1982,13 @@ function ensureIOSKeepAlive() {
 function resumeIOSKeepAlive() {
   if (iosAudioCtx && iosAudioCtx.state === "suspended") iosAudioCtx.resume().catch(() => {});
 }
+function resetIOSAudioBase() {
+  if (!iosAudioCtx) return;
+  try {
+    iosBaseCur = iosLastCur = audio.currentTime;
+    iosBaseCtx = iosAudioCtx.currentTime;
+  } catch {}
+}
 let html5EndedGuard = false;
 function resetHtml5Ended() { html5EndedGuard = false; }
 function onHtml5Ended() {
@@ -1990,9 +1998,11 @@ function onHtml5Ended() {
 }
 function onHtml5TimeUpdate() {
   if (PB.mode !== "html5" || iosAdvanceGuard || audio.paused || audio.ended) return;
+  const nowCur = audio.currentTime;
+  if (Math.abs(nowCur - iosLastCur) > 0.02) { iosLastCur = iosBaseCur = nowCur; iosBaseCtx = iosAudioCtx ? iosAudioCtx.currentTime : performance.now() / 1000; }
   tick();
   const dur = PB.dur();
-  if (dur && audio.currentTime >= dur - 0.15) {
+  if (dur && PB.cur() >= dur - 0.15) {
     iosAdvanceGuard = true;
     try { audio.pause(); } catch {}
     onHtml5Ended();
@@ -2023,7 +2033,15 @@ const PB = {
   stop() { this.pending = null; if (this.mode === "yt") { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
   paused() { return this.mode === "yt" ? (!this.ready || this.yt.getPlayerState() !== 1) : audio.paused; }, // methods exist only after onReady
   seek(sec) { this.mode === "yt" ? this.ready && this.yt.seekTo(sec, true) : (audio.currentTime = sec); },
-  cur() { return this.mode === "yt" ? (this.ready ? this.yt.getCurrentTime() || 0 : 0) : audio.currentTime; },
+  cur() {
+    if (this.mode === "yt") return this.ready ? this.yt.getCurrentTime() || 0 : 0;
+    if (iosAudioCtx && iosAudioCtx.state === "running" && !audio.paused && !audio.ended) {
+      const aCur = audio.currentTime;
+      if (Math.abs(aCur - iosLastCur) > 0.02) { iosLastCur = iosBaseCur = aCur; iosBaseCtx = iosAudioCtx.currentTime; }
+      return iosBaseCur + (iosAudioCtx.currentTime - iosBaseCtx) * audio.playbackRate;
+    }
+    return audio.currentTime;
+  },
   dur() {
     if (this.mode === "yt") return this.ready ? (this.yt.getDuration() || 0) : 0;
     const d = audio.duration;
@@ -2086,6 +2104,7 @@ function playIndex(i, dir) {
     i = j;
   }
   state.qi = i; const t = state.queue[i]; PB.fallbackDur = t.durationSec || 0;
+  if ("audioSession" in navigator) try { navigator.audioSession.type = "playback"; } catch {}
   el("nowbar").classList.add("on");
   const art = yt(t.videoId, "hq");
   el("nbArt").src = yt(t.videoId); el("nbArt").classList.remove("hide"); el("nbTitle").textContent = t.title || ""; el("nbArtist").textContent = t.artist || "";
@@ -2144,6 +2163,9 @@ function tick() {
   el("nbCur").textContent = el("npCur").textContent = fmt(c);
   el("nbDur").textContent = el("npDur").textContent = d ? fmt(d) : "0:00";
   skTick(c);
+  if ("mediaSession" in navigator && navigator.mediaSession.setPositionState) {
+    try { navigator.mediaSession.setPositionState({ duration: d || 0, playbackRate: PB.rate, position: Math.min(Math.max(c, 0), d || 0) }); } catch {}
+  }
 }
 function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing · 2 paused · 3 buffering · 5 cued
   if (code === 1) { isBuffering = false; streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); } // rate resets on each load
@@ -2175,8 +2197,9 @@ function onPlaybackError() {
 audio.addEventListener("loadstart", () => { if (PB.mode === "html5") setBuffering(true); });
 audio.addEventListener("waiting", () => { if (PB.mode === "html5") setBuffering(true); });
 audio.addEventListener("stalled", () => { if (PB.mode === "html5") setBuffering(true); });
-audio.addEventListener("playing", () => { if (PB.mode === "html5") { isBuffering = false; streamFails = 0; startTick(); audio.playbackRate = PB.rate; setPlayIcons(); playResume(); } });
+audio.addEventListener("playing", () => { if (PB.mode === "html5") { isBuffering = false; streamFails = 0; startTick(); audio.playbackRate = PB.rate; setPlayIcons(); playResume(); resetIOSAudioBase(); } });
 audio.addEventListener("pause", () => { stopTick(); setPlayIcons(); playAccrue(); });
+audio.addEventListener("seeked", resetIOSAudioBase);
 audio.addEventListener("ended", onHtml5Ended);
 audio.addEventListener("error", () => { setBuffering(false); if (PB.mode === "html5") onPlaybackError(); });
 audio.addEventListener("abort", () => setBuffering(false));
