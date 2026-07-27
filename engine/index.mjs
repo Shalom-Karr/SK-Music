@@ -908,9 +908,12 @@ async function handleAudioStream(request, url, env, ctx) {
       headers.set("Accept-Ranges", "bytes");
       headers.set("Cache-Control", "public, max-age=31536000, immutable");
 
-      if (range && object.range) {
-        const end = object.range.end ?? range.offset + range.length - 1;
+      if (range) {
+        const end = object.range?.end ?? range.offset + range.length - 1;
         headers.set("Content-Range", `bytes ${range.offset}-${end}/${fullObject.size}`);
+        headers.set("Content-Length", String(range.length));
+      } else {
+        headers.set("Content-Length", String(fullObject.size));
       }
 
       return new Response(object.body, { headers, status: range ? 206 : 200 });
@@ -947,6 +950,8 @@ async function handleAudioStream(request, url, env, ctx) {
     headers.set("Cache-Control", "public, max-age=86400");
     headers.set("Access-Control-Allow-Origin", "*");
     headers.set("Access-Control-Expose-Headers", "Content-Length, Accept-Ranges");
+    const contentLength = upstream.headers.get("content-length");
+    if (contentLength) headers.set("Content-Length", contentLength);
     return new Response(clientBranch, { headers, status: upstream.status });
   }
 

@@ -1989,9 +1989,9 @@ function onHtml5Ended() {
   stopTick(); playFinalize(); repeatOrNext(); setPlayIcons();
 }
 function onHtml5TimeUpdate() {
-  if (PB.mode !== "html5" || iosAdvanceGuard || !audio.duration || !isFinite(audio.duration)) return;
-  if (audio.paused || audio.ended) return;
-  if (audio.currentTime >= audio.duration - 0.15) {
+  if (PB.mode !== "html5" || iosAdvanceGuard || audio.paused || audio.ended) return;
+  const dur = PB.dur();
+  if (dur && audio.currentTime >= dur - 0.15) {
     iosAdvanceGuard = true;
     try { audio.pause(); } catch {}
     onHtml5Ended();
@@ -2000,7 +2000,7 @@ function onHtml5TimeUpdate() {
 }
 audio.addEventListener("timeupdate", onHtml5TimeUpdate);
 const PB = {
-  mode: isIOSDevice() ? "html5" : "yt", yt: null, ready: false, pending: null, nextStart: 0, vol: 1, muted: false, rate: 1,
+  mode: isIOSDevice() ? "html5" : "yt", yt: null, ready: false, pending: null, nextStart: 0, vol: 1, muted: false, rate: 1, fallbackDur: 0,
   load(id, startSec) {
     resetHtml5Ended();
     startSec = startSec || this.nextStart || 0; this.nextStart = 0;
@@ -2023,7 +2023,11 @@ const PB = {
   paused() { return this.mode === "yt" ? (!this.ready || this.yt.getPlayerState() !== 1) : audio.paused; }, // methods exist only after onReady
   seek(sec) { this.mode === "yt" ? this.ready && this.yt.seekTo(sec, true) : (audio.currentTime = sec); },
   cur() { return this.mode === "yt" ? (this.ready ? this.yt.getCurrentTime() || 0 : 0) : audio.currentTime; },
-  dur() { return this.mode === "yt" ? (this.ready ? this.yt.getDuration() || 0 : 0) : (audio.duration || 0); },
+  dur() {
+    if (this.mode === "yt") return this.ready ? (this.yt.getDuration() || 0) : 0;
+    const d = audio.duration;
+    return (isFinite(d) && d > 0) ? d : (this.fallbackDur || 0);
+  },
   setVol(v) { this.vol = v; this.muted = false; if (this.mode === "yt") { if (this.ready) { this.yt.unMute(); this.yt.setVolume(Math.round(v * 100)); } } else { audio.muted = false; audio.volume = v; } },
   setMuted(m) { this.muted = m; if (this.mode === "yt") { if (this.ready) m ? this.yt.mute() : this.yt.unMute(); } else audio.muted = m; },
   setRate(r) { this.rate = r; if (this.mode === "yt") { if (this.ready) this.yt.setPlaybackRate(r); } else audio.playbackRate = r; },
@@ -2080,7 +2084,7 @@ function playIndex(i, dir) {
     if (j < 0 || j >= state.queue.length) { showToast(am === "only" ? "No more Acapella songs in this queue." : "No more non-Acapella songs in this queue.", 2600); return; }
     i = j;
   }
-  state.qi = i; const t = state.queue[i];
+  state.qi = i; const t = state.queue[i]; PB.fallbackDur = t.durationSec || 0;
   el("nowbar").classList.add("on");
   const art = yt(t.videoId, "hq");
   el("nbArt").src = yt(t.videoId); el("nbArt").classList.remove("hide"); el("nbTitle").textContent = t.title || ""; el("nbArtist").textContent = t.artist || "";
@@ -2133,7 +2137,7 @@ let tickTimer = null, seeking = false, toastTimer, streamFails = 0, isBuffering 
 function startTick() { if (!tickTimer) tickTimer = setInterval(tick, 300); }
 function stopTick() { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } }
 function tick() {
-  const d = PB.dur(), c = PB.cur(), pct = d ? c / d : 0;
+  const d = PB.dur(), c = PB.cur(), pct = d ? Math.min(1, Math.max(0, c / d)) : 0;
   el("nbProgress").style.width = (pct * 100) + "%";
   if (!seeking) { el("nbSeek").value = el("npSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); }
   el("nbCur").textContent = el("npCur").textContent = fmt(c);
