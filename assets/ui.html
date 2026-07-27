@@ -1241,6 +1241,7 @@ function applyRoute(url) {
   if ((m = p.match(/^\/zemer-playlists\/(.+)$/))) return openCuratedPlaylist(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/playlists\/(.+)$/))) return openPlaylist(decodeURIComponent(m[1]), true);
   if (p === "/queue") { const qid = u.searchParams.get("qid") || ""; const title = u.searchParams.get("title") || "Queue"; if (qid && queues.get(qid)) return openQueue(title, qid, true); go("home", true); return; }
+  if (p === "/album-queue") { const title = u.searchParams.get("title") || "Queue"; const ids = (u.searchParams.get("ids") || "").split(",").filter(Boolean); if (ids.length) return openAlbumQueue(title, ids, true); go("home", true); return; }
   if ((m = p.match(/^\/songs?\/(.+)$/))) return openSong(decodeURIComponent(m[1]), true, parseInt(u.searchParams.get("t") || "0", 10) || 0);
   if ((m = p.match(/^\/search\/(.+)$/))) { go("search", true); const qv = decodeURIComponent(m[1]); setTimeout(() => { const b = el("q"); if (b) { b.value = qv; doSearch(); } }, 60); return; }
   if (p === "/search") { // /search?query=ss[&filter=nofemale,audioonly] — prefill + run.
@@ -1357,7 +1358,17 @@ const zpCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="$
 const artistCard = (a) => `<div class="card round" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${a.id}')" onmouseenter="pf('artist','${a.id}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="t">${esc(a.name || "")}</div></div>`;
 const artistCell = (a) => `<div class="gcell" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${a.id}')" onmouseenter="pf('artist','${a.id}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="n">${esc(a.name || "")}</div></div>`;
 let secN = 0, expSeq = 0;
-function section(title, body, more) { if (!body) return ""; const d = (secN++ % 8) * 0.05; const qm = body.match(/playFrom\('(q\d+)',/); const h2 = qm ? `<h2 class="sec-title" role="button" tabindex="0" data-qid="${qm[1]}" onkeydown="${KDACT}" onclick="openSectionQueue(this)">${esc(title)}</h2>` : `<h2>${esc(title)}</h2>`; return `<div class="section" style="animation-delay:${d}s"><div class="sechead">${h2}${more || ""}</div>${body}</div>`; }
+function section(title, body, more, meta) {
+  if (!body) return "";
+  meta = meta || {};
+  if (!meta.qid) { const qm = body.match(/playFrom\('(q\d+)',/); if (qm) meta.qid = qm[1]; }
+  if (!meta.albums) { const am = [...body.matchAll(/openAlbum\('([^']+)'\)/g)]; if (am.length) meta.albums = am.map((m) => m[1]); }
+  const d = (secN++ % 8) * 0.05;
+  let h2 = `<h2>${esc(title)}</h2>`;
+  if (meta.qid) h2 = `<h2 class="sec-title" role="button" tabindex="0" data-qid="${meta.qid}" onkeydown="${KDACT}" onclick="openSectionQueue(this)">${esc(title)}</h2>`;
+  else if (meta.albums && meta.albums.length) h2 = `<h2 class="sec-title" role="button" tabindex="0" data-albums="${encodeURIComponent(JSON.stringify(meta.albums))}" onkeydown="${KDACT}" onclick="openSectionQueue(this)">${esc(title)}</h2>`;
+  return `<div class="section" style="animation-delay:${d}s"><div class="sechead">${h2}${more || ""}</div>${body}</div>`;
+}
 
 // Trending rails from real play analytics (top played songs + artists over N days). Aggregates come from the
 // Worker /trending route (Supabase-backed, edge-cached). Empty string until there's data → collapses cleanly.
@@ -1428,7 +1439,11 @@ async function trendingSections() {
   if (artCards.length) h += railOf("Trending Artists", artCards.slice(0, 18), artistCard);
   return h;
 }
-const railOf = (title, items, render) => items && items.length ? section(title, `<div class="rail${render === artistCard ? " round" : ""}">${items.map(render).join("")}</div>`) : "";
+const railOf = (title, items, render) => {
+  if (!items || !items.length) return "";
+  const meta = render === albumCard ? { albums: items } : null;
+  return section(title, `<div class="rail${render === artistCard ? " round" : ""}">${items.map(render).join("")}</div>`, null, meta);
+};
 const skRail = (n, round) => `<div class="rail${round ? " round" : ""}">${Array.from({ length: n || 6 }, () => `<div class="sk-card"><div class="sk art"${round ? ' style="border-radius:50%"' : ""}></div><div class="sk l1"></div><div class="sk l2"></div></div>`).join("")}</div>`;
 
 /* ============================ HOME ============================ */
@@ -1855,7 +1870,31 @@ function renderDetailView(v) {
 function pushDetail(v, fromRoute) { renderDetailView(v); if (!fromRoute) pushURL(v.path); }
 function shufflePlay(qid) { const q = queues.get(qid); if (!q || !q.length) return; const s = q.slice(); for (let i = s.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[s[i], s[j]] = [s[j], s[i]]; } state.queue = s; playIndex(0); }
 function openQueue(title, qid, fromRoute) { const tracks = queues.get(qid); if (!tracks || !tracks.length) return; const v = { path: `/queue?qid=${qid}&title=${encodeURIComponent(title)}`, kind: "Queue", title, sub: `<b>${num(tracks.length)}</b> songs`, thumb: tracks[0] ? yt(tracks[0].videoId) : "", sections: [{ label: "Tracks", tracks }] }; renderDetailView(v); if (!fromRoute) pushURL(v.path); showDetail(); }
-function openSectionQueue(el) { openQueue(el.textContent.trim(), el.getAttribute("data-qid")); }
+async function openAlbumQueue(title, albums, fromRoute) {
+  if (!albums || !albums.length) return;
+  detailLoading("Queue");
+  await ensureFilters();
+  const ids = typeof albums[0] === "string" ? albums : albums.map((a) => a.id);
+  const results = await Promise.all(ids.map((id) => detailGet("/album?id=" + encodeURIComponent(id)).catch(() => null)));
+  const albumObjs = [], allTracks = [];
+  for (const d of results) {
+    if (!d || d.error || hiddenArtist(d.album.artist)) continue;
+    albumObjs.push(d.album);
+    const tracks = gate(d.tracks || []).filter((t) => !(blockVideos() && t.isVideo));
+    allTracks.push(...tracks);
+  }
+  if (!allTracks.length) { el("v-detail").innerHTML = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>` + emptyState("No playable songs", "These albums are hidden by your filters or have no whitelisted tracks."); return; }
+  const idsParam = albumObjs.map((a) => a.id).join(",");
+  const v = { path: `/album-queue?title=${encodeURIComponent(title)}&ids=${idsParam}`, kind: "Queue", title, sub: `<b>${num(allTracks.length)}</b> songs · <b>${num(albumObjs.length)}</b> albums`, thumb: albumObjs[0]?.thumbnail || "", sections: [{ label: "Tracks", tracks: allTracks }, { label: "Albums", items: albumObjs, render: albumCard }] };
+  pushDetail(v, fromRoute);
+}
+function openSectionQueue(el) {
+  const qid = el.getAttribute("data-qid");
+  const albums = el.getAttribute("data-albums");
+  const title = el.textContent.trim();
+  if (qid) openQueue(title, qid);
+  else if (albums) openAlbumQueue(title, JSON.parse(decodeURIComponent(albums)));
+}
 function detailLoading(kind, round) {
   el("tbTitle").textContent = kind; el("tbTitle").style.display = ""; el("tbSearch").style.display = "none";
   el("v-detail").innerHTML = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
