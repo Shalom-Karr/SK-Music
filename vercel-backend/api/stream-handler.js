@@ -236,7 +236,8 @@ function streamFromYtdlp(binaryPath, info, youtubeUrl, res, videoId) {
   res.setHeader("Cache-Control", "public, max-age=86400");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Range, Accept, Authorization");
-  res.setHeader("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges");
+  res.setHeader("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges, X-Duration");
+  if (info.duration) res.setHeader("X-Duration", String(info.duration));
 
   // Dump the extracted info so yt-dlp can download without re-hitting YouTube
   const infoPath = `/tmp/info-${videoId}.json`;
@@ -298,6 +299,19 @@ function streamFromYtdlp(binaryPath, info, youtubeUrl, res, videoId) {
   });
 }
 
+function sendDurationHeaders(res, info, format) {
+  const contentType = contentTypeFor(format);
+  res.statusCode = 200;
+  res.setHeader("Content-Type", contentType);
+  res.setHeader("Accept-Ranges", "bytes");
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "Range, Accept, Authorization");
+  res.setHeader("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges, X-Duration");
+  if (info.duration) res.setHeader("X-Duration", String(info.duration));
+  if (format.filesize) res.setHeader("Content-Length", String(format.filesize));
+}
+
 export default async function handler(req, res) {
   // CORS preflight for cross-origin <audio> / Service Worker requests
   if (req.method === "OPTIONS") {
@@ -305,7 +319,7 @@ export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Range, Accept, Authorization, Content-Type");
-    res.setHeader("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges");
+    res.setHeader("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges, X-Duration");
     res.setHeader("Access-Control-Max-Age", "86400");
     return res.end();
   }
@@ -332,6 +346,11 @@ export default async function handler(req, res) {
 
     const format = preferAudioFormat(info.formats || [])[0];
     console.log("[stream] Using format:", format?.format_id, format?.ext, format?.acodec, format?.abr);
+
+    if (req.method === "HEAD") {
+      sendDurationHeaders(res, info, format);
+      return res.end();
+    }
 
     await streamFromYtdlp(binaryPath, info, youtubeUrl, res, videoId);
   } catch (err) {

@@ -2019,7 +2019,17 @@ const PB = {
     else {
       iosAdvanceGuard = false;
       setBuffering(true);
-      audio.src = "/stream?v=" + encodeURIComponent(id);
+      const src = "/stream?v=" + encodeURIComponent(id);
+      audio.src = src;
+      // Try to get the real duration from the backend before Safari misreports it.
+      // We don't wait for the fetch before starting playback; if the header arrives
+      // late it will just correct the duration display.
+      fetch(src, { method: "HEAD" })
+        .then((r) => {
+          const d = r.headers.get("x-duration");
+          if (d) { this.fallbackDur = parseFloat(d) || this.fallbackDur; tick(); }
+        })
+        .catch(() => {});
       if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true });
       audio.play().catch((e) => { console.warn("[html5 load] play blocked", e); setBuffering(false); });
       if (isIOSDevice()) { ensureIOSKeepAlive(); resumeIOSKeepAlive(); }

@@ -888,6 +888,7 @@ function parseRangeHeader(rangeHeader, fullSize) {
 async function handleAudioStream(request, url, env, ctx) {
   const videoId = url.searchParams.get("v");
   if (!videoId) return new Response("Missing video ID parameter (v)", { status: 400 });
+  const isHead = request.method === "HEAD";
 
   // 1. Check Cloudflare R2 bucket if bound
   if (env.AUDIO_BUCKET) {
@@ -900,13 +901,16 @@ async function handleAudioStream(request, url, env, ctx) {
       const object = range
         ? await env.AUDIO_BUCKET.get(`${videoId}.${ext}`, { range })
         : fullObject;
-      if (!object || !object.body) continue;
+      if (!object) continue;
 
       const headers = new Headers();
       object.writeHttpMetadata(headers);
       headers.set("etag", object.httpEtag);
       headers.set("Accept-Ranges", "bytes");
       headers.set("Cache-Control", "public, max-age=31536000, immutable");
+      headers.set("Access-Control-Allow-Origin", "*");
+      headers.set("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges, X-Duration");
+      if (object.customMetadata?.duration) headers.set("X-Duration", String(object.customMetadata.duration));
 
       if (range) {
         const end = object.range?.end ?? range.offset + range.length - 1;
@@ -916,6 +920,8 @@ async function handleAudioStream(request, url, env, ctx) {
         headers.set("Content-Length", String(fullObject.size));
       }
 
+      if (isHead) return new Response(null, { headers, status: range ? 206 : 200 });
+      if (!object.body) continue;
       return new Response(object.body, { headers, status: range ? 206 : 200 });
     }
   }
@@ -923,36 +929,55 @@ async function handleAudioStream(request, url, env, ctx) {
   // 2. Fetch from external backend (Vercel / Stream Server) and cache in R2 if bound
   if (env.STREAM_SERVER_URL) {
     const streamEndpoint = `${env.STREAM_SERVER_URL.replace(/\/$/, "")}/api/stream?v=${encodeURIComponent(videoId)}`;
-    const upstream = await fetch(streamEndpoint, { headers: { Accept: "audio/*" } });
-    if (!upstream.ok || !upstream.body) {
+    const upstream = await fetch(streamEndpoint, { method: isHead ? "HEAD" : "GET", headers: { Accept: "audio/*" } });
+    if (!upstream.ok) {
       return new Response(`Upstream stream failed: ${upstream.status}`, { status: upstream.status || 502 });
     }
 
     const contentType = upstream.headers.get("content-type") || "audio/mp4";
     const ext = ({ "audio/mp4": "m4a", "audio/webm": "webm", "audio/mpeg": "mp3", "audio/ogg": "ogg" })[contentType] || "m4a";
-    const [clientBranch, cacheBranch] = upstream.body.tee();
+    const duration = upstream.headers.get("x-duration");
+    const customMetadata = duration ? { duration } : undefined;
 
-    if (env.AUDIO_BUCKET) {
-      const cacheKey = `${videoId}.${ext}`;
-      console.log("[stream] caching to R2:", cacheKey);
-      ctx.waitUntil(
-        env.AUDIO_BUCKET.put(cacheKey, cacheBranch, {
-          httpMetadata: { contentType, cacheControl: "public, max-age=31536000, immutable" },
-        })
-          .then(() => console.log("[stream] cached to R2:", cacheKey))
-          .catch((err) => console.error("[stream] R2 cache write failed:", err))
-      );
+    if (!isHead && upstream.body) {
+      const [clientBranch, cacheBranch] = upstream.body.tee();
+
+      if (env.AUDIO_BUCKET) {
+        const cacheKey = `${videoId}.${ext}`;
+        console.log("[stream] caching to R2:", cacheKey);
+        ctx.waitUntil(
+          env.AUDIO_BUCKET.put(cacheKey, cacheBranch, {
+            httpMetadata: { contentType, cacheControl: "public, max-age=31536000, immutable" },
+            customMetadata,
+          })
+            .then(() => console.log("[stream] cached to R2:", cacheKey))
+            .catch((err) => console.error("[stream] R2 cache write failed:", err))
+        );
+      }
+
+      const headers = new Headers();
+      headers.set("Content-Type", contentType);
+      headers.set("Accept-Ranges", "bytes");
+      headers.set("Cache-Control", "public, max-age=86400");
+      headers.set("Access-Control-Allow-Origin", "*");
+      headers.set("Access-Control-Expose-Headers", "Content-Length, Accept-Ranges, X-Duration");
+      if (duration) headers.set("X-Duration", duration);
+      const contentLength = upstream.headers.get("content-length");
+      if (contentLength) headers.set("Content-Length", contentLength);
+      return new Response(clientBranch, { headers, status: upstream.status });
     }
 
+    // HEAD response: return headers only, do not cache
     const headers = new Headers();
     headers.set("Content-Type", contentType);
     headers.set("Accept-Ranges", "bytes");
     headers.set("Cache-Control", "public, max-age=86400");
     headers.set("Access-Control-Allow-Origin", "*");
-    headers.set("Access-Control-Expose-Headers", "Content-Length, Accept-Ranges");
+    headers.set("Access-Control-Expose-Headers", "Content-Length, Accept-Ranges, X-Duration");
+    if (duration) headers.set("X-Duration", duration);
     const contentLength = upstream.headers.get("content-length");
     if (contentLength) headers.set("Content-Length", contentLength);
-    return new Response(clientBranch, { headers, status: upstream.status });
+    return new Response(null, { headers, status: upstream.status });
   }
 
   return new Response("Audio stream backend not configured or file not found in storage.", { status: 503 });
