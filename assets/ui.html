@@ -1957,7 +1957,8 @@ const isIOSDevice = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navig
 // events; when the currentTime is close to the end, we seek to duration so the ended event fires while
 // Safari still considers the play() call in its handler part of the same playback session.
 let iosAudioCtx = null, iosScriptNode = null, iosKeepAliveAt = 0, iosAdvanceGuard = false;
-let iosBaseCur = 0, iosBaseCtx = 0, iosLastCur = 0;
+let iosBaseCur = 0, iosBaseCtx = 0, iosLastCur = 0, iosCurStableAt = 0;
+const IOS_STALL_THRESHOLD = 0.5;
 function ensureIOSKeepAlive() {
   if (!isIOSDevice() || iosAudioCtx) return;
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -1986,7 +1987,7 @@ function resetIOSAudioBase() {
   if (!iosAudioCtx) return;
   try {
     iosBaseCur = iosLastCur = audio.currentTime;
-    iosBaseCtx = iosAudioCtx.currentTime;
+    iosBaseCtx = iosCurStableAt = iosAudioCtx.currentTime;
   } catch {}
 }
 let html5EndedGuard = false;
@@ -1999,7 +2000,7 @@ function onHtml5Ended() {
 function onHtml5TimeUpdate() {
   if (PB.mode !== "html5" || iosAdvanceGuard || audio.paused || audio.ended) return;
   const nowCur = audio.currentTime;
-  if (Math.abs(nowCur - iosLastCur) > 0.02) { iosLastCur = iosBaseCur = nowCur; iosBaseCtx = iosAudioCtx ? iosAudioCtx.currentTime : performance.now() / 1000; }
+  if (Math.abs(nowCur - iosLastCur) > 0.02) { iosLastCur = iosBaseCur = nowCur; iosBaseCtx = iosAudioCtx ? iosAudioCtx.currentTime : performance.now() / 1000; iosCurStableAt = iosAudioCtx ? iosAudioCtx.currentTime : performance.now() / 1000; }
   tick();
   const dur = PB.dur();
   if (dur && PB.cur() >= dur - 0.15) {
@@ -2021,7 +2022,7 @@ const PB = {
       setBuffering(true);
       // Reset the iOS audio clock so the progress bar doesn't use the previous song's time base
       // before the new playback actually starts.
-      if (iosAudioCtx) { iosBaseCur = 0; iosLastCur = 0; iosBaseCtx = iosAudioCtx.currentTime; }
+      if (iosAudioCtx) { iosBaseCur = 0; iosLastCur = 0; iosBaseCtx = iosAudioCtx.currentTime; iosCurStableAt = iosAudioCtx.currentTime; }
       const src = "/stream?v=" + encodeURIComponent(id);
       audio.src = src;
       // Try to get the real duration from the backend before Safari misreports it.
@@ -2051,10 +2052,14 @@ const PB = {
     // Until the audio element has a non-zero position, don't extrapolate from the AudioContext;
     // this prevents the progress bar from creeping forward before real playback begins.
     if (audio.currentTime === 0) return 0;
-    if (iosAudioCtx && iosAudioCtx.state === "running" && !audio.paused && !audio.ended) {
+    if (iosAudioCtx && iosAudioCtx.state === "running" && !audio.paused && !audio.ended && !isBuffering) {
       const aCur = audio.currentTime;
-      if (Math.abs(aCur - iosLastCur) > 0.02) { iosLastCur = iosBaseCur = aCur; iosBaseCtx = iosAudioCtx.currentTime; }
-      return iosBaseCur + (iosAudioCtx.currentTime - iosBaseCtx) * audio.playbackRate;
+      const ctxNow = iosAudioCtx.currentTime;
+      if (Math.abs(aCur - iosLastCur) > 0.02) { iosLastCur = iosBaseCur = aCur; iosBaseCtx = ctxNow; iosCurStableAt = ctxNow; }
+      // If currentTime hasn't changed for a while, the audio thread is stalled/throttled;
+      // don't let the AudioContext clock keep the progress bar moving.
+      if (ctxNow - iosCurStableAt > IOS_STALL_THRESHOLD) return aCur;
+      return iosBaseCur + (ctxNow - iosBaseCtx) * audio.playbackRate;
     }
     return audio.currentTime;
   },
