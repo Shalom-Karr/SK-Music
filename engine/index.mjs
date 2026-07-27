@@ -665,6 +665,38 @@ async function handleLivePlaylist(url, env, ctx) {
   return response;
 }
 
+// Keep cached audio under the R2 free tier by deleting oldest files first.
+const MAX_AUDIO_CACHE_BYTES = 9.5 * 1024 * 1024 * 1024;
+const PRUNE_TARGET_BYTES = 9.0 * 1024 * 1024 * 1024;
+async function pruneAudioCache(env) {
+  if (!env.AUDIO_BUCKET) return;
+  let objects = [];
+  let cursor;
+  do {
+    const page = await env.AUDIO_BUCKET.list({ cursor, limit: 1000 });
+    objects = objects.concat(page.objects || []);
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  const total = objects.reduce((s, o) => s + (o.size || 0), 0);
+  if (total <= MAX_AUDIO_CACHE_BYTES) return;
+  const sorted = objects.slice().sort((a, b) => (a.uploaded || 0) - (b.uploaded || 0));
+  let toFree = total - PRUNE_TARGET_BYTES;
+  let freed = 0;
+  let deleted = 0;
+  for (const o of sorted) {
+    if (toFree <= 0) break;
+    try {
+      await env.AUDIO_BUCKET.delete(o.key);
+      toFree -= o.size || 0;
+      freed += o.size || 0;
+      deleted++;
+    } catch (e) {
+      console.error("[prune] failed to delete", o.key, e.message);
+    }
+  }
+  console.log("[prune] total", total, "deleted", deleted, "freed", freed, "remaining", total - freed);
+}
+
 // Cron handler: pull all live trending playlists into KV right after the upstream update.
 // TTL is 13 hours (46800 s) — long enough to bridge two cron cycles with margin.
 async function refreshTrending(env) {
@@ -851,9 +883,11 @@ export default {
     return env.ASSETS.fetch(request);
   },
 
-  // Cron trigger: keep the upstream trending playlists warm in KV.
+  // Cron trigger: keep the upstream trending playlists warm in KV, and prune
+  // cached audio when storage grows past the R2 free-tier headroom.
   async scheduled(event, env, ctx) {
     ctx.waitUntil(refreshTrending(env));
+    ctx.waitUntil(pruneAudioCache(env));
   },
 };
 
@@ -888,7 +922,6 @@ function parseRangeHeader(rangeHeader, fullSize) {
 async function handleAudioStream(request, url, env, ctx) {
   const videoId = url.searchParams.get("v");
   if (!videoId) return new Response("Missing video ID parameter (v)", { status: 400 });
-  const isHead = request.method === "HEAD";
 
   // 1. Check Cloudflare R2 bucket if bound
   if (env.AUDIO_BUCKET) {
@@ -901,16 +934,13 @@ async function handleAudioStream(request, url, env, ctx) {
       const object = range
         ? await env.AUDIO_BUCKET.get(`${videoId}.${ext}`, { range })
         : fullObject;
-      if (!object) continue;
+      if (!object || !object.body) continue;
 
       const headers = new Headers();
       object.writeHttpMetadata(headers);
       headers.set("etag", object.httpEtag);
       headers.set("Accept-Ranges", "bytes");
       headers.set("Cache-Control", "public, max-age=31536000, immutable");
-      headers.set("Access-Control-Allow-Origin", "*");
-      headers.set("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges, X-Duration");
-      if (object.customMetadata?.duration) headers.set("X-Duration", String(object.customMetadata.duration));
 
       if (range) {
         const end = object.range?.end ?? range.offset + range.length - 1;
@@ -920,8 +950,6 @@ async function handleAudioStream(request, url, env, ctx) {
         headers.set("Content-Length", String(fullObject.size));
       }
 
-      if (isHead) return new Response(null, { headers, status: range ? 206 : 200 });
-      if (!object.body) continue;
       return new Response(object.body, { headers, status: range ? 206 : 200 });
     }
   }
@@ -929,55 +957,36 @@ async function handleAudioStream(request, url, env, ctx) {
   // 2. Fetch from external backend (Vercel / Stream Server) and cache in R2 if bound
   if (env.STREAM_SERVER_URL) {
     const streamEndpoint = `${env.STREAM_SERVER_URL.replace(/\/$/, "")}/api/stream?v=${encodeURIComponent(videoId)}`;
-    const upstream = await fetch(streamEndpoint, { method: isHead ? "HEAD" : "GET", headers: { Accept: "audio/*" } });
-    if (!upstream.ok) {
+    const upstream = await fetch(streamEndpoint, { headers: { Accept: "audio/*" } });
+    if (!upstream.ok || !upstream.body) {
       return new Response(`Upstream stream failed: ${upstream.status}`, { status: upstream.status || 502 });
     }
 
     const contentType = upstream.headers.get("content-type") || "audio/mp4";
     const ext = ({ "audio/mp4": "m4a", "audio/webm": "webm", "audio/mpeg": "mp3", "audio/ogg": "ogg" })[contentType] || "m4a";
-    const duration = upstream.headers.get("x-duration");
-    const customMetadata = duration ? { duration } : undefined;
+    const [clientBranch, cacheBranch] = upstream.body.tee();
 
-    if (!isHead && upstream.body) {
-      const [clientBranch, cacheBranch] = upstream.body.tee();
-
-      if (env.AUDIO_BUCKET) {
-        const cacheKey = `${videoId}.${ext}`;
-        console.log("[stream] caching to R2:", cacheKey);
-        ctx.waitUntil(
-          env.AUDIO_BUCKET.put(cacheKey, cacheBranch, {
-            httpMetadata: { contentType, cacheControl: "public, max-age=31536000, immutable" },
-            customMetadata,
-          })
-            .then(() => console.log("[stream] cached to R2:", cacheKey))
-            .catch((err) => console.error("[stream] R2 cache write failed:", err))
-        );
-      }
-
-      const headers = new Headers();
-      headers.set("Content-Type", contentType);
-      headers.set("Accept-Ranges", "bytes");
-      headers.set("Cache-Control", "public, max-age=86400");
-      headers.set("Access-Control-Allow-Origin", "*");
-      headers.set("Access-Control-Expose-Headers", "Content-Length, Accept-Ranges, X-Duration");
-      if (duration) headers.set("X-Duration", duration);
-      const contentLength = upstream.headers.get("content-length");
-      if (contentLength) headers.set("Content-Length", contentLength);
-      return new Response(clientBranch, { headers, status: upstream.status });
+    if (env.AUDIO_BUCKET) {
+      const cacheKey = `${videoId}.${ext}`;
+      console.log("[stream] caching to R2:", cacheKey);
+      ctx.waitUntil(
+        env.AUDIO_BUCKET.put(cacheKey, cacheBranch, {
+          httpMetadata: { contentType, cacheControl: "public, max-age=31536000, immutable" },
+        })
+          .then(() => console.log("[stream] cached to R2:", cacheKey))
+          .catch((err) => console.error("[stream] R2 cache write failed:", err))
+      );
     }
 
-    // HEAD response: return headers only, do not cache
     const headers = new Headers();
     headers.set("Content-Type", contentType);
     headers.set("Accept-Ranges", "bytes");
     headers.set("Cache-Control", "public, max-age=86400");
     headers.set("Access-Control-Allow-Origin", "*");
-    headers.set("Access-Control-Expose-Headers", "Content-Length, Accept-Ranges, X-Duration");
-    if (duration) headers.set("X-Duration", duration);
+    headers.set("Access-Control-Expose-Headers", "Content-Length, Accept-Ranges");
     const contentLength = upstream.headers.get("content-length");
     if (contentLength) headers.set("Content-Length", contentLength);
-    return new Response(null, { headers, status: upstream.status });
+    return new Response(clientBranch, { headers, status: upstream.status });
   }
 
   return new Response("Audio stream backend not configured or file not found in storage.", { status: 503 });
