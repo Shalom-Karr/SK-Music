@@ -31,22 +31,54 @@ const VIS_MARGIN: f64 = 8.0;
 /// playback) rather than the user opening it — only auto-shown minis auto-hide again.
 static AUTO_SHOWN: AtomicBool = AtomicBool::new(false);
 
-/// Auto-show/hide the mini with the main window's focus (feature: "if the app is not in focus,
-/// show the mini player"). Hooked in `.setup()`. Focus loss also covers minimize + close-to-tray.
+/// Auto-show/hide the mini with the main window's state. When a focus change should surface the mini
+/// depends on the display setup — which the user asked us to distinguish:
+///   • Single monitor   → losing focus means the main window got covered by whatever you switched to,
+///                         so a focus change surfaces the mini (the classic "app not in front" behavior).
+///   • Multiple monitors → the main window is probably still fully visible on another screen when it
+///                         loses focus, so a focus change must NOT pop the mini — that flickered it on
+///                         window drags and popped it whenever another screen was clicked. Only MINIMIZE
+///                         surfaces the mini on a multi-monitor setup.
+/// Minimize/restore is authoritative on any setup and is read on the resize event (minimizing can emit
+/// Focused(false) before is_minimized() flips). Monitor count is queried live, so plugging/unplugging a
+/// display is picked up on the next focus change. Hooked in `.setup()`.
 pub fn init(app: &tauri::AppHandle) {
     let Some(main) = app.get_webview_window("main") else { return };
     let handle = app.clone();
-    main.on_window_event(move |event| {
-        if let tauri::WindowEvent::Focused(focused) = event {
-            if *focused {
-                auto_hide(&handle);
-            } else {
+    main.on_window_event(move |event| match event {
+        // Focus loss counts as "covered" only on a single-monitor setup (see above).
+        tauri::WindowEvent::Focused(false) => {
+            if monitor_count(&handle) <= 1 {
                 auto_show(&handle);
             }
         }
+        // Regaining focus (restore / reopen from tray / clicking back to the app) hides the auto-mini.
+        tauri::WindowEvent::Focused(true) => auto_hide(&handle),
+        // Minimize/restore arrives as a resize; on ANY monitor count, minimize surfaces the mini and
+        // restore hides it. (Moving/dragging fires Moved, not Resized, so this never fires on a drag.)
+        tauri::WindowEvent::Resized(_) => {
+            if let Some(m) = handle.get_webview_window("main") {
+                if m.is_minimized().unwrap_or(false) {
+                    auto_show(&handle);
+                } else {
+                    auto_hide(&handle);
+                }
+            }
+        }
+        _ => {}
     });
 }
 
+/// Number of monitors currently attached. Falls back to 1 — the more-featureful "show on focus loss"
+/// default — if the query fails.
+fn monitor_count(app: &tauri::AppHandle) -> usize {
+    app.get_webview_window("main")
+        .and_then(|w| w.available_monitors().ok())
+        .map(|m| m.len())
+        .unwrap_or(1)
+}
+
+/// Surface the mini (subject to the setting + active playback). No-op if it's already visible.
 pub(crate) fn auto_show(app: &tauri::AppHandle) {
     if !crate::settings::auto_mini() || !crate::media::is_playing() {
         return;
@@ -56,7 +88,7 @@ pub(crate) fn auto_show(app: &tauri::AppHandle) {
             return; // already up (user-opened or a previous auto-show) — leave ownership as-is
         }
         ensure_on_screen(&win); // a display change while hidden could have stranded it off-screen
-        let _ = win.show(); // no set_focus: the user just moved focus elsewhere on purpose
+        let _ = win.show(); // no set_focus: the user just minimized/hid the main on purpose
         AUTO_SHOWN.store(true, Ordering::SeqCst);
         return;
     }
