@@ -1,5 +1,58 @@
 # Changelog
 
+## desktop-v1.0.2 — 2026-07-28
+
+**Why the bump:** a security + reliability hardening pass — three parallel audit agents (web player,
+desktop shell, Worker) plus a login-merge audit, with every actionable finding fixed. No new
+features; the app gets safer and more robust.
+
+**Content-filter correctness (kosher-critical):**
+- The empty-queue resume path now re-gates the saved track before replaying (a filter could have
+  changed since it was saved).
+- Changing a filter now re-gates the **live** play queue — blocked tracks can't keep auto-advancing.
+- Upstream-fed rails (trending / new releases / Zemer home-rows / cold-start) fail **closed** on an
+  unresolved artist (`gateFeed`): `hiddenArtist` fails open on names that don't match our catalog, so
+  an unmatched female/blocked artist could have slipped in. Verified it drops only truly-unknown
+  artists — the real trending content is untouched.
+- Radio continuation pages carry the current filter fingerprint (a mid-station filter change no
+  longer serves under the old filter).
+
+**Playback robustness:**
+- Gapless handoff **watchdog** — a swap whose PLAYING confirmation never arrives no longer silently
+  wedges playback at a track boundary.
+- Pausing in the final half-second no longer lets the fire window un-pause the song.
+- Seeks **verify-retry** (YouTube's iframe silently swallows `seekTo` while buffering); a skip that
+  lands paused is nudged back into playback.
+- Listen-time is banked (not destroyed) when the window is backgrounded — the always-open desktop
+  app no longer under-counts plays.
+- The queue registry is now LRU-capped (was an unbounded memory leak over a long session).
+
+**Security hardening:**
+- Every upstream id is validated (`safeId`) and thumbnail URL escaped before it reaches an inline
+  handler — closes a stored-XSS surface from a poisoned upstream.
+- Desktop: the tray-menu popup no longer holds its mutex across the blocking modal loop (a
+  self-deadlock the tray left-click could trigger); `update.html` renders update fields via
+  `textContent` with a CSP (a forged `updater://` event can't inject markup); the remote-origin
+  capability grant is trimmed to event emit/listen only.
+- Worker: `/radio` and `/playlist` are GET-only with validated/bounded params; the analytics beacon
+  caps `meta` size; the service worker no longer activates an empty cache on a failed install.
+
+**Desktop reliability:**
+- Mini player recovers if a monitor change stranded it off-screen; taskbar jump-list actions work on
+  a **cold** start (not just when the app is already running); the updater has a 30 s timeout and a
+  drop-guard so a stalled check can't wedge "Check for updates" shut; a staged update isn't
+  re-downloaded daily; tray lock poisoning self-heals instead of freezing the tray permanently.
+
+**Account merge (idempotent):**
+- Signed-out likes and listening history **merge** into the account on login as a true union — DB
+  entries are never overwritten or deleted, local-only entries are added, and the local store becomes
+  the union. Likes now use an idempotent `set_like(videoId, liked)` RPC (deploy
+  `supabase/set-like-idempotent.sql`) instead of a non-idempotent flip, so re-logins and multiple
+  devices can't double-flip or lose a like. A "Merged N liked songs" toast confirms the merge.
+- Mini player: repeat-one button, keyboard control while focused, click-to-seek; the collapsed
+  tiny-box mode was removed. Tray left-click surfaces the mini and pops the full menu.
+
+
 Version numbers track the **desktop app** (`Desktop/src-tauri`); the web app deploys continuously
 from `main`, so web changes are listed under the desktop release they shipped alongside. Desktop
 releases live at `desktop-v<version>` tags with signed installers; installed apps self-update from

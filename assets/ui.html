@@ -937,6 +937,10 @@ fill="url(#royal)" stroke="none">
 const $ = (s) => document.querySelector(s);
 const el = (id) => document.getElementById(id);
 const esc = (s) => (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+// Ids from upstream JSON (albums/artists/videos/playlists) are interpolated into inline onclick=
+// handlers and data- attributes; a poisoned upstream could otherwise inject markup/script there.
+// Every real id (UC…/MPRE…/OLAK…/videoId) is [A-Za-z0-9_-]; anything else is dropped.
+const safeId = (s) => (typeof s === "string" && /^[A-Za-z0-9_-]+$/.test(s)) ? s : "";
 const yt = (id, q) => `https://i.ytimg.com/vi/${id}/${q || "mq"}default.jpg`;
 // Warm the prebuilt detail JSON on hover so the click opens instantly (the fetch is already a cache hit).
 const _pf = new Set();
@@ -1201,7 +1205,25 @@ function syncFilterUI() {
 }
 function toggleMenu(e) { e.stopPropagation(); const m = el("menu"); const on = m.classList.toggle("on"); el("filterBtn").setAttribute("aria-expanded", on); if (on) { const r = el("filterBtn").getBoundingClientRect(); m.style.top = (r.bottom + 8) + "px"; m.style.right = (innerWidth - r.right) + "px"; } }
 document.addEventListener("click", (e) => { if (!el("menu").contains(e.target) && e.target !== el("filterBtn")) { el("menu").classList.remove("on"); el("filterBtn").setAttribute("aria-expanded", "false"); } const sm = el("shareMenu"), ns = el("npShare"); if (sm && !sm.contains(e.target) && (!ns || !ns.contains(e.target))) sm.classList.remove("on"); const aw = el("acctWrap"); if (aw && !aw.contains(e.target)) closeAcctMenu(); });
-function reloadCurrent() { ({ home: loadHome, foryou: loadForYou, artists: loadArtists, playlists: loadPlaylists, podcasts: loadPodcasts, kidzone: loadKid, search: doSearch, library: loadLibrary }[state.tab] || (() => {}))(); }
+function reloadCurrent() { regateQueue(); ({ home: loadHome, foryou: loadForYou, artists: loadArtists, playlists: loadPlaylists, podcasts: loadPodcasts, kidzone: loadKid, search: doSearch, library: loadLibrary }[state.tab] || (() => {}))(); }
+// A filter/parental change must not leave now-blocked tracks in the LIVE play queue (they'd keep
+// auto-advancing). Drop them, keep qi on the current track if it still passes — else stop and skip
+// forward to the next allowed one. The primed gapless standby is cancelled so it can't hand off to a
+// removed track. gate() applies every content + parental rule; songOK covers the Acapella set + blocked-ids.
+function regateQueue() {
+  if (!state.queue.length) return;
+  const cur = state.queue[state.qi];
+  const ok = (t) => gate([t]).length && songOK(t) && !blockedId(t.videoId);
+  const kept = state.queue.filter(ok);
+  const curOk = cur && ok(cur);
+  cancelSwap();
+  if (!kept.length) { state.queue = []; state.qi = -1; PB.stop(); el("nowbar").classList.remove("on"); return; }
+  const newIdx = curOk ? kept.indexOf(cur) : kept.findIndex((t, i) => state.queue.indexOf(t) >= state.qi);
+  state.queue = kept;
+  if (curOk) { state.qi = newIdx; cueNext(); }
+  else if (newIdx >= 0) playIndex(newIdx); // current track now blocked → jump to the next allowed one
+  else { state.qi = kept.length; playIndex(kept.length - 1); } // nothing after → fall back to last allowed
+}
 
 /* ============================ navigation + history ============================ */
 function renderNav() {
@@ -1304,16 +1326,23 @@ async function refreshStat() {
 
 /* ============================ render helpers ============================ */
 const queues = new Map(); let qSeq = 0;
-function regQueue(tracks) { const id = "q" + (++qSeq); queues.set(id, tracks); return id; }
+// Every render registers a queue and nothing unregistered them — unbounded growth over a long
+// (tray-resident) session. Evict oldest past a cap: stale ids belong to replaced DOM, and the
+// actively-playing queue is held by reference in state.queue, not looked up by id.
+function regQueue(tracks) {
+  const id = "q" + (++qSeq); queues.set(id, tracks);
+  if (queues.size > 80) for (const k of queues.keys()) { if (queues.size <= 60) break; queues.delete(k); }
+  return id;
+}
 // Google-image-CDN thumbnails (yt3/lh3 googleusercontent/ggpht) accept size params after the last "=".
 // The corpus ships full-size URLs (=w2880-h1200 banners ≈ 290 KB) — rewrite to a square center-crop
 // (=s320-c ≈ 25 KB) sized for the card/cell it renders in. Non-Google hosts pass through untouched.
 function sizedArt(src, px) {
-  if (!src || !/^https:\/\/(yt3|lh[0-9]?)\.(googleusercontent|ggpht)\.com\//.test(src)) return src;
+  if (!src || src.includes("?") || !/^https:\/\/(yt3|lh[0-9]?)\.(googleusercontent|ggpht)\.com\//.test(src)) return src; // a query string moves the "=" we key on — leave those URLs untouched
   const cut = src.lastIndexOf("=");
   return (cut > src.lastIndexOf("/") ? src.slice(0, cut) : src) + `=s${px || 320}-c-k-c0x00ffffff-no-rj`;
 }
-const artHTML = (src, ph, round, px) => `<div class="art${round ? " round" : ""}"><img loading="lazy" alt="" src="${sizedArt(src, px) || ""}" onerror="this.classList.add('hide')"${src ? "" : ' class="hide"'}><div class="ph" aria-hidden="true">${ph || NOTE}</div></div>`;
+const artHTML = (src, ph, round, px) => `<div class="art${round ? " round" : ""}"><img loading="lazy" alt="" src="${esc(sizedArt(src, px) || "")}" onerror="this.classList.add('hide')"${src ? "" : ' class="hide"'}><div class="ph" aria-hidden="true">${ph || NOTE}</div></div>`;
 
 /* ============================ likes ============================ */
 let _liked = null;
@@ -1378,7 +1407,7 @@ function songRow(t, qid, i, opt) {
   const playing = state.queue[state.qi] && state.queue[state.qi].videoId === t.videoId;
   const lead = opt.index ? `<div class="idx">${playing ? "" : i + 1}</div><div class="idx-play">${ICON.play}</div>` : "";
   const thumb = `<img class="thumb" alt="" loading="lazy" src="${yt(t.videoId)}" onerror="this.style.visibility='hidden'">`;
-  return `<div class="row ${playing ? "playing" : ""}" role="button" tabindex="0" data-v="${t.videoId}" data-n="${opt.index ? i + 1 : ""}" onkeydown="${KDACT}" onclick="${opt.searchKind ? `sClick('${opt.searchKind}',${i},'${t.videoId}');` : ""}playFrom('${qid}',${i})">
+  return `<div class="row ${playing ? "playing" : ""}" role="button" tabindex="0" data-v="${safeId(t.videoId)}" data-n="${opt.index ? i + 1 : ""}" onkeydown="${KDACT}" onclick="${opt.searchKind ? `sClick('${opt.searchKind}',${i},'${safeId(t.videoId)}');` : ""}playFrom('${qid}',${i})">
     ${opt.index ? lead : thumb}
     ${opt.index && !opt.noThumb ? thumb : ""}
     <div class="text"><div class="title">${playing ? EQ : ""}<span style="overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</span>${t.explicit ? '<span class="tag">E</span>' : ""}${t.isVideo ? '<span class="tag">VIDEO</span>' : ""}</div>
@@ -1393,12 +1422,12 @@ function songCard(t, qid, i) {
 }
 function songCards(tracks) { const qid = regQueue(tracks); return `<div class="rail">${tracks.map((t, i) => songCard(t, qid, i)).join("")}</div>`; }
 function quickPicks(tracks) { const qid = regQueue(tracks); return `<div class="qpgrid">${tracks.map((t, i) => songRow(t, qid, i)).join("")}</div>`; }
-const albumCard = (a) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openAlbum('${a.id}')" onmouseenter="pf('album','${a.id}')">${artHTML(a.thumbnail)}<div class="t">${esc(a.title)}</div><div class="s">${esc(a.artist || "")}${a.year ? " · " + a.year : ""}</div></div>`;
-const playlistCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openPlaylist('${p.id}')">${artHTML(p.thumbnail)}<div class="t">${esc(p.title)}</div><div class="s">${esc(p.artist || "Playlist")}</div></div>`;
+const albumCard = (a) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openAlbum('${safeId(a.id)}')" onmouseenter="pf('album','${safeId(a.id)}')">${artHTML(a.thumbnail)}<div class="t">${esc(a.title)}</div><div class="s">${esc(a.artist || "")}${a.year ? " · " + a.year : ""}</div></div>`;
+const playlistCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openPlaylist('${safeId(p.id)}')">${artHTML(p.thumbnail)}<div class="t">${esc(p.title)}</div><div class="s">${esc(p.artist || "Playlist")}</div></div>`;
 // Curated playlist card — SVG cover; click → the curated detail (albums + songs).
-const zpCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openCuratedPlaylist('${p.id}')">${artHTML(p.thumbnail)}<div class="t">${esc(p.title)}</div><div class="s">${num(p.trackCount || 0)} songs</div></div>`;
-const artistCard = (a) => `<div class="card round" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${a.id}')" onmouseenter="pf('artist','${a.id}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="t">${esc(a.name || "")}</div></div>`;
-const artistCell = (a) => `<div class="gcell" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${a.id}')" onmouseenter="pf('artist','${a.id}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="n">${esc(a.name || "")}</div></div>`;
+const zpCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openCuratedPlaylist('${safeId(p.id)}')">${artHTML(p.thumbnail)}<div class="t">${esc(p.title)}</div><div class="s">${num(p.trackCount || 0)} songs</div></div>`;
+const artistCard = (a) => `<div class="card round" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${safeId(a.id)}')" onmouseenter="pf('artist','${safeId(a.id)}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="t">${esc(a.name || "")}</div></div>`;
+const artistCell = (a) => `<div class="gcell" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${safeId(a.id)}')" onmouseenter="pf('artist','${safeId(a.id)}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="n">${esc(a.name || "")}</div></div>`;
 let secN = 0, expSeq = 0;
 function section(title, body, more) { if (!body) return ""; const d = (secN++ % 8) * 0.05; return `<div class="section" style="animation-delay:${d}s"><div class="sechead"><h2>${title}</h2>${more || ""}</div>${body}</div>`; }
 
@@ -1451,6 +1480,20 @@ const acArtistOK = (name) => { const m = acapellaMode(); if (!m) return true; co
 // gate(): parental (hiddenArtist) always; in Acapella mode, songs must be in the playlist and artists/albums/playlists
 // must belong to an artist who has an Acapella song.
 const gate = (list) => Array.isArray(list) ? list.filter((x) => x && !hiddenArtist(x.artist || x.name) && (x.videoId ? songOK(x) : acArtistOK(x.artist || x.name))) : (list || []);
+// Stricter gate for UPSTREAM-fed rails (trending / new-releases / Zemer home-rows / cold-start). Those
+// carry artist NAME strings that can diverge from our catalog keys, and hiddenArtist() fails OPEN on an
+// unknown name — so an unmatched female/blocked artist would slip in. When a restrictive content filter
+// is active, additionally require the artist to resolve in our flag map (by name, or by id for cards):
+// fail closed for supplementary rows rather than risk leaking a blocked one. Corpus-fed rails keep gate().
+function gateFeed(list) {
+  const g = gate(list);
+  if (!(noFemale() || noChasid() || !!israeliMode() || noDJ() || kidZoneActive())) return g; // no content filter that name-resolution guards → keep gate()'s result
+  return g.filter((x) => {
+    if (x.id && _artistById && _artistById.has(x.id)) return true; // artist card resolved by channel id
+    const n = (x.artist || x.name || "").toLowerCase();
+    return !!(n && _artistByName && _artistByName.has(n));
+  });
+}
 // Load the artist-flag map AND the parental profile before any content/parental gate runs — else the gate
 // silently no-ops (hiddenArtist returns false when _artistByName is null, and parental rules aren't loaded).
 async function ensureFilters() { await Promise.all([artistByName(), loadBlockedIds()]); if (acapella()) await loadAcapella(); if (loggedIn() && !acct.profile) await onLogin(); }
@@ -1472,7 +1515,11 @@ async function trendingSections() {
   const skSongs = ((t && t.songs) || []).slice().sort(byTotal).map((s) => ({ videoId: s.videoId || s.video_id, title: s.title, artist: s.artist })); // /trending may return snake_case video_id
   const zSongs = zLists.flat().map((s) => ({ videoId: s.videoId || s.video_id, title: s.title, artist: s.artist }));
   const seen = new Set(), songs = [];
-  for (const s of [...skSongs, ...zSongs]) { if (!s.videoId || seen.has(s.videoId) || hiddenArtist(s.artist) || !songOK(s)) continue; seen.add(s.videoId); songs.push(s); }
+  // Fail closed on an unresolved artist when a name-guarded filter is on (hiddenArtist fails open on
+  // unknown names — an unmatched female/blocked upstream artist would otherwise slip into trending).
+  const strict = noFemale() || noChasid() || !!israeliMode() || noDJ() || kidZoneActive();
+  const known = (s) => !strict || (s.artist && _artistByName && _artistByName.has((s.artist || "").toLowerCase()));
+  for (const s of [...skSongs, ...zSongs]) { if (!s.videoId || seen.has(s.videoId) || hiddenArtist(s.artist) || !songOK(s) || !known(s)) continue; seen.add(s.videoId); songs.push(s); }
   // Artist cards: /trending artists carry catalog ids → direct _artistById hits in blended-score order
   // (name lookup only as fallback for unresolved/legacy rows); songs' artists pad out the rail after.
   const aSeen = new Set(), artCards = [];
@@ -1493,9 +1540,9 @@ async function zemerRowsSections() {
   const d = await fetch("/zemer-home-rows").then((r) => (r.ok ? r.json() : null)).catch(() => null);
   if (!d) return "";
   await artistByName(); await loadBlockedIds(); if (acapella()) await loadAcapella(); // gate() needs flags + block-ids + Acapella set loaded — don't rely on a sibling section having done it
-  const songs = gate((d.topVideos || []).map((t) => ({ videoId: t.videoId, title: t.title, artist: t.artist, explicit: t.explicit, isVideo: t.isVideo, durationSec: t.durationSec })));
-  const albums = gate((d.topAlbums || []).map((a) => ({ id: a.id, playlistId: a.playlistId, title: a.title, artist: a.artist, year: a.year, thumbnail: a.thumbnail })));
-  const artists = gate((d.topArtists || []).map((a) => ({ id: a.id, name: a.name, thumbnail: a.thumbnail })));
+  const songs = gateFeed((d.topVideos || []).map((t) => ({ videoId: t.videoId, title: t.title, artist: t.artist, explicit: t.explicit, isVideo: t.isVideo, durationSec: t.durationSec })));
+  const albums = gateFeed((d.topAlbums || []).map((a) => ({ id: a.id, playlistId: a.playlistId, title: a.title, artist: a.artist, year: a.year, thumbnail: a.thumbnail })));
+  const artists = gateFeed((d.topArtists || []).map((a) => ({ id: a.id, name: a.name, thumbnail: a.thumbnail })));
   let h = "";
   if (songs.length) h += section("Zemer Trending Songs", songCards(songs.slice(0, 19)));
   h += railOf("Zemer Trending Albums", albums.slice(0, 24), albumCard);
@@ -1508,9 +1555,9 @@ const skRail = (n, round) => `<div class="rail${round ? " round" : ""}">${Array.
 // to the corpus sections. Served unfiltered; every consumer must gate() what it renders.
 let _newFeedP = null;
 const newFeed = () => _newFeedP || (_newFeedP = fetch("/zemer-new").then((r) => (r.ok ? r.json() : null)).catch(() => null));
-function feedAlbums(nf) { // albums + singles, gated, newest real release first
+function feedAlbums(nf) { // albums + singles, gated (fail-closed feed gate), newest real release first
   const c = (nf && nf.categories) || {};
-  const list = gate([...(c.albums || []), ...(c.singles || [])]).filter((a) => a.id && a.thumbnail);
+  const list = gateFeed([...(c.albums || []), ...(c.singles || [])]).filter((a) => a.id && a.thumbnail);
   return list.sort((a, b) => (Date.parse(b.releaseDate) || 0) - (Date.parse(a.releaseDate) || 0));
 }
 
@@ -1531,7 +1578,7 @@ async function loadHome() {
   const [d, trend, zpl, zemerRows, nf] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections(), getJSON("/zemer-playlists"), zemerRowsSections(), newFeed()]);
   await artistByName(); // load artist flags so the parental gate (artist allow/blocklist + kid-only) applies below
   const quick = gate(d.quickPicks), recent = gate(readRecent()), vids = gate(d.featuredVideos);
-  const fAlbums = feedAlbums(nf), fSongs = gate(((nf && nf.categories) || {}).songs || []).filter((t) => t.videoId);
+  const fAlbums = feedAlbums(nf), fSongs = gateFeed(((nf && nf.categories) || {}).songs || []).filter((t) => t.videoId);
   const newS = fSongs.length ? fSongs : gate(d.newSongs); // real release dates when the feed has them, corpus otherwise
   let h = `<div class="hero"><div class="eyebrow">Kosher music, by construction</div><h1>Only the music you trust.</h1><p>Every song here comes from a whitelisted artist's full catalog — searched, not filtered. Nothing outside it.</p>${acapellaMode() === "only" ? "" : `<button class="btn-play" style="margin-top:16px" onclick="startRadio('shuffle','')">${ICON.radio} Radio mode</button>`}<span class="heb">מוזיקה</span></div>` + (trend || "");
   if (quick.length) h += section("Quick Picks", quickPicks(quick));
@@ -1666,7 +1713,7 @@ async function loadForYou() {
   let cold = [];
   if (!recent.length && !liked.length) {
     const coldId = acapellaMode() === "only" ? "auto-acapella-top-50" : "auto-top-50";
-    cold = gate(await fetch("/zp-live?id=" + coldId).then((r) => (r.ok ? r.json() : null)).then((x) => (x && x.tracks) || []).catch(() => []))
+    cold = gateFeed(await fetch("/zp-live?id=" + coldId).then((r) => (r.ok ? r.json() : null)).then((x) => (x && x.tracks) || []).catch(() => []))
       .map((s) => ({ videoId: s.videoId || s.video_id, title: s.title, artist: s.artist, explicit: s.explicit, durationSec: s.durationSec })).filter((s) => s.videoId);
   }
   let h = hero + (trend || "");
@@ -2173,6 +2220,7 @@ function cueNext() {
   try { ytStandby.cueVideoById(t.videoId); } catch { cued = { id: null, idx: -1 }; }
 }
 function cancelSwap() {
+  clearTimeout(_fireWatch);
   if (gapless) { try { ytStandby.stopVideo(); ytStandby.unMute(); } catch {} gapless = null; }
   cued = { id: null, idx: -1 };
 }
@@ -2185,13 +2233,20 @@ function beginWarm() { // buffer the cued track silently right away
   gapless = { idx: cued.idx, phase: "warm" };
   try { ytStandby.mute(); ytStandby.playVideo(); } catch { gapless = null; }
 }
+let _fireWatch = 0;
 function fireSwap() { // make the primed standby audible; the swap completes on its PLAYING event
   gapless.phase = "start";
   try {
     PB.muted ? ytStandby.mute() : (ytStandby.unMute(), ytStandby.setVolume(Math.round(PB.vol * 100)));
     if (PB.rate !== 1) ytStandby.setPlaybackRate(PB.rate);
     ytStandby.playVideo();
-  } catch { gapless = null; }
+  } catch { gapless = null; return; }
+  // Watchdog: if the standby never reports PLAYING (the same flakiness nudgePlay covers for the
+  // active player), abandon the handoff and advance the normal way — never hang at a track boundary.
+  clearTimeout(_fireWatch);
+  _fireWatch = setTimeout(() => {
+    if (gapless && gapless.phase === "start") { cancelSwap(); playFinalize(); repeatOrNext(); }
+  }, 2200);
 }
 // NOTE: the warm is driven from tick() polling, not the CUED event — in this player configuration
 // (videoless boot + nocookie host) cueVideoById settles at UNSTARTED without ever firing CUED.
@@ -2205,6 +2260,7 @@ function onStandbyState(code) {
 }
 function completeSwap() {
   if (!gapless) return;
+  clearTimeout(_fireWatch);
   const idx = gapless.idx; gapless = null; cued = { id: null, idx: -1 };
   const old = PB.yt; PB.yt = ytStandby; ytStandby = old;
   try { old.stopVideo(); } catch {}
@@ -2261,7 +2317,14 @@ function playFinalize() {
 function playBegin(t) { playFinalize(); playSes = { v: t.videoId, title: t.title || "", artist: t.artist || "", dur: t.durationSec || 0, source: state.playSource || "other", played: 0, since: 0 }; }
 addEventListener("pagehide", playFinalize); addEventListener("beforeunload", playFinalize); // flush the in-progress listen on exit
 // then flush the batched analytics — registered AFTER playFinalize so its final "play" event is in the buffer
-addEventListener("pagehide", flushEvents); addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") { playFinalize(); flushEvents(); } });
+addEventListener("pagehide", flushEvents);
+// Backgrounding is NOT an exit: bank the accrued listen time and flush the buffer, but KEEP the
+// session alive — audio keeps playing in a hidden window (the whole point of the tray app) and a
+// destroyed session would stop counting the rest of the song. Real teardown is pagehide's job.
+addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") { playAccrue(); flushEvents(); }
+  else if (playSes && !PB.paused()) playResume();
+});
 function playIndex(i, dir) {
   if (i < 0 || i >= state.queue.length) return;
   const am = acapellaMode();
@@ -2310,12 +2373,17 @@ function refreshNowPlaying() {
 function toggle() { if (!state.queue.length) return resumeOrRadio(); PB.paused() ? PB.play() : PB.pause(); }
 // Empty-queue Play: resume the last listen if it's fresh (≤ 20 min since it last ticked), otherwise
 // start the endless trending mix — the play button always does something musical.
-function resumeOrRadio() {
+async function resumeOrRadio() {
   let saved = null; try { saved = JSON.parse(localStorage.getItem("zw_lastPlay") || "null"); } catch {}
   if (saved && saved.t && saved.t.videoId && Date.now() - (saved.at || 0) <= 20 * 60 * 1000) {
-    PB.nextStart = Math.max(0, (saved.pos || 0) - 2); // back up a touch so the resume has context
-    playFrom(regQueue([saved.t]), 0, "resume");
-    return;
+    // Re-gate before replaying: filters/parental policy may have changed since the track was saved
+    // (a parent could have flipped a filter, or Sefira begun). Never resume a now-blocked track.
+    await ensureFilters();
+    if (gate([saved.t]).length && songOK(saved.t) && !blockedId(saved.t.videoId)) {
+      PB.nextStart = Math.max(0, (saved.pos || 0) - 2); // back up a touch so the resume has context
+      playFrom(regQueue([saved.t]), 0, "resume");
+      return;
+    }
   }
   if (acapellaMode() === "only") { showToast("Pick a song to start playing.", 2200); return; }
   startRadio("shuffle", "");
@@ -2373,13 +2441,23 @@ async function radioTopUp(playNow) {
   if (!last) { if (playNow) PB.pause(); return; }
   _radioBusy = true;
   try {
-    const r = (state.radio && state.radio.continuation)
+    // A continuation token bakes in the content filters at mint time — if the user's filters have
+    // changed since (or Sefira flipped acapella on), the token would serve under the OLD filter.
+    // Fingerprint-match or start a fresh, correctly-filtered station instead.
+    const contOk = state.radio && state.radio.continuation && state.radio.f === filterQS("");
+    const r = contOk
       ? await radioFetch({ continuation: state.radio.continuation })
       : await radioFetch({ kind: "song", seed: last.videoId });
     if (state.queue !== q) return; // a different queue started while we were fetching
     const play = playNow || _radioPlayOnLand;
-    if (!r || !r.tracks.length) { if (play) { PB.pause(); if (r) showToast("No more similar songs found.", 2200); } return; }
-    state.radio = { continuation: r.continuation };
+    if (!r || !r.tracks.length) {
+      // A page can dedup to empty while later pages hold fresh tracks — keep paging position.
+      if (r && r.continuation) state.radio = { continuation: r.continuation, f: filterQS("") };
+      if (play) { PB.pause(); if (r) showToast("No more similar songs found.", 2200); }
+      return;
+    }
+    state.radio = { continuation: r.continuation, f: filterQS("") };
+    state.playSource = "radio"; // appended radio tracks log as radio, not the seed queue's source
     const at = state.queue.length;
     state.queue = state.queue.concat(r.tracks);
     if (play) playIndex(at, 1);
@@ -2403,7 +2481,7 @@ async function startRadio(kind, seed) { // detail-page Radio button → a whole 
   showToast("Starting radio…", 1400);
   const r = await radioFetch({ kind, seed });
   if (!r || !r.tracks.length) return showToast("Radio isn't available right now.", 2600);
-  state.queue = r.tracks; state.radio = { continuation: r.continuation }; state.playSource = "radio";
+  state.queue = r.tracks; state.radio = { continuation: r.continuation, f: filterQS("") }; state.playSource = "radio";
   playIndex(0);
 }
 
@@ -2421,7 +2499,7 @@ function tick() {
   el("nbDur").textContent = el("npDur").textContent = d ? fmt(d) : "0:00";
   // Gapless: WARM as soon as the standby's cue has loaded (polled here — see onStandbyState note),
   // then FIRE near the end (re-validating that the cue still matches what playIndex would choose).
-  if (PB.mode === "yt" && !state.repeat && !seeking) {
+  if (PB.mode === "yt" && !state.repeat && !seeking && !PB.paused()) { // !paused: a pause in the final 0.5s must NOT let the fire window un-pause playback
     if (!standbyReady && ytStandbyBoot) { // onReady is unreliable for a videoless player — probe it functional
       try { ytStandbyBoot.getPlayerState(); ytStandby = ytStandbyBoot; standbyReady = true; } catch {}
     }
@@ -2447,6 +2525,7 @@ function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing �
 }
 function showToast(msg, ms) { const t = el("toast"); t.innerHTML = msg; t.classList.add("on"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), ms || 4200); }
 function onPlaybackError() {
+  if (gapless) return; // a handoff is mid-flight — let it (or its watchdog) own the advance; a parallel next() would double-skip
   const t = state.queue[state.qi]; if (!t) return; streamFails++;
   el("nbArtist").textContent = (t.artist || "") + " · unavailable";
   if (streamFails >= 3) { showToast(PB.mode === "yt" ? "<b>Couldn't play these tracks.</b> Some videos disable embedding, or playback is restricted on this network." : "<b>Streaming is blocked on this network.</b> Search &amp; browse still work — playback needs an unfiltered connection.", 6500); return; }
@@ -2492,9 +2571,9 @@ function skNowPlaying(t, art) {
   skInvoke("now_playing", { title: t.title || "", artist: t.artist || "", album: "SK Music", artUrl: art || "", durationMs: t.durationSec ? Math.round(t.durationSec * 1000) : undefined, positionMs: 0, playing: true,
     videoId: t.videoId || "", queueBase: state.qi + 1, queue: state.queue.slice(state.qi + 1, state.qi + 7).map((x) => ({ title: x.title || "", artist: x.artist || "" })) });
 }
-function skPlaybackState() { if (SK_NATIVE) skInvoke("set_playback_state", { playing: !(PB.paused() || !state.queue.length), positionMs: Math.round((PB.cur() || 0) * 1000) }); }
+function skPlaybackState() { if (SK_NATIVE) skInvoke("set_playback_state", { playing: !(PB.paused() || !state.queue.length), positionMs: Math.round((PB.cur() || 0) * 1000), repeat: !!state.repeat }); }
 let _skPosAt = 0;
-function skTick(c) { if (!SK_NATIVE || seeking) return; const now = performance.now(); if (now - _skPosAt < 1000) return; _skPosAt = now; skInvoke("set_playback_state", { playing: !PB.paused(), positionMs: Math.round((c || 0) * 1000) }); }
+function skTick(c) { if (!SK_NATIVE || seeking) return; const now = performance.now(); if (now - _skPosAt < 1000) return; _skPosAt = now; skInvoke("set_playback_state", { playing: !PB.paused(), positionMs: Math.round((c || 0) * 1000), repeat: !!state.repeat }); }
 if (SK_NATIVE) window.__skMediaControl = (action) => { try {
   if (action === "play") PB.play();
   else if (action === "pause") PB.pause();
@@ -2505,6 +2584,7 @@ if (SK_NATIVE) window.__skMediaControl = (action) => { try {
   else if (action === "seekforward") seekBy(10);
   else if (action === "seekback") seekBy(-10);
   else if (action === "like") toggleLikeCurrent();
+  else if (action === "repeat") toggleRepeat();
   else if (action === "radio") { const t = state.queue[state.qi]; if (t && t.videoId && acapellaMode() !== "only") startRadio("song", t.videoId); }
   else if (action === "resumecheck") skResumeCheck(); // post-OS-resume health check from the desktop shell
   else if (action.indexOf("playindex:") === 0) { const n = +action.slice(10); if (n >= 0 && n < state.queue.length) playIndex(n); }
@@ -2519,20 +2599,26 @@ if (SK_NATIVE) document.addEventListener("contextmenu", (e) => {
   e.preventDefault();
   try { window.__TAURI__.event.emit("sk-menu", {}); } catch {} // event, not invoke — remote-origin ACL
 });
-// Seek with verify-retry: the YT iframe occasionally swallows a seekTo (especially close on the
-// heels of another seek or a buffer) — confirm the position actually moved and re-issue up to twice.
+// Seek with verify-retry: the YT iframe swallows seekTo calls while it's still buffering a prior
+// seek (observed: three in a row ignored) — keep re-issuing until the position converges, up to
+// ~4.5 s. One chain at a time: a newer seek cancels an older chain so the latest target wins.
+let _seekChain = 0;
 function skSeekTo(sec, attempt) {
+  clearTimeout(_seekChain);
   PB.seek(sec);
-  if (attempt >= 2) return;
-  setTimeout(() => { if (Math.abs(PB.cur() - sec) > 2.5) skSeekTo(sec, attempt + 1); }, 700);
+  if (attempt >= 5) return;
+  _seekChain = setTimeout(() => { if (Math.abs(PB.cur() - sec) > 2.5) skSeekTo(sec, attempt + 1); }, 900);
 }
 // After system sleep the webview's audio pipeline can come back wedged: the UI says playing but the
 // clock is frozen. Sample the position twice, 2.5 s apart — frozen while "playing" → reload the
-// current track at its position (PB.nextStart survives the load).
+// current track at its position (PB.nextStart survives the load). Single-flight: repeated OS resume
+// events must not stack timers and double-reload.
+let _resumeChk = 0;
 function skResumeCheck() {
-  if (!state.queue.length || PB.paused()) return;
+  if (_resumeChk || !state.queue.length || PB.paused()) return;
   const at = PB.cur();
-  setTimeout(() => {
+  _resumeChk = setTimeout(() => {
+    _resumeChk = 0;
     const t = state.queue[state.qi];
     if (!t || PB.paused() || Math.abs(PB.cur() - at) > 0.5) return; // advanced (or user paused) → healthy
     console.warn("[sk] playback wedged after resume — reloading at", Math.round(at));
@@ -2703,19 +2789,34 @@ async function pcSave(patch) {
 }
 
 // --- likes sync (server-backed when logged in) ---
+// Idempotent by design: set_like(videoId, liked) pushes an ABSOLUTE state (insert-on-conflict-do-
+// nothing / delete), so the login merge and every per-toggle sync can run any number of times, on
+// any number of devices, without the double-flip / lost-like / zombie-resurrection races the old
+// toggle_like FLIP had. _likesSyncP still serializes per-toggle syncs behind the login merge so a
+// tap mid-merge pushes the final state, not a racing intermediate one.
+let _likesSyncP = null;
 async function syncLikesOnLogin() {
-  const local = readLiked();
-  const server = (await sbRpc("get_my_likes", { lim: 5000 })) || [];
-  const serverIds = new Set(server.map((s) => s.video_id));
-  for (const t of local) if (!serverIds.has(t.videoId)) await sbRpc("toggle_like", { p_video_id: t.videoId, p_title: t.title || null, p_artist: t.artist || null });
-  const merged = (await sbRpc("get_my_likes", { lim: 5000 })) || server;
-  const byId = new Map(local.map((t) => [t.videoId, t]));
-  const list = merged.map((s) => byId.get(s.video_id) || { videoId: s.video_id, title: s.title || "", artist: s.artist || "", likedAt: Date.parse(s.added_at) || Date.now() });
-  try { localStorage.setItem("zw_liked", JSON.stringify(list.slice(0, 2000))); } catch {}
-  _liked = null;
-  if (state.tab === "library" && !state.detailOpen) loadLibrary();
+  _likesSyncP = (async () => {
+    const local = readLiked();
+    const server = (await sbRpc("get_my_likes", { lim: 5000 })) || [];
+    const serverIds = new Set(server.map((s) => s.video_id));
+    let pushed = 0;
+    for (const t of local) if (!serverIds.has(t.videoId)) { await sbRpc("set_like", { p_video_id: t.videoId, p_liked: true, p_title: t.title || null, p_artist: t.artist || null }); pushed++; }
+    const merged = (await sbRpc("get_my_likes", { lim: 5000 })) || server;
+    const byId = new Map(local.map((t) => [t.videoId, t]));
+    const list = merged.map((s) => byId.get(s.video_id) || { videoId: s.video_id, title: s.title || "", artist: s.artist || "", likedAt: Date.parse(s.added_at) || Date.now() });
+    try { localStorage.setItem("zw_liked", JSON.stringify(list.slice(0, 2000))); } catch {}
+    _liked = null;
+    if (state.tab === "library" && !state.detailOpen) loadLibrary();
+    if (pushed) showToast(`Merged <b>${num(pushed)}</b> liked song${pushed === 1 ? "" : "s"} into your account.`, 3200);
+  })();
+  try { await _likesSyncP; } finally { _likesSyncP = null; }
 }
-function acctSyncLike(t) { if (loggedIn()) sbRpc("toggle_like", { p_video_id: t.videoId, p_title: t.title || null, p_artist: t.artist || null }); } // keeps server in sync (local already toggled)
+async function acctSyncLike(t) { // push the ABSOLUTE like state (idempotent set_like); waits out an in-flight login merge so it pushes the settled state
+  if (!loggedIn()) return;
+  if (_likesSyncP) { try { await _likesSyncP; } catch {} }
+  sbRpc("set_like", { p_video_id: t.videoId, p_liked: isLiked(t.videoId), p_title: t.title || null, p_artist: t.artist || null });
+}
 
 // --- filter prefs sync ---
 function applyProfileFilters() {
