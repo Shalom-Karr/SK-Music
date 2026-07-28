@@ -193,12 +193,18 @@ fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
             }
         })
         .on_tray_icon_event(|tray, event| match event {
+            // Left click = quick controls: surface the mini player AND pop the full menu, exactly
+            // like a right click. Double click opens the main app.
             TrayIconEvent::Click {
                 button: MouseButton::Left,
                 button_state: MouseButtonState::Up,
                 ..
+            } => {
+                let app = tray.app_handle();
+                crate::mini::show(app);
+                show_app_menu_inner(app);
             }
-            | TrayIconEvent::DoubleClick {
+            TrayIconEvent::DoubleClick {
                 button: MouseButton::Left,
                 ..
             } => show_and_focus(tray.app_handle()),
@@ -236,7 +242,14 @@ fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
 /// can't invoke app commands, so it emits instead; see media::hook_report_events). Popup position
 /// defaults to the cursor.
 pub fn show_app_menu_inner(app: &tauri::AppHandle) {
-    let Some(window) = app.get_webview_window(MAIN_WINDOW) else { return };
+    // Anchor the cursor-positioned popup on a VISIBLE window — a hidden owner (main closed to
+    // tray) makes Windows auto-dismiss the menu immediately.
+    let window = app
+        .get_webview_window(crate::mini::LABEL)
+        .filter(|w| w.is_visible().unwrap_or(false))
+        .or_else(|| app.get_webview_window(MAIN_WINDOW).filter(|w| w.is_visible().unwrap_or(false)))
+        .or_else(|| app.get_webview_window(MAIN_WINDOW));
+    let Some(window) = window else { return };
     if let Some(lock) = HANDLES.get() {
         if let Ok(h) = lock.lock() {
             let _ = window.popup_menu(&h.menu);

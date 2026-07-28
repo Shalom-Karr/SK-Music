@@ -70,6 +70,19 @@ fn auto_hide(app: &tauri::AppHandle) {
     }
 }
 
+/// Ensure the mini is on screen without toggling it away (tray LEFT-click — which also pops the
+/// menu, so the mini is intentionally not focused).
+pub fn show(app: &tauri::AppHandle) {
+    AUTO_SHOWN.store(false, Ordering::SeqCst); // explicit action takes ownership
+    if let Some(win) = app.get_webview_window(LABEL) {
+        let _ = win.show();
+        return;
+    }
+    if let Err(e) = create(app, false) {
+        eprintln!("[mini] failed to create mini player: {e}");
+    }
+}
+
 /// Show/hide the mini player, creating it on first use. Wired to the tray's "Mini player" item.
 pub fn toggle(app: &tauri::AppHandle) {
     AUTO_SHOWN.store(false, Ordering::SeqCst); // an explicit toggle takes ownership either way
