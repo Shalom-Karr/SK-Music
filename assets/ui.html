@@ -2113,10 +2113,10 @@ function blockedByFilter(kind) { blockedPage("Access denied", `This ${kind} is b
 const audio = el("audio");
 const PB = {
   mode: "yt", yt: null, ready: false, pending: null, nextStart: 0, vol: 1, muted: false, rate: 1,
-  load(id, startSec) { startSec = startSec || this.nextStart || 0; this.nextStart = 0; if (this.mode === "yt") { const a = startSec ? { videoId: id, startSeconds: startSec } : id; if (this.ready) this.yt.loadVideoById(a); else this.pending = a; } else { audio.src = "/stream?v=" + encodeURIComponent(id); if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); } },
+  load(id, startSec) { startSec = startSec || this.nextStart || 0; this.nextStart = 0; if (this.mode === "yt") { const a = startSec ? { videoId: id, startSeconds: startSec } : id; if (this.ready) { this.yt.loadVideoById(a); nudgePlay(); } else this.pending = a; } else { audio.src = "/stream?v=" + encodeURIComponent(id); if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); } },
   play() { this.mode === "yt" ? this.ready && this.yt.playVideo() : audio.play().catch(() => {}); cueNext(); }, // re-arm the gapless cue (cleared if a pause/seek cancelled a handoff)
-  pause() { if (gapless && gapless.phase === "start") cancelSwap(); this.mode === "yt" ? this.ready && this.yt.pauseVideo() : audio.pause(); }, // a primed (inert) standby survives a pause; only a firing one is cancelled
-  stop() { cancelSwap(); this.pending = null; if (this.mode === "yt") { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
+  pause() { clearTimeout(_loadNudge); if (gapless && gapless.phase === "start") cancelSwap(); this.mode === "yt" ? this.ready && this.yt.pauseVideo() : audio.pause(); }, // a primed (inert) standby survives a pause; only a firing one is cancelled
+  stop() { clearTimeout(_loadNudge); cancelSwap(); this.pending = null; if (this.mode === "yt") { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
   paused() { return this.mode === "yt" ? (!this.ready || this.yt.getPlayerState() !== 1) : audio.paused; }, // methods exist only after onReady
   seek(sec) { if (gapless && gapless.phase === "start") cancelSwap(); this.mode === "yt" ? this.ready && this.yt.seekTo(sec, true) : (audio.currentTime = sec); cueNext(); },
   cur() { return this.mode === "yt" ? (this.ready ? this.yt.getCurrentTime() || 0 : 0) : audio.currentTime; },
@@ -2125,6 +2125,18 @@ const PB = {
   setMuted(m) { this.muted = m; if (this.mode === "yt") { if (this.ready) m ? this.yt.mute() : this.yt.unMute(); } else audio.muted = m; },
   setRate(r) { this.rate = r; if (this.mode === "yt") { if (this.ready) this.yt.setPlaybackRate(r); } else audio.playbackRate = r; },
 };
+// loadVideoById occasionally lands CUED/paused instead of autoplaying (a skip that "pauses").
+// Verify playback engaged shortly after every load and nudge it; an intentional pause/stop
+// clears the timer so it can never un-pause the user.
+let _loadNudge = 0;
+function nudgePlay() {
+  clearTimeout(_loadNudge);
+  _loadNudge = setTimeout(() => {
+    if (PB.mode !== "yt" || !PB.ready) return;
+    const s = (() => { try { return PB.yt.getPlayerState(); } catch { return 1; } })();
+    if (s !== 1 && s !== 3) { try { PB.yt.playVideo(); } catch {} } // not playing, not buffering → nudge
+  }, 1800);
+}
 const RATES = [1, 1.25, 1.5, 2, 0.75];
 function cycleRate() { PB.setRate(RATES[(RATES.indexOf(PB.rate) + 1) % RATES.length]); updateRateUI(); }
 function updateRateUI() { const l = (PB.rate === 1 ? "1×" : PB.rate + "×"); document.querySelectorAll(".rateBtn").forEach((b) => { b.textContent = l; b.classList.toggle("on", PB.rate !== 1); b.setAttribute("aria-label", "Playback speed " + l); }); }
@@ -2497,7 +2509,7 @@ if (SK_NATIVE) window.__skMediaControl = (action) => { try {
   else if (action === "resumecheck") skResumeCheck(); // post-OS-resume health check from the desktop shell
   else if (action.indexOf("playindex:") === 0) { const n = +action.slice(10); if (n >= 0 && n < state.queue.length) playIndex(n); }
   else if (action.indexOf("seekby:") === 0) seekBy((+action.slice(7) || 0) / 1000);
-  else if (action.indexOf("setposition:") === 0) PB.seek((+action.slice(12) || 0) / 1000);
+  else if (action.indexOf("setposition:") === 0) skSeekTo((+action.slice(12) || 0) / 1000, 0);
   else if (action.indexOf("setvolume:") === 0) PB.setVol(Math.max(0, Math.min(1, +action.slice(10) || 0)));
 } catch (e) {} };
 // Desktop shell: right-click anywhere (except editable fields) pops the SAME menu as the tray, so
@@ -2507,6 +2519,13 @@ if (SK_NATIVE) document.addEventListener("contextmenu", (e) => {
   e.preventDefault();
   try { window.__TAURI__.event.emit("sk-menu", {}); } catch {} // event, not invoke — remote-origin ACL
 });
+// Seek with verify-retry: the YT iframe occasionally swallows a seekTo (especially close on the
+// heels of another seek or a buffer) — confirm the position actually moved and re-issue up to twice.
+function skSeekTo(sec, attempt) {
+  PB.seek(sec);
+  if (attempt >= 2) return;
+  setTimeout(() => { if (Math.abs(PB.cur() - sec) > 2.5) skSeekTo(sec, attempt + 1); }, 700);
+}
 // After system sleep the webview's audio pipeline can come back wedged: the UI says playing but the
 // clock is frozen. Sample the position twice, 2.5 s apart — frozen while "playing" → reload the
 // current track at its position (PB.nextStart survives the load).
