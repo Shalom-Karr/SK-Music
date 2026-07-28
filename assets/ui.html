@@ -1137,8 +1137,8 @@ const TABS = [
 const TITLES = { ...Object.fromEntries(TABS.map(([k, l]) => [k, l])), redirector: "Send YouTube here", download: "Desktop app" };
 
 /* ============================ state + filters ============================ */
-const state = { tab: "home", loaded: {}, detailOpen: false, nowOpen: false, queue: [], qi: -1, repeat: false, shuffle: LS.get("zw_shuffle") === "1", sleep: null, crossfade: Math.max(0, Math.min(12, +LS.get("zw_crossfade") || 0)) };
 const LS = { get: (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+const state = { tab: "home", loaded: {}, detailOpen: false, nowOpen: false, queue: [], qi: -1, repeat: false, shuffle: LS.get("zw_shuffle") === "1", sleep: null, crossfade: Math.max(0, Math.min(12, +LS.get("zw_crossfade") || 0)) };
 const noFemale = () => LS.get("zw_noFemale", "1") === "1"; // ON by default (opt-out); others default off
 const chasidMode = () => LS.get("zw_chasid", ""); // "" = off · "only" = Chasidish only · "hide" = hide Chasidish
 const noChasid = () => chasidMode() === "hide";   // back-compat: server allowChasid=0 + the "hide" reason label
