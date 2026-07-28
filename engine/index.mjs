@@ -1169,6 +1169,7 @@ export default {
     if (pathname === "/zemer-home-rows") return handleHomeRows(env, ctx);
     if (pathname === "/zemer-new") return handleZemerNew(env, ctx);
     if (pathname === "/radio") return handleRadio(url);
+    if (pathname === "/stream") return handleAudioStream(request, url, env, ctx);
     if (pathname === "/trending") {
       // Content negotiation: browser navigations (Accept: text/html) get the human-readable charts
       // page; the app's fetch() and API callers (Accept: */*) keep getting JSON. Fetch the extensionless
@@ -1232,13 +1233,243 @@ export default {
 
     // Everything else — static assets, /data/*, /lib/*, SPA fallback.
     // The SPA index.html bakes in the default OG block for unmatched client-side routes.
+    // Strip cache-busting query strings from /data and /lib URLs before looking up static assets.
+    if (pathname.startsWith("/data/") || pathname.startsWith("/lib/")) {
+      const clean = new Request(new URL(pathname, url), request);
+      return env.ASSETS.fetch(clean);
+    }
     return env.ASSETS.fetch(request);
   },
 
-  // Cron trigger: keep the upstream trending playlists + the app listening stats warm in KV.
+  // Cron trigger: keep the upstream trending playlists + the app listening stats warm in KV, and
+  // prune cached audio when storage grows past the R2 free-tier headroom.
   async scheduled(event, env, ctx) {
     ctx.waitUntil(refreshTrending(env));
     ctx.waitUntil(refreshExternalTrending(env));
     ctx.waitUntil(refreshHomeRows(env));
+    ctx.waitUntil(pruneAudioCache(env));
   },
 };
+
+// Audio stream handler for background HTML5 playback (iOS / iPad compatibility)
+
+const LRU_PREFIX = "lru/";
+const MAX_AUDIO_CACHE_BYTES = 9.5 * 1024 * 1024 * 1024;
+const PRUNE_TARGET_BYTES = 9.0 * 1024 * 1024 * 1024;
+const LRU_PRUNE_COUNT = 10;
+const AUDIO_EXTENSIONS = ["mp3", "m4a", "webm", "ogg"];
+
+// Record a "last played" timestamp for a cached audio object.
+async function touchAudioCache(env, videoId, ext, size) {
+  if (!env.AUDIO_BUCKET || !videoId) return;
+  const key = `${LRU_PREFIX}${videoId}`;
+  const now = String(Date.now());
+  try {
+    await env.AUDIO_BUCKET.put(
+      key,
+      "{}",
+      {
+        customMetadata: { lastPlayed: now, ext: ext || "", size: String(size || 0) },
+        httpMetadata: { contentType: "application/json" },
+      }
+    );
+  } catch (e) {
+    console.error("[lru] touch failed", key, e.message);
+  }
+}
+
+// Delete the least-recently-played songs when the bucket exceeds the free-tier headroom.
+async function pruneAudioCache(env) {
+  if (!env.AUDIO_BUCKET) return;
+  let audioObjects = [];
+  let lruObjects = [];
+  let cursor;
+  do {
+    const page = await env.AUDIO_BUCKET.list({ cursor, limit: 1000, include: ["customMetadata"] });
+    for (const o of page.objects || []) {
+      if (o.key.startsWith(LRU_PREFIX)) {
+        if (o.customMetadata) lruObjects.push(o);
+      } else {
+        audioObjects.push(o);
+      }
+    }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+
+  const total = audioObjects.reduce((s, o) => s + (o.size || 0), 0);
+  if (total <= MAX_AUDIO_CACHE_BYTES) return;
+
+  const lruMap = new Map();
+  for (const o of lruObjects) {
+    const id = o.key.slice(LRU_PREFIX.length);
+    lruMap.set(id, {
+      lastPlayed: Number(o.customMetadata?.lastPlayed || o.uploaded),
+      ext: o.customMetadata?.ext,
+      size: Number(o.customMetadata?.size || o.size || 0),
+    });
+  }
+
+  const candidates = audioObjects.map((o) => {
+    const dot = o.key.lastIndexOf(".");
+    const id = dot > 0 ? o.key.slice(0, dot) : o.key;
+    const ext = dot > 0 ? o.key.slice(dot + 1) : "";
+    const meta = lruMap.get(id) || {};
+    return {
+      audioKey: o.key,
+      videoId: id,
+      ext: ext || meta.ext,
+      size: o.size || 0,
+      lastPlayed: meta.lastPlayed || Number(o.uploaded) || 0,
+    };
+  });
+
+  candidates.sort((a, b) => a.lastPlayed - b.lastPlayed);
+
+  const toFree = total - PRUNE_TARGET_BYTES;
+  let freed = 0;
+  let deleted = 0;
+  const deletedKeys = [];
+  for (const c of candidates) {
+    if (freed >= toFree && deleted >= LRU_PRUNE_COUNT) break;
+    try {
+      await env.AUDIO_BUCKET.delete(c.audioKey);
+      await env.AUDIO_BUCKET.delete(`${LRU_PREFIX}${c.videoId}`);
+      freed += c.size || 0;
+      deleted++;
+      deletedKeys.push(c.videoId);
+    } catch (e) {
+      console.error("[prune] delete failed", c.audioKey, e.message);
+    }
+  }
+  console.log("[prune] total", total, "deleted", deleted, "freed", freed, "remaining", total - freed, "ids", deletedKeys.join(","));
+}
+
+function parseRangeHeader(rangeHeader, fullSize) {
+  if (!rangeHeader) return null;
+  const match = rangeHeader.trim().match(/^bytes=(\d*)-(\d*)$/);
+  if (!match) return null;
+  const [, startStr, endStr] = match;
+  let offset = 0;
+  let length = fullSize;
+  if (startStr === "" && endStr !== "") {
+    // suffix range: last N bytes
+    const suffix = parseInt(endStr, 10);
+    if (isNaN(suffix) || suffix <= 0) return null;
+    offset = Math.max(0, fullSize - suffix);
+    length = fullSize - offset;
+  } else if (startStr !== "") {
+    offset = parseInt(startStr, 10);
+    if (isNaN(offset) || offset < 0 || offset >= fullSize) return null;
+    if (endStr !== "") {
+      const end = parseInt(endStr, 10);
+      if (isNaN(end) || end < offset) return null;
+      length = Math.min(end, fullSize - 1) - offset + 1;
+    } else {
+      length = fullSize - offset;
+    }
+  }
+  return { offset, length };
+}
+
+async function handleAudioStream(request, url, env, ctx) {
+  const videoId = url.searchParams.get("v");
+  if (!videoId) return new Response("Missing video ID parameter (v)", { status: 400 });
+  const isHead = request.method === "HEAD";
+
+  // 1. Check Cloudflare R2 bucket if bound
+  if (env.AUDIO_BUCKET) {
+    const extensions = ["mp3", "m4a", "webm", "ogg"];
+    for (const ext of extensions) {
+      const fullObject = await env.AUDIO_BUCKET.get(`${videoId}.${ext}`);
+      if (!fullObject) continue;
+
+      const range = parseRangeHeader(request.headers.get("Range"), fullObject.size);
+      const object = range
+        ? await env.AUDIO_BUCKET.get(`${videoId}.${ext}`, { range })
+        : fullObject;
+      if (!object) continue;
+
+      const headers = new Headers();
+      object.writeHttpMetadata(headers);
+      headers.set("etag", object.httpEtag);
+      headers.set("Accept-Ranges", "bytes");
+      headers.set("Cache-Control", "public, max-age=31536000, immutable");
+      headers.set("Access-Control-Allow-Origin", "*");
+      headers.set("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges, X-Duration");
+      if (object.customMetadata?.duration) headers.set("X-Duration", String(object.customMetadata.duration));
+
+      if (range) {
+        const end = object.range?.end ?? range.offset + range.length - 1;
+        headers.set("Content-Range", `bytes ${range.offset}-${end}/${fullObject.size}`);
+        headers.set("Content-Length", String(range.length));
+      } else {
+        headers.set("Content-Length", String(fullObject.size));
+      }
+
+      if (isHead) return new Response(null, { headers, status: range ? 206 : 200 });
+      ctx.waitUntil(touchAudioCache(env, videoId, ext, fullObject.size));
+      if (!object.body) continue;
+      return new Response(object.body, { headers, status: range ? 206 : 200 });
+    }
+  }
+
+  // 2. Fetch from external backend (Vercel / Stream Server) and cache in R2 if bound
+  if (env.STREAM_SERVER_URL) {
+    const streamEndpoint = `${env.STREAM_SERVER_URL.replace(/\/$/, "")}/api/stream?v=${encodeURIComponent(videoId)}`;
+    const upstream = await fetch(streamEndpoint, { method: isHead ? "HEAD" : "GET", headers: { Accept: "audio/*" } });
+    if (!upstream.ok) {
+      return new Response(`Upstream stream failed: ${upstream.status}`, { status: upstream.status || 502 });
+    }
+
+    const contentType = upstream.headers.get("content-type") || "audio/mp4";
+    const ext = ({ "audio/mp4": "m4a", "audio/webm": "webm", "audio/mpeg": "mp3", "audio/ogg": "ogg" })[contentType] || "m4a";
+    const duration = upstream.headers.get("x-duration");
+    const customMetadata = duration ? { duration } : undefined;
+
+    if (!isHead && upstream.body) {
+      const [clientBranch, cacheBranch] = upstream.body.tee();
+
+      if (env.AUDIO_BUCKET) {
+        const cacheKey = `${videoId}.${ext}`;
+        const contentLength = upstream.headers.get("content-length");
+        console.log("[stream] caching to R2:", cacheKey);
+        ctx.waitUntil(
+          env.AUDIO_BUCKET.put(cacheKey, cacheBranch, {
+            httpMetadata: { contentType, cacheControl: "public, max-age=31536000, immutable" },
+            customMetadata,
+          })
+            .then(() => {
+              console.log("[stream] cached to R2:", cacheKey);
+              return touchAudioCache(env, videoId, ext, contentLength ? parseInt(contentLength, 10) : 0);
+            })
+            .catch((err) => console.error("[stream] R2 cache write failed:", err))
+        );
+      }
+
+      const headers = new Headers();
+      headers.set("Content-Type", contentType);
+      headers.set("Accept-Ranges", "bytes");
+      headers.set("Cache-Control", "public, max-age=86400");
+      headers.set("Access-Control-Allow-Origin", "*");
+      headers.set("Access-Control-Expose-Headers", "Content-Length, Accept-Ranges, X-Duration");
+      if (duration) headers.set("X-Duration", duration);
+      const contentLength = upstream.headers.get("content-length");
+      if (contentLength) headers.set("Content-Length", contentLength);
+      return new Response(clientBranch, { headers, status: upstream.status });
+    }
+
+    // HEAD response: return headers only, do not cache
+    const headers = new Headers();
+    headers.set("Content-Type", contentType);
+    headers.set("Accept-Ranges", "bytes");
+    headers.set("Cache-Control", "public, max-age=86400");
+    headers.set("Access-Control-Allow-Origin", "*");
+    headers.set("Access-Control-Expose-Headers", "Content-Length, Accept-Ranges, X-Duration");
+    if (duration) headers.set("X-Duration", duration);
+    const contentLength = upstream.headers.get("content-length");
+    if (contentLength) headers.set("Content-Length", contentLength);
+    return new Response(null, { headers, status: upstream.status });
+  }
+
+  return new Response("Audio stream backend not configured or file not found in storage.", { status: 503 });
+}

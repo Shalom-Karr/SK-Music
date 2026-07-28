@@ -280,6 +280,7 @@ body:has(#nowbar.on) .built-by-pill .bb-who{overflow:hidden;text-overflow:ellips
   display:inline-flex;align-items:center;justify-content:center;flex:none;transition:color .15s,background .15s}
 .iconbtn:hover{color:var(--text);background:var(--surface-3)}
 .iconbtn svg{fill:currentColor}
+.spin{animation:spin 1s linear infinite;transform-origin:center}
 .filterbtn{position:relative}
 .filterbtn.active{color:var(--primary)}
 .filterbtn .dot{position:absolute;top:8px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--primary)}
@@ -306,8 +307,18 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 .sechead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 4px 14px}
 .sechead h2{font-family:Fraunces,serif;font-weight:600;font-size:21px;letter-spacing:.2px;margin:0}
+.sechead h2.sec-title{align-self:center;display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 18px;border-radius:22px;cursor:pointer;background:var(--surface-2);border:1px solid var(--line-2);color:var(--text);font-family:inherit;font-size:16px;font-weight:700;letter-spacing:.3px;text-decoration:none;box-shadow:0 8px 22px -8px rgba(0,0,0,.2);transition:background .15s,color .15s,border-color .15s,box-shadow .15s,transform .15s}
+.sechead h2.sec-title:hover{background:var(--primary);color:var(--primary-ink);border-color:var(--primary);box-shadow:0 12px 30px -8px var(--primary-glow);transform:scale(1.03)}
+.sec-ic{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;color:inherit;transition:transform .15s}
+.sec-ic svg{width:100%;height:100%;fill:currentColor}
+.sechead h2.sec-title:hover .sec-ic{transform:translateX(3px)}
 .sechead .more{font-size:12.5px;font-weight:600;color:var(--faint);cursor:pointer}
 .sechead .more:hover{color:var(--primary)}
+.sec-tabs{display:flex;align-items:center;gap:6px;margin:0 6px 18px;border-bottom:1px solid var(--line-2)}
+.sec-tab{height:40px;padding:0 16px;background:transparent;border:0;border-bottom:2px solid transparent;color:var(--muted);font-size:14px;font-weight:700;cursor:pointer;transition:.15s}
+.sec-tab.active{color:var(--text);border-bottom-color:var(--primary)}
+.sec-panel{display:none;padding:4px}
+.sec-panel.active{display:block}
 
 .rail{display:grid;grid-auto-flow:column;grid-auto-columns:172px;gap:18px;overflow-x:auto;overflow-y:hidden;
   padding:4px 4px 14px;scroll-snap-type:x proximity;scrollbar-width:thin}
@@ -1021,6 +1032,7 @@ function flushEvents() {
 }
 
 const ICON = {
+  spinner: '<svg viewBox="0 0 24 24" class="spin"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="31.4 31.4" stroke-linecap="round" transform="rotate(-90 12 12)"/></svg>',
   home: '<svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>',
   search: '<svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14"/></svg>',
   artist: '<svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8m0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4"/></svg>',
@@ -1260,6 +1272,8 @@ function applyRoute(url) {
   if ((m = p.match(/^\/albums\/(.+)$/))) return openAlbum(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/zemer-playlists\/(.+)$/))) return openCuratedPlaylist(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/playlists\/(.+)$/))) return openPlaylist(decodeURIComponent(m[1]), true);
+  if (p === "/queue") { const qid = u.searchParams.get("qid") || ""; const title = u.searchParams.get("title") || "Queue"; if (qid && queues.get(qid)) return openQueue(title, qid, true); go("home", true); return; }
+  if (p === "/album-queue") { const title = u.searchParams.get("title") || "Queue"; const ids = (u.searchParams.get("ids") || "").split(",").filter(Boolean); const tab = u.searchParams.get("tab") || "albums"; if (ids.length) return openAlbumQueue(title, ids, true, tab); go("home", true); return; }
   if ((m = p.match(/^\/songs?\/(.+)$/))) return openSong(decodeURIComponent(m[1]), true, parseInt(u.searchParams.get("t") || "0", 10) || 0);
   if ((m = p.match(/^\/search\/(.+)$/))) { go("search", true); const qv = decodeURIComponent(m[1]); setTimeout(() => { const b = el("q"); if (b) { b.value = qv; doSearch(); } }, 60); return; }
   if (p === "/search") { // /search?query=ss[&filter=nofemale,audioonly] — prefill + run.
@@ -1400,7 +1414,24 @@ const zpCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="$
 const artistCard = (a) => `<div class="card round" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${a.id}')" onmouseenter="pf('artist','${a.id}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="t">${esc(a.name || "")}</div></div>`;
 const artistCell = (a) => `<div class="gcell" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${a.id}')" onmouseenter="pf('artist','${a.id}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="n">${esc(a.name || "")}</div></div>`;
 let secN = 0, expSeq = 0;
-function section(title, body, more) { if (!body) return ""; const d = (secN++ % 8) * 0.05; return `<div class="section" style="animation-delay:${d}s"><div class="sechead"><h2>${title}</h2>${more || ""}</div>${body}</div>`; }
+function section(title, body, more, meta) {
+  if (!body) return "";
+  meta = meta || {};
+  const d = (secN++ % 8) * 0.05;
+  const secIcon = '<span class="sec-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>';
+  let h2 = `<h2>${esc(title)}</h2>`;
+  let attrs = "";
+  if (meta.tracks && meta.tracks.length) {
+    const qid = regQueue(meta.tracks);
+    attrs += ` data-qid="${qid}"`;
+  }
+  if (meta.albums && meta.albums.length) {
+    const min = meta.albums.map((a) => ({ id: a.id, title: a.title, artist: a.artist, thumbnail: a.thumbnail, year: a.year }));
+    attrs += ` data-albums="${encodeURIComponent(JSON.stringify(min))}"`;
+  }
+  if (attrs) h2 = `<h2 class="sec-title" role="button" tabindex="0" ${attrs} onkeydown="${KDACT}" onclick="openSectionQueue(this)">${esc(title)}${secIcon}</h2>`;
+  return `<div class="section" style="animation-delay:${d}s"><div class="sechead">${h2}${more || ""}</div>${body}</div>`;
+}
 
 // Trending rails from real play analytics (top played songs + artists over N days). Aggregates come from the
 // Worker /trending route (Supabase-backed, edge-cached). Empty string until there's data → collapses cleanly.
@@ -1481,11 +1512,16 @@ async function trendingSections() {
   for (const s of songs) pushCard(_artistByName.get((s.artist || "").toLowerCase()));
   if (!songs.length && !artCards.length) return "";
   let h = "";
-  if (songs.length) h += section("Trending Songs", songCards(songs.slice(0, 24)));
+  const tSongs = songs.slice(0, 24);
+  if (tSongs.length) h += section("Trending Songs", songCards(tSongs), null, { tracks: tSongs });
   if (artCards.length) h += railOf("Trending Artists", artCards.slice(0, 18), artistCard);
   return h;
 }
-const railOf = (title, items, render) => items && items.length ? section(title, `<div class="rail${render === artistCard ? " round" : ""}">${items.map(render).join("")}</div>`) : "";
+const railOf = (title, items, render) => {
+  if (!items || !items.length) return "";
+  const meta = render === albumCard ? { albums: items } : null;
+  return section(title, `<div class="rail${render === artistCard ? " round" : ""}">${items.map(render).join("")}</div>`, null, meta);
+};
 // Zemer app fleet rows — upstream /home-rows (Top Albums/Videos/Artists ranked by 30-day device
 // reach across the Zemer app), proxied same-origin by the Worker and refreshed twice daily via the
 // cron. Rendered at the BOTTOM of Home and For You; every row passes the content + parental gate.
@@ -1497,7 +1533,7 @@ async function zemerRowsSections() {
   const albums = gate((d.topAlbums || []).map((a) => ({ id: a.id, playlistId: a.playlistId, title: a.title, artist: a.artist, year: a.year, thumbnail: a.thumbnail })));
   const artists = gate((d.topArtists || []).map((a) => ({ id: a.id, name: a.name, thumbnail: a.thumbnail })));
   let h = "";
-  if (songs.length) h += section("Zemer Trending Songs", songCards(songs.slice(0, 19)));
+  if (songs.length) h += section("Zemer Trending Songs", songCards(songs.slice(0, 19)), null, { tracks: songs.slice(0, 19) });
   h += railOf("Zemer Trending Albums", albums.slice(0, 24), albumCard);
   h += railOf("Zemer Trending Artists", artists.slice(0, 18), artistCard);
   return h;
@@ -1524,7 +1560,7 @@ async function loadHome() {
     const mp = mourningPeriod();
     const heroP = mp ? `Instrumental music is set aside for ${mp.indexOf("sefira") === 0 ? "Sefira" : "the Three Weeks"} — only the <b>${num(tracks.length)}</b> songs from the Acapella playlist.` : `Only songs from the Acapella playlist — <b>${num(tracks.length)}</b> songs.`;
     v.innerHTML = `<div class="hero" style="background:linear-gradient(120deg,#12202a,var(--surface) 70%)"><div class="eyebrow">Acapella</div><h1>Acapella</h1><p>${heroP}</p></div>`
-      + (tracks.length ? section("Quick Picks", quickPicks(shuffled.slice(0, 24))) + (trend || "") + section(`All Acapella songs · ${num(tracks.length)}`, songRows(tracks.slice(0, 150), { index: true })) : emptyState("Acapella unavailable", "Couldn't load the Acapella playlist right now."));
+      + (tracks.length ? (() => { const qp = shuffled.slice(0, 24); return section("Quick Picks", quickPicks(qp), null, { tracks: qp }) + (trend || "") + section(`All Acapella songs · ${num(tracks.length)}`, songRows(tracks.slice(0, 150), { index: true }), null, { tracks: tracks.slice(0, 150) }); })() : emptyState("Acapella unavailable", "Couldn't load the Acapella playlist right now."));
     window.__appReady && window.__appReady();
     return;
   }
@@ -1534,15 +1570,15 @@ async function loadHome() {
   const fAlbums = feedAlbums(nf), fSongs = gate(((nf && nf.categories) || {}).songs || []).filter((t) => t.videoId);
   const newS = fSongs.length ? fSongs : gate(d.newSongs); // real release dates when the feed has them, corpus otherwise
   let h = `<div class="hero"><div class="eyebrow">Kosher music, by construction</div><h1>Only the music you trust.</h1><p>Every song here comes from a whitelisted artist's full catalog — searched, not filtered. Nothing outside it.</p>${acapellaMode() === "only" ? "" : `<button class="btn-play" style="margin-top:16px" onclick="startRadio('shuffle','')">${ICON.radio} Radio mode</button>`}<span class="heb">מוזיקה</span></div>` + (trend || "");
-  if (quick.length) h += section("Quick Picks", quickPicks(quick));
+  if (quick.length) h += section("Quick Picks", quickPicks(quick), null, { tracks: quick });
   h += railOf("Curated Playlists", ((zpl && zpl.playlists) || []).filter((p) => p.id !== "auto-trending" && p.id !== "auto-top-50"), zpCard); // Trending/Top 50 fold into the Trending Songs section
   h += railOf("Latest Releases", fAlbums.length ? fAlbums.slice(0, 24) : gate(d.latestReleases), albumCard);
-  if (newS.length) h += section("New Songs", songCards(newS));
-  if (recent.length) h += section("Keep Listening", songCards(recent.slice(0, 14)));
+  if (newS.length) h += section("New Songs", songCards(newS), null, { tracks: newS });
+  if (recent.length) h += section("Keep Listening", songCards(recent.slice(0, 14)), null, { tracks: recent.slice(0, 14) });
   h += railOf("Featured Playlists", gate(d.featuredPlaylists), playlistCard);
   h += railOf("Artists You'll Like", gate(d.featuredArtists), artistCard);
   h += railOf("Albums", gate(d.featuredAlbums), albumCard);
-  if (!blockVideos() && vids.length) h += section("Music Videos", songCards(vids));
+  if (!blockVideos() && vids.length) h += section("Music Videos", songCards(vids), null, { tracks: vids });
   h += zemerRows || "";
   v.innerHTML = h || emptyState("No content yet", "The catalog is still being built.");
   window.__appReady && window.__appReady();
@@ -1619,9 +1655,9 @@ async function loadKid() {
   const d = home || {}, a = gate((arts && arts.artists) || []);
   const quick = gate(d.quickPicks), newS = gate(d.newSongs);
   let h = `<div class="hero" style="background:linear-gradient(120deg,#2a2410,var(--surface) 70%)"><div class="eyebrow" style="color:var(--gold)">Safe for little ears</div><h1>Kid Zone</h1><p>A hand-picked corner of the catalog — only Kid-Zone-approved artists and releases.</p><span class="heb">ילדים</span></div>`;
-  if (quick.length) h += section("Quick Picks", quickPicks(quick));
+  if (quick.length) h += section("Quick Picks", quickPicks(quick), null, { tracks: quick });
   h += railOf("Latest Releases", gate(d.latestReleases), albumCard);
-  if (newS.length) h += section("New Songs", songCards(newS));
+  if (newS.length) h += section("New Songs", songCards(newS), null, { tracks: newS });
   h += railOf("Albums", gate(d.featuredAlbums), albumCard);
   if (a.length) h += section(`Artists (${a.length})`, `<div class="grid">${a.map(artistCell).join("")}</div>`);
   v.innerHTML = (quick.length || a.length) ? h : (h + emptyState("No Kid Zone content yet", "Check back after the next harvest."));
@@ -1670,16 +1706,16 @@ async function loadForYou() {
       .map((s) => ({ videoId: s.videoId || s.video_id, title: s.title, artist: s.artist, explicit: s.explicit, durationSec: s.durationSec })).filter((s) => s.videoId);
   }
   let h = hero + (trend || "");
-  if (recent.length) h += section("Jump back in", songCards(recent.slice(0, 14)));
+  if (recent.length) h += section("Jump back in", songCards(recent.slice(0, 14)), null, { tracks: recent.slice(0, 14) });
   const mix = taste.length ? gate(await songsFromArtists(taste, 14)) : [];
   const qp = gate(d.quickPicks);
-  if (mix.length >= 4) h += section(liked.length ? `Because you like ${esc(taste[0].name)}` : "Made for you", songCards(mix));
-  else if (cold.length >= 4) h += section("Popular right now", quickPicks(cold.slice(0, 24)));
-  else if (qp.length) h += section("Made for you", quickPicks(qp));
+  if (mix.length >= 4) h += section(liked.length ? `Because you like ${esc(taste[0].name)}` : "Made for you", songCards(mix), null, { tracks: mix });
+  else if (cold.length >= 4) h += section("Popular right now", quickPicks(cold.slice(0, 24)), null, { tracks: cold.slice(0, 24) });
+  else if (qp.length) h += section("Made for you", quickPicks(qp), null, { tracks: qp });
   const nfAlbums = feedAlbums(nf);
   h += railOf("New for you", nfAlbums.length ? nfAlbums.slice(0, 24) : gate(d.latestReleases), albumCard);
   h += railOf(taste.length ? "Your artists" : "Artists to explore", gate(taste.length ? taste.slice(0, 16) : d.featuredArtists), artistCard);
-  const fresh = gate(d.newSongs); if (fresh.length) h += section("Fresh songs", songCards(fresh));
+  const fresh = gate(d.newSongs); if (fresh.length) h += section("Fresh songs", songCards(fresh), null, { tracks: fresh });
   h += zemerRows || "";
   v.innerHTML = (trend || mix.length || cold.length || qp.length || recent.length || liked.length) ? h : hero + emptyState("Play a few songs", "For You fills in as you listen. Browse Home to get started.");
 }
@@ -1983,6 +2019,104 @@ function renderDetailView(v) {
 }
 function pushDetail(v, fromRoute) { renderDetailView(v); if (!fromRoute) pushURL(v.path); }
 function shufflePlay(qid) { const q = queues.get(qid); if (!q || !q.length) return; const s = q.slice(); for (let i = s.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[s[i], s[j]] = [s[j], s[i]]; } state.queue = s; state.radio = null; playIndex(0); }
+let sectionState = null;
+function sectionLoadingRows(n) { return `<div class="rows">${Array.from({ length: n || 8 }, () => `<div class="row"><div class="sk" style="width:46px;height:46px;border-radius:9px"></div><div class="text"><div class="sk" style="height:13px;width:45%;border-radius:5px"></div><div class="sk" style="height:11px;width:28%;border-radius:5px;margin-top:7px"></div></div></div>`).join("")}</div>`; }
+function renderSectionView(fromRoute) {
+  if (!sectionState) return;
+  secN = 0;
+  state.detailKind = "section";
+  el("tbTitle").textContent = sectionState.title; el("tbTitle").style.display = ""; el("tbSearch").style.display = "none";
+  const { title, qid, albums, tracks } = sectionState;
+  const hasAlbums = albums && albums.length;
+  const hasTracks = (tracks && tracks.length) || (qid && queues.get(qid)?.length);
+  const activeTab = sectionState.activeTab || (hasAlbums ? "albums" : "songs");
+  const cover = hasAlbums ? (albums[0].thumbnail || "") : (qid && queues.get(qid)?.[0] ? yt(queues.get(qid)[0].videoId) : "");
+  let sub = "";
+  if (hasAlbums) {
+    sub = `<b>${num(albums.length)}</b> albums`;
+    if (tracks && tracks.length) sub += ` · <b>${num(tracks.length)}</b> songs`;
+  } else if (hasTracks) {
+    const list = tracks || queues.get(qid);
+    sub = `<b>${num(list.length)}</b> songs`;
+  }
+  let h = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
+    <div class="detail-hero"><div class="cover">${artHTML(cover, NOTE, false)}</div>
+    <div class="dh-meta"><div class="dh-kind">Section</div><div class="dh-title">${esc(title)}</div><div class="dh-sub" id="secSub">${sub}</div></div></div>`;
+  h += `<div class="actions"><button class="btn-play" onclick="playSectionAll()">${ICON.play} Play All</button><button class="btn-ghost" onclick="playSectionAll(true)"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button></div>`;
+  if (hasAlbums) {
+    h += `<div class="sec-tabs"><button class="sec-tab ${activeTab === "albums" ? "active" : ""}" data-tab="albums" onclick="switchSectionTab('albums')">Albums</button><button class="sec-tab ${activeTab === "songs" ? "active" : ""}" data-tab="songs" onclick="switchSectionTab('songs')">Songs</button></div>`;
+    h += `<div class="sec-panel ${activeTab === "albums" ? "active" : ""}" data-tab="albums"><div class="rail">${albums.map(albumCard).join("")}</div></div>`;
+    h += `<div class="sec-panel ${activeTab === "songs" ? "active" : ""}" data-tab="songs"><div id="secSongsBody">${(tracks && tracks.length) ? songRows(tracks, { index: true }) : (activeTab === "songs" ? sectionLoadingRows(8) : '<div style="padding:18px 6px;color:var(--muted)">Tap the <b>Songs</b> tab to load tracks.</div>')}</div></div>`;
+  } else {
+    h += `<div id="secSongsBody">${(tracks && tracks.length) ? songRows(tracks, { index: true }) : ""}</div>`;
+  }
+  el("v-detail").innerHTML = h; showDetail();
+  if (activeTab === "songs" && hasAlbums && !(tracks && tracks.length)) loadSectionSongs();
+  if (!fromRoute) pushURL(sectionState.path);
+}
+async function loadSectionSongs() {
+  if (!sectionState || !sectionState.albums || !sectionState.albums.length) return;
+  const body = el("secSongsBody");
+  if (body.dataset.loaded === "1") return;
+  body.innerHTML = sectionLoadingRows(8);
+  await ensureFilters();
+  const ids = sectionState.albums.map((a) => a.id);
+  const results = await Promise.all(ids.map((id) => detailGet("/album?id=" + encodeURIComponent(id)).catch(() => null)));
+  const allTracks = [];
+  for (const d of results) {
+    if (!d || d.error || hiddenArtist(d.album.artist)) continue;
+    allTracks.push(...gate(d.tracks || []).filter((t) => !(blockVideos() && t.isVideo)));
+  }
+  sectionState.tracks = allTracks;
+  sectionState.allQid = allTracks.length ? regQueue(allTracks) : null;
+  body.dataset.loaded = "1";
+  body.innerHTML = allTracks.length ? songRows(allTracks, { index: true }) : emptyState("No playable songs", "These albums are hidden by your filters or have no whitelisted tracks.");
+  const sub = el("secSub"); if (sub) sub.innerHTML = `<b>${num(sectionState.albums.length)}</b> albums · <b>${num(allTracks.length)}</b> songs`;
+}
+function switchSectionTab(tab) {
+  if (!sectionState) return;
+  sectionState.activeTab = tab;
+  for (const b of document.querySelectorAll(".sec-tab")) b.classList.toggle("active", b.dataset.tab === tab);
+  for (const p of document.querySelectorAll(".sec-panel")) p.classList.toggle("active", p.dataset.tab === tab);
+  if (tab === "songs") loadSectionSongs();
+}
+async function playSectionAll(shuffle) {
+  if (!sectionState) return;
+  if (sectionState.qid && !sectionState.albums?.length) {
+    const list = queues.get(sectionState.qid);
+    if (!list || !list.length) return;
+    if (shuffle) shufflePlay(sectionState.qid); else playFrom(sectionState.qid, 0);
+    return;
+  }
+  if (!sectionState.tracks?.length && sectionState.albums?.length) await loadSectionSongs();
+  const qid = sectionState.allQid || (sectionState.tracks?.length ? regQueue(sectionState.tracks) : null);
+  if (!qid) return;
+  if (shuffle) shufflePlay(qid); else playFrom(qid, 0);
+}
+function openQueue(title, qid, fromRoute) { const tracks = queues.get(qid); if (!tracks || !tracks.length) return; sectionState = { title, qid, tracks, albums: [], activeTab: "songs", path: `/queue?qid=${qid}&title=${encodeURIComponent(title)}` }; renderSectionView(fromRoute); }
+async function openAlbumQueue(title, albums, fromRoute, activeTab) {
+  if (!albums || !albums.length) return;
+  detailLoading("Section");
+  let albumObjs = albums;
+  if (typeof albums[0] === "string") {
+    await ensureFilters();
+    const results = await Promise.all(albums.map((id) => detailGet("/album?id=" + encodeURIComponent(id)).catch(() => null)));
+    albumObjs = results.filter((d) => d && !d.error && d.album && !hiddenArtist(d.album.artist)).map((d) => d.album);
+  }
+  if (!albumObjs.length) { el("v-detail").innerHTML = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>` + emptyState("No playable albums", "These albums are hidden by your filters."); return; }
+  const idsParam = albumObjs.map((a) => a.id).join(",");
+  activeTab = activeTab || "albums";
+  sectionState = { title, albums: albumObjs, tracks: [], activeTab, path: `/album-queue?title=${encodeURIComponent(title)}&ids=${idsParam}&tab=${activeTab}` };
+  renderSectionView(fromRoute);
+  if (activeTab === "songs") await loadSectionSongs();
+}
+function openSectionQueue(el) {
+  const qid = el.getAttribute("data-qid");
+  const albums = el.getAttribute("data-albums");
+  const title = el.textContent.trim();
+  if (qid) openQueue(title, qid);
+  else if (albums) openAlbumQueue(title, JSON.parse(decodeURIComponent(albums)));
+}
 function detailLoading(kind, round) {
   el("tbTitle").textContent = kind; el("tbTitle").style.display = ""; el("tbSearch").style.display = "none";
   el("v-detail").innerHTML = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
@@ -2095,16 +2229,131 @@ function blockedByFilter(kind) { blockedPage("Access denied", `This ${kind} is b
 // corpus videoIds are ever loaded, and the iframe is off-screen with no controls, so no YouTube UI shows.
 // If the IFrame API itself can't load, we fall back to the server-proxied /stream path (the <audio> tag).
 const audio = el("audio");
+const isIOSDevice = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+// iOS suspends JS when the screen is locked / app is backgrounded, so the audio.ended event never fires.
+// A ScriptProcessorNode on a running AudioContext keeps the JS thread alive and lets us force timeupdate
+// events; when the currentTime is close to the end, we seek to duration so the ended event fires while
+// Safari still considers the play() call in its handler part of the same playback session.
+let iosAudioCtx = null, iosScriptNode = null, iosKeepAliveAt = 0, iosAdvanceGuard = false;
+let iosBaseCur = 0, iosBaseCtx = 0, iosLastCur = 0, iosCurStableAt = 0;
+const IOS_STALL_THRESHOLD = 0.5;
+function ensureIOSKeepAlive() {
+  if (!isIOSDevice() || iosAudioCtx) return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  try {
+    iosAudioCtx = new AC();
+    const osc = iosAudioCtx.createOscillator();
+    const gain = iosAudioCtx.createGain();
+    gain.gain.value = 0;
+    osc.connect(gain).connect(iosAudioCtx.destination);
+    osc.start();
+    const sp = iosAudioCtx.createScriptProcessor(2048, 1, 1);
+    sp.onaudioprocess = () => {
+      const now = performance.now();
+      if (now - iosKeepAliveAt < 100) return;
+      iosKeepAliveAt = now;
+      try { audio.dispatchEvent(new Event("timeupdate")); } catch {}
+    };
+    sp.connect(iosAudioCtx.destination);
+  } catch (e) { console.warn("[ios keepalive] init failed", e); }
+}
+function resumeIOSKeepAlive() {
+  if (iosAudioCtx && iosAudioCtx.state === "suspended") iosAudioCtx.resume().catch(() => {});
+}
+function resetIOSAudioBase() {
+  if (!iosAudioCtx) return;
+  try {
+    iosBaseCur = iosLastCur = audio.currentTime;
+    iosBaseCtx = iosCurStableAt = iosAudioCtx.currentTime;
+  } catch {}
+}
+let html5EndedGuard = false;
+function resetHtml5Ended() { html5EndedGuard = false; }
+function onHtml5Ended() {
+  if (html5EndedGuard) return;
+  html5EndedGuard = true;
+  stopTick(); playFinalize(); repeatOrNext(); setPlayIcons();
+}
+function onHtml5TimeUpdate() {
+  if (PB.mode !== "html5" || iosAdvanceGuard || audio.paused || audio.ended) return;
+  const nowCur = audio.currentTime;
+  if (Math.abs(nowCur - iosLastCur) > 0.02) { iosLastCur = iosBaseCur = nowCur; iosBaseCtx = iosAudioCtx ? iosAudioCtx.currentTime : performance.now() / 1000; iosCurStableAt = iosAudioCtx ? iosAudioCtx.currentTime : performance.now() / 1000; }
+  tick();
+  const dur = PB.dur();
+  if (dur && PB.cur() >= dur - 0.15) {
+    iosAdvanceGuard = true;
+    try { audio.pause(); } catch {}
+    onHtml5Ended();
+    setTimeout(() => { iosAdvanceGuard = false; }, 2000);
+  }
+}
+audio.addEventListener("timeupdate", onHtml5TimeUpdate);
 const PB = {
-  mode: "yt", yt: null, ready: false, pending: null, nextStart: 0, vol: 1, muted: false, rate: 1,
-  load(id, startSec) { startSec = startSec || this.nextStart || 0; this.nextStart = 0; if (this.mode === "yt") { const a = startSec ? { videoId: id, startSeconds: startSec } : id; if (this.ready) this.yt.loadVideoById(a); else this.pending = a; } else { audio.src = "/stream?v=" + encodeURIComponent(id); if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); } },
-  play() { this.mode === "yt" ? this.ready && this.yt.playVideo() : audio.play().catch(() => {}); cueNext(); }, // re-arm the gapless cue (cleared if a pause/seek cancelled a handoff)
+  mode: isIOSDevice() ? "html5" : "yt", yt: null, ready: false, pending: null, nextStart: 0, vol: 1, muted: false, rate: 1, fallbackDur: 0,
+  load(id, startSec) {
+    resetHtml5Ended();
+    startSec = startSec || this.nextStart || 0; this.nextStart = 0;
+    if (this.mode === "yt") { const a = startSec ? { videoId: id, startSeconds: startSec } : id; if (this.ready) this.yt.loadVideoById(a); else this.pending = a; }
+    else {
+      iosAdvanceGuard = false;
+      setBuffering(true);
+      // Reset the iOS audio clock so the progress bar doesn't use the previous song's time base
+      // before the new playback actually starts.
+      if (iosAudioCtx) { iosBaseCur = 0; iosLastCur = 0; iosBaseCtx = iosAudioCtx.currentTime; iosCurStableAt = iosAudioCtx.currentTime; }
+      const src = "/stream?v=" + encodeURIComponent(id);
+      audio.src = src;
+      // Try to get the real duration from the backend before Safari misreports it.
+      // We don't wait for the fetch before starting playback; if the header arrives
+      // late it will just correct the duration display.
+      fetch(src, { method: "HEAD" })
+        .then((r) => {
+          const d = r.headers.get("x-duration");
+          if (d) { this.fallbackDur = parseFloat(d) || this.fallbackDur; }
+        })
+        .catch(() => {});
+      if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true });
+      audio.play().catch((e) => { console.warn("[html5 load] play blocked", e); setBuffering(false); });
+      if (isIOSDevice()) { ensureIOSKeepAlive(); resumeIOSKeepAlive(); }
+    }
+  },
+  play() {
+    if (this.mode === "yt") { if (this.ready) this.yt.playVideo(); }
+    else { setBuffering(true); audio.play().then(() => setBuffering(false)).catch((e) => { console.warn("[html5 play] play blocked", e); setBuffering(false); }); if (isIOSDevice()) { ensureIOSKeepAlive(); resumeIOSKeepAlive(); } }
+    cueNext(); // re-arm the gapless cue (cleared if a pause/seek cancelled a handoff; html5-mode no-op)
+  },
   pause() { if (gapless && gapless.phase === "start") cancelSwap(); this.mode === "yt" ? this.ready && this.yt.pauseVideo() : audio.pause(); }, // a primed (inert) standby survives a pause; only a firing one is cancelled
   stop() { cancelSwap(); this.pending = null; if (this.mode === "yt") { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
   paused() { return this.mode === "yt" ? (!this.ready || this.yt.getPlayerState() !== 1) : audio.paused; }, // methods exist only after onReady
   seek(sec) { if (gapless && gapless.phase === "start") cancelSwap(); this.mode === "yt" ? this.ready && this.yt.seekTo(sec, true) : (audio.currentTime = sec); cueNext(); },
-  cur() { return this.mode === "yt" ? (this.ready ? this.yt.getCurrentTime() || 0 : 0) : audio.currentTime; },
-  dur() { return this.mode === "yt" ? (this.ready ? this.yt.getDuration() || 0 : 0) : (audio.duration || 0); },
+  cur() {
+    if (this.mode === "yt") return this.ready ? this.yt.getCurrentTime() || 0 : 0;
+    // Until the audio element has a non-zero position, don't extrapolate from the AudioContext;
+    // this prevents the progress bar from creeping forward before real playback begins.
+    if (audio.currentTime === 0) return 0;
+    if (iosAudioCtx && iosAudioCtx.state === "running" && !audio.paused && !audio.ended && !isBuffering) {
+      const aCur = audio.currentTime;
+      const ctxNow = iosAudioCtx.currentTime;
+      if (Math.abs(aCur - iosLastCur) > 0.02) { iosLastCur = iosBaseCur = aCur; iosBaseCtx = ctxNow; iosCurStableAt = ctxNow; }
+      // If currentTime hasn't changed for a while, the audio thread is stalled/throttled;
+      // don't let the AudioContext clock keep the progress bar moving.
+      if (ctxNow - iosCurStableAt > IOS_STALL_THRESHOLD) return aCur;
+      return iosBaseCur + (ctxNow - iosBaseCtx) * audio.playbackRate;
+    }
+    return audio.currentTime;
+  },
+  dur() {
+    if (this.mode === "yt") return this.ready ? (this.yt.getDuration() || 0) : 0;
+    const d = audio.duration, fb = this.fallbackDur;
+    // iOS Safari commonly reports the duration of some YouTube m4a streams as roughly twice
+    // the real length. The catalog duration (from YouTube metadata) is accurate, so trust it
+    // when the browser-reported duration is grossly off.
+    if (isFinite(d) && d > 0 && fb > 0) {
+      const ratio = d / fb;
+      if (ratio > 1.5 || ratio < 0.65) return fb;
+    }
+    return (isFinite(d) && d > 0) ? d : (fb || 0);
+  },
   setVol(v) { this.vol = v; this.muted = false; if (this.mode === "yt") { if (this.ready) { this.yt.unMute(); this.yt.setVolume(Math.round(v * 100)); } } else { audio.muted = false; audio.volume = v; } },
   setMuted(m) { this.muted = m; if (this.mode === "yt") { if (this.ready) m ? this.yt.mute() : this.yt.unMute(); } else audio.muted = m; },
   setRate(r) { this.rate = r; if (this.mode === "yt") { if (this.ready) this.yt.setPlaybackRate(r); } else audio.playbackRate = r; },
@@ -2255,6 +2504,8 @@ function playIndex(i, dir) {
 // Start-of-track bookkeeping shared by playIndex and the gapless handoff: now-bar/Now-Playing UI,
 // recents, the shareable /song URL, the play-duration session, and the browser/OS media sessions.
 function trackStarted(t) {
+  PB.fallbackDur = t.durationSec || 0; // catalog duration — trusted when Safari misreports the stream's
+  if ("audioSession" in navigator) try { navigator.audioSession.type = "playback"; } catch {}
   el("nowbar").classList.add("on");
   const art = yt(t.videoId, "hq");
   el("nbArt").src = yt(t.videoId); el("nbArt").classList.remove("hide"); el("nbTitle").textContent = t.title || ""; el("nbArtist").textContent = t.artist || "";
@@ -2380,13 +2631,14 @@ async function startRadio(kind, seed) { // detail-page Radio button → a whole 
 }
 
 /* progress + state — unified across both engines */
-function setPlayIcons() { const p = PB.paused() || !state.queue.length; const pl = p ? "Play" : "Pause"; el("nbPlay").innerHTML = p ? ICON.play : ICON.pause; el("npPlay").innerHTML = p ? ICON.play : ICON.pause; el("nbPlay").setAttribute("aria-label", pl); el("npPlay").setAttribute("aria-label", pl); if ("mediaSession" in navigator) try { navigator.mediaSession.playbackState = p ? "paused" : "playing"; } catch {} skPlaybackState(); }
+function setPlayIcons() { const p = PB.paused() || !state.queue.length; const pl = isBuffering ? "Loading" : p ? "Play" : "Pause"; const ic = isBuffering ? ICON.spinner : p ? ICON.play : ICON.pause; el("nbPlay").innerHTML = ic; el("npPlay").innerHTML = ic; el("nbPlay").setAttribute("aria-label", pl); el("npPlay").setAttribute("aria-label", pl); if ("mediaSession" in navigator) try { navigator.mediaSession.playbackState = isBuffering ? "none" : p ? "paused" : "playing"; } catch {} skPlaybackState(); }
+function setBuffering(b) { isBuffering = b; setPlayIcons(); }
 function paintSeek(input) { const max = +input.max || 1000; input.style.setProperty("--p", (input.value / max * 100) + "%"); }
-let tickTimer = null, seeking = false, toastTimer, streamFails = 0;
+let tickTimer = null, seeking = false, toastTimer, streamFails = 0, isBuffering = false;
 function startTick() { if (!tickTimer) tickTimer = setInterval(tick, 300); }
 function stopTick() { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } }
 function tick() {
-  const d = PB.dur(), c = PB.cur(), pct = d ? c / d : 0;
+  const d = PB.dur(), c = PB.cur(), pct = d ? Math.min(1, Math.max(0, c / d)) : 0;
   el("nbProgress").style.width = (pct * 100) + "%";
   if (!seeking) { el("nbSeek").value = el("npSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); }
   el("nbCur").textContent = el("npCur").textContent = fmt(c);
@@ -2404,12 +2656,16 @@ function tick() {
   }
   if (!PB.paused()) saveLastPlay(c); // resume point for the empty-queue Play button
   skTick(c);
+  if ("mediaSession" in navigator && navigator.mediaSession.setPositionState) {
+    try { navigator.mediaSession.setPositionState({ duration: d || 0, playbackRate: PB.rate, position: Math.min(Math.max(c, 0), d || 0) }); } catch {}
+  }
 }
 function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing · 2 paused · 3 buffering · 5 cued
-  if (code === 1) { streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); } // rate resets on each load
-  else if (code === 2) playAccrue(); // paused → bank the elapsed listen time
+  if (code === 1) { isBuffering = false; streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); } // rate resets on each load
+  else if (code === 2) { isBuffering = false; playAccrue(); } // paused → bank the elapsed listen time
+  else if (code === 3) { isBuffering = true; }
   else if (code === 0) { // ended: a primed/starting standby takes over instantly; anything else falls back to the normal path
-    stopTick();
+    isBuffering = false; stopTick();
     const cueValid = gapless && cued.idx === nextPlayableIndex() && state.queue[cued.idx] && state.queue[cued.idx].videoId === cued.id;
     if (gapless && gapless.phase === "primed" && cueValid) fireSwap(); // completes on the standby's PLAYING event
     else if (gapless && gapless.phase === "start") { /* fireSwap already issued — the handoff completes on PLAYING */ }
@@ -2419,17 +2675,51 @@ function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing �
 }
 function showToast(msg, ms) { const t = el("toast"); t.innerHTML = msg; t.classList.add("on"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), ms || 4200); }
 function onPlaybackError() {
-  const t = state.queue[state.qi]; if (!t) return; streamFails++;
+  const t = state.queue[state.qi]; if (!t) return;
+  // YouTube IFrame errors (embed disabled, removed, etc.) are common on desktop.
+  // Fall back to the server-proxied /stream audio for the current track instead
+  // of immediately skipping.
+  if (PB.mode === "yt" && streamFails === 0) {
+    console.warn("YT player error for", t.videoId, "→ falling back to /stream");
+    PB.stop();
+    PB.mode = "html5";
+    PB.load(t.videoId);
+    return;
+  }
+  streamFails++;
   el("nbArtist").textContent = (t.artist || "") + " · unavailable";
   if (streamFails >= 3) { showToast(PB.mode === "yt" ? "<b>Couldn't play these tracks.</b> Some videos disable embedding, or playback is restricted on this network." : "<b>Streaming is blocked on this network.</b> Search &amp; browse still work — playback needs an unfiltered connection.", 6500); return; }
   showToast(`Couldn't play “${esc(t.title || "track")}” — skipping…`);
   if (state.qi < state.queue.length - 1) setTimeout(next, 500);
 }
 // html5 fallback wiring — only fires when PB.mode === "html5"
-audio.addEventListener("play", () => { streamFails = 0; startTick(); audio.playbackRate = PB.rate; setPlayIcons(); playResume(); });
-audio.addEventListener("pause", () => { stopTick(); setPlayIcons(); playAccrue(); });
-audio.addEventListener("ended", () => { stopTick(); playFinalize(); repeatOrNext(); });
-audio.addEventListener("error", () => { if (PB.mode === "html5") onPlaybackError(); });
+audio.addEventListener("loadstart", () => { if (PB.mode === "html5") setBuffering(true); });
+audio.addEventListener("waiting", () => { if (PB.mode === "html5") setBuffering(true); });
+audio.addEventListener("stalled", () => { if (PB.mode === "html5") setBuffering(true); });
+audio.addEventListener("playing", () => { if (PB.mode === "html5") { isBuffering = false; streamFails = 0; startTick(); audio.playbackRate = PB.rate; setPlayIcons(); playResume(); resetIOSAudioBase(); } });
+audio.addEventListener("pause", () => { setBuffering(false); stopTick(); playAccrue(); });
+audio.addEventListener("seeked", resetIOSAudioBase);
+audio.addEventListener("ended", onHtml5Ended);
+audio.addEventListener("error", () => { setBuffering(false); if (PB.mode === "html5") onPlaybackError(); });
+audio.addEventListener("abort", () => setBuffering(false));
+let html5WasPlayingBeforeHidden = false;
+function onAppForeground() {
+  if (PB.mode !== "html5") return;
+  if (html5WasPlayingBeforeHidden && audio.paused && !audio.ended && audio.currentTime > 0) {
+    if ("audioSession" in navigator) try { navigator.audioSession.type = "playback"; } catch {}
+    PB.play();
+  }
+  html5WasPlayingBeforeHidden = false;
+}
+function onAppBackground() {
+  if (PB.mode === "html5") html5WasPlayingBeforeHidden = !audio.paused;
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") onAppBackground();
+  else onAppForeground();
+});
+window.addEventListener("pagehide", onAppBackground);
+window.addEventListener("pageshow", onAppForeground);
 ["nbSeek", "npSeek"].forEach((id) => {
   const s = el(id);
   s.addEventListener("input", () => { seeking = true; paintSeek(s); el("nbCur").textContent = el("npCur").textContent = fmt((s.value / 1000) * PB.dur()); });

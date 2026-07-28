@@ -60,16 +60,18 @@ export function albumDetailFrom(DS, id) {
 // ---- lazy runtime: fetch + index the dataset once, then answer routes ----
 let DS = null, CATS = null, warming = null;
 const files = new Map();
+// At build time build-static.mjs injects a BUILD timestamp; use it to bust caches on every deploy.
+const dataUrl = (u) => (typeof BUILD !== "undefined" && u.startsWith("/data/")) ? `${u}?v=${BUILD}` : u;
 const grab = async (u) => {
   if (files.has(u)) return files.get(u);
-  const r = await fetch(u), j = r.ok ? await r.json() : null;
+  const r = await fetch(dataUrl(u)), j = r.ok ? await r.json() : null;
   files.set(u, j); return j;
 };
 
 async function ready() {
   if (DS) return DS;
   if (!warming) warming = (async () => {
-    const gz = await fetch("/data/dataset.json.gz");
+    const gz = await fetch(dataUrl("/data/dataset.json.gz"));
     const text = await new Response(gz.body.pipeThrough(new DecompressionStream("gzip"))).text();
     DS = inflate(JSON.parse(text));
     CATS = buildCategories(DS, compileSynonyms((await grab("/data/synonyms.json")) || []));

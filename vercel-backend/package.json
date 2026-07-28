@@ -1,0 +1,17 @@
+{
+  "name": "ios-sk-music-vercel-backend",
+  "version": "1.0.0",
+  "description": "Vercel stream proxy for iOS SK Music background playback",
+  "main": "api/stream.js",
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "postinstall": "node scripts/setup-yt-dlp.mjs",
+    "start": "node api/stream.js"
+  },
+  "dependencies": {
+    "ytdlp-nodejs": "^3.4.4"
+  }
+}

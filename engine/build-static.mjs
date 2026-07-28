@@ -676,8 +676,9 @@ for (const modName of ["normalize.mjs", "search.mjs", "categories.mjs"]) {
   ensureWrite(path.join(LIB, modName), verLib(fs.readFileSync(path.join(ROOT, "engine", modName), "utf8")));
 }
 ensureWrite(path.join(LIB, "synonyms.mjs"),     verLib(synBrowser));
-ensureWrite(path.join(LIB, "engine.mjs"),        verLib(fs.readFileSync(path.join(ROOT, "engine/engine.mjs"), "utf8")));
-ensureWrite(path.join(LIB, "engine-worker.mjs"), verLib(fs.readFileSync(path.join(ROOT, "engine/engine-worker.mjs"), "utf8")));
+const jsBuildStamp = `const BUILD = ${BUILD};\n`;
+ensureWrite(path.join(LIB, "engine.mjs"),        jsBuildStamp + verLib(fs.readFileSync(path.join(ROOT, "engine/engine.mjs"), "utf8")));
+ensureWrite(path.join(LIB, "engine-worker.mjs"), jsBuildStamp + verLib(fs.readFileSync(path.join(ROOT, "engine/engine-worker.mjs"), "utf8")));
 
 // ── index.html ─────────────────────────────────────────────────────────────────
 // Start from assets/ui.html and inject: static-build marker, optional analytics
@@ -741,7 +742,7 @@ ensureWrite(path.join(DIST, "playback-block-test.html"), fs.readFileSync(path.jo
 // Cache versioned per build: V changes → old caches evicted on activate.
 // Strategy: navigate = network-first, /lib = network-first, /data = cache-first.
 const SW = `const V = "skmusic-${BUILD}";
-const SHELL = ["/","/lib/engine.mjs?v=${BUILD}","/lib/engine-worker.mjs?v=${BUILD}","/lib/categories.mjs?v=${BUILD}","/lib/search.mjs?v=${BUILD}","/lib/normalize.mjs?v=${BUILD}","/lib/synonyms.mjs?v=${BUILD}","/data/meta.json","/data/home.json","/data/home.kidzone.json","/data/artists.json","/data/synonyms.json","/data/zemer-playlists.json","/data/blocked-ids.json"];
+const SHELL = ["/","/lib/engine.mjs?v=${BUILD}","/lib/engine-worker.mjs?v=${BUILD}","/lib/categories.mjs?v=${BUILD}","/lib/search.mjs?v=${BUILD}","/lib/normalize.mjs?v=${BUILD}","/lib/synonyms.mjs?v=${BUILD}","/data/meta.json?v=${BUILD}","/data/home.json?v=${BUILD}","/data/home.kidzone.json?v=${BUILD}","/data/artists.json?v=${BUILD}","/data/synonyms.json?v=${BUILD}","/data/zemer-playlists.json?v=${BUILD}","/data/blocked-ids.json?v=${BUILD}"];
 self.addEventListener("install", (e) => { self.skipWaiting(); e.waitUntil(caches.open(V).then((c) => c.addAll(SHELL)).catch(() => {})); });
 self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== V).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", (e) => {
@@ -783,7 +784,7 @@ const CSP = [
   // so pin the inert image channel to any-https rather than whack-a-mole a host list. The exfil-relevant
   // directives (connect/script/frame/object/base) stay tight.
   "img-src 'self' data: blob: https:",
-  "media-src 'self' blob:",
+  "media-src 'self' blob: https://*.vercel.app",
   "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
   // ipc: + ipc.localhost are the Tauri desktop app's IPC transport (invoke → now_playing/set_playback_state);
   // harmless for browsers, required so the desktop media bridge isn't blocked.

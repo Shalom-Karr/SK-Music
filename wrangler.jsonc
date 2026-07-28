@@ -4,7 +4,7 @@
   // this Worker just serves them and handles the routes that can't be static (live playlist, trending, OG).
   "name": "skmusic",
   "main": "engine/index.mjs",
-  "account_id": "536d945663a8a3a20a671cf695c2e027",
+  "account_id": "<your-cloudflare-account-id>",
   "compatibility_date": "2025-09-01",
   "compatibility_flags": ["nodejs_compat"],
   // NOTE: run_worker_first is deliberately ABSENT. The array form makes every non-listed asset-miss
@@ -20,7 +20,11 @@
   },
   // KV: the Worker serves any page override found here before static assets, and caches the live
   // curated trending playlists (refreshed by the cron below).
-  "kv_namespaces": [{ "binding": "PAGES", "id": "c19c9b17d6bb45f9a103d067a901a438" }],
+  "kv_namespaces": [{ "binding": "PAGES", "id": "<your-kv-namespace-id>" }],
+  // R2 Bucket for cached MP3 audio files
+  "r2_buckets": [{ "binding": "AUDIO_BUCKET", "bucket_name": "sk-music-audio" }],
+  // Vercel streaming backend URL
+  "vars": { "STREAM_SERVER_URL": "https://<your-vercel-backend>.vercel.app" },
   // Refresh the curated trending playlists into KV 15 min after the upstream index regenerates them
   // (it updates at 08:00/20:00 UTC — both fixed UTC, so 08:15/20:15 UTC never drifts with DST).
   // The same tick also pulls the Zemer app's listening stats (tracking.zemer.io /stats/public) and
