@@ -254,6 +254,20 @@
     invoke("mini_open_main");
   });
 
+  // Keyboard control while the mini has focus: Space/K play-pause, ←/P previous, →/N next,
+  // L like, Enter collapse/expand, O open the app, Esc hide.
+  document.addEventListener("keydown", function (e) {
+    if (e.repeat) return;
+    var k = e.key;
+    if (k === " " || k === "k" || k === "K") { e.preventDefault(); mc("toggle"); }
+    else if (k === "ArrowRight" || k === "n" || k === "N") { e.preventDefault(); mc("next"); }
+    else if (k === "ArrowLeft" || k === "p" || k === "P") { e.preventDefault(); mc("previous"); }
+    else if (k === "l" || k === "L") { e.preventDefault(); el("like").click(); }
+    else if (k === "Enter") { e.preventDefault(); setCollapsed(!mini.classList.contains("collapsed")); }
+    else if (k === "o" || k === "O") { e.preventDefault(); invoke("mini_open_main"); }
+    else if (k === "Escape") { invoke("mini_hide"); }
+  });
+
   // Re-apply persisted collapsed state on load.
   try { if (localStorage.getItem("sk-mini-collapsed") === "1") setCollapsed(true, false); } catch (e) {}
 
