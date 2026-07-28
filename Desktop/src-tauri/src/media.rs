@@ -378,9 +378,38 @@ pub struct PlaybackState {
     stopped: Option<bool>,
 }
 
+/// The REMOTE SPA cannot invoke app commands (the capability remote grant covers core-plugin
+/// permissions only — app commands are silently denied for remote origins). Events ARE allowed, so
+/// the webview reports by `emit`ting these; Rust listens and routes into the same handlers. The
+/// commands below stay for local pages and back-compat.
+pub fn hook_report_events(app: &tauri::AppHandle) {
+    use tauri::Listener;
+    let h = app.clone();
+    app.listen("sk-np-report", move |event| {
+        if let Ok(payload) = serde_json::from_str::<NowPlaying>(event.payload()) {
+            let _ = apply_now_playing(&h, payload);
+        }
+    });
+    let h = app.clone();
+    app.listen("sk-state-report", move |event| {
+        if let Ok(payload) = serde_json::from_str::<PlaybackState>(event.payload()) {
+            let _ = apply_playback_state(&h, payload);
+        }
+    });
+    let h = app.clone();
+    app.listen("sk-menu", move |_| {
+        crate::tray::show_app_menu_inner(&h);
+    });
+}
+
 /// Set full metadata + playback state. Call on track change.
 #[tauri::command]
 pub fn now_playing(app: tauri::AppHandle, payload: NowPlaying) -> Result<(), String> {
+    apply_now_playing(&app, payload)
+}
+
+fn apply_now_playing(app: &tauri::AppHandle, payload: NowPlaying) -> Result<(), String> {
+    let app = app.clone();
     let playing = payload.playing.unwrap_or(true) && !payload.stopped.unwrap_or(false);
     let value = serde_json::to_value(&payload).unwrap_or(serde_json::Value::Null);
 
@@ -423,6 +452,11 @@ pub fn now_playing(app: tauri::AppHandle, payload: NowPlaying) -> Result<(), Str
 /// play/pause/seek and periodic position ticks.
 #[tauri::command]
 pub fn set_playback_state(app: tauri::AppHandle, payload: PlaybackState) -> Result<(), String> {
+    apply_playback_state(&app, payload)
+}
+
+fn apply_playback_state(app: &tauri::AppHandle, payload: PlaybackState) -> Result<(), String> {
+    let app = app.clone();
     let playing = payload.playing.unwrap_or(true) && !payload.stopped.unwrap_or(false);
     let value = serde_json::to_value(&payload).unwrap_or(serde_json::Value::Null);
 
