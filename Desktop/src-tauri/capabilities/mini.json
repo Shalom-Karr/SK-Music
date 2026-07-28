@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "mini",
+  "description": "The mini player is a small, always-on-top, borderless window that loads a LOCAL page (mini.html) — not the remote origin — so it needs no remote.urls grant. It drives playback through the app's own mini_* commands (allowed by default for any capable window) and needs a few core window/event grants: resize (collapse to a tiny box), start-dragging the frameless surface, show/hide/focus, and event listen/emit for the sk-np / sk-state pushes from media.rs.",
+  "windows": ["mini"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "core:window:allow-set-size",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
+    "core:window:allow-start-dragging"
+  ]
+}

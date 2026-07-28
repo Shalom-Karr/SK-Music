@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SK Music — Mini</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0e0a0b; --surface: #17100f; --surface-2: #1d1513;
+    --text: #f6ece8; --muted: #b09a93;
+    --primary: #ff5d6b; --primary-2: #ff8189;
+    --line: rgba(255,240,235,.10); --line-2: rgba(255,240,235,.06);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); }
+  body {
+    color: var(--text); overflow: hidden;
+    font: 13px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-user-select: none; user-select: none; cursor: default;
+  }
+
+  .mini {
+    position: relative; height: 100vh; width: 100vw;
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 12px 12px 12px;
+    background: linear-gradient(160deg, var(--surface) 0%, var(--bg) 78%);
+    border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 14px 40px -14px rgba(0,0,0,.7);
+    overflow: hidden;
+  }
+
+  /* Album art ------------------------------------------------------------ */
+  .art {
+    position: relative; flex: 0 0 auto;
+    width: 68px; height: 68px; border-radius: 9px;
+    background: var(--surface-2) center/cover no-repeat;
+    box-shadow: inset 0 0 0 1px var(--line-2);
+    display: grid; place-items: center; overflow: hidden;
+  }
+  .art-glyph {
+    font-size: 30px; color: var(--muted); opacity: .8;
+    line-height: 1; pointer-events: none;
+  }
+  .art.has-art .art-glyph { display: none; }
+
+  /* Collapsed-only art overlay (hidden in expanded) */
+  .ov { position: absolute; inset: 0; display: none; }
+  .ov-play, .ov-expand {
+    position: absolute; border: 0; color: #fff; cursor: pointer;
+    display: grid; place-items: center; padding: 0;
+    background: rgba(0,0,0,.45); backdrop-filter: blur(2px);
+    opacity: 0; transition: opacity .14s;
+  }
+  .ov-play {
+    left: 50%; top: 50%; transform: translate(-50%,-50%);
+    width: 38px; height: 38px; border-radius: 50%; font-size: 16px;
+    background: var(--primary);
+  }
+  .ov-play:hover { background: var(--primary-2); }
+  .ov-expand {
+    right: 4px; top: 4px; width: 20px; height: 20px; border-radius: 6px; font-size: 11px;
+  }
+  .ov-expand:hover { background: rgba(0,0,0,.7); }
+  .mini.collapsed .art:hover .ov-play,
+  .mini.collapsed .art:hover .ov-expand { opacity: 1; }
+
+  /* Track info ----------------------------------------------------------- */
+  .info { flex: 1 1 auto; min-width: 0; padding-right: 4px; }
+  .title { font-weight: 600; font-size: 13.5px; color: var(--text);
+           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .artist { margin-top: 2px; font-size: 12px; color: var(--muted);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Transport ------------------------------------------------------------ */
+  .transport { flex: 0 0 auto; display: flex; align-items: center; gap: 4px; }
+  .tbtn {
+    border: 0; background: transparent; color: var(--text); cursor: pointer;
+    width: 30px; height: 30px; border-radius: 8px; font-size: 15px;
+    display: grid; place-items: center; transition: background .12s, color .12s;
+  }
+  .tbtn:hover { background: rgba(255,240,235,.08); }
+  .tbtn:active { transform: translateY(1px); }
+  .pp {
+    border: 0; cursor: pointer; color: #fff; background: var(--primary);
+    width: 38px; height: 38px; border-radius: 50%; font-size: 16px;
+    display: grid; place-items: center; margin: 0 1px;
+    box-shadow: 0 4px 14px -4px var(--primary); transition: background .12s, transform .05s;
+  }
+  .pp:hover { background: var(--primary-2); }
+  .pp:active { transform: scale(.94); }
+
+  /* Micro row (top-right) ------------------------------------------------ */
+  .micro { position: absolute; top: 6px; right: 8px; display: flex; gap: 1px; }
+  .mbtn {
+    border: 0; background: transparent; color: var(--muted); cursor: pointer;
+    width: 20px; height: 18px; border-radius: 5px; font-size: 12px; line-height: 1;
+    display: grid; place-items: center; transition: color .12s, background .12s;
+  }
+  .mbtn:hover { color: var(--text); background: rgba(255,240,235,.08); }
+  .mbtn.liked { color: var(--primary); }
+  #like { font-size: 12px; }
+
+  /* Progress hairline ---------------------------------------------------- */
+  .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--line-2); }
+  .bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), var(--primary-2)); transition: width .12s linear; }
+
+  /* ---------------------------------------------------------------------- */
+  /* Collapsed (tiny box) state                                             */
+  .mini.collapsed { padding: 0; gap: 0; border-radius: 12px; }
+  .mini.collapsed .art { width: 100%; height: 100%; border-radius: 12px; }
+  .mini.collapsed .ov { display: block; }
+  .mini.collapsed .info,
+  .mini.collapsed .transport,
+  .mini.collapsed .micro,
+  .mini.collapsed .bar { display: none; }
+</style>
+</head>
+<body>
+  <div class="mini" id="mini" data-tauri-drag-region>
+    <div class="art" id="art" data-tauri-drag-region>
+      <div class="art-glyph" data-tauri-drag-region>♪</div>
+      <div class="ov">
+        <button class="ov-play" id="ovPlay" type="button" title="Play / Pause">▶</button>
+        <button class="ov-expand" id="ovExpand" type="button" title="Expand">▣</button>
+      </div>
+    </div>
+    <div class="info" data-tauri-drag-region>
+      <div class="title" id="title" data-tauri-drag-region>Not playing</div>
+      <div class="artist" id="artist" data-tauri-drag-region></div>
+    </div>
+    <div class="transport">
+      <button class="tbtn" id="prev" type="button" title="Previous">⏮</button>
+      <button class="pp" id="pp" type="button" title="Play / Pause">▶</button>
+      <button class="tbtn" id="next" type="button" title="Next">⏭</button>
+    </div>
+    <div class="micro">
+      <button class="mbtn" id="like" type="button" title="Like">♥</button>
+      <button class="mbtn" id="home" type="button" title="Open SK Music">⌂</button>
+      <button class="mbtn" id="collapse" type="button" title="Collapse">▢</button>
+      <button class="mbtn" id="close" type="button" title="Hide">×</button>
+    </div>
+    <div class="bar"><div class="bar-fill" id="fill"></div></div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+  var T = window.__TAURI__ || {};
+  var invoke = (T.core && T.core.invoke) ? T.core.invoke : function () { return Promise.resolve(); };
+  var listen = (T.event && T.event.listen) ? T.event.listen : function () {};
+  var W = T.window || {};
+  var win = (typeof W.getCurrentWindow === "function") ? W.getCurrentWindow() : null;
+
+  var el = function (id) { return document.getElementById(id); };
+  var mini = el("mini"), art = el("art"), glyph = art.querySelector(".art-glyph");
+  var titleEl = el("title"), artistEl = el("artist"), fill = el("fill");
+  var pp = el("pp"), ovPlay = el("ovPlay");
+
+  var PLAY = "▶", PAUSE = "⏸";
+  var EXPANDED = [340, 92], COLLAPSED = [92, 92];
+
+  // ---- playback / progress state --------------------------------------
+  var base = { pos: 0, t: now(), dur: 0, playing: false };
+  var lastArt = null;
+
+  function now() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
+  function currentPos() { return base.pos + (base.playing ? (now() - base.t) : 0); }
+
+  function setPlaying(playing) {
+    base.pos = currentPos(); base.t = now(); base.playing = !!playing;
+    var g = playing ? PAUSE : PLAY;
+    pp.textContent = g; ovPlay.textContent = g;
+  }
+  function setPosition(posMs, durMs) {
+    if (typeof durMs === "number" && durMs > 0) base.dur = durMs;
+    if (typeof posMs === "number") { base.pos = posMs; base.t = now(); }
+  }
+
+  function tick() {
+    var pct = base.dur > 0 ? Math.max(0, Math.min(1, currentPos() / base.dur)) * 100 : 0;
+    fill.style.width = pct.toFixed(2) + "%";
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  // ---- artwork ---------------------------------------------------------
+  function setArt(url) {
+    url = (typeof url === "string" && url.trim()) ? url.trim() : null;
+    if (url === lastArt) return;
+    lastArt = url;
+    if (!url) { art.classList.remove("has-art"); art.style.backgroundImage = ""; return; }
+    var probe = new Image();
+    probe.onload = function () {
+      if (lastArt !== url) return;
+      art.style.backgroundImage = 'url("' + url.replace(/"/g, "%22") + '")';
+      art.classList.add("has-art");
+    };
+    probe.onerror = function () {
+      if (lastArt !== url) return;
+      art.classList.remove("has-art"); art.style.backgroundImage = "";
+    };
+    probe.src = url;
+  }
+
+  // ---- render a now-playing payload -----------------------------------
+  function paintNP(p) {
+    if (!p || typeof p !== "object") return;
+    var title = (p.title || "").trim();
+    var artist = (p.artist || "").trim();
+    titleEl.textContent = title || "Not playing";
+    artistEl.textContent = artist;
+    setArt(p.artUrl);
+    setPosition(typeof p.positionMs === "number" ? p.positionMs : 0,
+                typeof p.durationMs === "number" ? p.durationMs : base.dur);
+    if ("playing" in p) setPlaying(p.playing !== false);
+  }
+  function paintState(s) {
+    if (!s || typeof s !== "object") return;
+    if (typeof s.positionMs === "number") setPosition(s.positionMs);
+    setPlaying(s.playing !== false && s.stopped !== true);
+  }
+
+  // ---- collapse / expand ----------------------------------------------
+  function resize(dims) {
+    if (win && W.LogicalSize) { try { win.setSize(new W.LogicalSize(dims[0], dims[1])); } catch (e) {} }
+  }
+  function setCollapsed(on, persist) {
+    mini.classList.toggle("collapsed", on);
+    resize(on ? COLLAPSED : EXPANDED);
+    if (persist !== false) { try { localStorage.setItem("sk-mini-collapsed", on ? "1" : "0"); } catch (e) {} }
+  }
+
+  // ---- wiring ----------------------------------------------------------
+  var mc = function (action) { return invoke("mini_control", { action: action }); };
+  el("prev").onclick = function () { mc("previous"); };
+  el("next").onclick = function () { mc("next"); };
+  pp.onclick = function () { mc("toggle"); };
+  ovPlay.onclick = function (e) { e.stopPropagation(); mc("toggle"); };
+  el("like").onclick = function () {
+    mc("like");
+    var b = el("like"); b.classList.add("liked");
+    setTimeout(function () { b.classList.remove("liked"); }, 900);
+  };
+  el("home").onclick = function () { invoke("mini_open_main"); };
+  el("close").onclick = function () { invoke("mini_hide"); };
+  el("collapse").onclick = function () { setCollapsed(true); };
+  el("ovExpand").onclick = function (e) { e.stopPropagation(); setCollapsed(false); };
+
+  // Re-apply persisted collapsed state on load.
+  try { if (localStorage.getItem("sk-mini-collapsed") === "1") setCollapsed(true, false); } catch (e) {}
+
+  // Live pushes from media.rs, then a one-shot pull so we paint immediately.
+  listen("sk-np", function (ev) { paintNP(ev.payload); });
+  listen("sk-state", function (ev) { paintState(ev.payload); });
+  invoke("mini_sync").then(function (snap) { paintNP(snap); }).catch(function () {});
+})();
+</script>
+</body>
+</html>
