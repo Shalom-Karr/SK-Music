@@ -2143,6 +2143,7 @@ function playIndex(i, dir) {
   if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: t.title || "", artist: t.artist || "", album: "SK Music", artwork: [{ src: art, sizes: "480x360", type: "image/jpeg" }] });
   skNowPlaying(t, art); // desktop app: drive the native OS media session (Windows SMTC / Linux MPRIS) with real SK Music metadata
   PB.load(t.videoId); setPlayIcons();
+  radioPrefetch(); // on the queue's last track: pull the next radio page now so the advance is gapless
 }
 // Move the "now playing" indicator (EQ bars + highlight) to the current song across any visible list,
 // without re-rendering — the row keeps its rank number when it stops playing.
@@ -2195,23 +2196,40 @@ async function radioFetch(p) { // {kind, seed} = fresh station · {continuation}
     .filter((t) => t.videoId && !have.has(t.videoId));
   return { tracks, continuation: d.continuation || null };
 }
-let _radioBusy = false;
-async function radioContinue() { // queue ran out → keep playing similar songs, seeded by the last track
-  const last = state.queue[state.queue.length - 1];
-  if (!radioAutoplay() || !last || acapellaMode() === "only") { PB.pause(); return; } // Acapella-only: the station can't honor the set — stop cleanly
-  if (_radioBusy) return;
+let _radioBusy = false, _radioPlayOnLand = false;
+// Fetch the next radio page and append it. playNow (or _radioPlayOnLand set while in flight) also
+// starts the first appended track. A queue swap during the fetch (new playFrom/startRadio) drops
+// the result — state.queue is compared by reference, and every append replaces the array.
+async function radioTopUp(playNow) {
+  const q = state.queue, last = q[q.length - 1];
+  if (!last) { if (playNow) PB.pause(); return; }
   _radioBusy = true;
-  showToast("Finding similar songs…", 1600);
   try {
     const r = (state.radio && state.radio.continuation)
       ? await radioFetch({ continuation: state.radio.continuation })
       : await radioFetch({ kind: "song", seed: last.videoId });
-    if (!r || !r.tracks.length) { PB.pause(); if (r) showToast("No more similar songs found.", 2200); return; }
+    if (state.queue !== q) return; // a different queue started while we were fetching
+    const play = playNow || _radioPlayOnLand;
+    if (!r || !r.tracks.length) { if (play) { PB.pause(); if (r) showToast("No more similar songs found.", 2200); } return; }
     state.radio = { continuation: r.continuation };
     const at = state.queue.length;
     state.queue = state.queue.concat(r.tracks);
-    playIndex(at, 1);
-  } finally { _radioBusy = false; }
+    if (play) playIndex(at, 1);
+    else if (state.nowOpen) paintQueue(); // silently extend the visible Up Next
+  } finally { _radioBusy = false; _radioPlayOnLand = false; }
+}
+// Prefetch: called every time a track starts (playIndex). When the LAST queued track begins, pull
+// the next radio page in the background so end-of-queue advance is instant — no fetch gap.
+function radioPrefetch() {
+  if (!radioAutoplay() || _radioBusy || acapellaMode() === "only") return;
+  if (state.qi < state.queue.length - 1) return; // only once we're on the last track
+  radioTopUp(false);
+}
+async function radioContinue() { // queue ran out with nothing appended — the prefetch fallback path
+  if (!radioAutoplay() || !state.queue.length || acapellaMode() === "only") { PB.pause(); return; } // Acapella-only: the station can't honor the set — stop cleanly
+  if (_radioBusy) { _radioPlayOnLand = true; showToast("Finding similar songs…", 1600); return; } // prefetch in flight → play as soon as it lands
+  showToast("Finding similar songs…", 1600);
+  radioTopUp(true);
 }
 async function startRadio(kind, seed) { // detail-page Radio button → a whole artist/album station
   showToast("Starting radio…", 1400);

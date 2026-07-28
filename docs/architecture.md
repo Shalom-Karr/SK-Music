@@ -213,11 +213,15 @@ IFrame Player API**: given a `videoId`, it drives the embedded player for play/p
 server-side stream-resolution pipeline — there is no `/stream` route here, which is part of why the whole
 app can be static.
 
-**Zemer Radio continuation:** when the queue's last track ends (and Autoplay is on — `zw_radioAutoplay`,
-toggle in the Up Next header), `radioContinue()` fetches the Worker's `/radio` proxy — `kind=song` seeded
-by the last track for a fresh station, or the held `continuation` token to page the current one — appends
-the gated/deduped tracks, and keeps playing. `startRadio()` (the artist/album detail **Radio** button)
-replaces the queue with a fresh station. A new `playFrom`/`shufflePlay` queue clears the station state.
+**Zemer Radio continuation:** the moment the queue's **last track starts** (and Autoplay is on —
+`zw_radioAutoplay`, toggle in the Up Next header), `radioPrefetch()` pulls the next page from the
+Worker's `/radio` proxy — `kind=song` seeded by the last track for a fresh station, or the held
+`continuation` token to page the current one — and silently appends the gated/deduped tracks, so the
+end-of-queue advance is instant. `radioContinue()` is the fallback when the prefetch hasn't landed
+(fetches and plays, or flags an in-flight prefetch to play on arrival). A queue swap during a fetch
+drops the result (`state.queue` compared by reference). `startRadio()` (the artist/album detail
+**Radio** button) replaces the queue with a fresh station; a new `playFrom`/`shufflePlay` queue
+clears the station state.
 
 **Thumbnail sizing:** `sizedArt(src, px)` rewrites `yt3/lh3` googleusercontent/ggpht URLs to a square
 center-crop (`=s320-c…`, `=s640` for detail heroes, `=s128` for search rows) — ~25 KB instead of the
