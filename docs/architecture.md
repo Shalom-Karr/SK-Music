@@ -183,6 +183,7 @@ a KV namespace (`PAGES`), a cron (`15 8,20 * * *`), and observability. Routes, i
 | `GET /playlist?id=` | Live-fetches a YouTube community playlist via the `youtubei` `browse` endpoint, recursively collects every track row + continuation token (robust to layout changes), edge-caches non-empty results 30 min. The browser then filters to the whitelisted corpus. |
 | `GET /zp-live?id=` | Serves a curated **trending** playlist from KV (`PAGES`), refreshed by the cron; falls back to a live edge-cached fetch from `https://search.zemer.io/zemer-playlists`. Same-origin so it works behind content filters. |
 | `GET /zemer-home-rows` | Proxies the upstream `/home-rows` (Top Albums / Videos / Artists, ranked by the Zemer app fleet's 30-day device reach, regenerated upstream twice daily) with the same KV → edge → live priority as `/zp-live`. Feeds the "Zemer Trending Songs/Albums/Artists" sections at the bottom of Home and For You. |
+| `GET /radio` | Live pass-through to the upstream Zemer Radio (`search.zemer.io/radio` — corpus-native "what plays next" ranked by real co-listening; see zemer-search `docs/radio.md`). Query string forwarded verbatim (`kind=song\|artist\|album\|shuffle&seed=&allowFemale=&kidZone=&limit=` or `continuation=<opaque token>`), returns `{tracks, continuation}`. Deliberately **not** KV/edge cached — stations are per-session (`rngSeed` inside the token). Powers the client's queue-end **Autoplay** continuation (`kind=song`, seeded by the last track; toggle in the Now Playing "Up Next" header, `zw_radioAutoplay`, default on) and the **Radio** button on artist/album detail pages. The server applies `allowFemale`/`kidZone`/blocked-ids in-engine; the client re-gates for its local-only filters (Chasidish / DJ / Israeli / Acapella) and dedupes against the queue. Acapella-**only** mode suppresses radio entirely (a station can't honor the set). |
 | `GET /trending?days=` | Blends two play populations into one id-resolved ranking: our web plays (Supabase RPCs `top_songs` + `top_artists`, anon key) and the Zemer Android app's listening stats (KV `ext-trending-v1`, written by the cron from `tracking.zemer.io/stats/public`). App songs resolve in three tiers: catalog videoId (`og.json`), else a title+artist **remap** onto our id (the app plays channel uploads; we index the YouTube Music release of the same song), else kept as-is with `offCatalog: true` — every id in those stats was played inside the whitelist-locked Zemer app, so it's kosher by construction and the player takes any videoId. Artist names resolve to channel ids via `artists.json`. Score = web-play share + app unique-**device** share, each normalized to its own top item. Songs carry `videoId`+`artistId`, artists carry `id`; legacy keys (`title`/`artist`) are kept for cached clients. Edge-caches 30 min. Feeds the home "Trending" rails. |
 | `POST /a` | **Analytics beacon.** Accepts a batched array of events, enriches each with server-derived IP/country/city/region + parsed browser/OS/device, and bulk-inserts one row per event into the Supabase analytics table in a single POST (`ctx.waitUntil`, never blocks the beacon). Returns 204. See [backend.md](backend.md). |
 | `GET /charts` | Public trending charts page (`assets/charts.html`, asset-served — no Worker). Tables of trending songs + artists with per-source play counts (SK Music web vs Zemer app) from the `/trending` JSON. Browser navigations to `/trending` land here: SPA-mode navigations short-circuit to the shell before the Worker can content-negotiate, so the SPA router `location.replace`s `/trending` → `/charts`; non-navigation `text/html` requests (crawlers) get the page straight from the Worker. `run_worker_first` was evaluated and rejected — see the note in `wrangler.jsonc`. |
@@ -211,6 +212,18 @@ IFrame Player API**: given a `videoId`, it drives the embedded player for play/p
 `mediaSession` for lock-screen controls. This is a deliberate simplification over the upstream project's
 server-side stream-resolution pipeline — there is no `/stream` route here, which is part of why the whole
 app can be static.
+
+**Zemer Radio continuation:** when the queue's last track ends (and Autoplay is on — `zw_radioAutoplay`,
+toggle in the Up Next header), `radioContinue()` fetches the Worker's `/radio` proxy — `kind=song` seeded
+by the last track for a fresh station, or the held `continuation` token to page the current one — appends
+the gated/deduped tracks, and keeps playing. `startRadio()` (the artist/album detail **Radio** button)
+replaces the queue with a fresh station. A new `playFrom`/`shufflePlay` queue clears the station state.
+
+**Thumbnail sizing:** `sizedArt(src, px)` rewrites `yt3/lh3` googleusercontent/ggpht URLs to a square
+center-crop (`=s320-c…`, `=s640` for detail heroes, `=s128` for search rows) — ~25 KB instead of the
+corpus' raw `=w2880` originals (~290 KB) — applied in `artHTML()` so every card/cell/hero gets it.
+The Artists tab also has an A–Z fast-scroll strip (`paintAzStrip`/`azJump`) that fills the windowed
+grid up to the target letter and jumps; letters reflect the currently filtered view.
 
 ---
 
