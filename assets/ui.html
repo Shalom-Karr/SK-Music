@@ -2176,13 +2176,15 @@ const PB = {
 // Verify playback engaged shortly after every load and nudge it; an intentional pause/stop
 // clears the timer so it can never un-pause the user.
 let _loadNudge = 0;
-function nudgePlay() {
+function nudgePlay(tries) {
   clearTimeout(_loadNudge);
   _loadNudge = setTimeout(() => {
     if (PB.mode !== "yt" || !PB.ready) return;
     const s = (() => { try { return PB.yt.getPlayerState(); } catch { return 1; } })();
-    if (s !== 1 && s !== 3) { try { PB.yt.playVideo(); } catch {} } // not playing, not buffering → nudge
-  }, 1800);
+    if (s === 1) return;                 // playing → done
+    if (s !== 3) { try { PB.yt.playVideo(); } catch {} } // not buffering → a load that landed cued/paused; nudge it
+    if ((tries || 0) < 3) nudgePlay((tries || 0) + 1); // re-check a few times (first nudge at 600ms, not 1800)
+  }, 600);
 }
 const RATES = [1, 1.25, 1.5, 2, 0.75];
 function cycleRate() { PB.setRate(RATES[(RATES.indexOf(PB.rate) + 1) % RATES.length]); updateRateUI(); }
@@ -2336,6 +2338,11 @@ function playIndex(i, dir) {
     if (j < 0 || j >= state.queue.length) { showToast(am === "only" ? "No more Acapella songs in this queue." : "No more non-Acapella songs in this queue.", 2600); return; }
     i = j;
   }
+  // Fast path: the standby is ALREADY primed+buffered for exactly this track (the common case when
+  // you hit Next — it's the track gapless pre-loaded). Hand off to it instead of cold-loading a
+  // fresh copy on the active player, so a manual skip is instant instead of a buffer wait.
+  if (PB.mode === "yt" && !state.repeat && gapless && gapless.phase === "primed"
+      && cued.idx === i && state.queue[i] && state.queue[i].videoId === cued.id) { fireSwap(); return; }
   state.qi = i; const t = state.queue[i];
   cancelSwap(); // a manual jump always wins over an in-flight gapless handoff
   trackStarted(t);
