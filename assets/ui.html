@@ -603,6 +603,18 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .qrow.dragging{opacity:.4}
 .qrow.dragover{box-shadow:inset 0 2px 0 var(--primary)}
 .qempty{padding:20px 6px;color:var(--faint);font-size:13px;text-align:center}
+/* search history / saved searches */
+.s-hist{margin:4px 2px 18px}
+.s-histhd{display:flex;align-items:center;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--faint);margin:0 2px 9px}
+.s-clear{margin-left:auto;border:0;background:transparent;color:var(--faint);font:inherit;font-size:11px;cursor:pointer;text-transform:none;letter-spacing:0}
+.s-clear:hover{color:var(--primary)}
+.schips-row{display:flex;flex-wrap:wrap;gap:8px}
+.schip{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border-radius:20px;border:1px solid var(--line-2);background:var(--surface-2);
+  color:var(--text);font:inherit;font-size:13px;cursor:pointer;transition:border-color .12s,background .12s}
+.schip:hover{border-color:var(--faint);background:var(--surface-3)}
+.schip-star{color:var(--faint);font-size:13px;line-height:1}
+.schip-star.on{color:var(--gold)}
+.schip-star:hover{color:var(--gold)}
 /* hidden YouTube IFrame audio engine — rendered off-screen so audio keeps playing */
 #ytwrap{position:fixed;left:-9999px;bottom:0;width:320px;height:180px;opacity:0;pointer-events:none;z-index:-1}
 .iconbtn.rateBtn{width:auto;min-width:40px;height:34px;padding:0 11px;border-radius:12px;font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums}
@@ -1996,6 +2008,8 @@ async function doSearch() {
   if (d === null) return;
   sData = d; el("smeta").textContent = `${num(d.count)} result${d.count === 1 ? "" : "s"} · ${(performance.now() - t0).toFixed(0)} ms`; renderResults();
   track("search", { q, count: d.count });
+  if (d.count) recordSearch(q); // remember searches that found something, for the recent/saved list
+
 }
 // Search-result click with its 0-based rank within the category (search-relevance signal).
 function sClick(kind, rank, id) { const q = (el("q") && el("q").value || "").trim(); if (q) track("click", { q, kind, rank, id }); }
@@ -2016,7 +2030,28 @@ function renderResults() {
     el("sresults").innerHTML = h || emptyState("No results", acapella() ? "No Acapella songs match — turn off Acapella mode to search everything." : "Try another spelling — search is Hebrew-aware and fuzzy.");
   } else el("sresults").innerHTML = (acOnly && !acOnly.includes(sSel)) ? emptyHint("Acapella mode shows songs &amp; artists only.") : (render(sSel) || emptyHint("No " + sSel + " match."));
 }
-const searchLanding = () => `<div class="empty"><div class="em-ic">${ICON.search}</div><h3>Search the whole catalog</h3><div>Hebrew-aware, typo-tolerant. Try “kevakarat”, an artist, or an album.</div></div>`;
+// --- search history & saved searches ---
+const readSearchHist = () => { try { return JSON.parse(localStorage.getItem("zw_searches") || "[]"); } catch { return []; } };
+const readSavedSearch = () => { try { return JSON.parse(localStorage.getItem("zw_savedsearch") || "[]"); } catch { return []; } };
+function recordSearch(q) { q = (q || "").trim(); if (q.length < 3) return; try { const h = readSearchHist().filter((x) => x.toLowerCase() !== q.toLowerCase()); h.unshift(q); localStorage.setItem("zw_searches", JSON.stringify(h.slice(0, 15))); } catch {} }
+function clearSearchHist() { try { localStorage.removeItem("zw_searches"); } catch {} if (state.tab === "search" && !el("q").value.trim()) el("sresults").innerHTML = searchLanding(); }
+function runSearch(q) { const b = el("q"); if (!b) return; b.value = q; b.focus(); doSearch(); }
+function toggleSaveSearch(q, e) {
+  e && e.stopPropagation(); q = (q || "").trim(); if (!q) return;
+  let s = readSavedSearch(); const i = s.findIndex((x) => x.toLowerCase() === q.toLowerCase());
+  if (i >= 0) { s.splice(i, 1); showToast("Removed saved search.", 1400); } else { s.unshift(q); s = s.slice(0, 30); showToast("Saved search — pinned to the search page.", 2000); }
+  try { localStorage.setItem("zw_savedsearch", JSON.stringify(s)); } catch {}
+  if (state.tab === "search" && !el("q").value.trim()) el("sresults").innerHTML = searchLanding();
+}
+function searchLanding() {
+  const saved = readSavedSearch(), recent = readSearchHist();
+  const isSaved = (q) => saved.some((x) => x.toLowerCase() === q.toLowerCase());
+  const chip = (q) => `<button class="schip" onclick="runSearch('${esc(q).replace(/'/g, "\\'")}')"><span>${esc(q)}</span><span class="schip-star ${isSaved(q) ? "on" : ""}" title="${isSaved(q) ? "Unsave" : "Save"}" onclick="toggleSaveSearch('${esc(q).replace(/'/g, "\\'")}',event)">${isSaved(q) ? "★" : "☆"}</span></button>`;
+  let h = "";
+  if (saved.length) h += `<div class="s-hist"><div class="s-histhd">Saved searches</div><div class="schips-row">${saved.map(chip).join("")}</div></div>`;
+  if (recent.length) h += `<div class="s-hist"><div class="s-histhd">Recent<button class="s-clear" onclick="clearSearchHist()">Clear</button></div><div class="schips-row">${recent.map(chip).join("")}</div></div>`;
+  return h + `<div class="empty"><div class="em-ic">${ICON.search}</div><h3>Search the whole catalog</h3><div>Hebrew-aware, typo-tolerant. Try “kevakarat”, an artist, or an album.</div></div>`;
+}
 const emptyHint = (t) => `<div class="empty" style="padding:40px">${t}</div>`;
 
 /* ============================ LIBRARY ============================ */
