@@ -280,6 +280,7 @@ body:has(#nowbar.on) .built-by-pill .bb-who{overflow:hidden;text-overflow:ellips
   display:inline-flex;align-items:center;justify-content:center;flex:none;transition:color .15s,background .15s}
 .iconbtn:hover{color:var(--text);background:var(--surface-3)}
 .iconbtn svg{fill:currentColor}
+.iconbtn.shf.on,#npSleep.on,#npXfade.on{color:var(--primary)}
 .filterbtn{position:relative}
 .filterbtn.active{color:var(--primary)}
 .filterbtn .dot{position:absolute;top:8px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--primary)}
@@ -962,6 +963,7 @@ fill="url(#royal)" stroke="none">
   <div class="np-head">
     <button class="iconbtn" onclick="closeNow()" title="Collapse" aria-label="Collapse"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg></button>
     <div class="lbl">Now Playing</div>
+    <button class="iconbtn" id="npXfade" onclick="openCrossfadeMenu(event)" title="Crossfade" aria-label="Crossfade"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 6h6l6 12h6M3 18h6l6-12h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <button class="iconbtn" id="npSleep" onclick="openSleepMenu(event)" title="Sleep timer" aria-label="Sleep timer"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-8.54-8.54C11.92 2.04 11.46 2 11 2m1 2.07V4z"/></svg></button>
     <button class="iconbtn rateBtn" onclick="cycleRate()" title="Playback speed" aria-label="Playback speed">1×</button>
   </div>
@@ -1118,7 +1120,7 @@ const TABS = [
 const TITLES = { ...Object.fromEntries(TABS.map(([k, l]) => [k, l])), redirector: "Send YouTube here", download: "Desktop app" };
 
 /* ============================ state + filters ============================ */
-const state = { tab: "home", loaded: {}, detailOpen: false, nowOpen: false, queue: [], qi: -1, repeat: false, shuffle: LS.get("zw_shuffle") === "1", sleep: null };
+const state = { tab: "home", loaded: {}, detailOpen: false, nowOpen: false, queue: [], qi: -1, repeat: false, shuffle: LS.get("zw_shuffle") === "1", sleep: null, crossfade: Math.max(0, Math.min(12, +LS.get("zw_crossfade") || 0)) };
 const LS = { get: (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
 const noFemale = () => LS.get("zw_noFemale", "1") === "1"; // ON by default (opt-out); others default off
 const chasidMode = () => LS.get("zw_chasid", ""); // "" = off · "only" = Chasidish only · "hide" = hide Chasidish
@@ -2407,7 +2409,7 @@ const PB = {
   mode: "yt", yt: null, ready: false, pending: null, nextStart: 0, vol: 1, muted: false, rate: 1,
   load(id, startSec) { startSec = startSec || this.nextStart || 0; this.nextStart = 0; if (this.mode === "yt") { const a = startSec ? { videoId: id, startSeconds: startSec } : id; if (this.ready) { this.yt.loadVideoById(a); nudgePlay(); } else this.pending = a; } else { audio.src = "/stream?v=" + encodeURIComponent(id); if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); } },
   play() { this.mode === "yt" ? this.ready && this.yt.playVideo() : audio.play().catch(() => {}); cueNext(); }, // re-arm the gapless cue (cleared if a pause/seek cancelled a handoff)
-  pause() { clearTimeout(_loadNudge); if (gapless && gapless.phase === "start") cancelSwap(); this.mode === "yt" ? this.ready && this.yt.pauseVideo() : audio.pause(); }, // a primed (inert) standby survives a pause; only a firing one is cancelled
+  pause() { clearTimeout(_loadNudge); if (xf) finishCrossfade(); if (gapless && gapless.phase === "start") cancelSwap(); this.mode === "yt" ? this.ready && this.yt.pauseVideo() : audio.pause(); }, // a primed (inert) standby survives a pause; a firing one is cancelled; a fade is finished (snap to the new track) then paused
   stop() { clearTimeout(_loadNudge); cancelSwap(); this.pending = null; if (this.mode === "yt") { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
   paused() { return this.mode === "yt" ? (!this.ready || this.yt.getPlayerState() !== 1) : audio.paused; }, // methods exist only after onReady
   seek(sec) { if (gapless && gapless.phase === "start") cancelSwap(); this.mode === "yt" ? this.ready && this.yt.seekTo(sec, true) : (audio.currentTime = sec); cueNext(); },
@@ -2468,6 +2470,7 @@ function cueNext() {
 }
 function cancelSwap() {
   clearTimeout(_fireWatch);
+  abortCrossfade(); // a manual transport action always wins over an in-flight fade
   if (gapless) { try { ytStandby.stopVideo(); ytStandby.unMute(); } catch {} gapless = null; }
   cued = { id: null, idx: -1 };
 }
@@ -2516,6 +2519,61 @@ function completeSwap() {
   // Mirror onPlayback(1) for the new active player — its PLAYING event was consumed as the handoff signal.
   streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); setPlayIcons();
   radioPrefetch(); cueNext();
+}
+/* ---- Crossfade (optional; extends the gapless engine) --------------------------------------------
+   OFF by default (state.crossfade === 0): the block above runs byte-for-byte unchanged. When on, the
+   already-primed standby is started `secs` before the active track ends and the two players' volumes
+   are ramped in opposite directions over that window (equal-power-ish linear), then roles swap. While
+   a fade is in flight `xf` is truthy — the gapless machinery in tick() is suspended (see the !xf guard)
+   and onStandbyState is inert (gapless is null), so nothing re-cues the standby mid-fade. Any manual
+   transport (next/prev/new load/seek) aborts the fade; pause finishes it, then pauses the new track. */
+let xf = null, _xfTimer = 0; // xf = { idx, oldP, newP, start, secs } during a fade
+function startCrossfade() {
+  if (xf || !gapless || gapless.phase !== "primed" || PB.muted) return; // muted → nothing to fade; let fireSwap handle it
+  const idx = gapless.idx, oldP = PB.yt, newP = ytStandby, secs = state.crossfade;
+  gapless = null; cued = { id: null, idx: -1 }; // release the gapless state; the fade owns the transition now
+  try { newP.unMute(); newP.setVolume(0); if (PB.rate !== 1) newP.setPlaybackRate(PB.rate); newP.playVideo(); }
+  catch { cueNext(); return; } // couldn't start the standby → re-cue; the normal ended-path advances
+  xf = { idx, oldP, newP, start: performance.now(), secs };
+  clearInterval(_xfTimer); _xfTimer = setInterval(stepCrossfade, 60);
+}
+function stepCrossfade() {
+  if (!xf) return;
+  let ended = false; try { ended = xf.oldP.getPlayerState() === 0; } catch {}
+  const p = Math.min(1, (performance.now() - xf.start) / (xf.secs * 1000)), v = Math.round(PB.vol * 100);
+  try { xf.newP.setVolume(Math.round(v * p)); } catch {}
+  try { xf.oldP.setVolume(Math.round(v * (1 - p))); } catch {}
+  if (p >= 1 || ended) finishCrossfade();
+}
+function finishCrossfade() { // fade complete → the new player becomes active (mirrors completeSwap, but stops old only now)
+  if (!xf) return;
+  const { idx, oldP, newP } = xf; clearInterval(_xfTimer); _xfTimer = 0; xf = null;
+  try { oldP.stopVideo(); } catch {}
+  try { PB.muted ? newP.mute() : newP.setVolume(Math.round(PB.vol * 100)); } catch {}
+  PB.yt = newP; ytStandby = oldP;
+  if (idx < 0 || idx >= state.queue.length) return;
+  state.qi = idx; trackStarted(state.queue[idx]);
+  streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); setPlayIcons();
+  radioPrefetch(); cueNext();
+}
+function abortCrossfade() { // manual transport interrupted the fade — drop the fading-in standby, restore the active player
+  if (!xf) return;
+  clearInterval(_xfTimer); _xfTimer = 0;
+  const newP = xf.newP; xf = null;
+  try { newP.stopVideo(); newP.unMute(); } catch {}
+  try { if (!PB.muted) PB.yt.setVolume(Math.round(PB.vol * 100)); } catch {}
+}
+function paintCrossfadeUI() { const b = el("npXfade"); if (b) b.classList.toggle("on", state.crossfade > 0); }
+function setCrossfade(secs) {
+  state.crossfade = Math.max(0, Math.min(12, secs | 0)); LS.set("zw_crossfade", String(state.crossfade));
+  paintCrossfadeUI(); closeMenus();
+  showToast(state.crossfade ? `Crossfade: ${state.crossfade}s between songs.` : "Crossfade off.", 2000);
+}
+function openCrossfadeMenu(e) {
+  e && e.stopPropagation();
+  const cur = state.crossfade;
+  const opt = (v, label) => `<button role="menuitem" class="mi ${cur === v ? "on" : ""}" onclick="setCrossfade(${v})">${label}${cur === v ? " ✓" : ""}</button>`;
+  popMenu(e.currentTarget, `<div class="mihead">Crossfade</div>${opt(0, "Off")}${opt(3, "3 seconds")}${opt(6, "6 seconds")}${opt(9, "9 seconds")}${opt(12, "12 seconds")}`);
 }
 window.onYouTubeIframeAPIReady = function () {
   // Two identical hidden players: the ACTIVE one (PB.yt) plays; the STANDBY pre-cues the next queue
@@ -2760,7 +2818,7 @@ function paintLyricLine(c) {
   rows.forEach((r, i) => r.classList.toggle("cur", i === idx));
   if (idx >= 0 && rows[idx]) rows[idx].scrollIntoView({ block: "center", behavior: "smooth" });
 }
-function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); const au = el("npAuto"); if (au) au.checked = radioAutoplay(); paintShuffleUI(); paintSleepUI(); paintQueue(); if (lyricsOpen()) loadLyrics(); }
+function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); const au = el("npAuto"); if (au) au.checked = radioAutoplay(); paintShuffleUI(); paintSleepUI(); paintCrossfadeUI(); paintQueue(); if (lyricsOpen()) loadLyrics(); }
 function closeNow() { state.nowOpen = false; el("now").classList.remove("on"); }
 function saveRecent(t) { try { const h = readRecent().filter((x) => x.videoId !== t.videoId); h.unshift({ videoId: t.videoId, title: t.title, artist: t.artist, explicit: t.explicit, isVideo: t.isVideo }); localStorage.setItem("zw_recent", JSON.stringify(h.slice(0, 80))); } catch {} acctSyncRecents(); }
 function toggleMute() { PB.setMuted(!PB.muted); el("vol").value = PB.muted ? 0 : Math.round(PB.vol * 100); paintSeek(el("vol")); }
@@ -2895,14 +2953,17 @@ function tick() {
   el("nbDur").textContent = el("npDur").textContent = d ? fmt(d) : "0:00";
   // Gapless: WARM as soon as the standby's cue has loaded (polled here — see onStandbyState note),
   // then FIRE near the end (re-validating that the cue still matches what playIndex would choose).
-  if (PB.mode === "yt" && !state.repeat && !seeking && !PB.paused()) { // !paused: a pause in the final 0.5s must NOT let the fire window un-pause playback
+  if (PB.mode === "yt" && !state.repeat && !seeking && !PB.paused() && !xf) { // !paused: a pause in the final 0.5s must NOT let the fire window un-pause playback; !xf: a fade owns the transition
     if (!standbyReady && ytStandbyBoot) { // onReady is unreliable for a videoless player — probe it functional
       try { ytStandbyBoot.getPlayerState(); ytStandby = ytStandbyBoot; standbyReady = true; } catch {}
     }
     if (standbyReady && cued.idx < 0 && !gapless) cueNext(); // nothing cued (e.g. readiness arrived late) → cue now
     if (!gapless && cued.idx >= 0) beginWarm(); // no-op until the cued video is actually loaded
-    else if (gapless && gapless.phase === "primed" && d > 0 && c > 0 && d - c <= GAPLESS_FIRE
-        && cued.idx === nextPlayableIndex() && state.queue[cued.idx] && state.queue[cued.idx].videoId === cued.id) fireSwap();
+    else if (gapless && gapless.phase === "primed" && d > 0 && c > 0
+        && cued.idx === nextPlayableIndex() && state.queue[cued.idx] && state.queue[cued.idx].videoId === cued.id) {
+      if (state.crossfade > 0 && !PB.muted && d - c <= state.crossfade) startCrossfade(); // fade in over the tail
+      else if (d - c <= GAPLESS_FIRE) fireSwap();                                          // else the seamless gapless handoff
+    }
   }
   if (!PB.paused()) saveLastPlay(c); // resume point for the empty-queue Play button
   if (_ly.synced && lyricsOpen()) paintLyricLine(c);
@@ -2912,6 +2973,7 @@ function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing �
   if (code === 1) { streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); } // rate resets on each load
   else if (code === 2) playAccrue(); // paused → bank the elapsed listen time
   else if (code === 0) { // ended: a primed/starting standby takes over instantly; anything else falls back to the normal path
+    if (xf) return; // the active track finished mid-crossfade — the fade's own timer owns the advance
     stopTick();
     const cueValid = gapless && cued.idx === nextPlayableIndex() && state.queue[cued.idx] && state.queue[cued.idx].videoId === cued.id;
     if (gapless && gapless.phase === "primed" && cueValid) fireSwap(); // completes on the standby's PLAYING event
@@ -2952,7 +3014,7 @@ audio.addEventListener("error", () => { if (PB.mode === "html5") onPlaybackError
 ["nbSeek", "npSeek"].forEach((id) => {
   const s = el(id);
   s.addEventListener("input", () => { seeking = true; paintSeek(s); el("nbCur").textContent = el("npCur").textContent = fmt((s.value / 1000) * PB.dur()); });
-  s.addEventListener("change", () => { const d = PB.dur(); if (d) PB.seek((s.value / 1000) * d); seeking = false; });
+  s.addEventListener("change", () => { if (xf) abortCrossfade(); const d = PB.dur(); if (d) PB.seek((s.value / 1000) * d); seeking = false; });
 });
 el("vol").addEventListener("input", (e) => { PB.setVol(e.target.value / 100); paintSeek(e.target); });
 paintSeek(el("vol"));
