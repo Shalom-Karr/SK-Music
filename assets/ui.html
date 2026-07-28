@@ -602,6 +602,9 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
   cursor:pointer;font:inherit;font-size:13.5px;padding:9px 12px;border-radius:9px;transition:background .1s}
 #popmenu .mi:hover,#popmenu .mi:focus-visible{background:var(--surface-4);outline:none}
 #popmenu .mi.on{color:var(--primary)}
+#popmenu .mi[disabled]{opacity:.5;cursor:default}
+#popmenu .mi[disabled]:hover{background:transparent}
+#popmenu .mi[disabled] .sub{color:var(--primary-2,var(--primary))}
 #popmenu .mi svg{width:17px;height:17px;fill:currentColor;flex:none;opacity:.85}
 #popmenu .mi .sub{margin-left:auto;color:var(--faint);font-size:11.5px}
 /* queue editor rows */
@@ -635,6 +638,7 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .pl-cover svg{width:38%;height:38%;fill:var(--primary-2);opacity:.9}
 .pl-cover.pl-plus{font-size:34px;font-weight:300;color:var(--primary-2);background:linear-gradient(135deg,#241528,var(--surface-2))}
 .pl-new .t{color:var(--primary-2)}
+.pl-pub{color:var(--primary-2,var(--primary));font-weight:600}
 .rowmenu svg{fill:currentColor}
 .follow-btn.on{background:var(--primary);color:var(--primary-ink);border-color:var(--primary)}
 .follow-btn.on svg{fill:var(--primary-ink)}
@@ -652,6 +656,7 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 /* SK-OFFLINE: eager download-state styling (module also injects these on first panel open) */
 #npDownload.on{color:#4ade80}
 #npDownload.busy{opacity:.55}
+#npDownload.err{color:#ff6b78}
 .row.sk-dl-done .title::after{content:"";display:inline-block;width:12px;height:12px;margin-left:7px;vertical-align:-1px;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234ade80'%3E%3Cpath d='M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z'/%3E%3C/svg%3E")}
 /* hidden YouTube IFrame audio engine — rendered off-screen so audio keeps playing */
 #ytwrap{position:fixed;left:-9999px;bottom:0;width:320px;height:180px;opacity:0;pointer-events:none;z-index:-1}
@@ -910,6 +915,19 @@ fill="url(#royal)" stroke="none">
         <div class="authfield"><svg class="authic" viewBox="0 0 24 24"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2M9 6a3 3 0 0 1 6 0v2H9zm3 11a2 2 0 1 1 0-4 2 2 0 0 1 0 4"/></svg><input id="resetPw2" type="password" placeholder="Confirm new password" autocomplete="new-password"></div>
         <div class="authmsg" id="resetMsg"></div>
         <button class="authbtn" id="resetSubmit" type="submit">Update password</button>
+      </form>
+    </div>
+  </div>
+  <!-- generic text-input / confirm modal (replaces browser prompt()/confirm()) -->
+  <div class="authmodal" id="askModal" role="dialog" aria-modal="true" aria-labelledby="askTitle" onclick="if(event.target===this)askClose(null)">
+    <div class="authcard" style="max-width:388px">
+      <button class="authclose" onclick="askClose(null)" aria-label="Close">✕</button>
+      <h2 id="askTitle" style="margin-top:4px"></h2>
+      <p class="authsub" id="askSub"></p>
+      <form onsubmit="askSubmit(event)" autocomplete="off">
+        <div class="authfield" id="askField"><input id="askInput" type="text" maxlength="80" autocomplete="off" data-1p-ignore data-lpignore="true" placeholder="" onkeydown="if(event.key==='Escape'){event.preventDefault();askClose(null)}"></div>
+        <div class="authmsg" id="askMsg"></div>
+        <div style="display:flex;gap:10px;margin-top:2px"><button type="button" class="authbtn oauth" style="flex:1" onclick="askClose(null)">Cancel</button><button class="authbtn" id="askSubmit" type="submit" style="flex:1">Save</button></div>
       </form>
     </div>
   </div>
@@ -1369,6 +1387,7 @@ function applyRoute(url) {
   if ((m = p.match(/^\/albums\/(.+)$/))) return openAlbum(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/zemer-playlists\/(.+)$/))) return openCuratedPlaylist(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/my-playlists\/(.+)$/))) return openUserPlaylist(decodeURIComponent(m[1]), true);
+  if ((m = p.match(/^\/p\/(.+)$/))) return openPublicPlaylist(decodeURIComponent(m[1]), true); // public shared playlist (no auth)
   if ((m = p.match(/^\/playlists\/(.+)$/))) return openPlaylist(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/songs?\/(.+)$/))) return openSong(decodeURIComponent(m[1]), true, parseInt(u.searchParams.get("t") || "0", 10) || 0);
   if ((m = p.match(/^\/search\/(.+)$/))) { go("search", true); const qv = decodeURIComponent(m[1]); setTimeout(() => { const b = el("q"); if (b) { b.value = qv; doSearch(); } }, 60); return; }
@@ -2179,12 +2198,38 @@ async function loadMyPlaylists(force) {
   return _myPlaylists;
 }
 function requirePlaylistLogin() { if (loggedIn()) return true; showToast("<b>Sign in to create playlists.</b> They sync across your devices.", 4000); openAuth("in"); return false; }
+/* ---- reusable text-input / confirm modal (replaces browser prompt()/confirm()) ---- */
+let _askResolve = null;
+function _ask({ title, sub, value, placeholder, submit, danger, input }) {
+  return new Promise((resolve) => {
+    _askResolve = resolve;
+    el("askTitle").textContent = title || "";
+    const s = el("askSub"); if (sub) { s.textContent = sub; s.style.display = ""; } else s.style.display = "none";
+    el("askField").style.display = input ? "" : "none";
+    const inp = el("askInput"); inp.value = value || ""; inp.placeholder = placeholder || "";
+    el("askMsg").textContent = "";
+    const btn = el("askSubmit"); btn.textContent = submit || (input ? "Save" : "Confirm"); btn.classList.toggle("danger", !!danger);
+    el("askModal").classList.add("on");
+    setTimeout(() => { if (input) { inp.focus(); inp.select(); } else btn.focus(); }, 60);
+  });
+}
+function askText(opts) { return _ask({ ...opts, input: true }); }   // resolves to the trimmed string, or null if cancelled
+function askConfirm(opts) { return _ask({ ...opts, input: false }); } // resolves to true, or null if cancelled
+function askClose(val) { el("askModal").classList.remove("on"); const r = _askResolve; _askResolve = null; if (r) r(val); }
+function askSubmit(ev) {
+  ev && ev.preventDefault();
+  if (el("askField").style.display === "none") { askClose(true); return; } // confirm mode
+  const v = el("askInput").value.trim();
+  if (!v) { el("askMsg").textContent = "Please enter a name."; el("askInput").focus(); return; }
+  askClose(v);
+}
 async function newPlaylistPrompt(then) {
   if (!requirePlaylistLogin()) return;
-  const name = prompt("Playlist name:"); if (!name || !name.trim()) return;
-  const id = await sbRpc("create_playlist", { p_name: name.trim() });
+  const name = await askText({ title: "New playlist", placeholder: "Playlist name", submit: "Create" });
+  if (!name) return;
+  const id = await sbRpc("create_playlist", { p_name: name });
   invalidatePlaylists();
-  if (id) { showToast(`Created “${esc(name.trim())}”.`, 2200); if (then) then(typeof id === "string" ? id : (id && id.id)); else if (state.tab === "library") { state.loaded.library = false; loadLibrary(); } }
+  if (id) { showToast(`Created “${esc(name)}”.`, 2200); if (then) then(typeof id === "string" ? id : (id && id.id)); else if (state.tab === "library") { state.loaded.library = false; loadLibrary(); } }
 }
 async function addTrackToPlaylist(pid, t) {
   await sbRpc("add_to_playlist", { p_id: pid, p_video_id: t.videoId, p_title: t.title || null, p_artist: t.artist || null });
@@ -2200,16 +2245,75 @@ async function openUserPlaylist(pid, fromRoute) {
   state.detailKind = "userplaylist"; state.userPlaylistId = pid;
   const qid = tracks.length ? regQueue(tracks) : null;
   let h = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
-    <div class="detail-hero"><div class="cover">${artHTML("", NOTE)}</div><div class="dh-meta"><div class="dh-kind">Your Playlist</div><div class="dh-title">${esc(name)}</div><div class="dh-sub"><b>${num(tracks.length)}</b> songs</div></div></div>
+    <div class="detail-hero"><div class="cover">${artHTML("", NOTE)}</div><div class="dh-meta"><div class="dh-kind">Your Playlist${meta && meta.is_public ? ' · <span class="pl-pub">Public 🔗</span>' : ""}</div><div class="dh-title">${esc(name)}</div><div class="dh-sub"><b>${num(tracks.length)}</b> songs</div></div></div>
     <div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button><button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}
-    <button class="btn-ghost" onclick="renamePlaylistPrompt('${esc(pid)}')">Rename</button><button class="btn-ghost" onclick="deletePlaylistConfirm('${esc(pid)}')">Delete</button></div>`;
+    <button class="btn-ghost" onclick="openPlaylistShareMenu('${esc(pid)}',event)"><svg viewBox="0 0 24 24" style="width:17px;height:17px;margin-right:5px;vertical-align:-3px;fill:currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0 0 6c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92z"/></svg>Share</button><button class="btn-ghost" onclick="renamePlaylistPrompt('${esc(pid)}')">Rename</button><button class="btn-ghost" onclick="deletePlaylistConfirm('${esc(pid)}')">Delete</button></div>`;
   h += tracks.length ? `<div id="plBody">${songRows(tracks, { index: true, plEdit: pid })}</div>` : emptyState("Empty playlist", "Use the ⋯ menu on any song to add it here.");
   el("v-detail").innerHTML = h; showDetail();
   if (!fromRoute) pushURL("/my-playlists/" + pid);
 }
-async function renamePlaylistPrompt(pid) { const n = prompt("Rename playlist:"); if (!n || !n.trim()) return; await sbRpc("rename_playlist", { p_id: pid, p_name: n.trim() }); invalidatePlaylists(); openUserPlaylist(pid); }
-async function deletePlaylistConfirm(pid) { if (!confirm("Delete this playlist? This can't be undone.")) return; await sbRpc("delete_playlist", { p_id: pid }); invalidatePlaylists(); showToast("Playlist deleted.", 2000); go("library"); state.loaded.library = false; loadLibrary(); }
+async function renamePlaylistPrompt(pid) {
+  const pls = await loadMyPlaylists(); const cur = (pls.find((p) => p.id === pid) || {}).name || "";
+  const n = await askText({ title: "Rename playlist", value: cur, placeholder: "Playlist name", submit: "Rename" });
+  if (!n) return;
+  await sbRpc("rename_playlist", { p_id: pid, p_name: n }); invalidatePlaylists(); openUserPlaylist(pid);
+}
+async function deletePlaylistConfirm(pid) {
+  if (!(await askConfirm({ title: "Delete playlist?", sub: "This can’t be undone.", submit: "Delete", danger: true }))) return;
+  await sbRpc("delete_playlist", { p_id: pid }); invalidatePlaylists(); showToast("Playlist deleted.", 2000); go("library"); state.loaded.library = false; loadLibrary();
+}
 async function removeFromUserPlaylist(pid, videoId) { await sbRpc("remove_from_playlist", { p_id: pid, p_video_id: videoId }); invalidatePlaylists(); openUserPlaylist(pid); }
+/* ---- playlist sharing (public/private + shareable link) ---- */
+async function openPlaylistShareMenu(pid, ev) {
+  ev && ev.stopPropagation();
+  const pls = await loadMyPlaylists(); const meta = pls.find((p) => p.id === pid) || {};
+  const pub = !!meta.is_public;
+  let html = `<div class="mihead">Share playlist</div>`;
+  html += `<button class="mi" role="menuitem" onclick="setPlaylistPublic('${esc(pid)}',${pub ? "false" : "true"})"><span>${pub ? "Make private" : "Make public"}</span><span class="sub">${pub ? "Public" : "Private"}</span></button>`;
+  if (pub) html += `<div class="misep"></div><button class="mi" role="menuitem" onclick="copyPlaylistLink('${esc(pid)}')"><span>Copy link</span></button>` + (navigator.share ? `<button class="mi" role="menuitem" onclick="sharePlaylistLink('${esc(pid)}')"><span>Send link…</span></button>` : "");
+  popMenu(ev.currentTarget, html);
+}
+function playlistLink(pid) { return location.origin + "/p/" + pid; }
+async function setPlaylistPublic(pid, pub) {
+  closeMenus();
+  const ok = await sbRpc("set_playlist_public", { p_id: pid, p_public: pub });
+  invalidatePlaylists();
+  if (ok) { showToast(pub ? "Public — anyone with the link can view it. Tap Share → Copy link." : "Playlist is now private.", 3400); if (state.detailKind === "userplaylist" && state.userPlaylistId === pid) openUserPlaylist(pid, true); }
+  else showToast("Couldn’t update sharing — try again.", 2800);
+}
+function copyPlaylistLink(pid) {
+  closeMenus(); const link = playlistLink(pid);
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(() => showToast("Link copied. 🔗", 2000), () => showToast(link, 6000));
+  else showToast(link, 6000);
+}
+function sharePlaylistLink(pid) {
+  closeMenus(); const link = playlistLink(pid); const meta = (_myPlaylists || []).find((p) => p.id === pid) || {};
+  if (navigator.share) navigator.share({ title: meta.name || "SK Music playlist", url: link }).catch(() => {}); else copyPlaylistLink(pid);
+}
+// Public, read-only view of a shared playlist — no auth needed (get_public_playlist is anon-readable
+// when the owner marked it public). Still passes through the viewer's own content filters via gate().
+async function openPublicPlaylist(pid, fromRoute) {
+  detailLoading("Playlist");
+  const rows = (await sbRpc("get_public_playlist", { p_id: pid })) || [];
+  state.detailKind = "publicplaylist"; state.userPlaylistId = null;
+  const back = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>`;
+  el("tbTitle").style.display = ""; el("tbSearch").style.display = "none";
+  if (!rows.length) { // 0 rows → private or nonexistent (a public but empty list still returns 1 name row)
+    el("tbTitle").textContent = "Playlist";
+    el("v-detail").innerHTML = back + emptyState("Playlist unavailable", "This playlist is private or no longer exists.");
+    showDetail(); if (!fromRoute) pushURL("/p/" + pid); return;
+  }
+  const name = rows[0].name || "Playlist";
+  const tracks = gate(rows.filter((r) => r.video_id).map((r) => ({ videoId: r.video_id, title: r.title, artist: r.artist }))).filter((t) => !(blockVideos() && t.isVideo));
+  el("tbTitle").textContent = name;
+  const qid = tracks.length ? regQueue(tracks) : null;
+  let h = back +
+    `<div class="detail-hero"><div class="cover">${artHTML("", NOTE)}</div><div class="dh-meta"><div class="dh-kind">Shared Playlist</div><div class="dh-title">${esc(name)}</div><div class="dh-sub"><b>${num(tracks.length)}</b> songs</div></div></div>
+     <div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button><button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}</div>`;
+  h += tracks.length ? `<div>${songRows(tracks, { index: true })}</div>` : emptyState("Empty playlist", "This shared playlist has no songs yet.");
+  el("v-detail").innerHTML = h; showDetail();
+  if (!fromRoute) pushURL("/p/" + pid);
+}
 /* ---- consolidated song-actions menu (⋯) ---- */
 let _menuTrack = null;
 function songMenuAt(qid, i, e) { e && e.stopPropagation(); const q = queues.get(qid); const t = q && q[i]; if (t) openSongMenu(e.currentTarget, t); }
@@ -2233,7 +2337,13 @@ async function openAddToPlaylistMenu() {
   if (!requirePlaylistLogin()) { closeMenus(); return; }
   const t = _menuTrack;
   const pls = await loadMyPlaylists();
-  const items = pls.map((p) => `<button class="mi" role="menuitem" onclick="closeMenus();addTrackToPlaylist('${esc(p.id)}',window._menuTrack)"><span>${esc(p.name)}</span><span class="sub">${num(p.item_count || 0)}</span></button>`).join("");
+  // Grey out the playlists this song is already in (a duplicate add is a server-side no-op anyway —
+  // the item table's (playlist_id, video_id) primary key + ON CONFLICT DO NOTHING enforce uniqueness).
+  const inRows = (t && t.videoId) ? (await sbRpc("playlists_with_song", { p_video_id: safeId(t.videoId) })) || [] : [];
+  const has = new Set(inRows.map((r) => r.playlist_id));
+  const items = pls.map((p) => has.has(p.id)
+    ? `<button class="mi" role="menuitem" disabled aria-disabled="true"><span>${esc(p.name)}</span><span class="sub">✓ Added</span></button>`
+    : `<button class="mi" role="menuitem" onclick="closeMenus();addTrackToPlaylist('${esc(p.id)}',window._menuTrack)"><span>${esc(p.name)}</span><span class="sub">${num(p.item_count || 0)}</span></button>`).join("");
   const m = el("popmenu");
   m.innerHTML = `<div class="mihead">Add to playlist</div><button class="mi" role="menuitem" onclick="newPlaylistPrompt((id)=>id&&addTrackToPlaylist(id,window._menuTrack))"><span>＋ New playlist…</span></button><div class="misep"></div>${items || '<div class="qempty">No playlists yet.</div>'}`;
   window._menuTrack = t; // keep the track for the submenu handlers
@@ -2248,9 +2358,9 @@ function shareSong(t) {
 // Report a problem → content_report RPC (needs an account).
 async function reportSong(t) {
   if (!loggedIn()) { showToast("<b>Sign in to report a song.</b>", 3200); openAuth("in"); return; }
-  const reason = prompt("What's wrong with this song?\n(e.g. wrong artist, should be filtered, bad audio, duplicate)");
-  if (!reason || !reason.trim()) return;
-  await sbRpc("submit_report", { p_video_id: safeId(t.videoId), p_reason: reason.trim().slice(0, 120), p_note: (t.title || "") + (t.artist ? " — " + t.artist : "") });
+  const reason = await askText({ title: "Report a problem", sub: "What’s wrong with this song? (e.g. wrong artist, should be filtered, bad audio, duplicate)", placeholder: "Describe the problem", submit: "Send report" });
+  if (!reason) return;
+  await sbRpc("submit_report", { p_video_id: safeId(t.videoId), p_reason: reason.slice(0, 120), p_note: (t.title || "") + (t.artist ? " — " + t.artist : "") });
   showToast("Thanks — reported for review. 🙏", 3000);
 }
 function gotoArtistByName(name) {
@@ -3146,7 +3256,18 @@ function skDeleteDownload(id) { if (!id) return; skEmit("sk-dl-delete", { videoI
 function skToggleDownloadCurrent() { const t = state.queue[state.qi]; if (!t || !t.videoId) return; if (skIsDownloaded(t.videoId)) { skDeleteDownload(t.videoId); showToast("Removed download", 1500); } else skDownload(t.videoId, t.title, t.artist); }
 function skPlayDownload(id) { const e = skDL.map.get(id); if (!e || e.status !== "done") return; const it = e.item || {}; state.queue = [{ videoId: id, title: it.title || "", artist: it.artist || "" }]; state.radio = null; state.playSource = "downloads"; playIndex(0); skCloseDownloads(); }
 function skFmtBytes(n) { if (!n) return ""; const u = ["B", "KB", "MB", "GB"]; let i = 0; while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; } return (i >= 2 ? n.toFixed(1) : Math.round(n)) + " " + u[i]; }
-function skUpdateNpButton() { const b = el("npDownload"); if (!b) return; const t = state.queue[state.qi]; const id = t && t.videoId; const e = id ? skDL.map.get(id) : null; const st = e ? e.status : "idle"; b.classList.toggle("on", st === "done"); b.classList.toggle("busy", st === "downloading"); b.title = st === "done" ? "Downloaded — click to remove" : st === "downloading" ? "Downloading…" : "Download for offline"; b.setAttribute("aria-label", b.title); }
+function skUpdateNpButton() {
+  const b = el("npDownload"); if (!b) return;
+  const t = state.queue[state.qi]; const id = t && t.videoId; const e = id ? skDL.map.get(id) : null; const st = e ? e.status : "idle";
+  b.classList.toggle("on", st === "done");        // green check-ish
+  b.classList.toggle("busy", st === "downloading"); // dimmed + spinner
+  b.classList.toggle("err", st === "error");        // red — click retries (skDownload re-runs from "error")
+  b.title = st === "done" ? "Downloaded — click to remove"
+    : st === "downloading" ? (e && e.total ? "Downloading… " + Math.min(100, Math.round((e.received || 0) / e.total * 100)) + "%" : "Downloading…")
+    : st === "error" ? ("Download failed" + (e && e.message ? " — " + e.message : "") + " · click to retry")
+    : "Download for offline";
+  b.setAttribute("aria-label", b.title);
+}
 function skPaintRows() { document.querySelectorAll(".row[data-v]").forEach((row) => { const on = skIsDownloaded(row.dataset.v); if (row.classList.contains("sk-dl-done") !== on) row.classList.toggle("sk-dl-done", on); }); }
 function skEnsurePanel() {
   if (el("skDlPanel")) return;
@@ -3215,7 +3336,7 @@ if (SK_NATIVE) {
   });
   ev.listen("sk-dl-progress", (e) => { const p = e.payload || {}; if (!p.videoId) return; const cur = skDL.map.get(p.videoId) || {}; skDL.map.set(p.videoId, { status: "downloading", received: p.received || 0, total: (p.total != null ? p.total : cur.total) || null }); const panel = el("skDlPanel"); if (panel && panel.classList.contains("on")) skRenderDownloads(); skUpdateNpButton(); });
   ev.listen("sk-dl-done", (e) => { const p = e.payload || {}; if (p.item) skDL.map.set(p.videoId, { status: "done", item: p.item }); skRenderDownloads(); skUpdateNpButton(); skPaintRows(); showToast("Saved for offline", 1600); });
-  ev.listen("sk-dl-error", (e) => { const p = e.payload || {}; if (!p.videoId) return; const cur = skDL.map.get(p.videoId) || {}; skDL.map.set(p.videoId, { status: "error", item: cur.item, message: p.message || "Download failed" }); skRenderDownloads(); skUpdateNpButton(); showToast("Download failed", 3000); });
+  ev.listen("sk-dl-error", (e) => { const p = e.payload || {}; if (!p.videoId) return; const cur = skDL.map.get(p.videoId) || {}; skDL.map.set(p.videoId, { status: "error", item: cur.item, message: p.message || "Download failed" }); skRenderDownloads(); skUpdateNpButton(); showToast(p.message ? "Download failed — " + esc(p.message) : "Download failed", 4200); });
   skEmit("sk-dl-list-request", {}); // load the existing library on boot
   try { const mo = new MutationObserver(() => { clearTimeout(skDL._t); skDL._t = setTimeout(skPaintRows, 140); }); mo.observe(document.body, { childList: true, subtree: true }); } catch (e) {}
 }
