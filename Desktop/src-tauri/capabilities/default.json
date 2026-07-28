@@ -1,10 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Core IPC + custom app commands for the remote SK Music SPA. The remote.urls grant extends the app-command default (now_playing, set_playback_state, updater_check, updater_restart) and core event listen/emit to the trusted worker origin the window loads. autostart/notification are granted so the SPA could also drive login-launch and track toasts, though the tray currently owns those.",
+  "description": "Minimal grant for the remote SK Music SPA loaded in the main window. The SPA reports playback and requests the app menu purely by EMITTING events (sk-np-report / sk-state-report / sk-menu) and by LISTENING for pushes — a remote origin can't invoke app commands regardless (Tauri denies app commands to remote content), so it only needs core event emit/listen/unlisten. The prior core:default + autostart:default + notification:default handed the remote page tray/menu/window/autostart/notification power it never uses; the tray, autostart toggle and track toasts are all driven Rust-side, which bypasses the webview ACL.",
   "windows": ["main"],
   "remote": {
     "urls": ["https://skmusic.shalomkarr.workers.dev"]
   },
-  "permissions": ["core:default", "autostart:default", "notification:default"]
+  "permissions": [
+    "core:event:allow-emit",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten"
+  ]
 }

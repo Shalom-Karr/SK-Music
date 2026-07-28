@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' ipc: http://ipc.localhost" />
 <title>SK Music — Mini</title>
 <style>
   :root {
@@ -76,6 +77,9 @@
   .like { color: var(--faint); margin-left: 2px; }
   .like:hover { color: var(--primary); }
   .like.liked { color: var(--primary); }
+  .rpt { color: var(--faint); }
+  .rpt:hover { color: var(--text); }
+  .rpt.on { color: var(--primary); }
   .time { margin-left: auto; font-size: 10.5px; font-variant-numeric: tabular-nums; color: var(--faint); padding-right: 2px; }
 
   /* Progress: slim visual, generous click target, click-to-seek ------------ */
@@ -106,6 +110,7 @@
         <button class="tbtn" id="prev" type="button" title="Previous"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
         <button class="pp" id="pp" type="button" title="Play / Pause"><span id="ppIc"></span></button>
         <button class="tbtn" id="next" type="button" title="Next"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zM16 6v12h2V6z"/></svg></button>
+        <button class="tbtn rpt" id="repeat" type="button" title="Repeat this song"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2zm-4-2V9h-1l-2 1v1h1.5v4z"/></svg></button>
         <div class="time" id="time"></div>
       </div>
     </div>
@@ -190,6 +195,7 @@
     if (!s || typeof s !== "object") return;
     if (typeof s.positionMs === "number") setPosition(s.positionMs);
     setPlaying(s.playing !== false && s.stopped !== true);
+    if ("repeat" in s) el("repeat").classList.toggle("on", s.repeat === true);
   }
 
   // ---- wiring ----------------------------------------------------------
@@ -201,6 +207,10 @@
     mc("like");
     var b = el("like"); b.classList.add("liked");
     setTimeout(function () { b.classList.remove("liked"); }, 900);
+  };
+  el("repeat").onclick = function () {
+    el("repeat").classList.toggle("on"); // optimistic; the next state tick confirms
+    mc("repeat");
   };
   el("home").onclick = function () { invoke("mini_open_main"); };
   el("close").onclick = function () { invoke("mini_hide"); };

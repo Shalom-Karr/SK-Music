@@ -41,8 +41,22 @@ pub const MENU_LABEL_RESTART_UPDATE: &str = "Restart to update";
 /// Delay the launch check so it doesn't fight the initial shell/dataset load.
 const STARTUP_CHECK_DELAY_SECS: u64 = 8;
 
+/// Cap every check + download so a stalled request on a filtered network can't wedge the updater
+/// shut forever (a hung check would otherwise leave `CHECK_IN_PROGRESS` true and no-op all later
+/// "Check for updates" clicks).
+const UPDATE_TIMEOUT_SECS: u64 = 30;
+
 /// Guards against overlapping checks.
 static CHECK_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
+
+/// Resets `CHECK_IN_PROGRESS` on drop, so any return path — including an early `?` or a panic that
+/// unwinds — clears the guard rather than stranding it true and silently no-oping every later check.
+struct CheckGuard;
+impl Drop for CheckGuard {
+    fn drop(&mut self) {
+        CHECK_IN_PROGRESS.store(false, Ordering::SeqCst);
+    }
+}
 /// Downloaded-but-not-installed update, awaiting an explicit restart/quit.
 static PENDING: Mutex<Option<PendingUpdate>> = Mutex::new(None);
 
@@ -77,6 +91,8 @@ pub fn check_for_updates(app: &AppHandle, user_initiated: bool) {
     }
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
+        // Clears CHECK_IN_PROGRESS on every exit from this task (Ok, Err, or a panic that unwinds).
+        let _guard = CheckGuard;
         if let Err(e) = run_check(&app, user_initiated).await {
             if user_initiated {
                 let _ = app.emit(
@@ -87,7 +103,6 @@ pub fn check_for_updates(app: &AppHandle, user_initiated: bool) {
                 eprintln!("[updater] check failed: {e}");
             }
         }
-        CHECK_IN_PROGRESS.store(false, Ordering::SeqCst);
     });
 }
 
@@ -98,7 +113,11 @@ async fn run_check(app: &AppHandle, user_initiated: bool) -> Result<(), String> 
         json!({ "userInitiated": user_initiated, "currentVersion": current }),
     );
 
-    let updater = app.updater().map_err(|e| e.to_string())?;
+    let updater = app
+        .updater_builder()
+        .timeout(Duration::from_secs(UPDATE_TIMEOUT_SECS))
+        .build()
+        .map_err(|e| e.to_string())?;
     let update = match updater.check().await.map_err(|e| e.to_string())? {
         Some(u) => u,
         None => {
@@ -112,6 +131,27 @@ async fn run_check(app: &AppHandle, user_initiated: bool) -> Result<(), String> 
 
     let version = update.version.clone();
     let notes = update.body.clone();
+
+    // Already staged this exact version? Skip the (identical) re-download the daily loop would
+    // otherwise repeat every 24h, and just re-announce readiness so the UI can offer the restart.
+    if PENDING
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .is_some_and(|p| p.update.version == version)
+    {
+        let _ = app.emit(
+            "updater://ready",
+            json!({
+                "userInitiated": user_initiated,
+                "currentVersion": current,
+                "version": version,
+                "notes": notes,
+            }),
+        );
+        return Ok(());
+    }
+
     let _ = app.emit(
         "updater://update-available",
         json!({
@@ -163,17 +203,25 @@ async fn run_check(app: &AppHandle, user_initiated: bool) -> Result<(), String> 
 pub fn install_pending_and_restart(app: &AppHandle) {
     let pending = PENDING.lock().unwrap().take();
     match pending {
-        Some(p) => match p.update.install(&p.bytes) {
-            Ok(()) => {
-                app.restart();
+        Some(p) => {
+            // Tear the webviews down BEFORE installing — mirrors the tray Quit path. `install()` on
+            // Windows runs the NSIS installer + a hard process::exit(0) with WebView2 still alive,
+            // which leaves the profile locked and hangs the immediate NSIS-triggered relaunch.
+            for (_, win) in app.webview_windows() {
+                let _ = win.destroy();
             }
-            Err(e) => {
-                let _ = app.emit(
-                    "updater://error",
-                    json!({ "userInitiated": true, "message": format!("install failed: {e}") }),
-                );
+            match p.update.install(&p.bytes) {
+                Ok(()) => {
+                    app.restart();
+                }
+                Err(e) => {
+                    let _ = app.emit(
+                        "updater://error",
+                        json!({ "userInitiated": true, "message": format!("install failed: {e}") }),
+                    );
+                }
             }
-        },
+        }
         None => check_for_updates(app, true),
     }
 }

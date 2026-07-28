@@ -250,10 +250,15 @@ pub fn show_app_menu_inner(app: &tauri::AppHandle) {
         .or_else(|| app.get_webview_window(MAIN_WINDOW).filter(|w| w.is_visible().unwrap_or(false)))
         .or_else(|| app.get_webview_window(MAIN_WINDOW));
     let Some(window) = window else { return };
-    if let Some(lock) = HANDLES.get() {
-        if let Ok(h) = lock.lock() {
-            let _ = window.popup_menu(&h.menu);
-        }
+    // CRITICAL: clone the (cheap handle) menu and DROP the guard before popping it. popup_menu runs
+    // a blocking modal message loop (TrackPopupMenu) that still pumps run_on_main_thread tasks — a
+    // position tick landing mid-menu re-enters set_playing → HANDLES.lock() on this same thread and
+    // self-deadlocks. Holding no lock across the modal loop is the fix.
+    let menu = HANDLES
+        .get()
+        .and_then(|l| l.lock().ok().map(|h| h.menu.clone()));
+    if let Some(menu) = menu {
+        let _ = window.popup_menu(&menu);
     }
 }
 
@@ -267,9 +272,10 @@ fn toggle_auto_mini() {
     let desired = !crate::settings::auto_mini();
     crate::settings::set_auto_mini(desired);
     if let Some(lock) = HANDLES.get() {
-        if let Ok(h) = lock.lock() {
-            let _ = h.auto_mini.set_checked(desired);
-        }
+        // Recover a poisoned lock rather than no-op: the tray handles are trivially re-usable, so a
+        // prior panic must not permanently wedge the tray shut.
+        let h = lock.lock().unwrap_or_else(|e| e.into_inner());
+        let _ = h.auto_mini.set_checked(desired);
     }
 }
 
@@ -278,7 +284,7 @@ fn toggle_auto_mini() {
 /// main thread).
 pub fn set_now_playing(title: Option<&str>, artist: Option<&str>, playing: bool) {
     let Some(lock) = HANDLES.get() else { return };
-    let Ok(mut h) = lock.lock() else { return };
+    let mut h = lock.lock().unwrap_or_else(|e| e.into_inner());
     let line = match (title, artist) {
         (Some(t), Some(a)) => format!("{t} — {a}"),
         (Some(t), None) => t.to_string(),
@@ -298,7 +304,7 @@ pub fn set_now_playing(title: Option<&str>, artist: Option<&str>, playing: bool)
 /// Update only the Play/Pause label + tray-icon badge (on play/pause without a track change).
 pub fn set_playing(playing: bool) {
     let Some(lock) = HANDLES.get() else { return };
-    let Ok(mut h) = lock.lock() else { return };
+    let mut h = lock.lock().unwrap_or_else(|e| e.into_inner());
     let _ = h.play_pause.set_text(if playing { "Pause" } else { "Play" });
     apply_icon(&mut h, playing);
 }
@@ -308,7 +314,7 @@ pub fn set_playing(playing: bool) {
 /// there via `playindex:<n>`. Up to 6 entries; an empty/absent queue shows a disabled placeholder.
 pub fn set_up_next(app: &tauri::AppHandle, queue_base: Option<u64>, queue: Option<&[QueueEntry]>) {
     let Some(lock) = HANDLES.get() else { return };
-    let Ok(h) = lock.lock() else { return };
+    let h = lock.lock().unwrap_or_else(|e| e.into_inner());
 
     // Clear existing children (rebuild wholesale — the list is tiny).
     if let Ok(items) = h.up_next.items() {
@@ -329,7 +335,9 @@ pub fn set_up_next(app: &tauri::AppHandle, queue_base: Option<u64>, queue: Optio
 
     let base = queue_base.unwrap_or(0);
     for (i, e) in entries.iter().take(6).enumerate() {
-        let abs = base + i as u64;
+        // saturating: `queue_base` is attacker-suppliable from the webview payload; a debug overflow
+        // panic here fires while HANDLES is locked, poisoning the mutex and freezing the tray.
+        let abs = base.saturating_add(i as u64);
         let title = e
             .title
             .as_deref()
@@ -356,9 +364,8 @@ fn toggle_autostart(app: &tauri::AppHandle) {
     // Only claim the new state if the toggle actually took.
     let desired = if result.is_ok() { !enabled } else { enabled };
     if let Some(lock) = HANDLES.get() {
-        if let Ok(h) = lock.lock() {
-            let _ = h.autostart.set_checked(desired);
-        }
+        let h = lock.lock().unwrap_or_else(|e| e.into_inner());
+        let _ = h.autostart.set_checked(desired);
     }
     if let Err(e) = result {
         eprintln!("[tray] autostart toggle failed: {e}");
@@ -371,9 +378,8 @@ fn toggle_notify() {
     let desired = !crate::settings::notify_on_track();
     crate::settings::set_notify_on_track(desired);
     if let Some(lock) = HANDLES.get() {
-        if let Ok(h) = lock.lock() {
-            let _ = h.notify.set_checked(desired);
-        }
+        let h = lock.lock().unwrap_or_else(|e| e.into_inner());
+        let _ = h.notify.set_checked(desired);
     }
 }
 
