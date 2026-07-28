@@ -23,3 +23,6 @@ dist/
 
 # local editor/agent config
 .claude/
+
+# forum post drafts — writing scratch, not part of the app
+forum-posts/
