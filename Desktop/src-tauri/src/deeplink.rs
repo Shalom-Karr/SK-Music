@@ -56,6 +56,41 @@ pub fn init(app: &tauri::AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Outbound links — the mirror image of the deep links above. The system webview has nowhere to put
+/// an off-site link: `target="_blank"` opens no tab (there are none), and a same-window navigation
+/// would replace the whole SPA with GitHub. Both read to the user as "the link does nothing", so the
+/// SPA hands every link it doesn't want to keep in-app to us as `sk-open-external` and we give it to
+/// the OS default browser. Which links qualify is the SPA's call (see `skOpenExternal` in ui.html):
+/// everything off the worker origin, plus the worker's own `target="_blank"` assets, but never the
+/// Supabase/Google OAuth redirect — that one has to land back on this origin to deliver the session.
+///
+/// Event, not command: the main window is REMOTE content and can't invoke app commands (see the
+/// default capability). We re-check the scheme here rather than trusting the page — a compromised or
+/// injected SPA could otherwise emit `file://`/`javascript:` and turn this into "launch anything".
+pub fn init_external_links(app: &tauri::AppHandle) {
+    use tauri::Listener;
+    use tauri_plugin_opener::OpenerExt;
+
+    let handle = app.clone();
+    app.listen("sk-open-external", move |event| {
+        let Ok(payload) = serde_json::from_str::<serde_json::Value>(event.payload()) else {
+            return;
+        };
+        let Some(raw) = payload.get("url").and_then(|v| v.as_str()) else {
+            return;
+        };
+        let Ok(url) = Url::parse(raw) else {
+            return;
+        };
+        if !matches!(url.scheme(), "http" | "https") {
+            return;
+        }
+        if let Err(e) = handle.opener().open_url(url.to_string(), None::<&str>) {
+            eprintln!("[links] failed to open {raw}: {e}");
+        }
+    });
+}
+
 /// Surface the running window (restores a close-to-tray-hidden window, unminimizes,
 /// focuses). Called by the single-instance callback so a second launch focuses
 /// instead of duplicating.

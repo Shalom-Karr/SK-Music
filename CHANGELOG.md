@@ -1,9 +1,22 @@
 # Changelog
 
-## 1.1.2 — 2026-07-28 (web only — no desktop rebuild)
+## 1.1.2 — 2026-07-28 (web + desktop)
 
-Playlist polish + clearer download status. All client-side; the desktop app picks it up
-automatically (it loads the web UI), so no new installer.
+Playlist polish, clearer download status, and two desktop fixes: off-site links were dead in the app
+window, and the update check was buried in the tray. The desktop build is bumped to **1.1.2** so the
+installer, the About page and the announced version all read the same number — 1.1.2 was originally
+cut as a web-only release, which is why no `desktop-v1.1.2` existed on GitHub.
+
+**Desktop — links open in your browser**
+- **Every off-site link now works.** GitHub, jtechforums, the GPL text, the Tampermonkey links on the
+  add-on page — inside the app window these previously did nothing at all (a native window has no
+  tabs for `target="_blank"`, and a same-window jump would have replaced SK Music itself). They now
+  open in your default browser. SK Music's own pages still open in the app, and the Google sign-in
+  redirect deliberately stays in the app window — it has to come back with your session.
+
+**Desktop — updates on the About page**
+- **"Check for updates" now lives on About**, with the installed version next to it, instead of only
+  in the tray menu. It opens the same update dialog. (The tray item is still there.)
 
 **Playlists**
 - **Share a playlist** — a Share button on your playlist page toggles it **public/private** and, when
