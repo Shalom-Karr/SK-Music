@@ -560,6 +560,19 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .np-auto input::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:left .16s}
 .np-auto input:checked::after{left:15px}
 .np-upnext .rows{overflow-y:auto;min-height:0;padding-right:6px}
+.npx-head{display:flex;align-items:center;gap:14px;margin:0 0 10px;flex:0 0 auto}
+.npx-tab{appearance:none;background:none;border:0;padding:0 0 4px;font-family:Fraunces,serif;font-size:17px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
+.npx-tab.on{color:var(--text);border-bottom-color:var(--primary)}
+.npx-pane{display:none;min-height:0;flex:1 1 auto;overflow:hidden;flex-direction:column}
+.npx-pane.on{display:flex}
+.lyrics{overflow-y:auto;min-height:0;padding-right:6px;font-family:"Hanken Grotesk",system-ui,sans-serif}
+.lyrics .ly-line{padding:5px 8px;border-radius:8px;color:var(--muted);font-size:15px;line-height:1.4;transition:color .18s,background .18s;scroll-margin:60px}
+.lyrics .ly-line.seekable{cursor:pointer}
+.lyrics .ly-line.seekable:hover{background:var(--surface-2)}
+.lyrics .ly-line.cur{color:var(--text);font-weight:600;background:var(--surface-2)}
+.lyrics .ly-plain{white-space:pre-wrap;color:var(--text-2);font-size:15px;line-height:1.55;padding:2px 4px}
+.lyrics .ly-msg{color:var(--muted);font-size:14px;padding:12px 4px}
+.lyrics .ly-src{color:var(--muted);font-size:11px;padding:14px 4px 4px;opacity:.7}
 
 /* ============================ Mobile tab bar ============================ */
 #tabbar{position:fixed;left:0;right:0;bottom:0;z-index:55;height:calc(var(--tab-h) + var(--sa));padding-bottom:var(--sa);
@@ -971,7 +984,11 @@ fill="url(#royal)" stroke="none">
         <button class="iconbtn skip rpt" onclick="toggleRepeat()" title="Repeat this song" aria-label="Repeat this song" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg></button>
       </div>
     </div>
-    <div class="np-upnext"><h4>Up Next<label class="np-auto" title="Keep playing similar songs when the queue ends"><input type="checkbox" id="npAuto" onchange="setRadioAutoplay(this.checked)"><span>Autoplay</span></label></h4><div class="rows" id="npQueue"></div></div>
+    <div class="np-upnext">
+      <div class="npx-head"><button class="npx-tab on" data-p="queue" onclick="npxTab('queue')">Up Next</button><button class="npx-tab" data-p="lyrics" onclick="npxTab('lyrics')">Lyrics</button><label class="np-auto" title="Keep playing similar songs when the queue ends"><input type="checkbox" id="npAuto" onchange="setRadioAutoplay(this.checked)"><span>Autoplay</span></label></div>
+      <div class="npx-pane on" id="npPaneQueue"><div class="rows" id="npQueue"></div></div>
+      <div class="npx-pane" id="npPaneLyrics"><div class="lyrics" id="npLyrics"></div></div>
+    </div>
   </div>
 </div>
 
@@ -2586,7 +2603,7 @@ function trackStarted(t) {
   el("nbArt").src = yt(t.videoId); el("nbArt").classList.remove("hide"); el("nbTitle").textContent = t.title || ""; el("nbArtist").textContent = t.artist || "";
   el("npArt").src = art; el("npArt").classList.remove("hide"); el("npTitle").textContent = t.title || ""; el("npArtist").textContent = t.artist || "";
   el("npBg").style.backgroundImage = `url('${art}')`;
-  saveRecent(t); paintQueue(); refreshLikeUI(t.videoId); refreshNowPlaying();
+  saveRecent(t); paintQueue(); refreshLikeUI(t.videoId); refreshNowPlaying(); if (lyricsOpen()) loadLyrics();
   pushURL("/song/" + t.videoId, true); // shareable per-song URL reflecting what's playing (no history spam)
   playBegin(t); // start a play-duration session — the `play` event fires on end/skip with real listen time
   if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: t.title || "", artist: t.artist || "", album: "SK Music", artwork: [{ src: art, sizes: "480x360", type: "image/jpeg" }] });
@@ -2677,7 +2694,73 @@ function openSleepMenu(e) {
   popMenu(e.currentTarget, `<div class="mihead">Sleep timer</div>${opt(0, "Off")}${opt(15, "15 minutes")}${opt(30, "30 minutes")}${opt(45, "45 minutes")}${opt(60, "1 hour")}${opt("end", "End of this song")}`);
 }
 function seekBy(d) { if (!state.queue.length) return; const dur = PB.dur(); if (!dur) return; PB.seek(Math.max(0, Math.min(dur - 0.5, PB.cur() + d))); }
-function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); const au = el("npAuto"); if (au) au.checked = radioAutoplay(); paintShuffleUI(); paintSleepUI(); paintQueue(); }
+/* ---- Lyrics (time-synced, via /lyrics → LRCLIB) ---- */
+// _ly caches the fetched lyrics for the current track so switching tabs doesn't refetch. .synced is a
+// sorted [{t,text}] parsed from LRC; .plain is unsynced text; .none means the fetch found nothing.
+let _ly = { key: "", synced: null, plain: "", loading: false, none: false, cur: -1 };
+function lyKey(t) { return t ? (t.artist || "") + "\n" + (t.title || "") : ""; }
+function npxTab(p) {
+  document.querySelectorAll(".npx-tab").forEach((b) => b.classList.toggle("on", b.dataset.p === p));
+  el("npPaneQueue").classList.toggle("on", p === "queue");
+  el("npPaneLyrics").classList.toggle("on", p === "lyrics");
+  if (p === "lyrics") loadLyrics();
+}
+function lyricsOpen() { const p = el("npPaneLyrics"); return !!p && p.classList.contains("on"); }
+// LRC → [{t:seconds, text}]. A line can carry several timestamps ([00:12.00][00:48.00] repeated hook);
+// emit one entry per stamp. Blank-text stamps (instrumental breaks) render as ♪.
+function parseLRC(text) {
+  const out = [], re = /\[(\d+):(\d+)(?:[.:](\d+))?\]/g;
+  for (const raw of String(text).split("\n")) {
+    const stamps = []; let m; re.lastIndex = 0;
+    while ((m = re.exec(raw))) stamps.push((+m[1]) * 60 + (+m[2]) + (m[3] ? +("0." + m[3]) : 0));
+    if (!stamps.length) continue;
+    const words = raw.replace(re, "").trim();
+    for (const s of stamps) out.push({ t: s, text: words });
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+async function loadLyrics(force) {
+  const box = el("npLyrics"); if (!box) return;
+  const t = state.queue[state.qi];
+  if (!t) { _ly = { key: "", synced: null, plain: "", loading: false, none: false, cur: -1 }; box.innerHTML = '<div class="ly-msg">Nothing playing.</div>'; return; }
+  const key = lyKey(t);
+  if (key === _ly.key && !force) { renderLyrics(); return; }
+  _ly = { key, synced: null, plain: "", loading: true, none: false, cur: -1 };
+  box.innerHTML = '<div class="ly-msg">Loading lyrics…</div>';
+  const qs = "artist=" + encodeURIComponent(t.artist || "") + "&title=" + encodeURIComponent(t.title || "") + (t.durationSec ? "&duration=" + Math.round(t.durationSec) : "");
+  let d = null; try { d = await fetchJSON("/lyrics?" + qs); } catch {}
+  if (_ly.key !== key) return; // track changed while the request was in flight
+  _ly.loading = false;
+  if (d && d.synced) _ly.synced = parseLRC(d.synced);
+  if (d && d.plain) _ly.plain = String(d.plain).trim();
+  _ly.none = !(_ly.synced && _ly.synced.length) && !_ly.plain;
+  renderLyrics();
+}
+function renderLyrics() {
+  const box = el("npLyrics"); if (!box) return;
+  if (_ly.loading) { box.innerHTML = '<div class="ly-msg">Loading lyrics…</div>'; return; }
+  if (_ly.synced && _ly.synced.length) {
+    box.innerHTML = _ly.synced.map((l, i) => `<div class="ly-line seekable" data-i="${i}" onclick="lySeek(${i})">${esc(l.text || "♪")}</div>`).join("") + '<div class="ly-src">Synced lyrics via LRCLIB</div>';
+    _ly.cur = -1; paintLyricLine(PB.cur());
+    return;
+  }
+  if (_ly.plain) { box.innerHTML = '<div class="ly-plain">' + esc(_ly.plain) + '</div><div class="ly-src">Lyrics via LRCLIB</div>'; return; }
+  box.innerHTML = '<div class="ly-msg">No lyrics found for this song.</div>';
+}
+function lySeek(i) { const l = _ly.synced && _ly.synced[i]; if (l) { PB.seek(l.t); if (PB.paused()) PB.play(); } }
+// Highlight the active synced line and keep it centered. Called from tick() while the lyrics tab is open.
+function paintLyricLine(c) {
+  const S = _ly.synced; if (!S || !S.length) return;
+  const box = el("npLyrics"); if (!box) return;
+  let idx = -1;
+  for (let i = 0; i < S.length; i++) { if (S[i].t <= c + 0.2) idx = i; else break; }
+  if (idx === _ly.cur) return;
+  _ly.cur = idx;
+  const rows = box.querySelectorAll(".ly-line");
+  rows.forEach((r, i) => r.classList.toggle("cur", i === idx));
+  if (idx >= 0 && rows[idx]) rows[idx].scrollIntoView({ block: "center", behavior: "smooth" });
+}
+function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); const au = el("npAuto"); if (au) au.checked = radioAutoplay(); paintShuffleUI(); paintSleepUI(); paintQueue(); if (lyricsOpen()) loadLyrics(); }
 function closeNow() { state.nowOpen = false; el("now").classList.remove("on"); }
 function saveRecent(t) { try { const h = readRecent().filter((x) => x.videoId !== t.videoId); h.unshift({ videoId: t.videoId, title: t.title, artist: t.artist, explicit: t.explicit, isVideo: t.isVideo }); localStorage.setItem("zw_recent", JSON.stringify(h.slice(0, 80))); } catch {} acctSyncRecents(); }
 function toggleMute() { PB.setMuted(!PB.muted); el("vol").value = PB.muted ? 0 : Math.round(PB.vol * 100); paintSeek(el("vol")); }
@@ -2822,6 +2905,7 @@ function tick() {
         && cued.idx === nextPlayableIndex() && state.queue[cued.idx] && state.queue[cued.idx].videoId === cued.id) fireSwap();
   }
   if (!PB.paused()) saveLastPlay(c); // resume point for the empty-queue Play button
+  if (_ly.synced && lyricsOpen()) paintLyricLine(c);
   skTick(c);
 }
 function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing · 2 paused · 3 buffering · 5 cued
