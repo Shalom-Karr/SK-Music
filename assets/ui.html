@@ -389,6 +389,18 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .gcell .art{transition:transform .18s var(--ease)}
 .gcell .n{font-size:14px;font-weight:600;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 
+/* A–Z fast-scroll strip (Artists tab) — fixed to the content column's right edge; hidden with the tab
+   since position:fixed still hides inside the display:none view. */
+.azstrip{position:fixed;top:50%;transform:translateY(-50%);right:calc((100vw - min(100vw,1500px))/2 + 4px);z-index:29;
+  display:flex;flex-direction:column;align-items:center;padding:7px 2px;border-radius:13px;
+  background:rgba(14,10,11,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid var(--line);
+  user-select:none;-webkit-user-select:none;touch-action:none}
+.azstrip b{font-size:10px;font-weight:700;line-height:1.4;padding:0 6px;color:var(--muted);cursor:pointer}
+.azstrip b:hover{color:var(--text)}
+.azstrip b.off{opacity:.28;cursor:default;pointer-events:none}
+.azstrip b.hot{color:var(--primary)}
+@media (max-height:560px){.azstrip{display:none!important}}
+
 /* ============================ Chips / toggles ============================ */
 .chips{display:flex;gap:9px;flex-wrap:wrap;margin:2px 4px 16px}
 .chip{height:36px;padding:0 16px;border-radius:18px;border:1px solid var(--line);background:var(--surface-2);
@@ -541,7 +553,12 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .nb-controls .skip:hover{color:var(--text)}
 .nb-controls .skip svg{width:21px;height:21px}
 .np-upnext{display:none;min-height:0;overflow:hidden;flex-direction:column}
-.np-upnext h4{font-family:Fraunces,serif;font-size:17px;margin:0 0 10px;flex:0 0 auto}
+.np-upnext h4{font-family:Fraunces,serif;font-size:17px;margin:0 0 10px;flex:0 0 auto;display:flex;align-items:center}
+.np-auto{margin-left:auto;display:inline-flex;align-items:center;gap:7px;font-family:"Hanken Grotesk",system-ui,sans-serif;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
+.np-auto input{appearance:none;-webkit-appearance:none;width:30px;height:17px;border-radius:9px;background:var(--surface-4);position:relative;cursor:pointer;transition:background .16s;margin:0}
+.np-auto input:checked{background:var(--primary)}
+.np-auto input::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:left .16s}
+.np-auto input:checked::after{left:15px}
 .np-upnext .rows{overflow-y:auto;min-height:0;padding-right:6px}
 
 /* ============================ Mobile tab bar ============================ */
@@ -906,7 +923,7 @@ fill="url(#royal)" stroke="none">
         <button class="iconbtn skip rpt" onclick="toggleRepeat()" title="Repeat this song" aria-label="Repeat this song" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg></button>
       </div>
     </div>
-    <div class="np-upnext"><h4>Up Next</h4><div class="rows" id="npQueue"></div></div>
+    <div class="np-upnext"><h4>Up Next<label class="np-auto" title="Keep playing similar songs when the queue ends"><input type="checkbox" id="npAuto" onchange="setRadioAutoplay(this.checked)"><span>Autoplay</span></label></h4><div class="rows" id="npQueue"></div></div>
   </div>
 </div>
 
@@ -1007,6 +1024,7 @@ const ICON = {
   home: '<svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>',
   search: '<svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14"/></svg>',
   artist: '<svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8m0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4"/></svg>',
+  radio: '<svg viewBox="0 0 24 24"><path d="M3.24 6.15A2 2 0 0 0 2 8v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H8.3l8.26-3.34L15.88.9zM7 20a3 3 0 1 1 0-6 3 3 0 0 1 0 6m13-8h-2v-2h-2v2H4V8h16z"/></svg>',
   kid: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20M8.5 9a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3m7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3M12 17.5c-2.3 0-4.3-1.2-5.4-3h10.8c-1.1 1.8-3.1 3-5.4 3"/></svg>',
   library: '<svg viewBox="0 0 24 24"><path d="M4 6H2v14a2 2 0 0 0 2 2h14v-2H4zm16-4H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2m-9 12V6l7 4z"/></svg>',
   foryou: '<svg viewBox="0 0 24 24"><path d="m12 2 2.5 5.8L20.5 8l-4.4 4.2L17.3 18 12 15l-5.3 3 1.2-5.8L3.5 8l6-.2z"/></svg>',
@@ -1284,7 +1302,15 @@ async function refreshStat() {
 /* ============================ render helpers ============================ */
 const queues = new Map(); let qSeq = 0;
 function regQueue(tracks) { const id = "q" + (++qSeq); queues.set(id, tracks); return id; }
-const artHTML = (src, ph, round) => `<div class="art${round ? " round" : ""}"><img loading="lazy" alt="" src="${src || ""}" onerror="this.classList.add('hide')"${src ? "" : ' class="hide"'}><div class="ph" aria-hidden="true">${ph || NOTE}</div></div>`;
+// Google-image-CDN thumbnails (yt3/lh3 googleusercontent/ggpht) accept size params after the last "=".
+// The corpus ships full-size URLs (=w2880-h1200 banners ≈ 290 KB) — rewrite to a square center-crop
+// (=s320-c ≈ 25 KB) sized for the card/cell it renders in. Non-Google hosts pass through untouched.
+function sizedArt(src, px) {
+  if (!src || !/^https:\/\/(yt3|lh[0-9]?)\.(googleusercontent|ggpht)\.com\//.test(src)) return src;
+  const cut = src.lastIndexOf("=");
+  return (cut > src.lastIndexOf("/") ? src.slice(0, cut) : src) + `=s${px || 320}-c-k-c0x00ffffff-no-rj`;
+}
+const artHTML = (src, ph, round, px) => `<div class="art${round ? " round" : ""}"><img loading="lazy" alt="" src="${sizedArt(src, px) || ""}" onerror="this.classList.add('hide')"${src ? "" : ' class="hide"'}><div class="ph" aria-hidden="true">${ph || NOTE}</div></div>`;
 
 /* ============================ likes ============================ */
 let _liked = null;
@@ -1511,7 +1537,7 @@ async function loadHome() {
 let artistsAll = [];
 async function loadArtists() {
   state.loaded.artists = true; const v = el("v-artists");
-  v.innerHTML = `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:6px 0 20px"><div class="searchbox" style="max-width:420px;margin:0;flex:1;min-width:220px"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14"/></svg><input id="aq" placeholder="Filter artists" autocomplete="off"></div><div id="artCount" class="art-count"></div></div><div class="grid" id="agrid">${skRail(0)}</div><div id="artSentinel" style="height:1px"></div>`;
+  v.innerHTML = `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:6px 0 20px"><div class="searchbox" style="max-width:420px;margin:0;flex:1;min-width:220px"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14"/></svg><input id="aq" placeholder="Filter artists" autocomplete="off"></div><div id="artCount" class="art-count"></div></div><div class="grid" id="agrid">${skRail(0)}</div><div id="artSentinel" style="height:1px"></div><div class="azstrip" id="azStrip" aria-hidden="true"></div>`;
   el("agrid").innerHTML = `<div class="grid" style="display:contents">${Array.from({ length: 12 }, () => `<div><div class="sk" style="aspect-ratio:1;border-radius:50%"></div><div class="sk l1" style="height:12px;margin:12px auto 0;width:70%"></div></div>`).join("")}</div>`;
   await ensureFilters(); // also loads the full artist catalog into _artistList (via artistByName)
   artistsAll = gate(_artistList || []); // reuse that catalog — no 2nd /artists fetch; gate() applies every content + parental filter (incl. kid_only + the allow/blocklist)
@@ -1526,6 +1552,7 @@ function renderArtists(q) {
   _artShown = 0;
   const g = el("agrid"); if (g) g.innerHTML = _artView.length ? "" : emptyState("No artists found", "Try a different name.");
   artMore(); // first window (self-continues until the viewport is filled)
+  paintAzStrip();
   const c = el("artCount"); if (!c) return;
   const n = _artView.length, total = artistsAll.length, s = n === 1 ? "" : "s";
   c.innerHTML = acapella()
@@ -1540,6 +1567,32 @@ function artMore() {
   _artShown = Math.min(_artShown + ART_PAGE, _artView.length);
   const st = el("artSentinel");
   if (st && _artShown < _artView.length && st.getBoundingClientRect().top < innerHeight + 500) requestAnimationFrame(artMore);
+}
+// A–Z fast-scroll strip: letters reflect the CURRENT view (filters + search), tap or drag to jump.
+const azBucket = (name) => { const c = (name || "").trim().charAt(0).toUpperCase(); return c >= "A" && c <= "Z" ? c : "#"; };
+function paintAzStrip() {
+  const s = el("azStrip"); if (!s) return;
+  s.style.display = _artView.length > 40 ? "" : "none"; // a short (filtered) list doesn't need letter nav
+  const have = new Set(_artView.map((a) => azBucket(a.name)));
+  s.innerHTML = ["#", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((l) => `<b class="${have.has(l) ? "" : "off"}" data-l="${l}">${l}</b>`).join("");
+  if (s._wired) return; s._wired = 1;
+  const jump = (ev) => { const t = document.elementFromPoint(ev.clientX, ev.clientY); if (t && t.dataset && t.dataset.l) azJump(t.dataset.l, t); };
+  s.addEventListener("pointerdown", (ev) => { ev.preventDefault(); try { s.setPointerCapture(ev.pointerId); } catch {} jump(ev); });
+  s.addEventListener("pointermove", (ev) => { if (ev.buttons) jump(ev); });
+}
+function azJump(letter, btn) {
+  const idx = _artView.findIndex((a) => azBucket(a.name) === letter); if (idx < 0) return;
+  const g = el("agrid"); if (!g) return;
+  while (_artShown <= idx && _artShown < _artView.length) { // windowed render → fill synchronously up to the target
+    g.insertAdjacentHTML("beforeend", _artView.slice(_artShown, _artShown + ART_PAGE).map(artistCell).join(""));
+    _artShown = Math.min(_artShown + ART_PAGE, _artView.length);
+  }
+  const cell = g.children[idx]; if (!cell) return;
+  scrollTo({ top: cell.getBoundingClientRect().top + scrollY - 92 }); // clear the sticky topbar
+  if (btn && btn !== document.querySelector(".azstrip b.hot")) {
+    document.querySelectorAll(".azstrip b.hot").forEach((b) => b.classList.remove("hot"));
+    btn.classList.add("hot"); setTimeout(() => btn.classList.remove("hot"), 400);
+  }
 }
 
 /* ============================ KID ZONE ============================ */
@@ -1834,8 +1887,8 @@ function sClick(kind, rank, id) { const q = (el("q") && el("q").value || "").tri
 function renderResults() {
   const c = sData && sData.categories; if (!c) return;
   const artistRow = (x, i) => `<div class="row" role="button" tabindex="0" onkeydown="${KDACT}" onclick="sClick('artists',${i},'${x.id}');openArtist('${x.id}')">${artHTML(x.thumbnail, ICON.artist, true).replace('class="art round"', 'class="art round" style="width:46px;height:46px;flex:none"')}<div class="text"><div class="title">${esc(x.name)}</div><div class="sub">Artist</div></div></div>`;
-  const albumRow = (x, i) => `<div class="row" role="button" tabindex="0" onkeydown="${KDACT}" onclick="sClick('albums',${i},'${x.id}');openAlbum('${x.id}')"><img class="thumb" alt="" src="${x.thumbnail || ""}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${esc(x.title)}</div><div class="sub">${esc(x.artist || "")}${x.year ? " · " + x.year : ""}</div></div></div>`;
-  const plRow = (x, i) => `<div class="row" role="button" tabindex="0" onkeydown="${KDACT}" onclick="sClick('playlists',${i},'${x.id}');openPlaylist('${x.id}')"><img class="thumb" alt="" src="${x.thumbnail || ""}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${esc(x.title)}</div><div class="sub">${esc(x.artist || "Playlist")}</div></div></div>`;
+  const albumRow = (x, i) => `<div class="row" role="button" tabindex="0" onkeydown="${KDACT}" onclick="sClick('albums',${i},'${x.id}');openAlbum('${x.id}')"><img class="thumb" alt="" src="${sizedArt(x.thumbnail, 128) || ""}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${esc(x.title)}</div><div class="sub">${esc(x.artist || "")}${x.year ? " · " + x.year : ""}</div></div></div>`;
+  const plRow = (x, i) => `<div class="row" role="button" tabindex="0" onkeydown="${KDACT}" onclick="sClick('playlists',${i},'${x.id}');openPlaylist('${x.id}')"><img class="thumb" alt="" src="${sizedArt(x.thumbnail, 128) || ""}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${esc(x.title)}</div><div class="sub">${esc(x.artist || "Playlist")}</div></div></div>`;
   const render = (k) => {
     const arr = gate(c[k] || []); if (!arr.length) return ""; // parental + Acapella gate (songs by set, artist/album/playlist by Acapella-artist)
     if (k === "songs" || k === "videos") return songRows(arr, { index: true, searchKind: k });
@@ -1882,9 +1935,9 @@ function renderDetailView(v) {
   const all = v.sections.flatMap((s) => s.tracks || []);
   const qid = all.length ? regQueue(all) : null;
   let h = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
-    <div class="detail-hero"><div class="cover ${v.round ? "round" : ""}">${artHTML(v.thumb, v.round ? ICON.artist : NOTE, v.round)}</div>
+    <div class="detail-hero"><div class="cover ${v.round ? "round" : ""}">${artHTML(v.thumb, v.round ? ICON.artist : NOTE, v.round, 640)}</div>
     <div class="dh-meta"><div class="dh-kind">${v.kind}</div><div class="dh-title">${esc(v.title)}</div><div class="dh-sub">${v.sub}</div></div></div>`;
-  h += `<div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button>` : ""}${qid ? `<button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}${v.path ? `<button class="btn-ghost" onclick="shareDetail()">${ICON.share}Share</button>` : ""}</div>`;
+  h += `<div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button>` : ""}${qid ? `<button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}${v.radio ? `<button class="btn-ghost" onclick="startRadio('${v.radio.kind}','${v.radio.seed}')">${ICON.radio}Radio</button>` : ""}${v.path ? `<button class="btn-ghost" onclick="shareDetail()">${ICON.share}Share</button>` : ""}</div>`;
   for (const s of v.sections) {
     if (s.tracks && s.tracks.length) {
       let body = songRows(s.tracks, { index: true, artist: v.artistName, hideArtist: !!s.plays, plays: s.plays });
@@ -1900,7 +1953,7 @@ function renderDetailView(v) {
   el("v-detail").innerHTML = h; showDetail();
 }
 function pushDetail(v, fromRoute) { renderDetailView(v); if (!fromRoute) pushURL(v.path); }
-function shufflePlay(qid) { const q = queues.get(qid); if (!q || !q.length) return; const s = q.slice(); for (let i = s.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[s[i], s[j]] = [s[j], s[i]]; } state.queue = s; playIndex(0); }
+function shufflePlay(qid) { const q = queues.get(qid); if (!q || !q.length) return; const s = q.slice(); for (let i = s.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[s[i], s[j]] = [s[j], s[i]]; } state.queue = s; state.radio = null; playIndex(0); }
 function detailLoading(kind, round) {
   el("tbTitle").textContent = kind; el("tbTitle").style.display = ""; el("tbSearch").style.display = "none";
   el("v-detail").innerHTML = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
@@ -1932,7 +1985,7 @@ async function openArtist(id, fromRoute) {
   const videos = (acOnly || blockVideos()) ? [] : (am === "hide" ? (d.videos || []).filter((t) => !acapellaTrack(t)) : d.videos);
   const albums = acOnly ? [] : d.albums, singles = acOnly ? [] : d.singles, plists = acOnly ? [] : (d.playlists || []); // Audio-only hides the Videos section + keeps videos out of the play queue
   const n = (songs?.length || 0) + (videos?.length || 0);
-  pushDetail({ path: "/artists/" + id, kind: "Artist", title: d.artist.name, sub: acOnly ? `<b>${num(n)}</b> Acapella songs` : `<b>${num(n)}</b> songs · <b>${num(d.albums?.length || 0)}</b> albums`, thumb: d.artist.thumbnail, round: true, artistName: d.artist.name, sections: [
+  pushDetail({ path: "/artists/" + id, kind: "Artist", title: d.artist.name, sub: acOnly ? `<b>${num(n)}</b> Acapella songs` : `<b>${num(n)}</b> songs · <b>${num(d.albums?.length || 0)}</b> albums`, thumb: d.artist.thumbnail, round: true, artistName: d.artist.name, radio: acOnly ? null : { kind: "artist", seed: id }, sections: [
     { label: "Songs", tracks: songs, plays: true, collapse: 6 }, { label: "Albums", items: albums, render: albumCard }, { label: "Singles & EPs", items: singles, render: albumCard },
     { label: "Videos", tracks: videos, collapse: 6 }, { label: "Playlists", items: plists, render: playlistCard } ] }, fromRoute);
 }
@@ -1942,7 +1995,7 @@ async function openAlbum(id, fromRoute) {
   await ensureFilters(); // /album carries no flags — hiddenArtist(album artist) is the ONLY gate, so the map MUST be loaded first
   if (hiddenArtist(d.album.artist)) return blockedByFilter("album");
   const tracks = gate(d.tracks || []).filter((t) => !(blockVideos() && t.isVideo)); // Acapella (songOK) + Audio-only on the tracklist
-  pushDetail({ path: "/albums/" + id, kind: "Album", title: d.album.title, sub: `<b>${esc(d.album.artist)}</b>${d.album.year ? " · " + d.album.year : ""} · <b>${num(tracks.length)}</b> tracks${d.album.totalDurationSec ? " · " + fmtLong(d.album.totalDurationSec) : ""}`, thumb: d.album.thumbnail, artistName: d.album.artist, sections: [{ label: "Tracks", tracks }] }, fromRoute);
+  pushDetail({ path: "/albums/" + id, kind: "Album", title: d.album.title, sub: `<b>${esc(d.album.artist)}</b>${d.album.year ? " · " + d.album.year : ""} · <b>${num(tracks.length)}</b> tracks${d.album.totalDurationSec ? " · " + fmtLong(d.album.totalDurationSec) : ""}`, thumb: d.album.thumbnail, artistName: d.album.artist, radio: acapellaMode() === "only" ? null : { kind: "album", seed: id }, sections: [{ label: "Tracks", tracks }] }, fromRoute);
 }
 async function openPlaylist(id, fromRoute) {
   detailLoading("Playlist");
@@ -2051,7 +2104,7 @@ function fallbackToStream() {
   const t = state.queue[state.qi]; if (t && !audio.src) PB.load(t.videoId);
 }
 
-function playFrom(qid, i, source) { const q = queues.get(qid); if (!q) return; state.queue = q; state.playSource = source || (state.detailOpen ? (state.detailKind || "detail") : (state.tab || "home")); playIndex(i); }
+function playFrom(qid, i, source) { const q = queues.get(qid); if (!q) return; state.queue = q; state.radio = null; state.playSource = source || (state.detailOpen ? (state.detailKind || "detail") : (state.tab || "home")); playIndex(i); }
 // Play-duration tracking — measure REAL listen time (excludes pauses) and emit the `play` event on end/skip,
 // not on start, so a 2-second skip is distinguishable from a real listen (drives `qualified` + trending).
 let playSes = null;
@@ -2105,13 +2158,13 @@ function refreshNowPlaying() {
   });
 }
 function toggle() { if (!state.queue.length) return; PB.paused() ? PB.play() : PB.pause(); }
-function next() { if (state.qi < state.queue.length - 1) playIndex(state.qi + 1, 1); else PB.pause(); }
+function next() { if (state.qi < state.queue.length - 1) playIndex(state.qi + 1, 1); else radioContinue(); }
 function prev() { if (PB.cur() > 3 || state.qi <= 0) PB.seek(0); else playIndex(state.qi - 1, -1); }
 // Repeat one: when a song ends with repeat on, replay it instead of advancing (manual next/prev still work).
 function repeatOrNext() { if (state.repeat && state.qi >= 0) playIndex(state.qi); else next(); }
 function toggleRepeat() { state.repeat = !state.repeat; document.querySelectorAll(".rpt").forEach((b) => { b.classList.toggle("on", state.repeat); b.setAttribute("aria-pressed", state.repeat); }); showToast(state.repeat ? "Repeat this song" : "Repeat off", 1300); }
 function seekBy(d) { if (!state.queue.length) return; const dur = PB.dur(); if (!dur) return; PB.seek(Math.max(0, Math.min(dur - 0.5, PB.cur() + d))); }
-function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); paintQueue(); }
+function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); const au = el("npAuto"); if (au) au.checked = radioAutoplay(); paintQueue(); }
 function closeNow() { state.nowOpen = false; el("now").classList.remove("on"); }
 function saveRecent(t) { try { const h = readRecent().filter((x) => x.videoId !== t.videoId); h.unshift({ videoId: t.videoId, title: t.title, artist: t.artist, explicit: t.explicit, isVideo: t.isVideo }); localStorage.setItem("zw_recent", JSON.stringify(h.slice(0, 80))); } catch {} acctSyncRecents(); }
 function toggleMute() { PB.setMuted(!PB.muted); el("vol").value = PB.muted ? 0 : Math.round(PB.vol * 100); paintSeek(el("vol")); }
@@ -2121,6 +2174,51 @@ function paintQueue() {
     return `<div class="row ${playing ? "playing" : ""}" role="button" tabindex="0" onkeydown="${KDACT}" onclick="playIndex(${i})"><img class="thumb" alt="" src="${yt(t.videoId)}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${playing ? EQ : ""}${esc(t.title)}</div><div class="sub">${esc(t.artist || "")}</div></div></div>`;
   }).join("");
   el("npQueue").innerHTML = up || "";
+}
+
+/* ============================ Zemer Radio ============================ */
+// Corpus-native "what plays next" from the Zemer search server's /radio (proxied same-origin by the
+// Worker — see zemer-search docs/radio.md). The server ranks by real co-listening (session + library
+// co-occurrence) and applies allowFemale/kidZone + blocked-ids in-engine; the client re-gates for its
+// local-only filters (Chasidish / DJ / Israeli / Acapella) and dedupes against the current queue.
+// `continuation` is an opaque token — pass it back verbatim for the next page of the same station.
+const radioAutoplay = () => LS.get("zw_radioAutoplay", "1") === "1";
+function setRadioAutoplay(on) { LS.set("zw_radioAutoplay", on ? "1" : "0"); showToast(on ? "Autoplay on — similar songs keep playing when the queue ends." : "Autoplay off — playback stops at the end of the queue.", 2400); }
+async function radioFetch(p) { // {kind, seed} = fresh station · {continuation} = next page
+  await ensureFilters(); // artist flags + blocked-ids (+ the Acapella set) BEFORE gate() runs
+  const qs = p.continuation ? "continuation=" + encodeURIComponent(p.continuation)
+    : filterQS(`kind=${p.kind}${p.seed ? "&seed=" + encodeURIComponent(p.seed) : ""}&limit=30`);
+  const d = await fetchJSON("/radio?" + qs).catch(() => null);
+  if (!d || !Array.isArray(d.tracks)) return null;
+  const have = new Set(state.queue.map((t) => t.videoId));
+  const tracks = gate(d.tracks.map((t) => ({ videoId: t.videoId, title: t.title, artist: t.artist, isVideo: !!t.isVideo, durationSec: t.durationSec, explicit: !!t.explicit })))
+    .filter((t) => t.videoId && !have.has(t.videoId));
+  return { tracks, continuation: d.continuation || null };
+}
+let _radioBusy = false;
+async function radioContinue() { // queue ran out → keep playing similar songs, seeded by the last track
+  const last = state.queue[state.queue.length - 1];
+  if (!radioAutoplay() || !last || acapellaMode() === "only") { PB.pause(); return; } // Acapella-only: the station can't honor the set — stop cleanly
+  if (_radioBusy) return;
+  _radioBusy = true;
+  showToast("Finding similar songs…", 1600);
+  try {
+    const r = (state.radio && state.radio.continuation)
+      ? await radioFetch({ continuation: state.radio.continuation })
+      : await radioFetch({ kind: "song", seed: last.videoId });
+    if (!r || !r.tracks.length) { PB.pause(); if (r) showToast("No more similar songs found.", 2200); return; }
+    state.radio = { continuation: r.continuation };
+    const at = state.queue.length;
+    state.queue = state.queue.concat(r.tracks);
+    playIndex(at, 1);
+  } finally { _radioBusy = false; }
+}
+async function startRadio(kind, seed) { // detail-page Radio button → a whole artist/album station
+  showToast("Starting radio…", 1400);
+  const r = await radioFetch({ kind, seed });
+  if (!r || !r.tracks.length) return showToast("Radio isn't available right now.", 2600);
+  state.queue = r.tracks; state.radio = { continuation: r.continuation }; state.playSource = "radio";
+  playIndex(0);
 }
 
 /* progress + state — unified across both engines */

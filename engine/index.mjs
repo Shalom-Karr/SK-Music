@@ -991,6 +991,27 @@ async function refreshHomeRows(env) {
   if (text) await env.PAGES.put(HOME_ROWS_KV_KEY, text, { expirationTtl: 46800 });
 }
 
+// ─── Zemer Radio (/radio) ────────────────────────────────────────────────────
+
+// Live pass-through to the upstream corpus radio (co-occurrence "what plays next"; see
+// zemer-search docs/radio.md). Served same-origin so it works behind content filters.
+// Stations are per-session (rngSeed inside the opaque continuation token), so responses are
+// deliberately NOT KV/edge cached — each page is a cheap deterministic read upstream.
+async function handleRadio(url) {
+  try {
+    const res = await fetch("https://search.zemer.io/radio" + url.search, {
+      signal: AbortSignal.timeout(15000),
+    });
+    const text = await res.text();
+    return new Response(text, {
+      status: res.status,
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    });
+  } catch {
+    return Response.json({ error: "unavailable" }, { status: 502, headers: { "Cache-Control": "no-store" } });
+  }
+}
+
 // ─── KV page overrides ────────────────────────────────────────────────────────
 
 // Derive the correct MIME type from a file path extension.
@@ -1109,6 +1130,7 @@ export default {
     if (pathname === "/playlist") return servePlaylist(url, ctx);
     if (pathname === "/zp-live") return handleLivePlaylist(url, env, ctx);
     if (pathname === "/zemer-home-rows") return handleHomeRows(env, ctx);
+    if (pathname === "/radio") return handleRadio(url);
     if (pathname === "/trending") {
       // Content negotiation: browser navigations (Accept: text/html) get the human-readable charts
       // page; the app's fetch() and API callers (Accept: */*) keep getting JSON. Fetch the extensionless
