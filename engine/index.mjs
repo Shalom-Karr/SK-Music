@@ -380,7 +380,11 @@ async function servePlaylist(url, ctx) {
       { headers: { "Cache-Control": "no-store" } }
     );
 
-  if (!/^[A-Za-z0-9_-]{6,}$/.test(id)) return stub("invalid playlist id");
+  // YouTube playlist ids are base64url and bounded (PL… ~34, OLAK5uy_… ~41, RD… mixes, etc.); cap the
+  // length so the route can't be handed arbitrary/oversized junk. Restricting to a known-id allowlist is
+  // too risky here — the app feeds this route corpus-sourced ids of many shapes (featured/followed
+  // playlists, album playlistIds, search results) — so we tighten the shape/method rather than the set.
+  if (!/^[A-Za-z0-9_-]{6,64}$/.test(id)) return stub("invalid playlist id");
 
   // Edge cache is shared across users — most requests skip the ~700 ms upstream round-trip.
   const edgeCache = caches.default;
@@ -495,6 +499,11 @@ async function handleAnalyticsBeacon(request, env, ctx) {
   if (!env.SUPABASE_URL || !env.SUPABASE_KEY)
     return new Response(null, { status: 204 });
 
+  // Drop obvious cross-site beacons. Browsers set Sec-Fetch-Site; same-origin web app → "same-origin",
+  // native/desktop clients omit the header entirely → those still pass (don't hard-fail when absent).
+  if (request.headers.get("Sec-Fetch-Site") === "cross-site")
+    return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+
   let body = {};
   try {
     body = await request.json();
@@ -507,6 +516,12 @@ async function handleAnalyticsBeacon(request, env, ctx) {
   const rawUa = request.headers.get("user-agent") || "";
   const { browser, os, device } = detectClient(rawUa);
   const clamp = (v, n) => (v == null ? null : String(v).slice(0, n));
+  // meta is caller-controlled and stored as-is; drop it when serialization exceeds 2 KB so an
+  // unauthenticated beacon can't park arbitrarily large blobs (up to 60 rows per request).
+  const clampMeta = (m) => {
+    if (!m || typeof m !== "object") return null;
+    try { return JSON.stringify(m).length <= 2048 ? m : null; } catch { return null; }
+  };
 
   // These request-level fields are identical for every event in a batch.
   const ip = request.headers.get("cf-connecting-ip") || null;
@@ -533,7 +548,7 @@ async function handleAnalyticsBeacon(request, env, ctx) {
       device,
       screen: clamp(e.screen, 24),
       session: clamp(e.sid, 64),
-      meta: e.meta && typeof e.meta === "object" ? e.meta : null,
+      meta: clampMeta(e.meta),
     }));
 
   if (rows.length) ctx.waitUntil(persistEvents(env, rows));
@@ -761,11 +776,15 @@ const remapByTitle = (titleIdx, title, artistId) => {
 // artists.json is ~550 KB, so parse it once per isolate.
 let artistIndexCache = null;
 async function getArtistNameIndex(env) {
-  if (!artistIndexCache) {
-    const f = await fetchAssetJSON(env, "/data/artists.json");
-    artistIndexCache = buildArtistNameIndex((f && f.artists) || []);
-  }
-  return artistIndexCache;
+  if (artistIndexCache) return artistIndexCache;
+  const f = await fetchAssetJSON(env, "/data/artists.json");
+  const artists = f && Array.isArray(f.artists) ? f.artists : null;
+  const idx = buildArtistNameIndex(artists || []);
+  // Only PIN a real, non-empty index (like songOgCache). A transient fetch failure returns a usable
+  // empty index for this call but leaves the cache null so the next call retries instead of pinning
+  // an empty index for the whole isolate lifetime (which would break every later /trending merge).
+  if (artists && artists.length) artistIndexCache = idx;
+  return idx;
 }
 
 // Cron half: pull the public stats, resolve to catalog ids, store in KV.
@@ -892,9 +911,10 @@ async function handleLivePlaylist(url, env, ctx) {
     );
   }
 
-  // 1. KV — written by cron or a previous on-demand fetch.
+  // 1. KV — written by cron or a previous on-demand fetch. A KV error degrades to edge/live below.
   if (env.PAGES) {
-    const kvText = await env.PAGES.get(zpKvKey(id));
+    let kvText = null;
+    try { kvText = await env.PAGES.get(zpKvKey(id)); } catch { /* KV read failed → fall through */ }
     if (kvText) {
       return new Response(kvText, {
         headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" },
@@ -959,7 +979,8 @@ async function fetchUpstreamHomeRows() {
 
 async function handleHomeRows(env, ctx) {
   if (env.PAGES) {
-    const kvText = await env.PAGES.get(HOME_ROWS_KV_KEY);
+    let kvText = null;
+    try { kvText = await env.PAGES.get(HOME_ROWS_KV_KEY); } catch { /* KV read failed → fall through to edge/live */ }
     if (kvText) {
       return new Response(kvText, {
         headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" },
@@ -1000,7 +1021,8 @@ const ZEMER_NEW_KV_KEY = "zemer-new:v1";
 
 async function handleZemerNew(env, ctx) {
   if (env.PAGES) {
-    const kvText = await env.PAGES.get(ZEMER_NEW_KV_KEY);
+    let kvText = null;
+    try { kvText = await env.PAGES.get(ZEMER_NEW_KV_KEY); } catch { /* KV read failed → fall through to edge/live */ }
     if (kvText) {
       return new Response(kvText, {
         headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" },
@@ -1034,9 +1056,51 @@ async function handleZemerNew(env, ctx) {
 // zemer-search docs/radio.md). Served same-origin so it works behind content filters.
 // Stations are per-session (rngSeed inside the opaque continuation token), so responses are
 // deliberately NOT KV/edge cached — each page is a cheap deterministic read upstream.
-async function handleRadio(url) {
+const RADIO_KINDS = ["song", "artist", "album", "shuffle", "playlist"];
+const badRadio = (msg) =>
+  Response.json({ error: msg }, { status: 400, headers: { "Cache-Control": "no-store" } });
+
+async function handleRadio(request, url) {
+  // GET only, and never forward url.search verbatim — rebuild the upstream query from a validated
+  // allowlist so /radio can't be used to pass arbitrary/unbounded params to search.zemer.io.
+  if (request.method !== "GET")
+    return Response.json({ error: "method not allowed" }, { status: 405, headers: { "Cache-Control": "no-store" } });
+
+  const p = url.searchParams;
+  const out = new URLSearchParams();
+
+  // A pagination request carries only the opaque continuation token (no kind); a fresh station carries kind.
+  const continuation = p.get("continuation");
+  if (continuation != null) {
+    if (!/^[A-Za-z0-9_=-]{1,2048}$/.test(continuation)) return badRadio("bad continuation");
+    out.set("continuation", continuation);
+  }
+  const kind = p.get("kind");
+  if (kind != null) {
+    if (!RADIO_KINDS.includes(kind)) return badRadio("bad kind");
+    out.set("kind", kind);
+  }
+  if (!out.has("kind") && !out.has("continuation")) return badRadio("bad request");
+
+  const seed = p.get("seed");
+  if (seed != null) {
+    if (!/^[A-Za-z0-9_=-]{1,64}$/.test(seed)) return badRadio("bad seed");
+    out.set("seed", seed);
+  }
+  const limitRaw = p.get("limit");
+  if (limitRaw != null) {
+    const lim = parseInt(limitRaw, 10);
+    if (Number.isFinite(lim)) out.set("limit", String(Math.min(50, Math.max(1, lim))));
+  }
+  for (const flag of ["allowFemale", "allowChasid", "kidZone", "blockVideos"]) {
+    const v = p.get(flag);
+    if (v != null) out.set(flag, v === "1" || v === "true" ? "1" : "0");
+  }
+
+  // NOTE: a per-IP rate limit would need infra not bound here (no Rate Limiting binding / Durable Object);
+  // the param allowlist above is the required hardening. Add a binding-backed limiter if abuse appears.
   try {
-    const res = await fetch("https://search.zemer.io/radio" + url.search, {
+    const res = await fetch("https://search.zemer.io/radio?" + out.toString(), {
       signal: AbortSignal.timeout(15000),
     });
     const text = await res.text();
@@ -1140,13 +1204,17 @@ export default {
     // which was slow enough to make Search Console's fetch fail.
     if (request.method === "GET" && (/^\/sitemap[\w.-]*\.xml$/.test(pathname) || pathname === "/robots.txt")) {
       const cache = caches.default;
-      const cached = await cache.match(request);
+      // Normalize the cache key to origin+pathname (drop the query) so /robots.txt?r=<rand> can't mint
+      // unbounded distinct cache entries.
+      const cacheKey = new Request(url.origin + url.pathname);
+      const cached = await cache.match(cacheKey);
       if (cached) return cached;
       const asset = await env.ASSETS.fetch(request);
       const headers = new Headers(asset.headers);
       headers.set("Cache-Control", "public, max-age=3600, s-maxage=21600");
       const resp = new Response(asset.body, { status: asset.status, headers });
-      if (asset.ok) ctx.waitUntil(cache.put(request, resp.clone()));
+      // Never cache.put a 206 (range) response — the Cache API rejects it.
+      if (asset.ok && asset.status !== 206) ctx.waitUntil(cache.put(cacheKey, resp.clone()));
       return resp;
     }
 
@@ -1164,11 +1232,14 @@ export default {
     }
 
     // Live data routes.
-    if (pathname === "/playlist") return servePlaylist(url, ctx);
+    if (pathname === "/playlist")
+      return request.method === "GET"
+        ? servePlaylist(url, ctx)
+        : new Response("method not allowed", { status: 405, headers: { "Cache-Control": "no-store" } });
     if (pathname === "/zp-live") return handleLivePlaylist(url, env, ctx);
     if (pathname === "/zemer-home-rows") return handleHomeRows(env, ctx);
     if (pathname === "/zemer-new") return handleZemerNew(env, ctx);
-    if (pathname === "/radio") return handleRadio(url);
+    if (pathname === "/radio") return handleRadio(request, url);
     if (pathname === "/trending") {
       // Content negotiation: browser navigations (Accept: text/html) get the human-readable charts
       // page; the app's fetch() and API callers (Accept: */*) keep getting JSON. Fetch the extensionless
