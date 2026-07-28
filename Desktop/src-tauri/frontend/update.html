@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>SK Music — Updates</title>
+<style>
+  :root { color-scheme: dark; --bg:#0e0a0b; --surface:#1a1214; --text:#f6ece8; --muted:#b09a93; --faint:#7c6963; --primary:#ff5d6b; --primary-ink:#2a0407; --ok:#67d98a; --line:rgba(255,240,235,.10); }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; background: transparent; }
+  body { font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text); -webkit-user-select: none; user-select: none; }
+  .card { height: 100%; display: flex; flex-direction: column; padding: 18px 20px 16px; border-radius: 14px; border: 1px solid var(--line);
+    background: linear-gradient(160deg, #17100f, var(--bg) 65%); box-shadow: 0 18px 50px -12px rgba(0,0,0,.75); }
+  .head { display: flex; align-items: center; gap: 10px; }
+  .glyph { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-size: 17px;
+    background: linear-gradient(135deg, var(--primary), #f0b35a); color: var(--primary-ink); font-weight: 700; }
+  .t { font-weight: 650; font-size: 15px; }
+  .ver { color: var(--muted); font-size: 12.5px; }
+  .x { margin-left: auto; width: 28px; height: 28px; border: 0; border-radius: 8px; background: transparent; color: var(--faint);
+    font-size: 15px; cursor: pointer; }
+  .x:hover { background: var(--surface); color: var(--text); }
+  .status { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 10px 2px; }
+  .line { display: flex; align-items: center; gap: 9px; font-size: 13.5px; color: var(--muted); min-height: 21px; }
+  .line b { color: var(--text); font-weight: 600; }
+  .spin { width: 15px; height: 15px; border: 2px solid var(--line); border-top-color: var(--primary); border-radius: 50%;
+    animation: spin .8s linear infinite; flex: none; display: none; }
+  body.busy .spin { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: none; }
+  body.ok .dot { display: block; background: var(--ok); }
+  body.avail .dot { display: block; background: #f0b35a; }
+  body.err .dot { display: block; background: var(--primary); }
+  .bar { height: 4px; border-radius: 2px; background: var(--surface); overflow: hidden; display: none; }
+  body.downloading .bar { display: block; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--primary); transition: width .25s; }
+  .notes { font-size: 12px; color: var(--faint); max-height: 34px; overflow: hidden; text-overflow: ellipsis; }
+  .row { display: flex; gap: 9px; }
+  button.act { flex: 1; height: 36px; border: 0; border-radius: 10px; font: inherit; font-weight: 600; cursor: pointer; }
+  #again { background: var(--surface); color: var(--text); border: 1px solid var(--line); }
+  #again:hover { border-color: var(--faint); }
+  #restart { background: var(--primary); color: #fff; display: none; }
+  #restart:hover { filter: brightness(1.08); }
+  body.ready #restart { display: block; }
+</style>
+</head>
+<body>
+  <div class="card" data-tauri-drag-region>
+    <div class="head" data-tauri-drag-region>
+      <div class="glyph" data-tauri-drag-region>♪</div>
+      <div data-tauri-drag-region>
+        <div class="t" data-tauri-drag-region>SK Music</div>
+        <div class="ver" data-tauri-drag-region>Version <span id="cur">…</span></div>
+      </div>
+      <button class="x" id="close" title="Close" aria-label="Close">✕</button>
+    </div>
+    <div class="status" data-tauri-drag-region>
+      <div class="line"><span class="spin"></span><span class="dot"></span><span id="msg">Checking for updates…</span></div>
+      <div class="bar"><i id="pct"></i></div>
+      <div class="notes" id="notes"></div>
+    </div>
+    <div class="row">
+      <button class="act" id="again">Check again</button>
+      <button class="act" id="restart">Restart to update</button>
+    </div>
+  </div>
+<script>
+  var T = window.__TAURI__ || {};
+  var invoke = T.core ? T.core.invoke : function () { return Promise.reject(); };
+  var listen = T.event ? T.event.listen : function () {};
+  function el(id) { return document.getElementById(id); }
+  function state(cls) { document.body.className = cls; }
+  function msg(html) { el("msg").innerHTML = html; }
+
+  invoke("updater_version").then(function (v) { el("cur").textContent = v; }).catch(function () { el("cur").textContent = "?"; });
+
+  listen("updater://checking", function (e) {
+    el("cur").textContent = e.payload.currentVersion || el("cur").textContent;
+    state("busy"); msg("Checking for updates…"); el("notes").textContent = "";
+  });
+  listen("updater://up-to-date", function (e) {
+    el("cur").textContent = e.payload.currentVersion || el("cur").textContent;
+    state("ok"); msg("You're up to date — <b>" + (e.payload.currentVersion || "") + "</b> is the latest version.");
+  });
+  listen("updater://update-available", function (e) {
+    state("busy avail downloading"); msg("Update available: <b>" + e.payload.version + "</b> — downloading…");
+    if (e.payload.notes) el("notes").textContent = e.payload.notes;
+  });
+  listen("updater://download-progress", function (e) {
+    if (e.payload.percent != null) el("pct").style.width = e.payload.percent + "%";
+  });
+  listen("updater://ready", function (e) {
+    state("avail ready"); msg("<b>" + e.payload.version + "</b> is downloaded — restart to install.");
+  });
+  listen("updater://error", function (e) {
+    state("err"); msg("Couldn't check for updates. " + (e.payload.message || ""));
+  });
+
+  el("again").onclick = function () { invoke("updater_check"); };
+  el("restart").onclick = function () { invoke("updater_restart"); };
+  el("close").onclick = function () { T.window && T.window.getCurrentWindow().hide(); };
+</script>
+</body>
+</html>

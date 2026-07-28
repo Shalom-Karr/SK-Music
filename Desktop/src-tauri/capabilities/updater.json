@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "updater-window",
+  "description": "The local update-status dialog (frontend/update.html): core IPC for the updater commands, event listen for the updater:// broadcasts, and hide/show/focus/drag for its frameless chrome.",
+  "windows": ["updater"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
+    "core:window:allow-start-dragging"
+  ]
+}

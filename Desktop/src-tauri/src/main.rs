@@ -53,6 +53,7 @@ fn main() {
             media::set_playback_state,
             updater::updater_check,
             updater::updater_restart,
+            updater::updater_version,
             mini::mini_control,
             mini::mini_sync,
             mini::mini_open_main,

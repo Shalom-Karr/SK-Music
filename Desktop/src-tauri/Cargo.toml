@@ -1,7 +1,7 @@
-[package]
+﻿[package]
 name = "sk-music-desktop"
-version = "0.2.0"
-description = "SK Music — native desktop shell (Tauri 2) for the kosher Jewish-music web client"
+version = "0.2.1"
+description = "SK Music â€” native desktop shell (Tauri 2) for the kosher Jewish-music web client"
 authors = ["SK Music"]
 license = "GPL-3.0-or-later"
 edition = "2021"
@@ -36,7 +36,7 @@ tauri-plugin-notification = "2"
 souvlaki = "0.7"
 
 # Runtime compositing of the "now playing" tray-icon badge over the app icon (src/tray.rs).
-# No codec features needed — we operate on the raw RGBA buffer Tauri hands us, so the PNG/JPEG
+# No codec features needed â€” we operate on the raw RGBA buffer Tauri hands us, so the PNG/JPEG
 # decoders stay out of the build.
 image = { version = "0.25", default-features = false }
 
