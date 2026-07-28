@@ -991,6 +991,43 @@ async function refreshHomeRows(env) {
   if (text) await env.PAGES.put(HOME_ROWS_KV_KEY, text, { expirationTtl: 46800 });
 }
 
+// ─── Zemer new releases (/zemer-new) ─────────────────────────────────────────
+
+// Upstream /new: recent releases with REAL release dates from the releases feed (fallback: corpus
+// harvest dates). Fetched UNFILTERED (no content flags) so one cached copy serves everyone — the
+// client applies its own gate(), exactly as it does for /home data. KV → edge → live, 3 h TTL.
+const ZEMER_NEW_KV_KEY = "zemer-new:v1";
+
+async function handleZemerNew(env, ctx) {
+  if (env.PAGES) {
+    const kvText = await env.PAGES.get(ZEMER_NEW_KV_KEY);
+    if (kvText) {
+      return new Response(kvText, {
+        headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" },
+      });
+    }
+  }
+  const edgeCache = caches.default;
+  const cacheKey = new Request("https://sk/zemer-new");
+  const edgeHit = await edgeCache.match(cacheKey);
+  if (edgeHit) return edgeHit;
+
+  let text = null;
+  try {
+    const res = await fetch("https://search.zemer.io/new?k=60&days=14", { signal: AbortSignal.timeout(15000) });
+    if (res.ok) { const t = await res.text(); if (t && t.length > 2) text = t; }
+  } catch {}
+  if (text == null) {
+    return Response.json({ error: "unavailable" }, { status: 502, headers: { "Cache-Control": "no-store" } });
+  }
+  if (env.PAGES && ctx) ctx.waitUntil(env.PAGES.put(ZEMER_NEW_KV_KEY, text, { expirationTtl: 10800 }));
+  const response = new Response(text, {
+    headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=10800" },
+  });
+  if (ctx) ctx.waitUntil(edgeCache.put(cacheKey, response.clone()));
+  return response;
+}
+
 // ─── Zemer Radio (/radio) ────────────────────────────────────────────────────
 
 // Live pass-through to the upstream corpus radio (co-occurrence "what plays next"; see
@@ -1130,6 +1167,7 @@ export default {
     if (pathname === "/playlist") return servePlaylist(url, ctx);
     if (pathname === "/zp-live") return handleLivePlaylist(url, env, ctx);
     if (pathname === "/zemer-home-rows") return handleHomeRows(env, ctx);
+    if (pathname === "/zemer-new") return handleZemerNew(env, ctx);
     if (pathname === "/radio") return handleRadio(url);
     if (pathname === "/trending") {
       // Content negotiation: browser navigations (Accept: text/html) get the human-readable charts

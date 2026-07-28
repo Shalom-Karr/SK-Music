@@ -183,6 +183,7 @@ a KV namespace (`PAGES`), a cron (`15 8,20 * * *`), and observability. Routes, i
 | `GET /playlist?id=` | Live-fetches a YouTube community playlist via the `youtubei` `browse` endpoint, recursively collects every track row + continuation token (robust to layout changes), edge-caches non-empty results 30 min. The browser then filters to the whitelisted corpus. |
 | `GET /zp-live?id=` | Serves a curated **trending** playlist from KV (`PAGES`), refreshed by the cron; falls back to a live edge-cached fetch from `https://search.zemer.io/zemer-playlists`. Same-origin so it works behind content filters. |
 | `GET /zemer-home-rows` | Proxies the upstream `/home-rows` (Top Albums / Videos / Artists, ranked by the Zemer app fleet's 30-day device reach, regenerated upstream twice daily) with the same KV → edge → live priority as `/zp-live`. Feeds the "Zemer Trending Songs/Albums/Artists" sections at the bottom of Home and For You. |
+| `GET /zemer-new` | Proxies the upstream `/new` releases feed (recent releases with REAL release dates; corpus fallback upstream) — fetched **unfiltered** so one KV/edge-cached copy (3 h) serves everyone; the client `gate()`s what it renders. Feeds Home's "Latest Releases"/"New Songs" and For You's "New for you" (corpus sections remain the fallback when the feed is empty/unreachable). |
 | `GET /radio` | Live pass-through to the upstream Zemer Radio (`search.zemer.io/radio` — corpus-native "what plays next" ranked by real co-listening; see zemer-search `docs/radio.md`). Query string forwarded verbatim (`kind=song\|artist\|album\|shuffle&seed=&allowFemale=&kidZone=&limit=` or `continuation=<opaque token>`), returns `{tracks, continuation}`. Deliberately **not** KV/edge cached — stations are per-session (`rngSeed` inside the token). Powers the client's queue-end **Autoplay** continuation (`kind=song`, seeded by the last track; toggle in the Now Playing "Up Next" header, `zw_radioAutoplay`, default on) and the **Radio** button on artist/album detail pages. The server applies `allowFemale`/`kidZone`/blocked-ids in-engine; the client re-gates for its local-only filters (Chasidish / DJ / Israeli / Acapella) and dedupes against the queue. Acapella-**only** mode suppresses radio entirely (a station can't honor the set). |
 | `GET /trending?days=` | Blends two play populations into one id-resolved ranking: our web plays (Supabase RPCs `top_songs` + `top_artists`, anon key) and the Zemer Android app's listening stats (KV `ext-trending-v1`, written by the cron from `tracking.zemer.io/stats/public`). App songs resolve in three tiers: catalog videoId (`og.json`), else a title+artist **remap** onto our id (the app plays channel uploads; we index the YouTube Music release of the same song), else kept as-is with `offCatalog: true` — every id in those stats was played inside the whitelist-locked Zemer app, so it's kosher by construction and the player takes any videoId. Artist names resolve to channel ids via `artists.json`. Score = web-play share + app unique-**device** share, each normalized to its own top item. Songs carry `videoId`+`artistId`, artists carry `id`; legacy keys (`title`/`artist`) are kept for cached clients. Edge-caches 30 min. Feeds the home "Trending" rails. |
 | `POST /a` | **Analytics beacon.** Accepts a batched array of events, enriches each with server-derived IP/country/city/region + parsed browser/OS/device, and bulk-inserts one row per event into the Supabase analytics table in a single POST (`ctx.waitUntil`, never blocks the beacon). Returns 204. See [backend.md](backend.md). |
@@ -212,6 +213,17 @@ IFrame Player API**: given a `videoId`, it drives the embedded player for play/p
 `mediaSession` for lock-screen controls. This is a deliberate simplification over the upstream project's
 server-side stream-resolution pipeline — there is no `/stream` route here, which is part of why the whole
 app can be static.
+
+**Gapless advance (double-buffer prime):** TWO hidden players. The active one (`PB.yt`) plays; the
+standby pre-cues the next queue track (`cueNext()`, Acapella-aware via `nextPlayableIndex()`) and
+**primes immediately** — on the CUED event it plays muted just long enough to buffer, then parks at 0
+(`warm` → `primed`), held inert for the rest of the song. Near the end (`GAPLESS_FIRE`, 0.5 s) — or on
+the ended event, since YouTube over-reports durations by up to several seconds so a pre-end window
+alone can be missed — `fireSwap()` makes it audible at the user's volume/rate and the players swap
+roles on its PLAYING event (`completeSwap()` — bookkeeping via the shared `trackStarted()`, no
+`loadVideoById`): no break, no skipped intro, no double audio. A queue/filter change re-cues and
+re-primes; a new `playIndex` load cancels outright; pause/seek cancel only a *firing* handoff (a primed
+standby is inert and survives). Repeat-one and the html5 `/stream` fallback never use it.
 
 **Zemer Radio continuation:** the moment the queue's **last track starts** (and Autoplay is on —
 `zw_radioAutoplay`, toggle in the Up Next header), `radioPrefetch()` pulls the next page from the
