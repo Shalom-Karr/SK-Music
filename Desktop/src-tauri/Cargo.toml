@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "sk-music-desktop"
 version = "1.0.2"
 description = "SK Music — native desktop shell (Tauri 2) for the kosher Jewish-music web client"
