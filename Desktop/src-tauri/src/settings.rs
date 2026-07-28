@@ -65,18 +65,23 @@ pub fn get() -> Settings {
         .unwrap_or_default()
 }
 
-/// Mutate the cached settings under the lock, then flush the whole file to disk. The mutation
-/// runs inside the lock so concurrent writers (tray toggle vs. mini drag) can't clobber each
-/// other's fields.
+/// Mutate the cached settings under the lock, then flush to disk OUTSIDE the lock. The mutation runs
+/// inside the lock so concurrent writers (tray toggle vs. mini drag) can't clobber each other's
+/// fields, but the disk I/O (`create_dir_all` + `write`) must not block `get()` — which runs on the
+/// main thread on every track/focus change — so we snapshot a clone, drop the guard, then serialize
+/// and write.
 fn update(f: impl FnOnce(&mut Settings)) {
     let Some(state) = STATE.get() else { return };
-    let Ok(mut guard) = state.lock() else { return };
-    f(&mut guard.settings);
-    if let Some(dir) = guard.path.parent() {
+    let (path, snapshot) = {
+        let Ok(mut guard) = state.lock() else { return };
+        f(&mut guard.settings);
+        (guard.path.clone(), guard.settings.clone())
+    };
+    if let Some(dir) = path.parent() {
         let _ = std::fs::create_dir_all(dir);
     }
-    if let Ok(json) = serde_json::to_vec_pretty(&guard.settings) {
-        let _ = std::fs::write(&guard.path, json);
+    if let Ok(json) = serde_json::to_vec_pretty(&snapshot) {
+        let _ = std::fs::write(&path, json);
     }
 }
 

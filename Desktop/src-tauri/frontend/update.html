@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' ipc: http://ipc.localhost" />
 <title>SK Music — Updates</title>
 <style>
   :root { color-scheme: dark; --bg:#0e0a0b; --surface:#1a1214; --text:#f6ece8; --muted:#b09a93; --faint:#7c6963; --primary:#ff5d6b; --primary-ink:#2a0407; --ok:#67d98a; --line:rgba(255,240,235,.10); }
@@ -68,7 +69,20 @@
   var listen = T.event ? T.event.listen : function () {};
   function el(id) { return document.getElementById(id); }
   function state(cls) { document.body.className = cls; }
-  function msg(html) { el("msg").innerHTML = html; }
+  // Render the status line from untrusted event payloads via textContent only — any window
+  // (including the remote SPA) can emit a forged updater://* event, so version/message must never
+  // reach innerHTML. `lead`/`tail` are static literals; `emphasis` is the dynamic value, bolded.
+  function msg(lead, emphasis, tail) {
+    var m = el("msg");
+    m.textContent = "";
+    if (lead) m.appendChild(document.createTextNode(lead));
+    if (emphasis != null) {
+      var b = document.createElement("b");
+      b.textContent = String(emphasis);
+      m.appendChild(b);
+    }
+    if (tail) m.appendChild(document.createTextNode(tail));
+  }
 
   invoke("updater_version").then(function (v) { el("cur").textContent = v; }).catch(function () { el("cur").textContent = "?"; });
 
@@ -78,17 +92,17 @@
   });
   listen("updater://up-to-date", function (e) {
     el("cur").textContent = e.payload.currentVersion || el("cur").textContent;
-    state("ok"); msg("You're up to date — <b>" + (e.payload.currentVersion || "") + "</b> is the latest version.");
+    state("ok"); msg("You're up to date — ", e.payload.currentVersion || "", " is the latest version.");
   });
   listen("updater://update-available", function (e) {
-    state("busy avail downloading"); msg("Update available: <b>" + e.payload.version + "</b> — downloading…");
+    state("busy avail downloading"); msg("Update available: ", e.payload.version, " — downloading…");
     if (e.payload.notes) el("notes").textContent = e.payload.notes;
   });
   listen("updater://download-progress", function (e) {
     if (e.payload.percent != null) el("pct").style.width = e.payload.percent + "%";
   });
   listen("updater://ready", function (e) {
-    state("avail ready"); msg("<b>" + e.payload.version + "</b> is downloaded — restart to install.");
+    state("avail ready"); msg(null, e.payload.version, " is downloaded — restart to install.");
   });
   listen("updater://error", function (e) {
     state("err"); msg("Couldn't check for updates. " + (e.payload.message || ""));

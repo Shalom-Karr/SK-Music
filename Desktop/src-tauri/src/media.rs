@@ -74,6 +74,7 @@
 //! killed by the OS tile.
 
 use std::cell::RefCell;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -376,6 +377,9 @@ pub struct PlaybackState {
     playing: Option<bool>,
     position_ms: Option<u64>,
     stopped: Option<bool>,
+    /// Repeat-one state, carried through verbatim for the mini player's repeat toggle.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    repeat: Option<bool>,
 }
 
 /// The REMOTE SPA cannot invoke app commands (the capability remote grant covers core-plugin
@@ -398,9 +402,18 @@ pub fn hook_report_events(app: &tauri::AppHandle) {
     });
     let h = app.clone();
     app.listen("sk-menu", move |_| {
+        // Guard against a compromised/looping SPA queueing endless blocking modal popups: only one
+        // sk-menu-driven popup at a time. Set before the (blocking) popup, cleared when it returns.
+        if MENU_OPEN.swap(true, Ordering::SeqCst) {
+            return;
+        }
         crate::tray::show_app_menu_inner(&h);
+        MENU_OPEN.store(false, Ordering::SeqCst);
     });
 }
+
+/// True while an `sk-menu`-driven tray popup is on screen — rate-limits the remote SPA to one.
+static MENU_OPEN: AtomicBool = AtomicBool::new(false);
 
 /// Set full metadata + playback state. Call on track change.
 #[tauri::command]

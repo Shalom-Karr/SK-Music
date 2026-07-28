@@ -19,6 +19,33 @@ mod updater;
 
 use tauri::Manager;
 
+/// Fire a cold-start transport action into the remote SPA's media bridge once it exists. On a cold
+/// launch the webview is still loading (index.html → connectivity probe → remote app), so
+/// `window.__skMediaControl` may not be there yet. Poll the main webview for a bounded window and
+/// inject a one-shot, sentinel-guarded snippet: it fires the action exactly once — surviving the
+/// index.html→remote navigation and never double-firing even though we re-inject each tick.
+fn forward_control_when_ready(app: tauri::AppHandle, action: String) {
+    std::thread::spawn(move || {
+        let a = serde_json::to_string(&action).unwrap_or_else(|_| "\"\"".to_string());
+        let js = format!(
+            "(function(a){{\
+               if(window.__skColdControlDone)return;\
+               if(typeof window.__skMediaControl!=='function')return;\
+               window.__skColdControlDone=true;\
+               try{{window.__skMediaControl(a);}}catch(e){{}}\
+               try{{window.dispatchEvent(new CustomEvent('sk-media-control',{{detail:{{action:a}}}}));}}catch(e){{}}\
+             }})({a});"
+        );
+        // ~20s budget: covers index.html's connectivity probe (up to 9s) plus the remote SPA booting.
+        for _ in 0..40 {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.eval(js.clone());
+            }
+        }
+    });
+}
+
 fn main() {
     // Keep playing while hidden to the tray. WebView2/Chromium otherwise throttles background timers and
     // suspends occluded/hidden renderers, which freezes the YouTube-IFrame audio. These flags disable that
@@ -100,6 +127,32 @@ fn main() {
             if std::env::args().any(|a| a == "--minimized") {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.hide();
+                }
+            }
+            // COLD-START jump-list task: the exe was launched with --control=<action> while NOT
+            // already running, so the single-instance forward path (a 2nd launch) never sees it.
+            // Route it here too, otherwise the click silently opens the full app and drops the
+            // action. Window ops fire immediately; transport actions must wait for the remote SPA's
+            // media bridge to exist, so we poll the webview and fire exactly once when it's ready.
+            if let Some(action) =
+                std::env::args().find_map(|a| a.strip_prefix("--control=").map(str::to_string))
+            {
+                let h = handle.clone();
+                match action.as_str() {
+                    "updates" => {
+                        updater::open_update_window(&h);
+                        updater::check_for_updates(&h, true);
+                    }
+                    "mini" => {
+                        mini::toggle(&h);
+                        if let Some(window) = h.get_webview_window("main") {
+                            let _ = window.hide();
+                        }
+                    }
+                    "toggle" | "next" | "previous" | "like" | "radio" => {
+                        forward_control_when_ready(h, action);
+                    }
+                    _ => {}
                 }
             }
             Ok(())

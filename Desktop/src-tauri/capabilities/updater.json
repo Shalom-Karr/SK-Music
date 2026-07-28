@@ -1,14 +1,12 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "updater-window",
-  "description": "The local update-status dialog (frontend/update.html): core IPC for the updater commands, event listen for the updater:// broadcasts, and hide/show/focus/drag for its frameless chrome.",
+  "description": "The local update-status dialog (frontend/update.html): core IPC for the updater commands, event listen for the updater:// broadcasts, and — from the webview — hide (the close button calls getCurrentWindow().hide()) + start-dragging (data-tauri-drag-region). show and set-focus are only invoked Rust-side (updater::open_update_window), which bypasses the webview ACL, so they're dropped.",
   "windows": ["updater"],
   "permissions": [
     "core:default",
     "core:event:default",
     "core:window:allow-hide",
-    "core:window:allow-show",
-    "core:window:allow-set-focus",
     "core:window:allow-start-dragging"
   ]
 }
