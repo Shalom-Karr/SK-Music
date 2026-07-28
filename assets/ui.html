@@ -638,6 +638,17 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .rowmenu svg{fill:currentColor}
 .follow-btn.on{background:var(--primary);color:var(--primary-ink);border-color:var(--primary)}
 .follow-btn.on svg{fill:var(--primary-ink)}
+/* tagging progress / contribute */
+.tagprog{padding:16px 18px;border-radius:14px;background:var(--surface-2);border:1px solid var(--line-2);margin:0 2px}
+.tagprog .tp-lead{margin:0 0 14px;color:var(--muted);font-size:13.5px;line-height:1.5}
+.tp-row{margin:0 0 14px}
+.tp-row:last-child{margin-bottom:0}
+.tp-top{display:flex;justify-content:space-between;align-items:baseline;font-size:13.5px;font-weight:600;margin:0 0 6px;gap:10px}
+.tp-top .tp-n{color:var(--muted);font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tp-bar{height:7px;border-radius:4px;background:var(--surface-4);overflow:hidden}
+.tp-bar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--primary),var(--primary-2,var(--primary)))}
+.tp-help{display:inline-block;margin-top:7px;font-size:12.5px;font-weight:600;color:var(--primary-2,var(--primary));text-decoration:none}
+.tp-help:hover{text-decoration:underline}
 /* hidden YouTube IFrame audio engine — rendered off-screen so audio keeps playing */
 #ytwrap{position:fixed;left:-9999px;bottom:0;width:320px;height:180px;opacity:0;pointer-events:none;z-index:-1}
 .iconbtn.rateBtn{width:auto;min-width:40px;height:34px;padding:0 11px;border-radius:12px;font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums}
@@ -2107,6 +2118,31 @@ async function loadLibrary() {
   if (hist.length) h += section("Recently Played", songRows(hist, { index: true }));
   el("v-library").innerHTML = h;
   renderMyPlaylistsSection(); // async: prepend the user's playlists once loaded
+  renderTaggingProgress();   // async: append the catalog-tagging progress card once the artist list is in
+}
+// Community-tagging progress surface: SK Music's Israeli/Chasidish content filters are only as good as
+// the catalog's tags, so this shows how many artists carry each tag (computed from the live catalog) and,
+// for signed-in users, links to the contributor taggers. The booleans are one-sided (a tag means "yes";
+// its absence isn't "reviewed-no"), so this reports counts tagged, not a coverage percentage.
+async function renderTaggingProgress() {
+  const v = el("v-library"); if (!v || state.tab !== "library" || v.querySelector(".tagprog")) return;
+  await artistByName(); // populates _artistList (cached; no extra fetch if already loaded)
+  const arts = _artistList || []; const total = arts.length; if (!total) return;
+  if (state.tab !== "library" || v.querySelector(".tagprog")) return;
+  const isr = arts.reduce((n, a) => n + (a.isIsraeli ? 1 : 0), 0);
+  const chas = arts.reduce((n, a) => n + (a.isChasid ? 1 : 0), 0);
+  const bar = (label, n, emoji, href) => {
+    const pct = Math.round((n / total) * 100);
+    return `<div class="tp-row"><div class="tp-top"><span>${emoji} ${label}</span><span class="tp-n">${num(n)} tagged · ${pct}%</span></div>`
+      + `<div class="tp-bar"><i style="width:${Math.max(2, pct)}%"></i></div>`
+      + (loggedIn() ? `<a class="tp-help" href="${href}" target="_blank" rel="noopener">Help tag →</a>` : "") + `</div>`;
+  };
+  const lead = loggedIn()
+    ? `The Israeli and Chasidish filters rely on community tagging. ${num(total)} artists in the catalog — lend a hand:`
+    : `The Israeli and Chasidish filters rely on community tagging across ${num(total)} artists. Sign in to help tag.`;
+  const html = section("Help improve the catalog",
+    `<div class="tagprog"><p class="tp-lead">${lead}</p>${bar("Israeli artists", isr, "🇮🇱", "/israeli-tagger")}${bar("Chasidish artists", chas, "🎩", "/chasidish-tagger")}</div>`);
+  if (state.tab === "library" && !v.querySelector(".tagprog")) v.insertAdjacentHTML("beforeend", html);
 }
 // Also render the library when it's empty of local data but the user has server playlists.
 async function renderMyPlaylistsSection() {
