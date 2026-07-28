@@ -2279,7 +2279,26 @@ function refreshNowPlaying() {
     if (title) { if (on && !eq) title.insertAdjacentHTML("afterbegin", EQ); else if (!on && eq) eq.remove(); }
   });
 }
-function toggle() { if (!state.queue.length) return; PB.paused() ? PB.play() : PB.pause(); }
+function toggle() { if (!state.queue.length) return resumeOrRadio(); PB.paused() ? PB.play() : PB.pause(); }
+// Empty-queue Play: resume the last listen if it's fresh (≤ 20 min since it last ticked), otherwise
+// start the endless trending mix — the play button always does something musical.
+function resumeOrRadio() {
+  let saved = null; try { saved = JSON.parse(localStorage.getItem("zw_lastPlay") || "null"); } catch {}
+  if (saved && saved.t && saved.t.videoId && Date.now() - (saved.at || 0) <= 20 * 60 * 1000) {
+    PB.nextStart = Math.max(0, (saved.pos || 0) - 2); // back up a touch so the resume has context
+    playFrom(regQueue([saved.t]), 0, "resume");
+    return;
+  }
+  if (acapellaMode() === "only") { showToast("Pick a song to start playing.", 2200); return; }
+  startRadio("shuffle", "");
+}
+let _lastPlaySavedAt = 0;
+function saveLastPlay(c) { // called from tick() ~every 5 s while something plays
+  const t = state.queue[state.qi]; if (!t || !t.videoId || !(c > 0)) return;
+  const nowT = Date.now(); if (nowT - _lastPlaySavedAt < 5000) return;
+  _lastPlaySavedAt = nowT;
+  try { localStorage.setItem("zw_lastPlay", JSON.stringify({ t: { videoId: t.videoId, title: t.title, artist: t.artist, isVideo: t.isVideo, durationSec: t.durationSec, explicit: t.explicit }, pos: Math.floor(c), at: nowT })); } catch {}
+}
 function next() { if (state.qi < state.queue.length - 1) playIndex(state.qi + 1, 1); else radioContinue(); }
 function prev() { if (PB.cur() > 3 || state.qi <= 0) PB.seek(0); else playIndex(state.qi - 1, -1); }
 // Repeat one: when a song ends with repeat on, replay it instead of advancing (manual next/prev still work).
@@ -2383,6 +2402,7 @@ function tick() {
     else if (gapless && gapless.phase === "primed" && d > 0 && c > 0 && d - c <= GAPLESS_FIRE
         && cued.idx === nextPlayableIndex() && state.queue[cued.idx] && state.queue[cued.idx].videoId === cued.id) fireSwap();
   }
+  if (!PB.paused()) saveLastPlay(c); // resume point for the empty-queue Play button
   skTick(c);
 }
 function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing · 2 paused · 3 buffering · 5 cued
@@ -2458,6 +2478,13 @@ if (SK_NATIVE) window.__skMediaControl = (action) => { try {
   else if (action.indexOf("setposition:") === 0) PB.seek((+action.slice(12) || 0) / 1000);
   else if (action.indexOf("setvolume:") === 0) PB.setVol(Math.max(0, Math.min(1, +action.slice(10) || 0)));
 } catch (e) {} };
+// Desktop shell: right-click anywhere (except editable fields) pops the SAME menu as the tray, so
+// the app window is a first-class control surface too.
+if (SK_NATIVE) document.addEventListener("contextmenu", (e) => {
+  if (e.target.closest("input, textarea, [contenteditable]")) return;
+  e.preventDefault();
+  try { window.__TAURI__.core.invoke("show_app_menu"); } catch {}
+});
 // After system sleep the webview's audio pipeline can come back wedged: the UI says playing but the
 // clock is frozen. Sample the position twice, 2.5 s apart — frozen while "playing" → reload the
 // current track at its position (PB.nextStart survives the load).
