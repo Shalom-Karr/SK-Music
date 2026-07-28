@@ -7,138 +7,135 @@
 <style>
   :root {
     color-scheme: dark;
-    --bg: #0e0a0b; --surface: #17100f; --surface-2: #1d1513;
-    --text: #f6ece8; --muted: #b09a93;
+    --bg: #0e0a0b; --surface: #17100f; --surface-2: #241a18;
+    --text: #f6ece8; --muted: #b09a93; --faint: #7c6963;
     --primary: #ff5d6b; --primary-2: #ff8189;
     --line: rgba(255,240,235,.10); --line-2: rgba(255,240,235,.06);
   }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; background: var(--bg); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: transparent; }
   body {
     color: var(--text); overflow: hidden;
-    font: 13px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font: 13px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     -webkit-user-select: none; user-select: none; cursor: default;
   }
+  svg { width: 100%; height: 100%; fill: currentColor; pointer-events: none; }
 
   .mini {
     position: relative; height: 100vh; width: 100vw;
-    display: flex; align-items: center; gap: 10px;
-    padding: 12px 12px 12px 12px;
-    background: linear-gradient(160deg, var(--surface) 0%, var(--bg) 78%);
-    border: 1px solid var(--line); border-radius: 12px;
-    box-shadow: 0 14px 40px -14px rgba(0,0,0,.7);
+    display: flex; align-items: stretch;
+    background: linear-gradient(150deg, var(--surface) 0%, var(--bg) 80%);
+    border: 1px solid var(--line); border-radius: 13px;
+    box-shadow: 0 14px 40px -14px rgba(0,0,0,.75);
     overflow: hidden;
   }
 
-  /* Album art ------------------------------------------------------------ */
+  /* Album art — full-bleed left edge ------------------------------------- */
   .art {
-    position: relative; flex: 0 0 auto;
-    width: 68px; height: 68px; border-radius: 9px;
+    position: relative; flex: 0 0 auto; width: 104px;
     background: var(--surface-2) center/cover no-repeat;
-    box-shadow: inset 0 0 0 1px var(--line-2);
-    display: grid; place-items: center; overflow: hidden;
+    display: grid; place-items: center;
   }
-  .art-glyph {
-    font-size: 30px; color: var(--muted); opacity: .8;
-    line-height: 1; pointer-events: none;
-  }
+  .art::after { content: ""; position: absolute; inset: 0; box-shadow: inset -1px 0 0 var(--line-2); }
+  .art-glyph { width: 30px; height: 30px; color: var(--faint); }
   .art.has-art .art-glyph { display: none; }
 
-  /* Collapsed-only art overlay (hidden in expanded) */
+  /* Collapsed-only hover overlay */
   .ov { position: absolute; inset: 0; display: none; }
   .ov-play, .ov-expand {
     position: absolute; border: 0; color: #fff; cursor: pointer;
-    display: grid; place-items: center; padding: 0;
-    background: rgba(0,0,0,.45); backdrop-filter: blur(2px);
+    display: grid; place-items: center;
+    background: rgba(10,7,8,.55); backdrop-filter: blur(2px);
     opacity: 0; transition: opacity .14s;
   }
   .ov-play {
     left: 50%; top: 50%; transform: translate(-50%,-50%);
-    width: 38px; height: 38px; border-radius: 50%; font-size: 16px;
+    width: 40px; height: 40px; border-radius: 50%; padding: 10px;
     background: var(--primary);
   }
   .ov-play:hover { background: var(--primary-2); }
-  .ov-expand {
-    right: 4px; top: 4px; width: 20px; height: 20px; border-radius: 6px; font-size: 11px;
-  }
-  .ov-expand:hover { background: rgba(0,0,0,.7); }
+  .ov-expand { right: 5px; top: 5px; width: 22px; height: 22px; border-radius: 7px; padding: 5px; }
+  .ov-expand:hover { background: rgba(10,7,8,.85); }
   .mini.collapsed .art:hover .ov-play,
   .mini.collapsed .art:hover .ov-expand { opacity: 1; }
 
-  /* Track info ----------------------------------------------------------- */
-  .info { flex: 1 1 auto; min-width: 0; padding-right: 4px; }
-  .title { font-weight: 600; font-size: 13.5px; color: var(--text);
+  /* Content column -------------------------------------------------------- */
+  .body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; padding: 10px 12px 8px 14px; }
+  .toprow { display: flex; align-items: flex-start; gap: 6px; }
+  .meta { flex: 1 1 auto; min-width: 0; }
+  .title { font-weight: 650; font-size: 13.5px; letter-spacing: .1px;
            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .artist { margin-top: 2px; font-size: 12px; color: var(--muted);
+  .artist { margin-top: 1px; font-size: 11.5px; color: var(--muted);
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .micro { display: flex; gap: 2px; flex: 0 0 auto; margin: -3px -5px 0 0; }
+  .mbtn {
+    border: 0; background: transparent; color: var(--faint); cursor: pointer;
+    width: 22px; height: 22px; border-radius: 6px; padding: 5.5px;
+    transition: color .12s, background .12s;
+  }
+  .mbtn:hover { color: var(--text); background: rgba(255,240,235,.08); }
 
-  /* Transport ------------------------------------------------------------ */
-  .transport { flex: 0 0 auto; display: flex; align-items: center; gap: 4px; }
+  .controls { display: flex; align-items: center; gap: 6px; margin-top: auto; }
   .tbtn {
     border: 0; background: transparent; color: var(--text); cursor: pointer;
-    width: 30px; height: 30px; border-radius: 8px; font-size: 15px;
-    display: grid; place-items: center; transition: background .12s, color .12s;
+    width: 28px; height: 28px; border-radius: 8px; padding: 7px;
+    transition: background .12s;
   }
-  .tbtn:hover { background: rgba(255,240,235,.08); }
+  .tbtn:hover { background: rgba(255,240,235,.09); }
   .tbtn:active { transform: translateY(1px); }
   .pp {
     border: 0; cursor: pointer; color: #fff; background: var(--primary);
-    width: 38px; height: 38px; border-radius: 50%; font-size: 16px;
-    display: grid; place-items: center; margin: 0 1px;
-    box-shadow: 0 4px 14px -4px var(--primary); transition: background .12s, transform .05s;
+    width: 34px; height: 34px; border-radius: 50%; padding: 9px;
+    display: grid; place-items: center;
+    box-shadow: 0 5px 16px -5px var(--primary);
+    transition: background .12s, transform .06s;
   }
   .pp:hover { background: var(--primary-2); }
   .pp:active { transform: scale(.94); }
+  .like { color: var(--faint); margin-left: 2px; }
+  .like:hover { color: var(--primary); }
+  .like.liked { color: var(--primary); }
+  .time { margin-left: auto; font-size: 10.5px; font-variant-numeric: tabular-nums; color: var(--faint); padding-right: 2px; }
 
-  /* Micro row (top-right) ------------------------------------------------ */
-  .micro { position: absolute; top: 6px; right: 8px; display: flex; gap: 1px; }
-  .mbtn {
-    border: 0; background: transparent; color: var(--muted); cursor: pointer;
-    width: 20px; height: 18px; border-radius: 5px; font-size: 12px; line-height: 1;
-    display: grid; place-items: center; transition: color .12s, background .12s;
-  }
-  .mbtn:hover { color: var(--text); background: rgba(255,240,235,.08); }
-  .mbtn.liked { color: var(--primary); }
-  #like { font-size: 12px; }
+  /* Progress hairline ------------------------------------------------------ */
+  .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--line-2); }
+  .bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), var(--primary-2)); }
 
-  /* Progress hairline ---------------------------------------------------- */
-  .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--line-2); }
-  .bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), var(--primary-2)); transition: width .12s linear; }
-
-  /* ---------------------------------------------------------------------- */
-  /* Collapsed (tiny box) state                                             */
-  .mini.collapsed { padding: 0; gap: 0; border-radius: 12px; }
-  .mini.collapsed .art { width: 100%; height: 100%; border-radius: 12px; }
+  /* Collapsed (tiny box) --------------------------------------------------- */
+  .mini.collapsed .art { width: 100%; }
   .mini.collapsed .ov { display: block; }
-  .mini.collapsed .info,
-  .mini.collapsed .transport,
-  .mini.collapsed .micro,
+  .mini.collapsed .body,
   .mini.collapsed .bar { display: none; }
 </style>
 </head>
 <body>
   <div class="mini" id="mini" data-tauri-drag-region>
     <div class="art" id="art" data-tauri-drag-region>
-      <div class="art-glyph" data-tauri-drag-region>♪</div>
+      <div class="art-glyph"><svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg></div>
       <div class="ov">
-        <button class="ov-play" id="ovPlay" type="button" title="Play / Pause">▶</button>
-        <button class="ov-expand" id="ovExpand" type="button" title="Expand">▣</button>
+        <button class="ov-play" id="ovPlay" type="button" title="Play / Pause"><span id="ovPlayIc"></span></button>
+        <button class="ov-expand" id="ovExpand" type="button" title="Expand"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7zM5 10h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z"/></svg></button>
       </div>
     </div>
-    <div class="info" data-tauri-drag-region>
-      <div class="title" id="title" data-tauri-drag-region>Not playing</div>
-      <div class="artist" id="artist" data-tauri-drag-region></div>
-    </div>
-    <div class="transport">
-      <button class="tbtn" id="prev" type="button" title="Previous">⏮</button>
-      <button class="pp" id="pp" type="button" title="Play / Pause">▶</button>
-      <button class="tbtn" id="next" type="button" title="Next">⏭</button>
-    </div>
-    <div class="micro">
-      <button class="mbtn" id="like" type="button" title="Like">♥</button>
-      <button class="mbtn" id="home" type="button" title="Open SK Music">⌂</button>
-      <button class="mbtn" id="collapse" type="button" title="Collapse">▢</button>
-      <button class="mbtn" id="close" type="button" title="Hide">×</button>
+    <div class="body" data-tauri-drag-region>
+      <div class="toprow" data-tauri-drag-region>
+        <div class="meta" data-tauri-drag-region>
+          <div class="title" id="title" data-tauri-drag-region>Not playing</div>
+          <div class="artist" id="artist" data-tauri-drag-region></div>
+        </div>
+        <div class="micro">
+          <button class="mbtn" id="home" type="button" title="Open SK Music"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></button>
+          <button class="mbtn" id="collapse" type="button" title="Collapse to tiny box"><svg viewBox="0 0 24 24"><path d="M5 16h3v3h2v-5H5zm3-8H5v2h5V5H8zm6 11h2v-3h3v-2h-5zm2-11V5h-2v5h5V8z"/></svg></button>
+          <button class="mbtn" id="close" type="button" title="Hide"><svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="tbtn like" id="like" type="button" title="Like this song"><svg viewBox="0 0 24 24"><path d="m12 21.35-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"/></svg></button>
+        <button class="tbtn" id="prev" type="button" title="Previous"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
+        <button class="pp" id="pp" type="button" title="Play / Pause"><span id="ppIc"></span></button>
+        <button class="tbtn" id="next" type="button" title="Next"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zM16 6v12h2V6z"/></svg></button>
+        <div class="time" id="time"></div>
+      </div>
     </div>
     <div class="bar"><div class="bar-fill" id="fill"></div></div>
   </div>
@@ -153,12 +150,12 @@
   var win = (typeof W.getCurrentWindow === "function") ? W.getCurrentWindow() : null;
 
   var el = function (id) { return document.getElementById(id); };
-  var mini = el("mini"), art = el("art"), glyph = art.querySelector(".art-glyph");
-  var titleEl = el("title"), artistEl = el("artist"), fill = el("fill");
-  var pp = el("pp"), ovPlay = el("ovPlay");
+  var mini = el("mini"), art = el("art");
+  var titleEl = el("title"), artistEl = el("artist"), fill = el("fill"), timeEl = el("time");
 
-  var PLAY = "▶", PAUSE = "⏸";
-  var EXPANDED = [340, 92], COLLAPSED = [92, 92];
+  var IC_PLAY = '<svg viewBox="0 0 24 24" style="display:block"><path d="M8 5v14l11-7z" fill="#fff"/></svg>';
+  var IC_PAUSE = '<svg viewBox="0 0 24 24" style="display:block"><path d="M6 19h4V5H6zm8-14v14h4V5z" fill="#fff"/></svg>';
+  var EXPANDED = [380, 104], COLLAPSED = [96, 96];
 
   // ---- playback / progress state --------------------------------------
   var base = { pos: 0, t: now(), dur: 0, playing: false };
@@ -166,11 +163,15 @@
 
   function now() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
   function currentPos() { return base.pos + (base.playing ? (now() - base.t) : 0); }
+  function fmt(ms) {
+    var s = Math.max(0, Math.round(ms / 1000));
+    return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2);
+  }
 
   function setPlaying(playing) {
     base.pos = currentPos(); base.t = now(); base.playing = !!playing;
-    var g = playing ? PAUSE : PLAY;
-    pp.textContent = g; ovPlay.textContent = g;
+    var ic = playing ? IC_PAUSE : IC_PLAY;
+    el("ppIc").innerHTML = ic; el("ovPlayIc").innerHTML = ic;
   }
   function setPosition(posMs, durMs) {
     if (typeof durMs === "number" && durMs > 0) base.dur = durMs;
@@ -178,10 +179,13 @@
   }
 
   function tick() {
-    var pct = base.dur > 0 ? Math.max(0, Math.min(1, currentPos() / base.dur)) * 100 : 0;
+    var pos = currentPos();
+    var pct = base.dur > 0 ? Math.max(0, Math.min(1, pos / base.dur)) * 100 : 0;
     fill.style.width = pct.toFixed(2) + "%";
+    timeEl.textContent = base.dur > 0 ? fmt(pos) + " / " + fmt(base.dur) : "";
     requestAnimationFrame(tick);
   }
+  setPlaying(false);
   requestAnimationFrame(tick);
 
   // ---- artwork ---------------------------------------------------------
@@ -207,9 +211,8 @@
   function paintNP(p) {
     if (!p || typeof p !== "object") return;
     var title = (p.title || "").trim();
-    var artist = (p.artist || "").trim();
     titleEl.textContent = title || "Not playing";
-    artistEl.textContent = artist;
+    artistEl.textContent = (p.artist || "").trim();
     setArt(p.artUrl);
     setPosition(typeof p.positionMs === "number" ? p.positionMs : 0,
                 typeof p.durationMs === "number" ? p.durationMs : base.dur);
@@ -235,8 +238,8 @@
   var mc = function (action) { return invoke("mini_control", { action: action }); };
   el("prev").onclick = function () { mc("previous"); };
   el("next").onclick = function () { mc("next"); };
-  pp.onclick = function () { mc("toggle"); };
-  ovPlay.onclick = function (e) { e.stopPropagation(); mc("toggle"); };
+  el("pp").onclick = function () { mc("toggle"); };
+  el("ovPlay").onclick = function (e) { e.stopPropagation(); mc("toggle"); };
   el("like").onclick = function () {
     mc("like");
     var b = el("like"); b.classList.add("liked");
@@ -246,6 +249,10 @@
   el("close").onclick = function () { invoke("mini_hide"); };
   el("collapse").onclick = function () { setCollapsed(true); };
   el("ovExpand").onclick = function (e) { e.stopPropagation(); setCollapsed(false); };
+  mini.addEventListener("dblclick", function (e) {
+    if (e.target.closest("button")) return;
+    invoke("mini_open_main");
+  });
 
   // Re-apply persisted collapsed state on load.
   try { if (localStorage.getItem("sk-mini-collapsed") === "1") setCollapsed(true, false); } catch (e) {}

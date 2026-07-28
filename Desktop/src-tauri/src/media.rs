@@ -262,6 +262,11 @@ fn store_playback(playing: bool, position_ms: Option<u64>) {
     }
 }
 
+/// Whether the webview last reported active playback — gates the mini player's auto-show.
+pub fn is_playing() -> bool {
+    SNAPSHOT.lock().map(|s| s.playing).unwrap_or(false)
+}
+
 /// The last-known now-playing state as one JSON object, with `playing`/`positionMs` overlaid from the
 /// most recent playback tick. Backs the mini player's `mini_sync` command so it can paint on open.
 pub fn snapshot_value() -> serde_json::Value {

@@ -51,12 +51,20 @@ struct PendingUpdate {
     bytes: Vec<u8>,
 }
 
-/// Kick off the silent check-on-startup. Called from `.setup()`.
+/// Re-check cadence for a long-running (tray-resident) app — the startup check alone never fires
+/// again for users who keep it open for weeks.
+const RECHECK_INTERVAL_SECS: u64 = 60 * 60 * 24;
+
+/// Kick off the silent check-on-startup, then re-check daily for as long as the app runs.
+/// Called from `.setup()`.
 pub fn init(app: &AppHandle) -> tauri::Result<()> {
     let handle = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_secs(STARTUP_CHECK_DELAY_SECS));
-        check_for_updates(&handle, false);
+        loop {
+            check_for_updates(&handle, false);
+            std::thread::sleep(Duration::from_secs(RECHECK_INTERVAL_SECS));
+        }
     });
     Ok(())
 }
