@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "downloads-extractor",
+  "description": "The hidden YouTube extractor webview (label sk-yt-extractor) navigates to youtube.com to read the player's own signed audio-stream URL, then hands it back to Rust by EMITTING sk-yt-extracted / sk-yt-extract-failed. Like the main SPA it is REMOTE content, so — matching the default capability's rationale — it gets only core:event (emit/listen/unlisten); it cannot invoke app commands or touch the filesystem. Scoped to the youtube origins it loads. The download files themselves are served to the main window by the skdl:// URI scheme handler (registered in main.rs), which needs no capability.",
+  "windows": ["sk-yt-extractor"],
+  "remote": {
+    "urls": ["https://www.youtube.com", "https://www.youtube-nocookie.com"]
+  },
+  "permissions": [
+    "core:event:allow-emit",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten"
+  ]
+}

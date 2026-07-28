@@ -280,6 +280,7 @@ body:has(#nowbar.on) .built-by-pill .bb-who{overflow:hidden;text-overflow:ellips
   display:inline-flex;align-items:center;justify-content:center;flex:none;transition:color .15s,background .15s}
 .iconbtn:hover{color:var(--text);background:var(--surface-3)}
 .iconbtn svg{fill:currentColor}
+.iconbtn.shf.on,#npSleep.on,#npXfade.on{color:var(--primary)}
 .filterbtn{position:relative}
 .filterbtn.active{color:var(--primary)}
 .filterbtn .dot{position:absolute;top:8px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--primary)}
@@ -560,6 +561,19 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .np-auto input::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:left .16s}
 .np-auto input:checked::after{left:15px}
 .np-upnext .rows{overflow-y:auto;min-height:0;padding-right:6px}
+.npx-head{display:flex;align-items:center;gap:14px;margin:0 0 10px;flex:0 0 auto}
+.npx-tab{appearance:none;background:none;border:0;padding:0 0 4px;font-family:Fraunces,serif;font-size:17px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
+.npx-tab.on{color:var(--text);border-bottom-color:var(--primary)}
+.npx-pane{display:none;min-height:0;flex:1 1 auto;overflow:hidden;flex-direction:column}
+.npx-pane.on{display:flex}
+.lyrics{overflow-y:auto;min-height:0;padding-right:6px;font-family:"Hanken Grotesk",system-ui,sans-serif}
+.lyrics .ly-line{padding:5px 8px;border-radius:8px;color:var(--muted);font-size:15px;line-height:1.4;transition:color .18s,background .18s;scroll-margin:60px}
+.lyrics .ly-line.seekable{cursor:pointer}
+.lyrics .ly-line.seekable:hover{background:var(--surface-2)}
+.lyrics .ly-line.cur{color:var(--text);font-weight:600;background:var(--surface-2)}
+.lyrics .ly-plain{white-space:pre-wrap;color:var(--text-2);font-size:15px;line-height:1.55;padding:2px 4px}
+.lyrics .ly-msg{color:var(--muted);font-size:14px;padding:12px 4px}
+.lyrics .ly-src{color:var(--muted);font-size:11px;padding:14px 4px 4px;opacity:.7}
 
 /* ============================ Mobile tab bar ============================ */
 #tabbar{position:fixed;left:0;right:0;bottom:0;z-index:55;height:calc(var(--tab-h) + var(--sa));padding-bottom:var(--sa);
@@ -577,6 +591,68 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 #toast b{color:var(--primary);font-weight:600}
 @media(max-width:899px){#toast{bottom:calc(var(--mini-h) + var(--tab-h) + 18px)}}
+/* shared floating popup menu (sleep timer, queue/song actions, add-to-playlist, report) */
+#popmenu{position:fixed;z-index:95;min-width:200px;max-width:min(88vw,320px);max-height:70vh;overflow:auto;padding:6px;
+  border-radius:13px;background:var(--surface-3);border:1px solid var(--line-2);box-shadow:var(--shadow);
+  opacity:0;transform:translateY(6px) scale(.98);pointer-events:none;transition:opacity .13s var(--ease),transform .13s var(--ease)}
+#popmenu.on{opacity:1;transform:none;pointer-events:auto}
+#popmenu .mihead{padding:7px 12px 5px;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--faint)}
+#popmenu .misep{height:1px;background:var(--line-2);margin:5px 6px}
+#popmenu .mi{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:transparent;color:var(--text);
+  cursor:pointer;font:inherit;font-size:13.5px;padding:9px 12px;border-radius:9px;transition:background .1s}
+#popmenu .mi:hover,#popmenu .mi:focus-visible{background:var(--surface-4);outline:none}
+#popmenu .mi.on{color:var(--primary)}
+#popmenu .mi svg{width:17px;height:17px;fill:currentColor;flex:none;opacity:.85}
+#popmenu .mi .sub{margin-left:auto;color:var(--faint);font-size:11.5px}
+/* queue editor rows */
+.qrow{position:relative;padding-right:4px}
+.qrow[draggable=true]{cursor:grab}
+.qrow .qdrag{flex:none;color:var(--faint);opacity:0;transition:opacity .12s;margin-right:-4px;cursor:grab}
+.qrow:hover .qdrag{opacity:.7}
+.qrow .qbtn{flex:none;width:30px;height:30px;border:0;background:transparent;color:var(--faint);border-radius:8px;cursor:pointer;
+  display:grid;place-items:center;opacity:0;transition:opacity .12s,background .12s,color .12s}
+.qrow .qbtn svg{fill:currentColor}
+.qrow:hover .qbtn,.qrow:focus-within .qbtn{opacity:1}
+.qrow .qbtn:hover{background:var(--surface-4);color:var(--text)}
+.qrow.dragging{opacity:.4}
+.qrow.dragover{box-shadow:inset 0 2px 0 var(--primary)}
+.qempty{padding:20px 6px;color:var(--faint);font-size:13px;text-align:center}
+/* search history / saved searches */
+.s-hist{margin:4px 2px 18px}
+.s-histhd{display:flex;align-items:center;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--faint);margin:0 2px 9px}
+.s-clear{margin-left:auto;border:0;background:transparent;color:var(--faint);font:inherit;font-size:11px;cursor:pointer;text-transform:none;letter-spacing:0}
+.s-clear:hover{color:var(--primary)}
+.schips-row{display:flex;flex-wrap:wrap;gap:8px}
+.schip{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border-radius:20px;border:1px solid var(--line-2);background:var(--surface-2);
+  color:var(--text);font:inherit;font-size:13px;cursor:pointer;transition:border-color .12s,background .12s}
+.schip:hover{border-color:var(--faint);background:var(--surface-3)}
+.schip-star{color:var(--faint);font-size:13px;line-height:1}
+.schip-star.on{color:var(--gold)}
+.schip-star:hover{color:var(--gold)}
+/* user playlists */
+.pl-signin{padding:16px 18px;border-radius:14px;background:var(--surface-2);border:1px solid var(--line-2);color:var(--muted);font-size:13.5px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0 2px}
+.pl-cover{aspect-ratio:1;border-radius:var(--r-md);background:linear-gradient(135deg,#2a1c3a,#1a1420);display:grid;place-items:center;margin-bottom:10px}
+.pl-cover svg{width:38%;height:38%;fill:var(--primary-2);opacity:.9}
+.pl-cover.pl-plus{font-size:34px;font-weight:300;color:var(--primary-2);background:linear-gradient(135deg,#241528,var(--surface-2))}
+.pl-new .t{color:var(--primary-2)}
+.rowmenu svg{fill:currentColor}
+.follow-btn.on{background:var(--primary);color:var(--primary-ink);border-color:var(--primary)}
+.follow-btn.on svg{fill:var(--primary-ink)}
+/* tagging progress / contribute */
+.tagprog{padding:16px 18px;border-radius:14px;background:var(--surface-2);border:1px solid var(--line-2);margin:0 2px}
+.tagprog .tp-lead{margin:0 0 14px;color:var(--muted);font-size:13.5px;line-height:1.5}
+.tp-row{margin:0 0 14px}
+.tp-row:last-child{margin-bottom:0}
+.tp-top{display:flex;justify-content:space-between;align-items:baseline;font-size:13.5px;font-weight:600;margin:0 0 6px;gap:10px}
+.tp-top .tp-n{color:var(--muted);font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tp-bar{height:7px;border-radius:4px;background:var(--surface-4);overflow:hidden}
+.tp-bar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--primary),var(--primary-2,var(--primary)))}
+.tp-help{display:inline-block;margin-top:7px;font-size:12.5px;font-weight:600;color:var(--primary-2,var(--primary));text-decoration:none}
+.tp-help:hover{text-decoration:underline}
+/* SK-OFFLINE: eager download-state styling (module also injects these on first panel open) */
+#npDownload.on{color:#4ade80}
+#npDownload.busy{opacity:.55}
+.row.sk-dl-done .title::after{content:"";display:inline-block;width:12px;height:12px;margin-left:7px;vertical-align:-1px;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234ade80'%3E%3Cpath d='M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z'/%3E%3C/svg%3E")}
 /* hidden YouTube IFrame audio engine — rendered off-screen so audio keeps playing */
 #ytwrap{position:fixed;left:-9999px;bottom:0;width:320px;height:180px;opacity:0;pointer-events:none;z-index:-1}
 .iconbtn.rateBtn{width:auto;min-width:40px;height:34px;padding:0 11px;border-radius:12px;font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums}
@@ -902,6 +978,8 @@ fill="url(#royal)" stroke="none">
   <div class="np-head">
     <button class="iconbtn" onclick="closeNow()" title="Collapse" aria-label="Collapse"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg></button>
     <div class="lbl">Now Playing</div>
+    <button class="iconbtn" id="npXfade" onclick="openCrossfadeMenu(event)" title="Crossfade" aria-label="Crossfade"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 6h6l6 12h6M3 18h6l6-12h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button class="iconbtn" id="npSleep" onclick="openSleepMenu(event)" title="Sleep timer" aria-label="Sleep timer"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-8.54-8.54C11.92 2.04 11.46 2 11 2m1 2.07V4z"/></svg></button>
     <button class="iconbtn rateBtn" onclick="cycleRate()" title="Playback speed" aria-label="Playback speed">1×</button>
   </div>
   <div class="np-body">
@@ -911,24 +989,31 @@ fill="url(#royal)" stroke="none">
         <div style="min-width:0"><div class="np-title" id="npTitle"></div><div class="np-artist" id="npArtist" role="button" tabindex="0" aria-label="Go to artist" onclick="npOpenArtist()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"></div></div>
         <button class="iconbtn heart" id="npLike" onclick="toggleLikeCurrent()" title="Like" aria-label="Like" aria-pressed="false" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg></button>
         <button class="iconbtn" id="npShare" onclick="openShare(event)" title="Share" aria-label="Share" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0 0 6c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92z"/></svg></button>
+        <!-- SK-OFFLINE: desktop-only "download for offline" toggle; hidden until the native shell shows it -->
+        <button class="iconbtn" id="npDownload" onclick="skToggleDownloadCurrent()" title="Download for offline" aria-label="Download for offline" style="width:48px;height:48px;flex:none;display:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z"/></svg></button>
+        <button class="iconbtn" id="npMenu" onclick="if(state.queue[state.qi])openSongMenu(this,state.queue[state.qi])" title="More" aria-label="More actions" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4m0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/></svg></button>
       </div>
       <div class="np-seek"><input type="range" class="seek" id="npSeek" min="0" max="1000" value="0" aria-label="Seek">
         <div class="np-times"><span id="npCur">0:00</span><span id="npDur">0:00</span></div></div>
       <div class="np-controls">
-        <button class="iconbtn skip" onclick="seekBy(-15)" title="Back 15s" aria-label="Back 15 seconds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12.5" y="15.6" font-size="8" text-anchor="middle" font-weight="700" fill="currentColor">15</text></svg></button>
+        <button class="iconbtn skip shf" onclick="toggleShuffle()" title="Shuffle" aria-label="Shuffle" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg></button>
         <button class="iconbtn" onclick="prev()" aria-label="Previous"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
         <button class="iconbtn big" id="npPlay" onclick="toggle()" aria-label="Play"></button>
         <button class="iconbtn" onclick="next()" aria-label="Next"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18l8.5-6L6 6zM16 6v12h2V6z"/></svg></button>
-        <button class="iconbtn skip" onclick="seekBy(15)" title="Forward 15s" aria-label="Forward 15 seconds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="11.5" y="15.6" font-size="8" text-anchor="middle" font-weight="700" fill="currentColor">15</text></svg></button>
         <button class="iconbtn skip rpt" onclick="toggleRepeat()" title="Repeat this song" aria-label="Repeat this song" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg></button>
       </div>
     </div>
-    <div class="np-upnext"><h4>Up Next<label class="np-auto" title="Keep playing similar songs when the queue ends"><input type="checkbox" id="npAuto" onchange="setRadioAutoplay(this.checked)"><span>Autoplay</span></label></h4><div class="rows" id="npQueue"></div></div>
+    <div class="np-upnext">
+      <div class="npx-head"><button class="npx-tab on" data-p="queue" onclick="npxTab('queue')">Up Next</button><button class="npx-tab" data-p="lyrics" onclick="npxTab('lyrics')">Lyrics</button><label class="np-auto" title="Keep playing similar songs when the queue ends"><input type="checkbox" id="npAuto" onchange="setRadioAutoplay(this.checked)"><span>Autoplay</span></label></div>
+      <div class="npx-pane on" id="npPaneQueue"><div class="rows" id="npQueue"></div></div>
+      <div class="npx-pane" id="npPaneLyrics"><div class="lyrics" id="npLyrics"></div></div>
+    </div>
   </div>
 </div>
 
 <div id="ytwrap" aria-hidden="true"><div id="ytplayer"></div><div id="ytplayer2"></div></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+<div id="popmenu" role="menu" aria-hidden="true"></div>
 <audio id="audio" preload="metadata"></audio>
 
 <script>
@@ -1052,8 +1137,8 @@ const TABS = [
 const TITLES = { ...Object.fromEntries(TABS.map(([k, l]) => [k, l])), redirector: "Send YouTube here", download: "Desktop app" };
 
 /* ============================ state + filters ============================ */
-const state = { tab: "home", loaded: {}, detailOpen: false, nowOpen: false, queue: [], qi: -1, repeat: false };
 const LS = { get: (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+const state = { tab: "home", loaded: {}, detailOpen: false, nowOpen: false, queue: [], qi: -1, repeat: false, shuffle: LS.get("zw_shuffle") === "1", sleep: null, crossfade: Math.max(0, Math.min(12, +LS.get("zw_crossfade") || 0)) };
 const noFemale = () => LS.get("zw_noFemale", "1") === "1"; // ON by default (opt-out); others default off
 const chasidMode = () => LS.get("zw_chasid", ""); // "" = off · "only" = Chasidish only · "hide" = hide Chasidish
 const noChasid = () => chasidMode() === "hide";   // back-compat: server allowChasid=0 + the "hide" reason label
@@ -1234,6 +1319,8 @@ function renderNav() {
   }
   // About sits at the end of the last group (below Library)
   html += `<div class="navlink ${state.tab === "credits" && !state.detailOpen ? "on" : ""}" role="link" tabindex="0" ${state.tab === "credits" && !state.detailOpen ? 'aria-current="page"' : ""} onclick="go('credits')" onkeydown="${KDACT}" id="creditsLink"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20m1 15h-2v-6h2zm0-8h-2V7h2z"/></svg><span>About</span></div>`;
+  // SK-OFFLINE: desktop-only "Downloads" link (opens a self-contained overlay; no router/tab needed)
+  if (typeof SK_NATIVE !== "undefined" && SK_NATIVE) html += `<div class="navlink" role="link" tabindex="0" onclick="skOpenDownloads()" onkeydown="${KDACT}" id="skDownloadsLink"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z"/></svg><span>Downloads</span></div>`;
   if (open) html += "</div>";
   el("nav").innerHTML = html;
   if (el("tabbar")) el("tabbar").innerHTML = TABS.filter((t) => t[4]).map(([k, l, ic]) => `<div class="tab ${k === "kidzone" ? "kid" : ""} ${k === state.tab && !state.detailOpen ? "on" : ""}" role="link" tabindex="0" ${k === state.tab && !state.detailOpen ? 'aria-current="page"' : ""} onclick="go('${k}')" onkeydown="${KDACT}">${ic}<span>${l}</span></div>`).join("");
@@ -1281,6 +1368,7 @@ function applyRoute(url) {
   if ((m = p.match(/^\/artists\/(.+)$/))) return openArtist(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/albums\/(.+)$/))) return openAlbum(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/zemer-playlists\/(.+)$/))) return openCuratedPlaylist(decodeURIComponent(m[1]), true);
+  if ((m = p.match(/^\/my-playlists\/(.+)$/))) return openUserPlaylist(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/playlists\/(.+)$/))) return openPlaylist(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/songs?\/(.+)$/))) return openSong(decodeURIComponent(m[1]), true, parseInt(u.searchParams.get("t") || "0", 10) || 0);
   if ((m = p.match(/^\/search\/(.+)$/))) { go("search", true); const qv = decodeURIComponent(m[1]); setTimeout(() => { const b = el("q"); if (b) { b.value = qv; doSearch(); } }, 60); return; }
@@ -1413,6 +1501,8 @@ function songRow(t, qid, i, opt) {
     <div class="text"><div class="title">${playing ? EQ : ""}<span style="overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</span>${t.explicit ? '<span class="tag">E</span>' : ""}${t.isVideo ? '<span class="tag">VIDEO</span>' : ""}</div>
     <div class="sub">${[esc(opt.hideArtist ? "" : (t.artist || opt.artist || "")), opt.plays && t.playCount ? plays(t.playCount) + " plays" : "", opt.date && t.addedAt ? ago(t.addedAt) : ""].filter(Boolean).join(" · ")}</div></div>
     ${heartAt(qid, i, t.videoId)}
+    <button class="iconbtn rowbtn rowmenu" style="width:36px;height:40px" aria-label="More actions" title="More" onclick="event.stopPropagation();songMenuAt('${qid}',${i},event)"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4m0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/></svg></button>
+    ${opt.plEdit ? `<button class="iconbtn rowbtn" style="width:36px;height:40px" aria-label="Remove from playlist" title="Remove" onclick="event.stopPropagation();removeFromUserPlaylist('${esc(opt.plEdit)}','${safeId(t.videoId)}')"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg></button>` : ""}
     ${t.durationSec ? `<div class="dur">${fmt(t.durationSec)}</div>` : ""}
     <button class="iconbtn rowbtn" style="width:40px;height:40px" aria-label="Play" onclick="event.stopPropagation();playFrom('${qid}',${i})">${ICON.play}</button></div>`;
 }
@@ -1705,7 +1795,7 @@ async function loadForYou() {
   const hero = `<div class="hero" style="background:linear-gradient(120deg,#2a1220,var(--surface) 70%)"><div class="eyebrow">Your mix</div><h1>For You</h1><p>A personalized blend of what you play and the whole whitelisted catalog — it sharpens as you listen.</p><span class="heb">בשבילך</span></div>`;
   v.innerHTML = hero + section("Made for you", skRail(6));
   const [d, trend, zemerRows, nf] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections(), zemerRowsSections(), newFeed()]);
-  await ensureFilters();                                              // artist map + parental profile + Acapella set (the /home payload is NOT parental-gated server-side — gate() must run here)
+  await ensureFilters(); await loadFollows();                         // artist map + parental profile + Acapella set + follow state
   const recent = gate(readRecent()), liked = gate(readLiked());       // gate() = content + parental (allow/blocklist, kid-only) + Acapella
   const taste = tasteArtists([...liked, ...liked, ...recent]);         // likes weighted 2× over plays
   // Cold start: a brand-new user has no plays/likes to personalize from — seed from the telemetry
@@ -1717,12 +1807,17 @@ async function loadForYou() {
       .map((s) => ({ videoId: s.videoId || s.video_id, title: s.title, artist: s.artist, explicit: s.explicit, durationSec: s.durationSec })).filter((s) => s.videoId);
   }
   let h = hero + (trend || "");
+  const followed = followedReleases(nf); // new releases from artists you follow — the top personal shelf
+  if (followed.length) h += railOf("New from artists you follow", followed.slice(0, 24), albumCard);
   if (recent.length) h += section("Jump back in", songCards(recent.slice(0, 14)));
   const mix = taste.length ? gate(await songsFromArtists(taste, 14)) : [];
   const qp = gate(d.quickPicks);
   if (mix.length >= 4) h += section(liked.length ? `Because you like ${esc(taste[0].name)}` : "Made for you", songCards(mix));
   else if (cold.length >= 4) h += section("Popular right now", quickPicks(cold.slice(0, 24)));
   else if (qp.length) h += section("Made for you", quickPicks(qp));
+  // Recently-played artists (from history, distinct from the taste blend used above) as their own shelf.
+  const recentArtists = tasteArtists(recent).slice(0, 16);
+  if (recentArtists.length >= 3) h += railOf("Artists you've been playing", recentArtists, artistCard);
   const nfAlbums = feedAlbums(nf);
   h += railOf("New for you", nfAlbums.length ? nfAlbums.slice(0, 24) : gate(d.latestReleases), albumCard);
   h += railOf(taste.length ? "Your artists" : "Artists to explore", gate(taste.length ? taste.slice(0, 16) : d.featuredArtists), artistCard);
@@ -1969,6 +2064,8 @@ async function doSearch() {
   if (d === null) return;
   sData = d; el("smeta").textContent = `${num(d.count)} result${d.count === 1 ? "" : "s"} · ${(performance.now() - t0).toFixed(0)} ms`; renderResults();
   track("search", { q, count: d.count });
+  if (d.count) recordSearch(q); // remember searches that found something, for the recent/saved list
+
 }
 // Search-result click with its 0-based rank within the category (search-relevance signal).
 function sClick(kind, rank, id) { const q = (el("q") && el("q").value || "").trim(); if (q) track("click", { q, kind, rank, id }); }
@@ -1989,7 +2086,28 @@ function renderResults() {
     el("sresults").innerHTML = h || emptyState("No results", acapella() ? "No Acapella songs match — turn off Acapella mode to search everything." : "Try another spelling — search is Hebrew-aware and fuzzy.");
   } else el("sresults").innerHTML = (acOnly && !acOnly.includes(sSel)) ? emptyHint("Acapella mode shows songs &amp; artists only.") : (render(sSel) || emptyHint("No " + sSel + " match."));
 }
-const searchLanding = () => `<div class="empty"><div class="em-ic">${ICON.search}</div><h3>Search the whole catalog</h3><div>Hebrew-aware, typo-tolerant. Try “kevakarat”, an artist, or an album.</div></div>`;
+// --- search history & saved searches ---
+const readSearchHist = () => { try { return JSON.parse(localStorage.getItem("zw_searches") || "[]"); } catch { return []; } };
+const readSavedSearch = () => { try { return JSON.parse(localStorage.getItem("zw_savedsearch") || "[]"); } catch { return []; } };
+function recordSearch(q) { q = (q || "").trim(); if (q.length < 3) return; try { const h = readSearchHist().filter((x) => x.toLowerCase() !== q.toLowerCase()); h.unshift(q); localStorage.setItem("zw_searches", JSON.stringify(h.slice(0, 15))); } catch {} }
+function clearSearchHist() { try { localStorage.removeItem("zw_searches"); } catch {} if (state.tab === "search" && !el("q").value.trim()) el("sresults").innerHTML = searchLanding(); }
+function runSearch(q) { const b = el("q"); if (!b) return; b.value = q; b.focus(); doSearch(); }
+function toggleSaveSearch(q, e) {
+  e && e.stopPropagation(); q = (q || "").trim(); if (!q) return;
+  let s = readSavedSearch(); const i = s.findIndex((x) => x.toLowerCase() === q.toLowerCase());
+  if (i >= 0) { s.splice(i, 1); showToast("Removed saved search.", 1400); } else { s.unshift(q); s = s.slice(0, 30); showToast("Saved search — pinned to the search page.", 2000); }
+  try { localStorage.setItem("zw_savedsearch", JSON.stringify(s)); } catch {}
+  if (state.tab === "search" && !el("q").value.trim()) el("sresults").innerHTML = searchLanding();
+}
+function searchLanding() {
+  const saved = readSavedSearch(), recent = readSearchHist();
+  const isSaved = (q) => saved.some((x) => x.toLowerCase() === q.toLowerCase());
+  const chip = (q) => `<button class="schip" onclick="runSearch('${esc(q).replace(/'/g, "\\'")}')"><span>${esc(q)}</span><span class="schip-star ${isSaved(q) ? "on" : ""}" title="${isSaved(q) ? "Unsave" : "Save"}" onclick="toggleSaveSearch('${esc(q).replace(/'/g, "\\'")}',event)">${isSaved(q) ? "★" : "☆"}</span></button>`;
+  let h = "";
+  if (saved.length) h += `<div class="s-hist"><div class="s-histhd">Saved searches</div><div class="schips-row">${saved.map(chip).join("")}</div></div>`;
+  if (recent.length) h += `<div class="s-hist"><div class="s-histhd">Recent<button class="s-clear" onclick="clearSearchHist()">Clear</button></div><div class="schips-row">${recent.map(chip).join("")}</div></div>`;
+  return h + `<div class="empty"><div class="em-ic">${ICON.search}</div><h3>Search the whole catalog</h3><div>Hebrew-aware, typo-tolerant. Try “kevakarat”, an artist, or an album.</div></div>`;
+}
 const emptyHint = (t) => `<div class="empty" style="padding:40px">${t}</div>`;
 
 /* ============================ LIBRARY ============================ */
@@ -2007,6 +2125,161 @@ async function loadLibrary() {
   }
   if (hist.length) h += section("Recently Played", songRows(hist, { index: true }));
   el("v-library").innerHTML = h;
+  renderMyPlaylistsSection(); // async: prepend the user's playlists once loaded
+  renderTaggingProgress();   // async: append the catalog-tagging progress card once the artist list is in
+}
+// Community-tagging progress surface: SK Music's Israeli/Chasidish content filters are only as good as
+// the catalog's tags, so this shows how many artists carry each tag (computed from the live catalog) and,
+// for signed-in users, links to the contributor taggers. The booleans are one-sided (a tag means "yes";
+// its absence isn't "reviewed-no"), so this reports counts tagged, not a coverage percentage.
+async function renderTaggingProgress() {
+  const v = el("v-library"); if (!v || state.tab !== "library" || v.querySelector(".tagprog")) return;
+  await artistByName(); // populates _artistList (cached; no extra fetch if already loaded)
+  const arts = _artistList || []; const total = arts.length; if (!total) return;
+  if (state.tab !== "library" || v.querySelector(".tagprog")) return;
+  const isr = arts.reduce((n, a) => n + (a.isIsraeli ? 1 : 0), 0);
+  const chas = arts.reduce((n, a) => n + (a.isChasid ? 1 : 0), 0);
+  const bar = (label, n, emoji, href) => {
+    const pct = Math.round((n / total) * 100);
+    return `<div class="tp-row"><div class="tp-top"><span>${emoji} ${label}</span><span class="tp-n">${num(n)} tagged · ${pct}%</span></div>`
+      + `<div class="tp-bar"><i style="width:${Math.max(2, pct)}%"></i></div>`
+      + (loggedIn() ? `<a class="tp-help" href="${href}" target="_blank" rel="noopener">Help tag →</a>` : "") + `</div>`;
+  };
+  const lead = loggedIn()
+    ? `The Israeli and Chasidish filters rely on community tagging. ${num(total)} artists in the catalog — lend a hand:`
+    : `The Israeli and Chasidish filters rely on community tagging across ${num(total)} artists. Sign in to help tag.`;
+  const html = section("Help improve the catalog",
+    `<div class="tagprog"><p class="tp-lead">${lead}</p>${bar("Israeli artists", isr, "🇮🇱", "/israeli-tagger")}${bar("Chasidish artists", chas, "🎩", "/chasidish-tagger")}</div>`);
+  if (state.tab === "library" && !v.querySelector(".tagprog")) v.insertAdjacentHTML("beforeend", html);
+}
+// Also render the library when it's empty of local data but the user has server playlists.
+async function renderMyPlaylistsSection() {
+  const v = el("v-library"); if (!v || state.tab !== "library") return;
+  let card;
+  if (!loggedIn()) card = `<div class="pl-signin">Sign in to create playlists that sync across your devices. <button class="btn-ghost" style="margin-left:8px" onclick="openAuth('in')">Sign in</button></div>`;
+  else {
+    const pls = await loadMyPlaylists();
+    const cards = pls.map((p) => `<div class="card pl-card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openUserPlaylist('${esc(p.id)}')"><div class="pl-cover">${ICON.playlist || ICON.library}</div><div class="t">${esc(p.name)}</div><div class="s">${num(p.item_count || 0)} song${(+p.item_count === 1) ? "" : "s"}</div></div>`).join("");
+    card = `<div class="rail pl-rail"><div class="card pl-card pl-new" role="button" tabindex="0" onkeydown="${KDACT}" onclick="newPlaylistPrompt()"><div class="pl-cover pl-plus">+</div><div class="t">New playlist</div><div class="s">&nbsp;</div></div>${cards}</div>`;
+  }
+  const html = section("Your Playlists", card);
+  if (state.tab !== "library") return;
+  // Insert right after the hero if not already present.
+  if (v.querySelector(".pl-rail, .pl-signin")) return; // avoid double-insert on quick re-renders
+  const hero = v.querySelector(".hero");
+  if (hero) hero.insertAdjacentHTML("afterend", html); else v.insertAdjacentHTML("afterbegin", html);
+}
+/* ---- user playlists (server-backed via Supabase RPCs) ---- */
+let _myPlaylists = null;
+function invalidatePlaylists() { _myPlaylists = null; }
+async function loadMyPlaylists(force) {
+  if (!loggedIn()) return [];
+  if (_myPlaylists && !force) return _myPlaylists;
+  _myPlaylists = (await sbRpc("get_my_playlists")) || [];
+  return _myPlaylists;
+}
+function requirePlaylistLogin() { if (loggedIn()) return true; showToast("<b>Sign in to create playlists.</b> They sync across your devices.", 4000); openAuth("in"); return false; }
+async function newPlaylistPrompt(then) {
+  if (!requirePlaylistLogin()) return;
+  const name = prompt("Playlist name:"); if (!name || !name.trim()) return;
+  const id = await sbRpc("create_playlist", { p_name: name.trim() });
+  invalidatePlaylists();
+  if (id) { showToast(`Created “${esc(name.trim())}”.`, 2200); if (then) then(typeof id === "string" ? id : (id && id.id)); else if (state.tab === "library") { state.loaded.library = false; loadLibrary(); } }
+}
+async function addTrackToPlaylist(pid, t) {
+  await sbRpc("add_to_playlist", { p_id: pid, p_video_id: t.videoId, p_title: t.title || null, p_artist: t.artist || null });
+  invalidatePlaylists(); showToast("Added to playlist. ✓", 1800);
+}
+async function openUserPlaylist(pid, fromRoute) {
+  detailLoading("Playlist");
+  const rows = (await sbRpc("get_playlist", { p_id: pid })) || [];
+  const pls = await loadMyPlaylists(); const meta = pls.find((p) => p.id === pid);
+  const tracks = gate(rows.map((r) => ({ videoId: r.video_id, title: r.title, artist: r.artist }))).filter((t) => !(blockVideos() && t.isVideo));
+  const name = meta ? meta.name : "Playlist";
+  el("tbTitle").textContent = name; el("tbTitle").style.display = ""; el("tbSearch").style.display = "none";
+  state.detailKind = "userplaylist"; state.userPlaylistId = pid;
+  const qid = tracks.length ? regQueue(tracks) : null;
+  let h = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
+    <div class="detail-hero"><div class="cover">${artHTML("", NOTE)}</div><div class="dh-meta"><div class="dh-kind">Your Playlist</div><div class="dh-title">${esc(name)}</div><div class="dh-sub"><b>${num(tracks.length)}</b> songs</div></div></div>
+    <div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button><button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}
+    <button class="btn-ghost" onclick="renamePlaylistPrompt('${esc(pid)}')">Rename</button><button class="btn-ghost" onclick="deletePlaylistConfirm('${esc(pid)}')">Delete</button></div>`;
+  h += tracks.length ? `<div id="plBody">${songRows(tracks, { index: true, plEdit: pid })}</div>` : emptyState("Empty playlist", "Use the ⋯ menu on any song to add it here.");
+  el("v-detail").innerHTML = h; showDetail();
+  if (!fromRoute) pushURL("/my-playlists/" + pid);
+}
+async function renamePlaylistPrompt(pid) { const n = prompt("Rename playlist:"); if (!n || !n.trim()) return; await sbRpc("rename_playlist", { p_id: pid, p_name: n.trim() }); invalidatePlaylists(); openUserPlaylist(pid); }
+async function deletePlaylistConfirm(pid) { if (!confirm("Delete this playlist? This can't be undone.")) return; await sbRpc("delete_playlist", { p_id: pid }); invalidatePlaylists(); showToast("Playlist deleted.", 2000); go("library"); state.loaded.library = false; loadLibrary(); }
+async function removeFromUserPlaylist(pid, videoId) { await sbRpc("remove_from_playlist", { p_id: pid, p_video_id: videoId }); invalidatePlaylists(); openUserPlaylist(pid); }
+/* ---- consolidated song-actions menu (⋯) ---- */
+let _menuTrack = null;
+function songMenuAt(qid, i, e) { e && e.stopPropagation(); const q = queues.get(qid); const t = q && q[i]; if (t) openSongMenu(e.currentTarget, t); }
+function openSongMenu(anchor, t) {
+  _menuTrack = t;
+  const acaOnly = acapellaMode() === "only";
+  const ico = { pl: '<svg viewBox="0 0 24 24"><path d="M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v6l5-3z"/></svg>', radio: ICON.radio, artist: ICON.artist, share: ICON.share, flag: '<svg viewBox="0 0 24 24"><path d="M14.4 6 14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>' };
+  let html = `<div class="mihead">${esc(t.title || "Song")}</div>`;
+  html += `<button class="mi" role="menuitem" onclick="openAddToPlaylistMenu()">${ico.pl}<span>Add to playlist</span></button>`;
+  if (!acaOnly) html += `<button class="mi" role="menuitem" onclick="closeMenus();smRadio()">${ico.radio}<span>Start radio</span></button>`;
+  if (t.artist) html += `<button class="mi" role="menuitem" onclick="closeMenus();smArtist()">${ico.artist}<span>Go to artist</span></button>`;
+  html += `<button class="mi" role="menuitem" onclick="closeMenus();smShare()">${ico.share}<span>Share</span></button>`;
+  html += `<div class="misep"></div><button class="mi" role="menuitem" onclick="closeMenus();smReport()">${ico.flag}<span>Report a problem</span></button>`;
+  popMenu(anchor, html);
+}
+function smRadio() { const t = _menuTrack; if (t && t.videoId && acapellaMode() !== "only") startRadio("song", t.videoId); }
+function smArtist() { const t = _menuTrack; if (t && t.artist) gotoArtistByName(t.artist); }
+function smShare() { const t = _menuTrack; if (t) shareSong(t); }
+function smReport() { const t = _menuTrack; if (t) reportSong(t); }
+async function openAddToPlaylistMenu() {
+  if (!requirePlaylistLogin()) { closeMenus(); return; }
+  const t = _menuTrack;
+  const pls = await loadMyPlaylists();
+  const items = pls.map((p) => `<button class="mi" role="menuitem" onclick="closeMenus();addTrackToPlaylist('${esc(p.id)}',window._menuTrack)"><span>${esc(p.name)}</span><span class="sub">${num(p.item_count || 0)}</span></button>`).join("");
+  const m = el("popmenu");
+  m.innerHTML = `<div class="mihead">Add to playlist</div><button class="mi" role="menuitem" onclick="newPlaylistPrompt((id)=>id&&addTrackToPlaylist(id,window._menuTrack))"><span>＋ New playlist…</span></button><div class="misep"></div>${items || '<div class="qempty">No playlists yet.</div>'}`;
+  window._menuTrack = t; // keep the track for the submenu handlers
+}
+// Share: native share sheet when available, else copy the deep link.
+function shareSong(t) {
+  const url = location.origin + "/song/" + safeId(t.videoId);
+  const data = { title: t.title || "SK Music", text: `${t.title || ""}${t.artist ? " — " + t.artist : ""}`, url };
+  if (navigator.share) { navigator.share(data).catch(() => {}); return; }
+  try { navigator.clipboard.writeText(url); showToast("Link copied to clipboard.", 2000); } catch { showToast(url, 4000); }
+}
+// Report a problem → content_report RPC (needs an account).
+async function reportSong(t) {
+  if (!loggedIn()) { showToast("<b>Sign in to report a song.</b>", 3200); openAuth("in"); return; }
+  const reason = prompt("What's wrong with this song?\n(e.g. wrong artist, should be filtered, bad audio, duplicate)");
+  if (!reason || !reason.trim()) return;
+  await sbRpc("submit_report", { p_video_id: safeId(t.videoId), p_reason: reason.trim().slice(0, 120), p_note: (t.title || "") + (t.artist ? " — " + t.artist : "") });
+  showToast("Thanks — reported for review. 🙏", 3000);
+}
+function gotoArtistByName(name) {
+  const a = _artistByName && _artistByName.get((name || "").toLowerCase());
+  if (a) openArtist(a.id); else showToast("No artist page for " + esc(name), 2600);
+}
+/* ---- artist follows (server-backed) ---- */
+let _followSet = null; // Set of channel_ids; loaded on login / first artist page
+async function loadFollows(force) {
+  if (!loggedIn()) { _followSet = new Set(); return _followSet; }
+  if (_followSet && !force) return _followSet;
+  const rows = (await sbRpc("get_my_follows")) || [];
+  _followSet = new Set(rows.map((r) => r.channel_id));
+  return _followSet;
+}
+function isFollowing(cid) { return !!(_followSet && _followSet.has(cid)); }
+async function toggleFollow(cid, name, btn) {
+  if (!loggedIn()) { showToast("<b>Sign in to follow artists</b> and get their new releases.", 3600); openAuth("in"); return; }
+  if (!_followSet) await loadFollows();
+  const now = !_followSet.has(cid);
+  if (btn) { btn.classList.toggle("on", now); const l = btn.querySelector(".follow-lbl"); if (l) l.textContent = now ? "Following" : "Follow"; }
+  if (now) { _followSet.add(cid); await sbRpc("follow_artist", { p_channel_id: cid, p_name: name || null }); showToast("Following — new releases will show on For You.", 2800); }
+  else { _followSet.delete(cid); await sbRpc("unfollow_artist", { p_channel_id: cid }); showToast("Unfollowed.", 1500); }
+}
+// A "New from artists you follow" shelf: releases-feed albums whose artist resolves (by name) to a
+// followed channel id. Empty (returns "") when signed out, no follows, or no matching new releases.
+function followedReleases(nf) {
+  if (!loggedIn() || !_followSet || !_followSet.size) return [];
+  return feedAlbums(nf).filter((a) => { const art = _artistByName && _artistByName.get((a.artist || "").toLowerCase()); return art && _followSet.has(art.id); });
 }
 
 /* ============================ DETAIL ============================ */
@@ -2029,7 +2302,7 @@ function renderDetailView(v) {
   let h = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
     <div class="detail-hero"><div class="cover ${v.round ? "round" : ""}">${artHTML(v.thumb, v.round ? ICON.artist : NOTE, v.round, 640)}</div>
     <div class="dh-meta"><div class="dh-kind">${v.kind}</div><div class="dh-title">${esc(v.title)}</div><div class="dh-sub">${v.sub}</div></div></div>`;
-  h += `<div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button>` : ""}${qid ? `<button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}${v.radio ? `<button class="btn-ghost" onclick="startRadio('${v.radio.kind}','${v.radio.seed}')">${ICON.radio}Radio</button>` : ""}${v.path ? `<button class="btn-ghost" onclick="shareDetail()">${ICON.share}Share</button>` : ""}</div>`;
+  h += `<div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button>` : ""}${qid ? `<button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}${v.radio ? `<button class="btn-ghost" onclick="startRadio('${v.radio.kind}','${v.radio.seed}')">${ICON.radio}Radio</button>` : ""}${v.follow ? `<button class="btn-ghost follow-btn ${isFollowing(v.follow.channelId) ? "on" : ""}" onclick="toggleFollow('${esc(v.follow.channelId)}','${esc(v.follow.name).replace(/'/g, "\\'")}',this)"><svg viewBox="0 0 24 24"><path d="M15 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4m0 2c-3 0-9 1.5-9 4.5V21h18v-2.5c0-3-6-4.5-9-4.5"/></svg><span class="follow-lbl">${isFollowing(v.follow.channelId) ? "Following" : "Follow"}</span></button>` : ""}${v.path ? `<button class="btn-ghost" onclick="shareDetail()">${ICON.share}Share</button>` : ""}</div>`;
   for (const s of v.sections) {
     if (s.tracks && s.tracks.length) {
       let body = songRows(s.tracks, { index: true, artist: v.artistName, hideArtist: !!s.plays, plays: s.plays });
@@ -2057,7 +2330,7 @@ function detailLoading(kind, round) {
 async function openArtist(id, fromRoute) {
   detailLoading("Artist", true);
   const d = await detailGet("/artist?id=" + encodeURIComponent(id)); if (!d || d.error) return notAvailable("artist");
-  await ensureFilters(); // load artist flags + parental profile BEFORE gating (else the parental gate no-ops)
+  await ensureFilters(); await loadFollows(); // artist flags + parental profile + follow state BEFORE render (so the Follow button shows the right state)
   if ((noFemale() && d.artist.isFemale) || (noChasid() && d.artist.isChasid) || hiddenArtist(d.artist.name) || blockedId(d.artist.id)) return blockedByFilter("artist");
   // Acapella filter, per mode — "only" and "hide" are OPPOSITES here (a single any-mode branch used to
   // show just the Acapella tracks even in Hide, the exact inverse of what Hide means):
@@ -2077,9 +2350,27 @@ async function openArtist(id, fromRoute) {
   const videos = (acOnly || blockVideos()) ? [] : (am === "hide" ? (d.videos || []).filter((t) => !acapellaTrack(t)) : d.videos);
   const albums = acOnly ? [] : d.albums, singles = acOnly ? [] : d.singles, plists = acOnly ? [] : (d.playlists || []); // Audio-only hides the Videos section + keeps videos out of the play queue
   const n = (songs?.length || 0) + (videos?.length || 0);
-  pushDetail({ path: "/artists/" + id, kind: "Artist", title: d.artist.name, sub: acOnly ? `<b>${num(n)}</b> Acapella songs` : `<b>${num(n)}</b> songs · <b>${num(d.albums?.length || 0)}</b> albums`, thumb: d.artist.thumbnail, round: true, artistName: d.artist.name, radio: acOnly ? null : { kind: "artist", seed: id }, sections: [
+  pushDetail({ path: "/artists/" + id, kind: "Artist", title: d.artist.name, sub: acOnly ? `<b>${num(n)}</b> Acapella songs` : `<b>${num(n)}</b> songs · <b>${num(d.albums?.length || 0)}</b> albums`, thumb: d.artist.thumbnail, round: true, artistName: d.artist.name, radio: acOnly ? null : { kind: "artist", seed: id }, follow: { channelId: id, name: d.artist.name }, sections: [
     { label: "Songs", tracks: songs, plays: true, collapse: 6 }, { label: "Albums", items: albums, render: albumCard }, { label: "Singles & EPs", items: singles, render: albumCard },
     { label: "Videos", tracks: videos, collapse: 6 }, { label: "Playlists", items: plists, render: playlistCard } ] }, fromRoute);
+  if (!acOnly) appendSimilarArtists(id, nm); // "Fans also like" from the co-listening radio graph
+}
+// Derive a "Similar artists" shelf from the artist's radio station: the distinct OTHER artists the
+// co-listening graph surfaces. Appended after render so it never delays the artist page.
+async function appendSimilarArtists(id, selfName) {
+  try {
+    const d = await fetchJSON("/radio?" + filterQS(`kind=artist&seed=${encodeURIComponent(id)}&limit=40`)).catch(() => null);
+    if (!d || !Array.isArray(d.tracks) || state.detailKind !== "artist" || state.detailPath !== "/artists/" + id) return;
+    const seen = new Set([selfName]), arts = [];
+    for (const t of d.tracks) {
+      const nm = (t.artist || "").toLowerCase(); if (!nm || seen.has(nm)) continue; seen.add(nm);
+      const a = _artistByName && _artistByName.get(nm);
+      if (a && !hiddenArtist(a.name) && !blockedId(a.id)) { arts.push(a); if (arts.length >= 14) break; }
+    }
+    if (arts.length >= 3 && state.detailKind === "artist") {
+      el("v-detail").insertAdjacentHTML("beforeend", section("Fans also like", `<div class="rail round">${arts.map(artistCard).join("")}</div>`));
+    }
+  } catch {}
 }
 async function openAlbum(id, fromRoute) {
   detailLoading("Album");
@@ -2160,17 +2451,27 @@ function blockedByFilter(kind) { blockedPage("Access denied", `This ${kind} is b
 const audio = el("audio");
 const PB = {
   mode: "yt", yt: null, ready: false, pending: null, nextStart: 0, vol: 1, muted: false, rate: 1,
-  load(id, startSec) { startSec = startSec || this.nextStart || 0; this.nextStart = 0; if (this.mode === "yt") { const a = startSec ? { videoId: id, startSeconds: startSec } : id; if (this.ready) { this.yt.loadVideoById(a); nudgePlay(); } else this.pending = a; } else { audio.src = "/stream?v=" + encodeURIComponent(id); if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); } },
-  play() { this.mode === "yt" ? this.ready && this.yt.playVideo() : audio.play().catch(() => {}); cueNext(); }, // re-arm the gapless cue (cleared if a pause/seek cancelled a handoff)
-  pause() { clearTimeout(_loadNudge); if (gapless && gapless.phase === "start") cancelSwap(); this.mode === "yt" ? this.ready && this.yt.pauseVideo() : audio.pause(); }, // a primed (inert) standby survives a pause; only a firing one is cancelled
-  stop() { clearTimeout(_loadNudge); cancelSwap(); this.pending = null; if (this.mode === "yt") { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
-  paused() { return this.mode === "yt" ? (!this.ready || this.yt.getPlayerState() !== 1) : audio.paused; }, // methods exist only after onReady
-  seek(sec) { if (gapless && gapless.phase === "start") cancelSwap(); this.mode === "yt" ? this.ready && this.yt.seekTo(sec, true) : (audio.currentTime = sec); cueNext(); },
-  cur() { return this.mode === "yt" ? (this.ready ? this.yt.getCurrentTime() || 0 : 0) : audio.currentTime; },
-  dur() { return this.mode === "yt" ? (this.ready ? this.yt.getDuration() || 0 : 0) : (audio.duration || 0); },
-  setVol(v) { this.vol = v; this.muted = false; if (this.mode === "yt") { if (this.ready) { this.yt.unMute(); this.yt.setVolume(Math.round(v * 100)); } } else { audio.muted = false; audio.volume = v; } },
-  setMuted(m) { this.muted = m; if (this.mode === "yt") { if (this.ready) m ? this.yt.mute() : this.yt.unMute(); } else audio.muted = m; },
-  setRate(r) { this.rate = r; if (this.mode === "yt") { if (this.ready) this.yt.setPlaybackRate(r); } else audio.playbackRate = r; },
+  // SK-OFFLINE: `local` is a per-track override — when a downloaded copy exists (desktop only) the html5
+  // <audio> element plays the local file instead of the YT iframe, WITHOUT flipping the persistent `mode`
+  // (so YT stays the online engine). useYt() is the single "talk to the iframe?" predicate the methods share.
+  local: false,
+  useYt() { return this.mode === "yt" && !this.local; },
+  load(id, startSec) {
+    startSec = startSec || this.nextStart || 0; this.nextStart = 0;
+    const localSrc = (typeof skLocalSrc === "function") ? skLocalSrc(id) : null; // SK-OFFLINE: prefer a downloaded copy
+    if (localSrc) { this.local = true; cancelSwap(); clearTimeout(_loadNudge); try { if (this.mode === "yt" && this.ready) this.yt.stopVideo(); } catch {} audio.src = localSrc; if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); return; }
+    this.local = false;
+    if (this.mode === "yt") { try { audio.pause(); } catch {} const a = startSec ? { videoId: id, startSeconds: startSec } : id; if (this.ready) { this.yt.loadVideoById(a); nudgePlay(); } else this.pending = a; } else { audio.src = "/stream?v=" + encodeURIComponent(id); if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); } },
+  play() { this.useYt() ? this.ready && this.yt.playVideo() : audio.play().catch(() => {}); cueNext(); }, // re-arm the gapless cue (cleared if a pause/seek cancelled a handoff)
+  pause() { clearTimeout(_loadNudge); if (xf) finishCrossfade(); if (gapless && gapless.phase === "start") cancelSwap(); this.useYt() ? this.ready && this.yt.pauseVideo() : audio.pause(); }, // a primed standby survives a pause; a firing one is cancelled; a fade is finished (snap to the new track) then paused
+  stop() { clearTimeout(_loadNudge); cancelSwap(); this.pending = null; if (this.useYt()) { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
+  paused() { return this.useYt() ? (!this.ready || this.yt.getPlayerState() !== 1) : audio.paused; }, // methods exist only after onReady
+  seek(sec) { if (xf) abortCrossfade(); if (gapless && gapless.phase === "start") cancelSwap(); this.useYt() ? this.ready && this.yt.seekTo(sec, true) : (audio.currentTime = sec); cueNext(); },
+  cur() { return this.useYt() ? (this.ready ? this.yt.getCurrentTime() || 0 : 0) : audio.currentTime; },
+  dur() { return this.useYt() ? (this.ready ? this.yt.getDuration() || 0 : 0) : (audio.duration || 0); },
+  setVol(v) { this.vol = v; this.muted = false; if (this.useYt()) { if (this.ready) { this.yt.unMute(); this.yt.setVolume(Math.round(v * 100)); } } else { audio.muted = false; audio.volume = v; } },
+  setMuted(m) { this.muted = m; if (this.useYt()) { if (this.ready) m ? this.yt.mute() : this.yt.unMute(); } else audio.muted = m; },
+  setRate(r) { this.rate = r; if (this.useYt()) { if (this.ready) this.yt.setPlaybackRate(r); } else audio.playbackRate = r; },
 };
 // loadVideoById occasionally lands CUED/paused instead of autoplaying (a skip that "pauses").
 // Verify playback engaged shortly after every load and nudge it; an intentional pause/stop
@@ -2213,7 +2514,7 @@ function nextPlayableIndex() { // the index playIndex(qi+1) would actually land 
   return -1;
 }
 function cueNext() {
-  if (PB.mode !== "yt" || !standbyReady || (gapless && gapless.phase === "start") || state.repeat) return;
+  if (PB.mode !== "yt" || PB.local || !standbyReady || (gapless && gapless.phase === "start") || state.repeat) return; // SK-OFFLINE: no YT gapless while a local file plays
   const idx = nextPlayableIndex(), t = idx >= 0 ? state.queue[idx] : null;
   if (!t || !t.videoId || cueDead.has(t.videoId)) { if (cued.id) cancelSwap(); return; }
   if (cued.id === t.videoId && cued.idx === idx) return; // already cued (or primed) for the right track
@@ -2223,6 +2524,7 @@ function cueNext() {
 }
 function cancelSwap() {
   clearTimeout(_fireWatch);
+  abortCrossfade(); // a manual transport action always wins over an in-flight fade
   if (gapless) { try { ytStandby.stopVideo(); ytStandby.unMute(); } catch {} gapless = null; }
   cued = { id: null, idx: -1 };
 }
@@ -2272,6 +2574,61 @@ function completeSwap() {
   streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); setPlayIcons();
   radioPrefetch(); cueNext();
 }
+/* ---- Crossfade (optional; extends the gapless engine) --------------------------------------------
+   OFF by default (state.crossfade === 0): the block above runs byte-for-byte unchanged. When on, the
+   already-primed standby is started `secs` before the active track ends and the two players' volumes
+   are ramped in opposite directions over that window (equal-power-ish linear), then roles swap. While
+   a fade is in flight `xf` is truthy — the gapless machinery in tick() is suspended (see the !xf guard)
+   and onStandbyState is inert (gapless is null), so nothing re-cues the standby mid-fade. Any manual
+   transport (next/prev/new load/seek) aborts the fade; pause finishes it, then pauses the new track. */
+let xf = null, _xfTimer = 0; // xf = { idx, oldP, newP, start, secs } during a fade
+function startCrossfade() {
+  if (xf || !gapless || gapless.phase !== "primed" || PB.muted) return; // muted → nothing to fade; let fireSwap handle it
+  const idx = gapless.idx, oldP = PB.yt, newP = ytStandby, secs = state.crossfade;
+  gapless = null; cued = { id: null, idx: -1 }; // release the gapless state; the fade owns the transition now
+  try { newP.unMute(); newP.setVolume(0); if (PB.rate !== 1) newP.setPlaybackRate(PB.rate); newP.playVideo(); }
+  catch { cueNext(); return; } // couldn't start the standby → re-cue; the normal ended-path advances
+  xf = { idx, oldP, newP, start: performance.now(), secs };
+  clearInterval(_xfTimer); _xfTimer = setInterval(stepCrossfade, 60);
+}
+function stepCrossfade() {
+  if (!xf) return;
+  let ended = false; try { ended = xf.oldP.getPlayerState() === 0; } catch {}
+  const p = Math.min(1, (performance.now() - xf.start) / (xf.secs * 1000)), v = Math.round(PB.vol * 100);
+  try { xf.newP.setVolume(Math.round(v * p)); } catch {}
+  try { xf.oldP.setVolume(Math.round(v * (1 - p))); } catch {}
+  if (p >= 1 || ended) finishCrossfade();
+}
+function finishCrossfade() { // fade complete → the new player becomes active (mirrors completeSwap, but stops old only now)
+  if (!xf) return;
+  const { idx, oldP, newP } = xf; clearInterval(_xfTimer); _xfTimer = 0; xf = null;
+  try { oldP.stopVideo(); } catch {}
+  try { PB.muted ? newP.mute() : newP.setVolume(Math.round(PB.vol * 100)); } catch {}
+  PB.yt = newP; ytStandby = oldP;
+  if (idx < 0 || idx >= state.queue.length) return;
+  state.qi = idx; trackStarted(state.queue[idx]);
+  streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); setPlayIcons();
+  radioPrefetch(); cueNext();
+}
+function abortCrossfade() { // manual transport interrupted the fade — drop the fading-in standby, restore the active player
+  if (!xf) return;
+  clearInterval(_xfTimer); _xfTimer = 0;
+  const newP = xf.newP; xf = null;
+  try { newP.stopVideo(); newP.unMute(); } catch {}
+  try { if (!PB.muted) PB.yt.setVolume(Math.round(PB.vol * 100)); } catch {}
+}
+function paintCrossfadeUI() { const b = el("npXfade"); if (b) b.classList.toggle("on", state.crossfade > 0); }
+function setCrossfade(secs) {
+  state.crossfade = Math.max(0, Math.min(12, secs | 0)); LS.set("zw_crossfade", String(state.crossfade));
+  paintCrossfadeUI(); closeMenus();
+  showToast(state.crossfade ? `Crossfade: ${state.crossfade}s between songs.` : "Crossfade off.", 2000);
+}
+function openCrossfadeMenu(e) {
+  e && e.stopPropagation();
+  const cur = state.crossfade;
+  const opt = (v, label) => `<button role="menuitem" class="mi ${cur === v ? "on" : ""}" onclick="setCrossfade(${v})">${label}${cur === v ? " ✓" : ""}</button>`;
+  popMenu(e.currentTarget, `<div class="mihead">Crossfade</div>${opt(0, "Off")}${opt(3, "3 seconds")}${opt(6, "6 seconds")}${opt(9, "9 seconds")}${opt(12, "12 seconds")}`);
+}
 window.onYouTubeIframeAPIReady = function () {
   // Two identical hidden players: the ACTIVE one (PB.yt) plays; the STANDBY pre-cues the next queue
   // track for the gapless handoff. Events route by comparing e.target against the current PB.yt.
@@ -2304,7 +2661,7 @@ function fallbackToStream() {
   const t = state.queue[state.qi]; if (t && !audio.src) PB.load(t.videoId);
 }
 
-function playFrom(qid, i, source) { const q = queues.get(qid); if (!q) return; state.queue = q; state.radio = null; state.playSource = source || (state.detailOpen ? (state.detailKind || "detail") : (state.tab || "home")); playIndex(i); }
+function playFrom(qid, i, source) { const q = queues.get(qid); if (!q) return; state.queue = q; state.radio = null; state.playSource = source || (state.detailOpen ? (state.detailKind || "detail") : (state.tab || "home")); state.qi = i; if (state.shuffle) shuffleTail(); playIndex(state.qi); }
 // Play-duration tracking — measure REAL listen time (excludes pauses) and emit the `play` event on end/skip,
 // not on start, so a 2-second skip is distinguishable from a real listen (drives `qualified` + trending).
 let playSes = null;
@@ -2358,7 +2715,7 @@ function trackStarted(t) {
   el("nbArt").src = yt(t.videoId); el("nbArt").classList.remove("hide"); el("nbTitle").textContent = t.title || ""; el("nbArtist").textContent = t.artist || "";
   el("npArt").src = art; el("npArt").classList.remove("hide"); el("npTitle").textContent = t.title || ""; el("npArtist").textContent = t.artist || "";
   el("npBg").style.backgroundImage = `url('${art}')`;
-  saveRecent(t); paintQueue(); refreshLikeUI(t.videoId); refreshNowPlaying();
+  saveRecent(t); paintQueue(); refreshLikeUI(t.videoId); refreshNowPlaying(); if (lyricsOpen()) loadLyrics(); if (typeof skUpdateNpButton === "function") skUpdateNpButton(); // SK-OFFLINE: reflect this track's downloaded state
   pushURL("/song/" + t.videoId, true); // shareable per-song URL reflecting what's playing (no history spam)
   playBegin(t); // start a play-duration session — the `play` event fires on end/skip with real listen time
   if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: t.title || "", artist: t.artist || "", album: "SK Music", artwork: [{ src: art, sizes: "480x360", type: "image/jpeg" }] });
@@ -2405,19 +2762,163 @@ function saveLastPlay(c) { // called from tick() ~every 5 s while something play
 function next() { if (state.qi < state.queue.length - 1) playIndex(state.qi + 1, 1); else radioContinue(); }
 function prev() { if (PB.cur() > 3 || state.qi <= 0) PB.seek(0); else playIndex(state.qi - 1, -1); }
 // Repeat one: when a song ends with repeat on, replay it instead of advancing (manual next/prev still work).
-function repeatOrNext() { if (state.repeat && state.qi >= 0) playIndex(state.qi); else next(); }
+function repeatOrNext() {
+  if (state.sleepEnd) { state.sleepEnd = false; state.sleep = null; paintSleepUI(); PB.pause(); showToast("Sleep timer — stopped at the end of the song. 🌙", 3200); return; }
+  if (state.repeat && state.qi >= 0) playIndex(state.qi); else next();
+}
 function toggleRepeat() { state.repeat = !state.repeat; document.querySelectorAll(".rpt").forEach((b) => { b.classList.toggle("on", state.repeat); b.setAttribute("aria-pressed", state.repeat); }); showToast(state.repeat ? "Repeat this song" : "Repeat off", 1300); if (state.repeat) cancelSwap(); else cueNext(); }
+/* ---- Shuffle mode (persistent) ---- */
+// Shuffles the not-yet-played tail (queue after qi) IN PLACE so the linear next()/gapless-prefetch
+// path keeps working unchanged — qi+1 is simply the next shuffled track. Applied on toggle-on and
+// whenever a new queue starts while shuffle is on.
+function shuffleTail() {
+  if (state.qi < 0 || state.queue.length - state.qi < 3) return;
+  const head = state.queue.slice(0, state.qi + 1), tail = state.queue.slice(state.qi + 1);
+  for (let i = tail.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [tail[i], tail[j]] = [tail[j], tail[i]]; }
+  state.queue = head.concat(tail);
+}
+function paintShuffleUI() { document.querySelectorAll(".shf").forEach((b) => { b.classList.toggle("on", state.shuffle); b.setAttribute("aria-pressed", state.shuffle); }); }
+function toggleShuffle() {
+  state.shuffle = !state.shuffle; LS.set("zw_shuffle", state.shuffle ? "1" : "0");
+  if (state.shuffle) shuffleTail();
+  cancelSwap(); cueNext(); paintShuffleUI();
+  if (state.nowOpen) paintQueue();
+  showToast(state.shuffle ? "Shuffle on" : "Shuffle off", 1300);
+}
+/* ---- Sleep timer ---- */
+// mins > 0: pause after that many minutes. mins === "end": pause when the current track finishes
+// (checked in the advance path). null: off.
+function setSleep(mins) {
+  clearTimeout(state.sleepAt); state.sleep = null; state.sleepEnd = false;
+  if (mins === "end") { state.sleepEnd = true; state.sleep = "end"; showToast("Sleep: stopping at the end of this song.", 2600); }
+  else if (mins > 0) {
+    state.sleep = mins; const at = Date.now() + mins * 60000;
+    state.sleepAt = setTimeout(() => { PB.pause(); state.sleep = null; paintSleepUI(); showToast("Sleep timer — playback paused. 🌙", 3200); }, mins * 60000);
+    showToast(`Sleep: pausing in ${mins} minutes. 🌙`, 2600);
+  } else showToast("Sleep timer off.", 1600);
+  paintSleepUI(); closeMenus();
+}
+function paintSleepUI() { const b = el("npSleep"); if (b) b.classList.toggle("on", !!state.sleep); }
+function openSleepMenu(e) {
+  e && e.stopPropagation();
+  const cur = state.sleep;
+  const opt = (v, label) => `<button role="menuitem" class="mi ${cur === v ? "on" : ""}" onclick="setSleep(${typeof v === "string" ? `'${v}'` : v})">${label}${cur === v ? " ✓" : ""}</button>`;
+  popMenu(e.currentTarget, `<div class="mihead">Sleep timer</div>${opt(0, "Off")}${opt(15, "15 minutes")}${opt(30, "30 minutes")}${opt(45, "45 minutes")}${opt(60, "1 hour")}${opt("end", "End of this song")}`);
+}
 function seekBy(d) { if (!state.queue.length) return; const dur = PB.dur(); if (!dur) return; PB.seek(Math.max(0, Math.min(dur - 0.5, PB.cur() + d))); }
-function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); const au = el("npAuto"); if (au) au.checked = radioAutoplay(); paintQueue(); }
+/* ---- Lyrics (time-synced, via /lyrics → LRCLIB) ---- */
+// _ly caches the fetched lyrics for the current track so switching tabs doesn't refetch. .synced is a
+// sorted [{t,text}] parsed from LRC; .plain is unsynced text; .none means the fetch found nothing.
+let _ly = { key: "", synced: null, plain: "", loading: false, none: false, cur: -1 };
+function lyKey(t) { return t ? (t.artist || "") + "\n" + (t.title || "") : ""; }
+function npxTab(p) {
+  document.querySelectorAll(".npx-tab").forEach((b) => b.classList.toggle("on", b.dataset.p === p));
+  el("npPaneQueue").classList.toggle("on", p === "queue");
+  el("npPaneLyrics").classList.toggle("on", p === "lyrics");
+  if (p === "lyrics") loadLyrics();
+}
+function lyricsOpen() { const p = el("npPaneLyrics"); return !!p && p.classList.contains("on"); }
+// LRC → [{t:seconds, text}]. A line can carry several timestamps ([00:12.00][00:48.00] repeated hook);
+// emit one entry per stamp. Blank-text stamps (instrumental breaks) render as ♪.
+function parseLRC(text) {
+  const out = [], re = /\[(\d+):(\d+)(?:[.:](\d+))?\]/g;
+  for (const raw of String(text).split("\n")) {
+    const stamps = []; let m; re.lastIndex = 0;
+    while ((m = re.exec(raw))) stamps.push((+m[1]) * 60 + (+m[2]) + (m[3] ? +("0." + m[3]) : 0));
+    if (!stamps.length) continue;
+    const words = raw.replace(re, "").trim();
+    for (const s of stamps) out.push({ t: s, text: words });
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+async function loadLyrics(force) {
+  const box = el("npLyrics"); if (!box) return;
+  const t = state.queue[state.qi];
+  if (!t) { _ly = { key: "", synced: null, plain: "", loading: false, none: false, cur: -1 }; box.innerHTML = '<div class="ly-msg">Nothing playing.</div>'; return; }
+  const key = lyKey(t);
+  if (key === _ly.key && !force) { renderLyrics(); return; }
+  _ly = { key, synced: null, plain: "", loading: true, none: false, cur: -1 };
+  box.innerHTML = '<div class="ly-msg">Loading lyrics…</div>';
+  const qs = "artist=" + encodeURIComponent(t.artist || "") + "&title=" + encodeURIComponent(t.title || "") + (t.durationSec ? "&duration=" + Math.round(t.durationSec) : "");
+  let d = null; try { d = await fetchJSON("/lyrics?" + qs); } catch {}
+  if (_ly.key !== key) return; // track changed while the request was in flight
+  _ly.loading = false;
+  if (d && d.synced) _ly.synced = parseLRC(d.synced);
+  if (d && d.plain) _ly.plain = String(d.plain).trim();
+  _ly.none = !(_ly.synced && _ly.synced.length) && !_ly.plain;
+  renderLyrics();
+}
+function renderLyrics() {
+  const box = el("npLyrics"); if (!box) return;
+  if (_ly.loading) { box.innerHTML = '<div class="ly-msg">Loading lyrics…</div>'; return; }
+  if (_ly.synced && _ly.synced.length) {
+    box.innerHTML = _ly.synced.map((l, i) => `<div class="ly-line seekable" data-i="${i}" onclick="lySeek(${i})">${esc(l.text || "♪")}</div>`).join("") + '<div class="ly-src">Synced lyrics via LRCLIB</div>';
+    _ly.cur = -1; paintLyricLine(PB.cur());
+    return;
+  }
+  if (_ly.plain) { box.innerHTML = '<div class="ly-plain">' + esc(_ly.plain) + '</div><div class="ly-src">Lyrics via LRCLIB</div>'; return; }
+  box.innerHTML = '<div class="ly-msg">No lyrics found for this song.</div>';
+}
+function lySeek(i) { const l = _ly.synced && _ly.synced[i]; if (l) { PB.seek(l.t); if (PB.paused()) PB.play(); } }
+// Highlight the active synced line and keep it centered. Called from tick() while the lyrics tab is open.
+function paintLyricLine(c) {
+  const S = _ly.synced; if (!S || !S.length) return;
+  const box = el("npLyrics"); if (!box) return;
+  let idx = -1;
+  for (let i = 0; i < S.length; i++) { if (S[i].t <= c + 0.2) idx = i; else break; }
+  if (idx === _ly.cur) return;
+  _ly.cur = idx;
+  const rows = box.querySelectorAll(".ly-line");
+  rows.forEach((r, i) => r.classList.toggle("cur", i === idx));
+  if (idx >= 0 && rows[idx]) rows[idx].scrollIntoView({ block: "center", behavior: "smooth" });
+}
+function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); const au = el("npAuto"); if (au) au.checked = radioAutoplay(); paintShuffleUI(); paintSleepUI(); paintCrossfadeUI(); paintQueue(); if (lyricsOpen()) loadLyrics(); }
 function closeNow() { state.nowOpen = false; el("now").classList.remove("on"); }
 function saveRecent(t) { try { const h = readRecent().filter((x) => x.videoId !== t.videoId); h.unshift({ videoId: t.videoId, title: t.title, artist: t.artist, explicit: t.explicit, isVideo: t.isVideo }); localStorage.setItem("zw_recent", JSON.stringify(h.slice(0, 80))); } catch {} acctSyncRecents(); }
 function toggleMute() { PB.setMuted(!PB.muted); el("vol").value = PB.muted ? 0 : Math.round(PB.vol * 100); paintSeek(el("vol")); }
 function paintQueue() {
   const up = state.queue.slice(state.qi).map((t, k) => {
     const i = state.qi + k, playing = k === 0;
-    return `<div class="row ${playing ? "playing" : ""}" role="button" tabindex="0" onkeydown="${KDACT}" onclick="playIndex(${i})"><img class="thumb" alt="" src="${yt(t.videoId)}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${playing ? EQ : ""}${esc(t.title)}</div><div class="sub">${esc(t.artist || "")}</div></div></div>`;
+    // Upcoming rows are draggable to reorder, with per-row Play-next and Remove. The playing row is
+    // fixed (no drag/remove). data-i is the absolute queue index.
+    return `<div class="row qrow ${playing ? "playing" : ""}" data-i="${i}" role="button" tabindex="0" ${playing ? "" : 'draggable="true"'} onkeydown="${KDACT}" onclick="playIndex(${i})">
+      ${playing ? "" : '<span class="qdrag" aria-hidden="true" title="Drag to reorder"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M8 6h2v2H8zm0 5h2v2H8zm0 5h2v2H8zm6-10h2v2h-2zm0 5h2v2h-2zm0 5h2v2h-2z"/></svg></span>'}
+      <img class="thumb" alt="" src="${yt(t.videoId)}" onerror="this.style.visibility='hidden'">
+      <div class="text"><div class="title">${playing ? EQ : ""}${esc(t.title)}</div><div class="sub">${esc(t.artist || "")}</div></div>
+      ${playing ? "" : `<button class="qbtn" title="Play next" aria-label="Play next" onclick="event.stopPropagation();queuePlayNext(${i})"><svg viewBox="0 0 24 24" width="17" height="17"><path d="M4 5v14l8-7zm9 0v14l8-7z"/></svg></button>
+      <button class="qbtn" title="Remove from queue" aria-label="Remove from queue" onclick="event.stopPropagation();queueRemove(${i})"><svg viewBox="0 0 24 24" width="17" height="17"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg></button>`}
+    </div>`;
   }).join("");
-  el("npQueue").innerHTML = up || "";
+  const box = el("npQueue"); box.innerHTML = up || `<div class="qempty">Nothing queued.</div>`;
+  wireQueueDrag(box);
+}
+// --- queue editing ---
+function queueRemove(i) {
+  if (i <= state.qi || i >= state.queue.length) return; // never the playing/past rows
+  state.queue.splice(i, 1);
+  cancelSwap(); cueNext(); paintQueue();
+}
+function queuePlayNext(i) {
+  if (i <= state.qi || i >= state.queue.length) return;
+  const [t] = state.queue.splice(i, 1);
+  state.queue.splice(state.qi + 1, 0, t);
+  cancelSwap(); cueNext(); paintQueue();
+}
+function queueMove(from, to) { // absolute indices; both must be after the current track
+  if (from <= state.qi || to <= state.qi || from >= state.queue.length || to >= state.queue.length || from === to) return;
+  const [t] = state.queue.splice(from, 1);
+  state.queue.splice(to, 0, t);
+  cancelSwap(); cueNext(); paintQueue();
+}
+let _qDragFrom = -1;
+function wireQueueDrag(box) {
+  box.querySelectorAll(".qrow[draggable=true]").forEach((row) => {
+    row.addEventListener("dragstart", (e) => { _qDragFrom = +row.dataset.i; row.classList.add("dragging"); try { e.dataTransfer.effectAllowed = "move"; } catch {} });
+    row.addEventListener("dragend", () => { _qDragFrom = -1; box.querySelectorAll(".qrow").forEach((r) => r.classList.remove("dragging", "dragover")); });
+    row.addEventListener("dragover", (e) => { e.preventDefault(); row.classList.add("dragover"); });
+    row.addEventListener("dragleave", () => row.classList.remove("dragover"));
+    row.addEventListener("drop", (e) => { e.preventDefault(); const to = +row.dataset.i; if (_qDragFrom >= 0) queueMove(_qDragFrom, to); });
+  });
 }
 
 /* ============================ Zemer Radio ============================ */
@@ -2506,22 +3007,27 @@ function tick() {
   el("nbDur").textContent = el("npDur").textContent = d ? fmt(d) : "0:00";
   // Gapless: WARM as soon as the standby's cue has loaded (polled here — see onStandbyState note),
   // then FIRE near the end (re-validating that the cue still matches what playIndex would choose).
-  if (PB.mode === "yt" && !state.repeat && !seeking && !PB.paused()) { // !paused: a pause in the final 0.5s must NOT let the fire window un-pause playback
+  if (PB.mode === "yt" && !PB.local && !state.repeat && !seeking && !PB.paused() && !xf) { // !paused: a pause in the final 0.5s must NOT let the fire window un-pause playback; !xf: a fade owns the transition; !local: skip while a downloaded file plays
     if (!standbyReady && ytStandbyBoot) { // onReady is unreliable for a videoless player — probe it functional
       try { ytStandbyBoot.getPlayerState(); ytStandby = ytStandbyBoot; standbyReady = true; } catch {}
     }
     if (standbyReady && cued.idx < 0 && !gapless) cueNext(); // nothing cued (e.g. readiness arrived late) → cue now
     if (!gapless && cued.idx >= 0) beginWarm(); // no-op until the cued video is actually loaded
-    else if (gapless && gapless.phase === "primed" && d > 0 && c > 0 && d - c <= GAPLESS_FIRE
-        && cued.idx === nextPlayableIndex() && state.queue[cued.idx] && state.queue[cued.idx].videoId === cued.id) fireSwap();
+    else if (gapless && gapless.phase === "primed" && d > 0 && c > 0
+        && cued.idx === nextPlayableIndex() && state.queue[cued.idx] && state.queue[cued.idx].videoId === cued.id) {
+      if (state.crossfade > 0 && !PB.muted && d - c <= state.crossfade) startCrossfade(); // fade in over the tail
+      else if (d - c <= GAPLESS_FIRE) fireSwap();                                          // else the seamless gapless handoff
+    }
   }
   if (!PB.paused()) saveLastPlay(c); // resume point for the empty-queue Play button
+  if (_ly.synced && lyricsOpen()) paintLyricLine(c);
   skTick(c);
 }
 function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing · 2 paused · 3 buffering · 5 cued
   if (code === 1) { streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); } // rate resets on each load
   else if (code === 2) playAccrue(); // paused → bank the elapsed listen time
   else if (code === 0) { // ended: a primed/starting standby takes over instantly; anything else falls back to the normal path
+    if (xf) return; // the active track finished mid-crossfade — the fade's own timer owns the advance
     stopTick();
     const cueValid = gapless && cued.idx === nextPlayableIndex() && state.queue[cued.idx] && state.queue[cued.idx].videoId === cued.id;
     if (gapless && gapless.phase === "primed" && cueValid) fireSwap(); // completes on the standby's PLAYING event
@@ -2531,6 +3037,21 @@ function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing �
   setPlayIcons();
 }
 function showToast(msg, ms) { const t = el("toast"); t.innerHTML = msg; t.classList.add("on"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), ms || 4200); }
+/* ---- shared popup menu ---- */
+// Open a floating menu of pre-built .mi buttons near an anchor element. Callers build the inner HTML
+// (esc() anything dynamic). One menu at a time; any outside click / Escape / scroll closes it.
+function popMenu(anchor, html) {
+  const m = el("popmenu"); m.innerHTML = html; m.classList.add("on"); m.setAttribute("aria-hidden", "false");
+  const r = anchor.getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;
+  let x = Math.min(r.left, innerWidth - mw - 8), y = r.bottom + 6;
+  if (y + mh > innerHeight - 8) y = Math.max(8, r.top - mh - 6); // flip above if it would overflow
+  m.style.left = Math.max(8, x) + "px"; m.style.top = y + "px";
+  const first = m.querySelector(".mi"); if (first) first.focus();
+}
+function closeMenus() { const m = el("popmenu"); if (m) { m.classList.remove("on"); m.setAttribute("aria-hidden", "true"); } }
+addEventListener("click", (e) => { const m = el("popmenu"); if (m && m.classList.contains("on") && !m.contains(e.target)) closeMenus(); }, true);
+addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenus(); });
+addEventListener("scroll", () => closeMenus(), true);
 function onPlaybackError() {
   if (gapless) return; // a handoff is mid-flight — let it (or its watchdog) own the advance; a parallel next() would double-skip
   const t = state.queue[state.qi]; if (!t) return; streamFails++;
@@ -2543,11 +3064,11 @@ function onPlaybackError() {
 audio.addEventListener("play", () => { streamFails = 0; startTick(); audio.playbackRate = PB.rate; setPlayIcons(); playResume(); });
 audio.addEventListener("pause", () => { stopTick(); setPlayIcons(); playAccrue(); });
 audio.addEventListener("ended", () => { stopTick(); playFinalize(); repeatOrNext(); });
-audio.addEventListener("error", () => { if (PB.mode === "html5") onPlaybackError(); });
+audio.addEventListener("error", () => { if (PB.local) { const t = state.queue[state.qi]; if (t && t.videoId) skDL.bad.add(t.videoId); PB.local = false; onPlaybackError(); } else if (PB.mode === "html5") onPlaybackError(); }); // SK-OFFLINE: a bad local file → blacklist it for the session and skip
 ["nbSeek", "npSeek"].forEach((id) => {
   const s = el(id);
   s.addEventListener("input", () => { seeking = true; paintSeek(s); el("nbCur").textContent = el("npCur").textContent = fmt((s.value / 1000) * PB.dur()); });
-  s.addEventListener("change", () => { const d = PB.dur(); if (d) PB.seek((s.value / 1000) * d); seeking = false; });
+  s.addEventListener("change", () => { if (xf) abortCrossfade(); const d = PB.dur(); if (d) PB.seek((s.value / 1000) * d); seeking = false; });
 });
 el("vol").addEventListener("input", (e) => { PB.setVol(e.target.value / 100); paintSeek(e.target); });
 paintSeek(el("vol"));
@@ -2606,6 +3127,98 @@ if (SK_NATIVE) document.addEventListener("contextmenu", (e) => {
   e.preventDefault();
   try { window.__TAURI__.event.emit("sk-menu", {}); } catch {} // event, not invoke — remote-origin ACL
 });
+/* ============================ SK-OFFLINE: desktop offline downloads ============================
+   DESKTOP ONLY (gated on SK_NATIVE). The remote SPA and Rust talk purely over core:event — remote
+   origins can't invoke app commands (see media.rs / the default capability). Rust side lives in
+   Desktop/src-tauri/src/download.rs. Event contract:
+     SPA -> Rust : sk-dl-request {videoId,title,artist} · sk-dl-delete {videoId} · sk-dl-list-request {}
+     Rust -> SPA : sk-dl-list {items} · sk-dl-done {videoId,item} · sk-dl-progress {videoId,phase,received,total} · sk-dl-error {videoId,message}
+   Each library item carries a ready-to-play `src` (skdl:// custom scheme) that PB.load() feeds to the
+   html5 <audio> element — so a downloaded song plays from disk, and offline. */
+const skDL = { map: new Map(), bad: new Set(), _t: 0 }; // videoId -> { status:"done"|"downloading"|"error", item?, received?, total?, message? }
+function skEmit(name, payload) { try { window.__TAURI__.event.emit(name, payload || {}); } catch (e) {} }
+function skIsDownloaded(id) { const e = skDL.map.get(id); return !!(e && e.status === "done"); }
+// Consulted by PB.load(): returns the local playback URL when a completed download exists (prefer it
+// over the YouTube iframe — saves bandwidth online and is the ONLY engine offline). null => play via YT.
+function skLocalSrc(id) { if (typeof SK_NATIVE === "undefined" || !SK_NATIVE || skDL.bad.has(id)) return null; const e = skDL.map.get(id); return (e && e.status === "done" && e.item && e.item.src) ? e.item.src : null; }
+function skDownload(id, title, artist) { if (!id || skIsDownloaded(id) || (skDL.map.get(id) || {}).status === "downloading") return; skDL.map.set(id, { status: "downloading", received: 0, total: null }); skDL.bad.delete(id); skEmit("sk-dl-request", { videoId: id, title: title || "", artist: artist || "" }); skUpdateNpButton(); skRenderDownloads(); showToast("Downloading for offline…", 1800); }
+function skDeleteDownload(id) { if (!id) return; skEmit("sk-dl-delete", { videoId: id }); skDL.map.delete(id); skUpdateNpButton(); skRenderDownloads(); skPaintRows(); }
+function skToggleDownloadCurrent() { const t = state.queue[state.qi]; if (!t || !t.videoId) return; if (skIsDownloaded(t.videoId)) { skDeleteDownload(t.videoId); showToast("Removed download", 1500); } else skDownload(t.videoId, t.title, t.artist); }
+function skPlayDownload(id) { const e = skDL.map.get(id); if (!e || e.status !== "done") return; const it = e.item || {}; state.queue = [{ videoId: id, title: it.title || "", artist: it.artist || "" }]; state.radio = null; state.playSource = "downloads"; playIndex(0); skCloseDownloads(); }
+function skFmtBytes(n) { if (!n) return ""; const u = ["B", "KB", "MB", "GB"]; let i = 0; while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; } return (i >= 2 ? n.toFixed(1) : Math.round(n)) + " " + u[i]; }
+function skUpdateNpButton() { const b = el("npDownload"); if (!b) return; const t = state.queue[state.qi]; const id = t && t.videoId; const e = id ? skDL.map.get(id) : null; const st = e ? e.status : "idle"; b.classList.toggle("on", st === "done"); b.classList.toggle("busy", st === "downloading"); b.title = st === "done" ? "Downloaded — click to remove" : st === "downloading" ? "Downloading…" : "Download for offline"; b.setAttribute("aria-label", b.title); }
+function skPaintRows() { document.querySelectorAll(".row[data-v]").forEach((row) => { const on = skIsDownloaded(row.dataset.v); if (row.classList.contains("sk-dl-done") !== on) row.classList.toggle("sk-dl-done", on); }); }
+function skEnsurePanel() {
+  if (el("skDlPanel")) return;
+  const st = document.createElement("style");
+  st.textContent = `
+    #npDownload.on{color:#4ade80}
+    #npDownload.busy{opacity:.55}
+    .row.sk-dl-done .title::after{content:"";display:inline-block;width:12px;height:12px;margin-left:7px;vertical-align:-1px;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234ade80'%3E%3Cpath d='M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z'/%3E%3C/svg%3E")}
+    .sk-dl-overlay{position:fixed;inset:0;z-index:60;display:none;background:rgba(6,4,5,.6);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:24px}
+    .sk-dl-overlay.on{display:flex}
+    .sk-dl-sheet{width:min(560px,94vw);max-height:82vh;display:flex;flex-direction:column;background:#171012;border:1px solid rgba(255,240,235,.10);border-radius:16px;box-shadow:0 24px 70px -20px rgba(0,0,0,.8);overflow:hidden}
+    .sk-dl-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid rgba(255,240,235,.08)}
+    .sk-dl-head h3{margin:0;font-size:18px;font-weight:650;color:#f6ece8}
+    .sk-dl-x{background:transparent;border:0;color:#b09a93;font-size:18px;cursor:pointer;width:32px;height:32px;border-radius:8px}
+    .sk-dl-x:hover{background:rgba(255,240,235,.08);color:#f6ece8}
+    .sk-dl-list{overflow-y:auto;padding:8px}
+    .sk-dl-empty{padding:36px 22px;text-align:center;color:#b09a93;font-size:14px;line-height:1.6}
+    .sk-dl-row{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:11px}
+    .sk-dl-row:hover{background:rgba(255,240,235,.05)}
+    .sk-dl-row>img{width:46px;height:46px;border-radius:8px;object-fit:cover;flex:none;background:#0b0809;cursor:pointer}
+    .sk-dl-meta{min-width:0;flex:1}
+    .sk-dl-t{font-size:14px;font-weight:600;color:#f6ece8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+    .sk-dl-s{font-size:12px;color:#b09a93;margin-top:2px}
+    .sk-dl-s.err{color:#ffb3ba}
+    .sk-dl-bar{height:4px;border-radius:3px;background:rgba(255,240,235,.12);margin-top:6px;overflow:hidden}
+    .sk-dl-bar>i{display:block;height:100%;background:linear-gradient(90deg,#ff8189,#ff5d6b);transition:width .25s}
+    .sk-dl-act{flex:none;background:transparent;border:0;color:#b09a93;cursor:pointer;width:34px;height:34px;border-radius:8px}
+    .sk-dl-act:hover{background:rgba(255,240,235,.08);color:#ff5d6b}
+    .sk-dl-act svg{width:20px;height:20px;fill:currentColor}
+  `;
+  document.head.appendChild(st);
+  const wrap = document.createElement("div");
+  wrap.id = "skDlPanel"; wrap.className = "sk-dl-overlay";
+  wrap.innerHTML = `<div class="sk-dl-sheet" role="dialog" aria-label="Downloads" aria-modal="true"><div class="sk-dl-head"><h3>Downloads</h3><button class="sk-dl-x" aria-label="Close" onclick="skCloseDownloads()">✕</button></div><div class="sk-dl-list" id="skDlList"></div></div>`;
+  wrap.addEventListener("click", (e) => { if (e.target === wrap) skCloseDownloads(); });
+  wrap.querySelector("#skDlList").addEventListener("click", (e) => {
+    const del = e.target.closest("[data-del]"); if (del) return void skDeleteDownload(del.getAttribute("data-del"));
+    const rty = e.target.closest("[data-retry]"); if (rty) { const id = rty.getAttribute("data-retry"); const it = (skDL.map.get(id) || {}).item || {}; return void skDownload(id, it.title, it.artist); }
+    const play = e.target.closest("[data-play]"); if (play) return void skPlayDownload(play.getAttribute("data-play"));
+  });
+  document.body.appendChild(wrap);
+}
+function skOpenDownloads() { skEnsurePanel(); skEmit("sk-dl-list-request", {}); el("skDlPanel").classList.add("on"); skRenderDownloads(); if (typeof closeSidebar === "function") closeSidebar(); }
+function skCloseDownloads() { const p = el("skDlPanel"); if (p) p.classList.remove("on"); }
+function skRenderDownloads() {
+  const box = el("skDlList"); if (!box) return;
+  const items = [...skDL.map.entries()];
+  if (!items.length) { box.innerHTML = `<div class="sk-dl-empty">No downloads yet.<br>Open a song and tap the download button in Now Playing to save it for offline.</div>`; return; }
+  items.sort((a, b) => { const ra = a[1].status === "downloading" ? 1 : 0, rb = b[1].status === "downloading" ? 1 : 0; if (ra !== rb) return rb - ra; return ((b[1].item && b[1].item.added) || 0) - ((a[1].item && a[1].item.added) || 0); });
+  box.innerHTML = items.map(([id, e]) => {
+    const it = e.item || {}, title = esc(it.title || id), artist = esc(it.artist || ""), art = yt(id);
+    if (e.status === "downloading") { const pct = e.total ? Math.min(100, Math.round(e.received / e.total * 100)) : null; return `<div class="sk-dl-row"><img src="${art}" alt=""><div class="sk-dl-meta"><div class="sk-dl-t">${title}</div><div class="sk-dl-s">${pct != null ? pct + "% · " + skFmtBytes(e.received) : "Preparing…"}</div><div class="sk-dl-bar"><i style="width:${pct != null ? pct : 12}%"></i></div></div></div>`; }
+    if (e.status === "error") return `<div class="sk-dl-row"><img src="${art}" alt=""><div class="sk-dl-meta"><div class="sk-dl-t">${title}</div><div class="sk-dl-s err">${esc(e.message || "Failed")}</div></div><button class="sk-dl-act" data-retry="${id}" title="Retry" aria-label="Retry"><svg viewBox="0 0 24 24"><path d="M17.65 6.35A8 8 0 1 0 19.73 14h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4z"/></svg></button>`;
+    return `<div class="sk-dl-row"><img src="${art}" alt="" data-play="${id}" title="Play"><div class="sk-dl-meta"><div class="sk-dl-t" data-play="${id}">${title}</div><div class="sk-dl-s">${artist}${it.bytes ? " · " + skFmtBytes(it.bytes) : ""}</div></div><button class="sk-dl-act" data-del="${id}" title="Remove" aria-label="Remove"><svg viewBox="0 0 24 24"><path d="M6 7h12l-1 13H7zm3-3h6l1 2H8zM4 6h16v2H4z"/></svg></button></div>`;
+  }).join("");
+}
+if (SK_NATIVE) {
+  const nd = el("npDownload"); if (nd) nd.style.display = "flex";
+  const ev = window.__TAURI__.event;
+  ev.listen("sk-dl-list", (e) => {
+    const items = (e.payload && e.payload.items) || [];
+    const inflight = new Map([...skDL.map].filter(([, v]) => v.status === "downloading"));
+    skDL.map = new Map(); items.forEach((it) => skDL.map.set(it.videoId, { status: "done", item: it }));
+    inflight.forEach((v, k) => { if (!skDL.map.has(k)) skDL.map.set(k, v); });
+    skRenderDownloads(); skUpdateNpButton(); skPaintRows();
+  });
+  ev.listen("sk-dl-progress", (e) => { const p = e.payload || {}; if (!p.videoId) return; const cur = skDL.map.get(p.videoId) || {}; skDL.map.set(p.videoId, { status: "downloading", received: p.received || 0, total: (p.total != null ? p.total : cur.total) || null }); const panel = el("skDlPanel"); if (panel && panel.classList.contains("on")) skRenderDownloads(); skUpdateNpButton(); });
+  ev.listen("sk-dl-done", (e) => { const p = e.payload || {}; if (p.item) skDL.map.set(p.videoId, { status: "done", item: p.item }); skRenderDownloads(); skUpdateNpButton(); skPaintRows(); showToast("Saved for offline", 1600); });
+  ev.listen("sk-dl-error", (e) => { const p = e.payload || {}; if (!p.videoId) return; const cur = skDL.map.get(p.videoId) || {}; skDL.map.set(p.videoId, { status: "error", item: cur.item, message: p.message || "Download failed" }); skRenderDownloads(); skUpdateNpButton(); showToast("Download failed", 3000); });
+  skEmit("sk-dl-list-request", {}); // load the existing library on boot
+  try { const mo = new MutationObserver(() => { clearTimeout(skDL._t); skDL._t = setTimeout(skPaintRows, 140); }); mo.observe(document.body, { childList: true, subtree: true }); } catch (e) {}
+}
 // Seek with verify-retry: the YT iframe swallows seekTo calls while it's still buffering a prior
 // seek (observed: three in a row ignored) — keep re-issuing until the position converges, up to
 // ~4.5 s. One chain at a time: a newer seek cancels an older chain so the latest target wins.
