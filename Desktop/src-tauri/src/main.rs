@@ -110,6 +110,7 @@ fn main() {
             updater::updater_check,
             updater::updater_restart,
             updater::updater_version,
+            updater::updater_last_status,
             mini::mini_control,
             mini::mini_sync,
             mini::mini_open_main,

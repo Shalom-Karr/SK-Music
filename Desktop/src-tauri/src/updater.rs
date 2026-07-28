@@ -83,32 +83,61 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Spawn the async check on Tauri's runtime. `user_initiated == false` stays quiet
-/// unless an update exists; `true` also surfaces up-to-date and error feedback.
+/// Last phase-defining `updater://*` broadcast, kept so a dialog that opens (or reloads) after the
+/// fact can still paint a verdict. Without it the dialog is only as good as its listeners' timing:
+/// `open_update_window` returns as soon as the window is *created*, so a check that resolves before
+/// `update.html` finishes loading lands on nobody and leaves the dialog spinning "Checking for
+/// updates…" forever. Progress ticks are deliberately not recorded — only phases.
+static LAST_STATUS: Mutex<Option<serde_json::Value>> = Mutex::new(None);
+
+/// Broadcast a phase and remember it for `updater_last_status`.
+fn emit_status(app: &AppHandle, event: &str, payload: serde_json::Value) {
+    *LAST_STATUS.lock().unwrap_or_else(|e| e.into_inner()) =
+        Some(json!({ "event": event, "payload": payload }));
+    let _ = app.emit(event, payload);
+}
+
+/// Spawn the async check on Tauri's runtime. `user_initiated == false` stays quiet in the *SPA*
+/// (the payload carries the flag), but every phase is still broadcast so the update dialog can
+/// narrate a check it didn't start — including a silent one that failed.
 pub fn check_for_updates(app: &AppHandle, user_initiated: bool) {
     if CHECK_IN_PROGRESS.swap(true, Ordering::SeqCst) {
-        return; // a check is already running
+        // A check is already running. Re-announce the phase rather than returning silently: a user
+        // who clicks "Check for updates" during the startup check would otherwise get a dialog that
+        // never resolves. The in-flight check's own terminal event still lands on the dialog.
+        if user_initiated {
+            let current = app.package_info().version.to_string();
+            emit_status(
+                app,
+                "updater://checking",
+                json!({ "userInitiated": true, "currentVersion": current }),
+            );
+        }
+        return;
     }
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         // Clears CHECK_IN_PROGRESS on every exit from this task (Ok, Err, or a panic that unwinds).
         let _guard = CheckGuard;
         if let Err(e) = run_check(&app, user_initiated).await {
-            if user_initiated {
-                let _ = app.emit(
-                    "updater://error",
-                    json!({ "userInitiated": user_initiated, "message": e }),
-                );
-            } else {
+            if !user_initiated {
                 eprintln!("[updater] check failed: {e}");
             }
+            // Emitted either way: a silent failure must still leave a terminal state behind, or a
+            // dialog opened afterwards sits on a stale "Checking…". The SPA keys off userInitiated.
+            emit_status(
+                &app,
+                "updater://error",
+                json!({ "userInitiated": user_initiated, "message": e }),
+            );
         }
     });
 }
 
 async fn run_check(app: &AppHandle, user_initiated: bool) -> Result<(), String> {
     let current = app.package_info().version.to_string();
-    let _ = app.emit(
+    emit_status(
+        app,
         "updater://checking",
         json!({ "userInitiated": user_initiated, "currentVersion": current }),
     );
@@ -121,7 +150,8 @@ async fn run_check(app: &AppHandle, user_initiated: bool) -> Result<(), String> 
     let update = match updater.check().await.map_err(|e| e.to_string())? {
         Some(u) => u,
         None => {
-            let _ = app.emit(
+            emit_status(
+                app,
                 "updater://up-to-date",
                 json!({ "userInitiated": user_initiated, "currentVersion": current }),
             );
@@ -140,7 +170,8 @@ async fn run_check(app: &AppHandle, user_initiated: bool) -> Result<(), String> 
         .as_ref()
         .is_some_and(|p| p.update.version == version)
     {
-        let _ = app.emit(
+        emit_status(
+            app,
             "updater://ready",
             json!({
                 "userInitiated": user_initiated,
@@ -152,7 +183,8 @@ async fn run_check(app: &AppHandle, user_initiated: bool) -> Result<(), String> 
         return Ok(());
     }
 
-    let _ = app.emit(
+    emit_status(
+        app,
         "updater://update-available",
         json!({
             "userInitiated": user_initiated,
@@ -185,7 +217,8 @@ async fn run_check(app: &AppHandle, user_initiated: bool) -> Result<(), String> 
 
     *PENDING.lock().unwrap() = Some(PendingUpdate { update, bytes });
 
-    let _ = app.emit(
+    emit_status(
+        app,
         "updater://ready",
         json!({
             "userInitiated": user_initiated,
@@ -215,7 +248,8 @@ pub fn install_pending_and_restart(app: &AppHandle) {
                     app.restart();
                 }
                 Err(e) => {
-                    let _ = app.emit(
+                    emit_status(
+                        app,
                         "updater://error",
                         json!({ "userInitiated": true, "message": format!("install failed: {e}") }),
                     );
@@ -323,4 +357,15 @@ pub fn updater_restart(app: AppHandle) {
 #[tauri::command]
 pub fn updater_version(app: AppHandle) -> String {
     app.package_info().version.to_string()
+}
+
+/// The last `updater://*` phase, as `{ event, payload }` (null if nothing has run yet). The dialog
+/// calls this on load so it paints a verdict even when the check it was opened alongside resolved
+/// before its listeners were attached — the "opens, then spins forever" bug.
+#[tauri::command]
+pub fn updater_last_status() -> Option<serde_json::Value> {
+    LAST_STATUS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
 }
