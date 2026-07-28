@@ -541,7 +541,7 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .np-head .lbl{flex:1;text-align:center;font-size:11.5px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
 .np-head .iconbtn{width:44px;height:44px;color:var(--text)}
 .np-body{flex:1;display:grid;gap:18px;padding:6px 26px 26px;min-height:0;overflow:hidden;
-  grid-template-columns:1fr;grid-template-rows:minmax(0,1fr);max-width:560px;margin:0 auto;width:100%}
+  grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);max-width:560px;margin:0 auto;width:100%}
 .np-main{display:flex;flex-direction:column;justify-content:center;min-height:0;overflow:hidden}
 .np-art{width:min(74vw,44vh,440px);aspect-ratio:1;margin:0 auto 20px;border-radius:20px;box-shadow:0 40px 90px -20px rgba(0,0,0,.8);flex:0 0 auto}
 .np-info{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:8px}
@@ -563,8 +563,10 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .nb-controls .skip{width:36px;height:36px;color:var(--muted)}
 .nb-controls .skip:hover{color:var(--text)}
 .nb-controls .skip svg{width:21px;height:21px}
-.np-upnext{display:none;min-height:0;overflow:hidden;flex-direction:column}
+.np-upnext{display:flex;min-height:0;overflow:hidden;flex-direction:column}
 .np-upnext h4{font-family:Fraunces,serif;font-size:17px;margin:0 0 10px;flex:0 0 auto;display:flex;align-items:center}
+.np-clear{margin-left:8px;padding:6px 12px;border-radius:12px;border:none;background:var(--surface-4);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.np-clear:hover{background:var(--surface-3)}
 .np-auto{margin-left:auto;display:inline-flex;align-items:center;gap:7px;font-family:"Hanken Grotesk",system-ui,sans-serif;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
 .np-auto input{appearance:none;-webkit-appearance:none;width:30px;height:17px;border-radius:9px;background:var(--surface-4);position:relative;cursor:pointer;transition:background .16s;margin:0}
 .np-auto input:checked{background:var(--primary)}
@@ -598,7 +600,6 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
   #nowbar.on{display:flex}
   #now .np-body{max-width:1120px;grid-template-columns:1.05fr .95fr;grid-template-rows:minmax(0,1fr);align-items:stretch;gap:48px;padding:16px 44px 30px}
   #now .np-main{justify-content:center}
-  #now .np-upnext{display:flex}
   #now .np-art{width:auto;height:min(46vh,30vw,430px);margin:0 auto 20px}
 }
 @media(max-width:899px){
@@ -632,6 +633,19 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
   .dh-title{font-size:clamp(26px,8vw,40px)}
   .actions{justify-content:center}
   .hero{padding:22px 20px}
+  #now .np-body{display:flex;flex-direction:column;max-width:none;padding:10px 18px calc(14px + env(safe-area-inset-bottom,0px));gap:12px}
+  #now .np-main{justify-content:flex-start;flex:none;min-height:0;padding-top:4px}
+  #now .np-upnext{flex:1;min-height:0;display:flex}
+  #now .np-art{width:min(54vw,28vh,230px);margin-bottom:12px}
+  #now .np-title{font-size:clamp(22px,5.5vw,30px)}
+  #now .np-artist{font-size:14px}
+  #now .np-seek{margin:14px 0 4px}
+  #now .np-times{margin-top:6px}
+  #now .np-controls{gap:16px;margin-top:10px}
+  #now .np-controls .big{width:64px;height:64px}
+  #now .np-controls .iconbtn{width:48px;height:48px}
+  #now .np-controls .big svg{width:30px;height:30px}
+  #now .np-controls .iconbtn svg{width:26px;height:26px}
 }
 @media(hover:none){.card .play-fab{display:none}.row .rowbtn,.row .heart{opacity:1}}
 /* ============================ boot splash ============================ */
@@ -934,7 +948,7 @@ fill="url(#royal)" stroke="none">
         <button class="iconbtn skip rpt" onclick="toggleRepeat()" title="Repeat this song" aria-label="Repeat this song" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg></button>
       </div>
     </div>
-    <div class="np-upnext"><h4>Up Next<label class="np-auto" title="Keep playing similar songs when the queue ends"><input type="checkbox" id="npAuto" onchange="setRadioAutoplay(this.checked)"><span>Autoplay</span></label></h4><div class="rows" id="npQueue"></div></div>
+    <div class="np-upnext"><h4>Up Next<label class="np-auto" title="Keep playing similar songs when the queue ends"><input type="checkbox" id="npAuto" onchange="setRadioAutoplay(this.checked)"><span>Autoplay</span></label><button class="np-clear" onclick="clearQueue()" title="Clear the upcoming queue">Clear Queue</button></h4><div class="rows" id="npQueue"></div></div>
   </div>
 </div>
 
@@ -1407,7 +1421,7 @@ function songCard(t, qid, i) {
 }
 function songCards(tracks) { const qid = regQueue(tracks); return `<div class="rail">${tracks.map((t, i) => songCard(t, qid, i)).join("")}</div>`; }
 function quickPicks(tracks) { const qid = regQueue(tracks); return `<div class="qpgrid">${tracks.map((t, i) => songRow(t, qid, i)).join("")}</div>`; }
-const albumCard = (a) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openAlbum('${a.id}')" onmouseenter="pf('album','${a.id}')">${artHTML(a.thumbnail)}<div class="t">${esc(a.title)}</div><div class="s">${esc(a.artist || "")}${a.year ? " · " + a.year : ""}</div></div>`;
+const albumCard = (a) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openAlbumFromCard(this)" data-id="${a.id}" data-playlist-id="${a.playlistId || ""}" data-title="${esc(a.title || "")}" data-artist="${esc(a.artist || "")}" data-year="${a.year || ""}" data-thumb="${a.thumbnail || ""}" onmouseenter="pf('album','${a.id}')">${artHTML(a.thumbnail)}<div class="t">${esc(a.title)}</div><div class="s">${esc(a.artist || "")}${a.year ? " · " + a.year : ""}</div></div>`;
 const playlistCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openPlaylist('${p.id}')">${artHTML(p.thumbnail)}<div class="t">${esc(p.title)}</div><div class="s">${esc(p.artist || "Playlist")}</div></div>`;
 // Curated playlist card — SVG cover; click → the curated detail (albums + songs).
 const zpCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openCuratedPlaylist('${p.id}')">${artHTML(p.thumbnail)}<div class="t">${esc(p.title)}</div><div class="s">${num(p.trackCount || 0)} songs</div></div>`;
@@ -2025,6 +2039,8 @@ function renderSectionView(fromRoute) {
   if (!sectionState) return;
   secN = 0;
   state.detailKind = "section";
+  state.detailPath = sectionState.path;
+  state.detailTitle = sectionState.title;
   el("tbTitle").textContent = sectionState.title; el("tbTitle").style.display = ""; el("tbSearch").style.display = "none";
   const { title, qid, albums, tracks } = sectionState;
   const hasAlbums = albums && albums.length;
@@ -2060,11 +2076,20 @@ async function loadSectionSongs() {
   if (body.dataset.loaded === "1") return;
   body.innerHTML = sectionLoadingRows(8);
   await ensureFilters();
-  const ids = sectionState.albums.map((a) => a.id);
-  const results = await Promise.all(ids.map((id) => detailGet("/album?id=" + encodeURIComponent(id)).catch(() => null)));
+  const results = await Promise.all(sectionState.albums.map(async (a) => {
+    const d = await detailGet("/album?id=" + encodeURIComponent(a.id)).catch(() => null);
+    if (d && !d.error && !hiddenArtist(d.album.artist)) return d;
+    // New-release albums may not be in the baked corpus yet; fall back to their YouTube playlist id.
+    if (a.playlistId) {
+      const pd = await fetchJSON("/playlist?id=" + encodeURIComponent(a.playlistId));
+      if (pd && Array.isArray(pd.tracks) && pd.tracks.length) return { album: a, tracks: pd.tracks };
+    }
+    return null;
+  }));
   const allTracks = [];
   for (const d of results) {
-    if (!d || d.error || hiddenArtist(d.album.artist)) continue;
+    if (!d || !d.tracks) continue;
+    if (d.album && hiddenArtist(d.album.artist || d.album.artistName)) continue;
     allTracks.push(...gate(d.tracks || []).filter((t) => !(blockVideos() && t.isVideo)));
   }
   sectionState.tracks = allTracks;
@@ -2152,13 +2177,36 @@ async function openArtist(id, fromRoute) {
     { label: "Songs", tracks: songs, plays: true, collapse: 6 }, { label: "Albums", items: albums, render: albumCard }, { label: "Singles & EPs", items: singles, render: albumCard },
     { label: "Videos", tracks: videos, collapse: 6 }, { label: "Playlists", items: plists, render: playlistCard } ] }, fromRoute);
 }
-async function openAlbum(id, fromRoute) {
+function openAlbumFromCard(el) {
+  const { id, playlistId, title, artist, year, thumb } = el.dataset;
+  openAlbum(id, false, playlistId, { title, artist, year, thumbnail: thumb });
+}
+async function openAlbum(id, fromRoute, playlistId, meta) {
   detailLoading("Album");
-  const d = await detailGet("/album?id=" + encodeURIComponent(id)); if (!d || d.error) return notAvailable("album");
-  await ensureFilters(); // /album carries no flags — hiddenArtist(album artist) is the ONLY gate, so the map MUST be loaded first
-  if (hiddenArtist(d.album.artist)) return blockedByFilter("album");
-  const tracks = gate(d.tracks || []).filter((t) => !(blockVideos() && t.isVideo)); // Acapella (songOK) + Audio-only on the tracklist
-  pushDetail({ path: "/albums/" + id, kind: "Album", title: d.album.title, sub: `<b>${esc(d.album.artist)}</b>${d.album.year ? " · " + d.album.year : ""} · <b>${num(tracks.length)}</b> tracks${d.album.totalDurationSec ? " · " + fmtLong(d.album.totalDurationSec) : ""}`, thumb: d.album.thumbnail, artistName: d.album.artist, radio: acapellaMode() === "only" ? null : { kind: "album", seed: id }, sections: [{ label: "Tracks", tracks }] }, fromRoute);
+  const d = await detailGet("/album?id=" + encodeURIComponent(id));
+  if (d && !d.error) {
+    await ensureFilters(); // /album carries no flags — hiddenArtist(album artist) is the ONLY gate, so the map MUST be loaded first
+    if (hiddenArtist(d.album.artist)) return blockedByFilter("album");
+    const tracks = gate(d.tracks || []).filter((t) => !(blockVideos() && t.isVideo)); // Acapella (songOK) + Audio-only on the tracklist
+    return pushDetail({ path: "/albums/" + id, kind: "Album", title: d.album.title, sub: `<b>${esc(d.album.artist)}</b>${d.album.year ? " · " + d.album.year : ""} · <b>${num(tracks.length)}</b> tracks${d.album.totalDurationSec ? " · " + fmtLong(d.album.totalDurationSec) : ""}`, thumb: d.album.thumbnail, artistName: d.album.artist, radio: acapellaMode() === "only" ? null : { kind: "album", seed: id }, sections: [{ label: "Tracks", tracks }] }, fromRoute);
+  }
+  // Fallback: some new-release albums from /zemer-new are not in the baked corpus, but they carry a YouTube playlist id.
+  // Fetch the Worker /playlist endpoint directly (not through the client engine) so brand-new tracks that aren't
+  // in the local baked dataset yet can still play; the local content filters still run on the raw result.
+  if (playlistId) {
+    const pd = await fetchJSON("/playlist?id=" + encodeURIComponent(playlistId));
+    if (pd && Array.isArray(pd.tracks) && pd.tracks.length) {
+      await ensureFilters();
+      const tracks = gate(pd.tracks).filter((t) => !(blockVideos() && t.isVideo));
+      if (tracks.length) {
+        const title = (meta && meta.title) || pd.playlist.title;
+        const artist = (meta && meta.artist) || "";
+        const year = (meta && meta.year) || "";
+        return pushDetail({ path: "/albums/" + id, kind: "Album", title, sub: `<b>${esc(artist)}</b>${year ? " · " + year : ""} · <b>${num(tracks.length)}</b> tracks`, thumb: (meta && meta.thumbnail) || pd.playlist.thumbnail, artistName: artist, radio: null, sections: [{ label: "Tracks", tracks }] }, fromRoute);
+      }
+    }
+  }
+  notAvailable("album");
 }
 async function openPlaylist(id, fromRoute) {
   detailLoading("Playlist");
@@ -2197,6 +2245,10 @@ async function openSong(id, fromRoute, startAt) {
   // Deep-link entry (/song/:id). VERIFY the track is whitelisted + allowed BEFORE any playback starts — a
   // kosher app must never play blocked content, not even for a moment. (In-app taps use playFrom() directly,
   // with already-filtered data.) Nothing is queued or loaded into the player until the checks pass.
+  // When the user navigates back to the current song while a queue is already playing, don't replace the
+  // queue with a single-song queue and don't restart playback from 0.
+  const cur = state.queue[state.qi];
+  if (fromRoute && cur && cur.videoId === id) { if (startAt > 0) PB.nextStart = startAt; openNow(); return; }
   const t = await getJSON("/track?v=" + encodeURIComponent(id));
   const deny = (title, sub, reason) => { track("blocked", Object.assign({ v: id, reason }, t && !t.error ? { title: t.title, artist: t.artist } : {})); blockedPage(title, sub); history.replaceState({}, "", "/song/" + id); };
   if (!t || t.error) return deny("Not in the catalog", "This song isn’t from a whitelisted artist, so it can’t be played here.", "not-whitelisted");
@@ -2566,6 +2618,15 @@ function paintQueue() {
     return `<div class="row ${playing ? "playing" : ""}" role="button" tabindex="0" onkeydown="${KDACT}" onclick="playIndex(${i})"><img class="thumb" alt="" src="${yt(t.videoId)}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${playing ? EQ : ""}${esc(t.title)}</div><div class="sub">${esc(t.artist || "")}</div></div></div>`;
   }).join("");
   el("npQueue").innerHTML = up || "";
+}
+function clearQueue() {
+  const cur = state.queue[state.qi];
+  state.queue = cur ? [cur] : [];
+  state.qi = state.queue.length ? 0 : -1;
+  state.radio = null;
+  paintQueue();
+  if (state.nowOpen) refreshNowPlaying();
+  showToast("Queue cleared", 1500);
 }
 
 /* ============================ Zemer Radio ============================ */
