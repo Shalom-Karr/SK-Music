@@ -577,6 +577,32 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 #toast b{color:var(--primary);font-weight:600}
 @media(max-width:899px){#toast{bottom:calc(var(--mini-h) + var(--tab-h) + 18px)}}
+/* shared floating popup menu (sleep timer, queue/song actions, add-to-playlist, report) */
+#popmenu{position:fixed;z-index:95;min-width:200px;max-width:min(88vw,320px);max-height:70vh;overflow:auto;padding:6px;
+  border-radius:13px;background:var(--surface-3);border:1px solid var(--line-2);box-shadow:var(--shadow);
+  opacity:0;transform:translateY(6px) scale(.98);pointer-events:none;transition:opacity .13s var(--ease),transform .13s var(--ease)}
+#popmenu.on{opacity:1;transform:none;pointer-events:auto}
+#popmenu .mihead{padding:7px 12px 5px;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--faint)}
+#popmenu .misep{height:1px;background:var(--line-2);margin:5px 6px}
+#popmenu .mi{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:transparent;color:var(--text);
+  cursor:pointer;font:inherit;font-size:13.5px;padding:9px 12px;border-radius:9px;transition:background .1s}
+#popmenu .mi:hover,#popmenu .mi:focus-visible{background:var(--surface-4);outline:none}
+#popmenu .mi.on{color:var(--primary)}
+#popmenu .mi svg{width:17px;height:17px;fill:currentColor;flex:none;opacity:.85}
+#popmenu .mi .sub{margin-left:auto;color:var(--faint);font-size:11.5px}
+/* queue editor rows */
+.qrow{position:relative;padding-right:4px}
+.qrow[draggable=true]{cursor:grab}
+.qrow .qdrag{flex:none;color:var(--faint);opacity:0;transition:opacity .12s;margin-right:-4px;cursor:grab}
+.qrow:hover .qdrag{opacity:.7}
+.qrow .qbtn{flex:none;width:30px;height:30px;border:0;background:transparent;color:var(--faint);border-radius:8px;cursor:pointer;
+  display:grid;place-items:center;opacity:0;transition:opacity .12s,background .12s,color .12s}
+.qrow .qbtn svg{fill:currentColor}
+.qrow:hover .qbtn,.qrow:focus-within .qbtn{opacity:1}
+.qrow .qbtn:hover{background:var(--surface-4);color:var(--text)}
+.qrow.dragging{opacity:.4}
+.qrow.dragover{box-shadow:inset 0 2px 0 var(--primary)}
+.qempty{padding:20px 6px;color:var(--faint);font-size:13px;text-align:center}
 /* hidden YouTube IFrame audio engine — rendered off-screen so audio keeps playing */
 #ytwrap{position:fixed;left:-9999px;bottom:0;width:320px;height:180px;opacity:0;pointer-events:none;z-index:-1}
 .iconbtn.rateBtn{width:auto;min-width:40px;height:34px;padding:0 11px;border-radius:12px;font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums}
@@ -902,6 +928,7 @@ fill="url(#royal)" stroke="none">
   <div class="np-head">
     <button class="iconbtn" onclick="closeNow()" title="Collapse" aria-label="Collapse"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg></button>
     <div class="lbl">Now Playing</div>
+    <button class="iconbtn" id="npSleep" onclick="openSleepMenu(event)" title="Sleep timer" aria-label="Sleep timer"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-8.54-8.54C11.92 2.04 11.46 2 11 2m1 2.07V4z"/></svg></button>
     <button class="iconbtn rateBtn" onclick="cycleRate()" title="Playback speed" aria-label="Playback speed">1×</button>
   </div>
   <div class="np-body">
@@ -915,11 +942,10 @@ fill="url(#royal)" stroke="none">
       <div class="np-seek"><input type="range" class="seek" id="npSeek" min="0" max="1000" value="0" aria-label="Seek">
         <div class="np-times"><span id="npCur">0:00</span><span id="npDur">0:00</span></div></div>
       <div class="np-controls">
-        <button class="iconbtn skip" onclick="seekBy(-15)" title="Back 15s" aria-label="Back 15 seconds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12.5" y="15.6" font-size="8" text-anchor="middle" font-weight="700" fill="currentColor">15</text></svg></button>
+        <button class="iconbtn skip shf" onclick="toggleShuffle()" title="Shuffle" aria-label="Shuffle" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg></button>
         <button class="iconbtn" onclick="prev()" aria-label="Previous"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
         <button class="iconbtn big" id="npPlay" onclick="toggle()" aria-label="Play"></button>
         <button class="iconbtn" onclick="next()" aria-label="Next"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18l8.5-6L6 6zM16 6v12h2V6z"/></svg></button>
-        <button class="iconbtn skip" onclick="seekBy(15)" title="Forward 15s" aria-label="Forward 15 seconds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="11.5" y="15.6" font-size="8" text-anchor="middle" font-weight="700" fill="currentColor">15</text></svg></button>
         <button class="iconbtn skip rpt" onclick="toggleRepeat()" title="Repeat this song" aria-label="Repeat this song" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg></button>
       </div>
     </div>
@@ -929,6 +955,7 @@ fill="url(#royal)" stroke="none">
 
 <div id="ytwrap" aria-hidden="true"><div id="ytplayer"></div><div id="ytplayer2"></div></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+<div id="popmenu" role="menu" aria-hidden="true"></div>
 <audio id="audio" preload="metadata"></audio>
 
 <script>
@@ -1052,7 +1079,7 @@ const TABS = [
 const TITLES = { ...Object.fromEntries(TABS.map(([k, l]) => [k, l])), redirector: "Send YouTube here", download: "Desktop app" };
 
 /* ============================ state + filters ============================ */
-const state = { tab: "home", loaded: {}, detailOpen: false, nowOpen: false, queue: [], qi: -1, repeat: false };
+const state = { tab: "home", loaded: {}, detailOpen: false, nowOpen: false, queue: [], qi: -1, repeat: false, shuffle: LS.get("zw_shuffle") === "1", sleep: null };
 const LS = { get: (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
 const noFemale = () => LS.get("zw_noFemale", "1") === "1"; // ON by default (opt-out); others default off
 const chasidMode = () => LS.get("zw_chasid", ""); // "" = off · "only" = Chasidish only · "hide" = hide Chasidish
@@ -2304,7 +2331,7 @@ function fallbackToStream() {
   const t = state.queue[state.qi]; if (t && !audio.src) PB.load(t.videoId);
 }
 
-function playFrom(qid, i, source) { const q = queues.get(qid); if (!q) return; state.queue = q; state.radio = null; state.playSource = source || (state.detailOpen ? (state.detailKind || "detail") : (state.tab || "home")); playIndex(i); }
+function playFrom(qid, i, source) { const q = queues.get(qid); if (!q) return; state.queue = q; state.radio = null; state.playSource = source || (state.detailOpen ? (state.detailKind || "detail") : (state.tab || "home")); state.qi = i; if (state.shuffle) shuffleTail(); playIndex(state.qi); }
 // Play-duration tracking — measure REAL listen time (excludes pauses) and emit the `play` event on end/skip,
 // not on start, so a 2-second skip is distinguishable from a real listen (drives `qualified` + trending).
 let playSes = null;
@@ -2405,19 +2432,97 @@ function saveLastPlay(c) { // called from tick() ~every 5 s while something play
 function next() { if (state.qi < state.queue.length - 1) playIndex(state.qi + 1, 1); else radioContinue(); }
 function prev() { if (PB.cur() > 3 || state.qi <= 0) PB.seek(0); else playIndex(state.qi - 1, -1); }
 // Repeat one: when a song ends with repeat on, replay it instead of advancing (manual next/prev still work).
-function repeatOrNext() { if (state.repeat && state.qi >= 0) playIndex(state.qi); else next(); }
+function repeatOrNext() {
+  if (state.sleepEnd) { state.sleepEnd = false; state.sleep = null; paintSleepUI(); PB.pause(); showToast("Sleep timer — stopped at the end of the song. 🌙", 3200); return; }
+  if (state.repeat && state.qi >= 0) playIndex(state.qi); else next();
+}
 function toggleRepeat() { state.repeat = !state.repeat; document.querySelectorAll(".rpt").forEach((b) => { b.classList.toggle("on", state.repeat); b.setAttribute("aria-pressed", state.repeat); }); showToast(state.repeat ? "Repeat this song" : "Repeat off", 1300); if (state.repeat) cancelSwap(); else cueNext(); }
+/* ---- Shuffle mode (persistent) ---- */
+// Shuffles the not-yet-played tail (queue after qi) IN PLACE so the linear next()/gapless-prefetch
+// path keeps working unchanged — qi+1 is simply the next shuffled track. Applied on toggle-on and
+// whenever a new queue starts while shuffle is on.
+function shuffleTail() {
+  if (state.qi < 0 || state.queue.length - state.qi < 3) return;
+  const head = state.queue.slice(0, state.qi + 1), tail = state.queue.slice(state.qi + 1);
+  for (let i = tail.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [tail[i], tail[j]] = [tail[j], tail[i]]; }
+  state.queue = head.concat(tail);
+}
+function paintShuffleUI() { document.querySelectorAll(".shf").forEach((b) => { b.classList.toggle("on", state.shuffle); b.setAttribute("aria-pressed", state.shuffle); }); }
+function toggleShuffle() {
+  state.shuffle = !state.shuffle; LS.set("zw_shuffle", state.shuffle ? "1" : "0");
+  if (state.shuffle) shuffleTail();
+  cancelSwap(); cueNext(); paintShuffleUI();
+  if (state.nowOpen) paintQueue();
+  showToast(state.shuffle ? "Shuffle on" : "Shuffle off", 1300);
+}
+/* ---- Sleep timer ---- */
+// mins > 0: pause after that many minutes. mins === "end": pause when the current track finishes
+// (checked in the advance path). null: off.
+function setSleep(mins) {
+  clearTimeout(state.sleepAt); state.sleep = null; state.sleepEnd = false;
+  if (mins === "end") { state.sleepEnd = true; state.sleep = "end"; showToast("Sleep: stopping at the end of this song.", 2600); }
+  else if (mins > 0) {
+    state.sleep = mins; const at = Date.now() + mins * 60000;
+    state.sleepAt = setTimeout(() => { PB.pause(); state.sleep = null; paintSleepUI(); showToast("Sleep timer — playback paused. 🌙", 3200); }, mins * 60000);
+    showToast(`Sleep: pausing in ${mins} minutes. 🌙`, 2600);
+  } else showToast("Sleep timer off.", 1600);
+  paintSleepUI(); closeMenus();
+}
+function paintSleepUI() { const b = el("npSleep"); if (b) b.classList.toggle("on", !!state.sleep); }
+function openSleepMenu(e) {
+  e && e.stopPropagation();
+  const cur = state.sleep;
+  const opt = (v, label) => `<button role="menuitem" class="mi ${cur === v ? "on" : ""}" onclick="setSleep(${typeof v === "string" ? `'${v}'` : v})">${label}${cur === v ? " ✓" : ""}</button>`;
+  popMenu(e.currentTarget, `<div class="mihead">Sleep timer</div>${opt(0, "Off")}${opt(15, "15 minutes")}${opt(30, "30 minutes")}${opt(45, "45 minutes")}${opt(60, "1 hour")}${opt("end", "End of this song")}`);
+}
 function seekBy(d) { if (!state.queue.length) return; const dur = PB.dur(); if (!dur) return; PB.seek(Math.max(0, Math.min(dur - 0.5, PB.cur() + d))); }
-function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); const au = el("npAuto"); if (au) au.checked = radioAutoplay(); paintQueue(); }
+function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); const au = el("npAuto"); if (au) au.checked = radioAutoplay(); paintShuffleUI(); paintSleepUI(); paintQueue(); }
 function closeNow() { state.nowOpen = false; el("now").classList.remove("on"); }
 function saveRecent(t) { try { const h = readRecent().filter((x) => x.videoId !== t.videoId); h.unshift({ videoId: t.videoId, title: t.title, artist: t.artist, explicit: t.explicit, isVideo: t.isVideo }); localStorage.setItem("zw_recent", JSON.stringify(h.slice(0, 80))); } catch {} acctSyncRecents(); }
 function toggleMute() { PB.setMuted(!PB.muted); el("vol").value = PB.muted ? 0 : Math.round(PB.vol * 100); paintSeek(el("vol")); }
 function paintQueue() {
   const up = state.queue.slice(state.qi).map((t, k) => {
     const i = state.qi + k, playing = k === 0;
-    return `<div class="row ${playing ? "playing" : ""}" role="button" tabindex="0" onkeydown="${KDACT}" onclick="playIndex(${i})"><img class="thumb" alt="" src="${yt(t.videoId)}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${playing ? EQ : ""}${esc(t.title)}</div><div class="sub">${esc(t.artist || "")}</div></div></div>`;
+    // Upcoming rows are draggable to reorder, with per-row Play-next and Remove. The playing row is
+    // fixed (no drag/remove). data-i is the absolute queue index.
+    return `<div class="row qrow ${playing ? "playing" : ""}" data-i="${i}" role="button" tabindex="0" ${playing ? "" : 'draggable="true"'} onkeydown="${KDACT}" onclick="playIndex(${i})">
+      ${playing ? "" : '<span class="qdrag" aria-hidden="true" title="Drag to reorder"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M8 6h2v2H8zm0 5h2v2H8zm0 5h2v2H8zm6-10h2v2h-2zm0 5h2v2h-2zm0 5h2v2h-2z"/></svg></span>'}
+      <img class="thumb" alt="" src="${yt(t.videoId)}" onerror="this.style.visibility='hidden'">
+      <div class="text"><div class="title">${playing ? EQ : ""}${esc(t.title)}</div><div class="sub">${esc(t.artist || "")}</div></div>
+      ${playing ? "" : `<button class="qbtn" title="Play next" aria-label="Play next" onclick="event.stopPropagation();queuePlayNext(${i})"><svg viewBox="0 0 24 24" width="17" height="17"><path d="M4 5v14l8-7zm9 0v14l8-7z"/></svg></button>
+      <button class="qbtn" title="Remove from queue" aria-label="Remove from queue" onclick="event.stopPropagation();queueRemove(${i})"><svg viewBox="0 0 24 24" width="17" height="17"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg></button>`}
+    </div>`;
   }).join("");
-  el("npQueue").innerHTML = up || "";
+  const box = el("npQueue"); box.innerHTML = up || `<div class="qempty">Nothing queued.</div>`;
+  wireQueueDrag(box);
+}
+// --- queue editing ---
+function queueRemove(i) {
+  if (i <= state.qi || i >= state.queue.length) return; // never the playing/past rows
+  state.queue.splice(i, 1);
+  cancelSwap(); cueNext(); paintQueue();
+}
+function queuePlayNext(i) {
+  if (i <= state.qi || i >= state.queue.length) return;
+  const [t] = state.queue.splice(i, 1);
+  state.queue.splice(state.qi + 1, 0, t);
+  cancelSwap(); cueNext(); paintQueue();
+}
+function queueMove(from, to) { // absolute indices; both must be after the current track
+  if (from <= state.qi || to <= state.qi || from >= state.queue.length || to >= state.queue.length || from === to) return;
+  const [t] = state.queue.splice(from, 1);
+  state.queue.splice(to, 0, t);
+  cancelSwap(); cueNext(); paintQueue();
+}
+let _qDragFrom = -1;
+function wireQueueDrag(box) {
+  box.querySelectorAll(".qrow[draggable=true]").forEach((row) => {
+    row.addEventListener("dragstart", (e) => { _qDragFrom = +row.dataset.i; row.classList.add("dragging"); try { e.dataTransfer.effectAllowed = "move"; } catch {} });
+    row.addEventListener("dragend", () => { _qDragFrom = -1; box.querySelectorAll(".qrow").forEach((r) => r.classList.remove("dragging", "dragover")); });
+    row.addEventListener("dragover", (e) => { e.preventDefault(); row.classList.add("dragover"); });
+    row.addEventListener("dragleave", () => row.classList.remove("dragover"));
+    row.addEventListener("drop", (e) => { e.preventDefault(); const to = +row.dataset.i; if (_qDragFrom >= 0) queueMove(_qDragFrom, to); });
+  });
 }
 
 /* ============================ Zemer Radio ============================ */
@@ -2531,6 +2636,21 @@ function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing �
   setPlayIcons();
 }
 function showToast(msg, ms) { const t = el("toast"); t.innerHTML = msg; t.classList.add("on"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), ms || 4200); }
+/* ---- shared popup menu ---- */
+// Open a floating menu of pre-built .mi buttons near an anchor element. Callers build the inner HTML
+// (esc() anything dynamic). One menu at a time; any outside click / Escape / scroll closes it.
+function popMenu(anchor, html) {
+  const m = el("popmenu"); m.innerHTML = html; m.classList.add("on"); m.setAttribute("aria-hidden", "false");
+  const r = anchor.getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;
+  let x = Math.min(r.left, innerWidth - mw - 8), y = r.bottom + 6;
+  if (y + mh > innerHeight - 8) y = Math.max(8, r.top - mh - 6); // flip above if it would overflow
+  m.style.left = Math.max(8, x) + "px"; m.style.top = y + "px";
+  const first = m.querySelector(".mi"); if (first) first.focus();
+}
+function closeMenus() { const m = el("popmenu"); if (m) { m.classList.remove("on"); m.setAttribute("aria-hidden", "true"); } }
+addEventListener("click", (e) => { const m = el("popmenu"); if (m && m.classList.contains("on") && !m.contains(e.target)) closeMenus(); }, true);
+addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenus(); });
+addEventListener("scroll", () => closeMenus(), true);
 function onPlaybackError() {
   if (gapless) return; // a handoff is mid-flight — let it (or its watchdog) own the advance; a parallel next() would double-skip
   const t = state.queue[state.qi]; if (!t) return; streamFails++;
