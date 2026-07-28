@@ -86,27 +86,36 @@
 
   invoke("updater_version").then(function (v) { el("cur").textContent = v; }).catch(function () { el("cur").textContent = "?"; });
 
-  listen("updater://checking", function (e) {
-    el("cur").textContent = e.payload.currentVersion || el("cur").textContent;
-    state("busy"); msg("Checking for updates…"); el("notes").textContent = "";
-  });
-  listen("updater://up-to-date", function (e) {
-    el("cur").textContent = e.payload.currentVersion || el("cur").textContent;
-    state("ok"); msg("You're up to date — ", e.payload.currentVersion || "", " is the latest version.");
-  });
-  listen("updater://update-available", function (e) {
-    state("busy avail downloading"); msg("Update available: ", e.payload.version, " — downloading…");
-    if (e.payload.notes) el("notes").textContent = e.payload.notes;
-  });
+  // This window is created and the check starts in the same breath, so a check that resolves before
+  // these listeners attach used to land on nobody and leave the dialog spinning "Checking for
+  // updates…" with no verdict. Every live event sets `live`, and the startup snapshot below is only
+  // painted if none has arrived — so the snapshot can never overwrite fresher news.
+  var live = false;
+  function render(event, p) {
+    p = p || {};
+    if (event === "updater://checking") {
+      el("cur").textContent = p.currentVersion || el("cur").textContent;
+      state("busy"); msg("Checking for updates…"); el("notes").textContent = "";
+    } else if (event === "updater://up-to-date") {
+      el("cur").textContent = p.currentVersion || el("cur").textContent;
+      state("ok"); msg("You're up to date — ", p.currentVersion || "", " is the latest version.");
+    } else if (event === "updater://update-available") {
+      state("busy avail downloading"); msg("Update available: ", p.version, " — downloading…");
+      if (p.notes) el("notes").textContent = p.notes;
+    } else if (event === "updater://ready") {
+      state("avail ready"); msg(null, p.version, " is downloaded — restart to install.");
+    } else if (event === "updater://error") {
+      state("err"); msg("Couldn't check for updates. " + (p.message || ""));
+    }
+  }
+  ["updater://checking", "updater://up-to-date", "updater://update-available", "updater://ready", "updater://error"]
+    .forEach(function (name) { listen(name, function (e) { live = true; render(name, e.payload); }); });
   listen("updater://download-progress", function (e) {
     if (e.payload.percent != null) el("pct").style.width = e.payload.percent + "%";
   });
-  listen("updater://ready", function (e) {
-    state("avail ready"); msg(null, e.payload.version, " is downloaded — restart to install.");
-  });
-  listen("updater://error", function (e) {
-    state("err"); msg("Couldn't check for updates. " + (e.payload.message || ""));
-  });
+  invoke("updater_last_status").then(function (s) {
+    if (!live && s && s.event) render(s.event, s.payload);
+  }).catch(function () {});
 
   el("again").onclick = function () { invoke("updater_check"); };
   el("restart").onclick = function () { invoke("updater_restart"); };

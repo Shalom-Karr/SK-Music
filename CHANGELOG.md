@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.1.3 — 2026-07-28 (desktop only — no web change)
+
+**Why the bump:** "Check for updates" could open the dialog and never tell you the answer. Reported
+from the field on 1.1.2.
+
+**Desktop — the update dialog always gives you a verdict**
+- The dialog used to be at the mercy of timing. `open_update_window` returns as soon as the window is
+  *created*, and the check starts in the same breath — so a check that resolved before `update.html`
+  attached its listeners broadcast to nobody, leaving the dialog spinning "Checking for updates…"
+  forever. Every phase is now recorded, and the dialog asks for the last one on load
+  (`updater_last_status`), so it paints a result regardless of who won the race. A live event always
+  beats the snapshot, so a stale status can never overwrite fresher news.
+- **Clicking during the startup check no longer does nothing.** The 8-seconds-after-launch check held
+  a "already running" guard that made a user-initiated click return *silently* — dialog open, no
+  events, no verdict. It now re-announces the checking phase, and the in-flight check's own result
+  still lands on the dialog.
+- **A failed background check now reports.** `updater://error` was only emitted for user-initiated
+  checks, so a silent failure left the next dialog sitting on a stale phase. It's emitted either way
+  now; the `userInitiated` flag in the payload still decides whether the SPA surfaces it.
+
 ## 1.1.2 — 2026-07-28 (web + desktop)
 
 Playlist polish, clearer download status, and two desktop fixes: off-site links were dead in the app
