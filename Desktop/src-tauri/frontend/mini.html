@@ -36,31 +36,12 @@
     background: var(--surface-2) center/cover no-repeat;
     display: grid; place-items: center;
   }
-  .art::after { content: ""; position: absolute; inset: 0; box-shadow: inset -1px 0 0 var(--line-2); pointer-events: none; } /* paints above the hover overlay — must never eat its clicks */
+  .art::after { content: ""; position: absolute; inset: 0; box-shadow: inset -1px 0 0 var(--line-2); pointer-events: none; }
   .art-glyph { width: 30px; height: 30px; color: var(--faint); }
   .art.has-art .art-glyph { display: none; }
 
-  /* Collapsed-only hover overlay */
-  .ov { position: absolute; inset: 0; display: none; }
-  .ov-play, .ov-expand {
-    position: absolute; border: 0; color: #fff; cursor: pointer;
-    display: grid; place-items: center;
-    background: rgba(10,7,8,.55); backdrop-filter: blur(2px);
-    opacity: 0; transition: opacity .14s;
-  }
-  .ov-play {
-    left: 50%; top: 50%; transform: translate(-50%,-50%);
-    width: 40px; height: 40px; border-radius: 50%; padding: 10px;
-    background: var(--primary);
-  }
-  .ov-play:hover { background: var(--primary-2); }
-  .ov-expand { right: 5px; top: 5px; width: 22px; height: 22px; border-radius: 7px; padding: 5px; }
-  .ov-expand:hover { background: rgba(10,7,8,.85); }
-  .mini.collapsed .art:hover .ov-play,
-  .mini.collapsed .art:hover .ov-expand { opacity: 1; }
-
   /* Content column -------------------------------------------------------- */
-  .body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; padding: 10px 12px 8px 14px; }
+  .body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; padding: 10px 12px 12px 14px; }
   .toprow { display: flex; align-items: flex-start; gap: 6px; }
   .meta { flex: 1 1 auto; min-width: 0; }
   .title { font-weight: 650; font-size: 13.5px; letter-spacing: .1px;
@@ -97,25 +78,17 @@
   .like.liked { color: var(--primary); }
   .time { margin-left: auto; font-size: 10.5px; font-variant-numeric: tabular-nums; color: var(--faint); padding-right: 2px; }
 
-  /* Progress hairline ------------------------------------------------------ */
-  .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--line-2); }
+  /* Progress: slim visual, generous click target, click-to-seek ------------ */
+  .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 14px; cursor: pointer; }
+  .bar-track { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--line-2); transition: height .12s; }
+  .bar:hover .bar-track { height: 6px; }
   .bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), var(--primary-2)); }
-
-  /* Collapsed (tiny box) --------------------------------------------------- */
-  .mini.collapsed .art { width: 100%; }
-  .mini.collapsed .ov { display: block; }
-  .mini.collapsed .body,
-  .mini.collapsed .bar { display: none; }
 </style>
 </head>
 <body>
   <div class="mini" id="mini" data-tauri-drag-region>
     <div class="art" id="art" data-tauri-drag-region>
       <div class="art-glyph"><svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg></div>
-      <div class="ov">
-        <button class="ov-play" id="ovPlay" type="button" title="Play / Pause"><span id="ovPlayIc"></span></button>
-        <button class="ov-expand" id="ovExpand" type="button" title="Expand"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7zM5 10h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z"/></svg></button>
-      </div>
     </div>
     <div class="body" data-tauri-drag-region>
       <div class="toprow" data-tauri-drag-region>
@@ -125,8 +98,7 @@
         </div>
         <div class="micro">
           <button class="mbtn" id="home" type="button" title="Open SK Music"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></button>
-          <button class="mbtn" id="collapse" type="button" title="Collapse to tiny box"><svg viewBox="0 0 24 24"><path d="M5 16h3v3h2v-5H5zm3-8H5v2h5V5H8zm6 11h2v-3h3v-2h-5zm2-11V5h-2v5h5V8z"/></svg></button>
-          <button class="mbtn" id="close" type="button" title="Hide"><svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+          <button class="mbtn" id="close" type="button" title="Close mini player"><svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
         </div>
       </div>
       <div class="controls">
@@ -137,7 +109,7 @@
         <div class="time" id="time"></div>
       </div>
     </div>
-    <div class="bar"><div class="bar-fill" id="fill"></div></div>
+    <div class="bar" id="bar" title="Seek"><div class="bar-track"><div class="bar-fill" id="fill"></div></div></div>
   </div>
 
 <script>
@@ -146,16 +118,13 @@
   var T = window.__TAURI__ || {};
   var invoke = (T.core && T.core.invoke) ? T.core.invoke : function () { return Promise.resolve(); };
   var listen = (T.event && T.event.listen) ? T.event.listen : function () {};
-  var W = T.window || {};
-  var win = (typeof W.getCurrentWindow === "function") ? W.getCurrentWindow() : null;
 
   var el = function (id) { return document.getElementById(id); };
-  var mini = el("mini"), art = el("art");
-  var titleEl = el("title"), artistEl = el("artist"), fill = el("fill"), timeEl = el("time");
+  var art = el("art");
+  var titleEl = el("title"), artistEl = el("artist"), fill = el("fill"), timeEl = el("time"), bar = el("bar");
 
   var IC_PLAY = '<svg viewBox="0 0 24 24" style="display:block"><path d="M8 5v14l11-7z" fill="#fff"/></svg>';
   var IC_PAUSE = '<svg viewBox="0 0 24 24" style="display:block"><path d="M6 19h4V5H6zm8-14v14h4V5z" fill="#fff"/></svg>';
-  var EXPANDED = [380, 104], COLLAPSED = [96, 96];
 
   // ---- playback / progress state --------------------------------------
   var base = { pos: 0, t: now(), dur: 0, playing: false };
@@ -170,8 +139,7 @@
 
   function setPlaying(playing) {
     base.pos = currentPos(); base.t = now(); base.playing = !!playing;
-    var ic = playing ? IC_PAUSE : IC_PLAY;
-    el("ppIc").innerHTML = ic; el("ovPlayIc").innerHTML = ic;
+    el("ppIc").innerHTML = playing ? IC_PAUSE : IC_PLAY;
   }
   function setPosition(posMs, durMs) {
     if (typeof durMs === "number" && durMs > 0) base.dur = durMs;
@@ -207,7 +175,7 @@
     probe.src = url;
   }
 
-  // ---- render a now-playing payload -----------------------------------
+  // ---- render pushed state --------------------------------------------
   function paintNP(p) {
     if (!p || typeof p !== "object") return;
     var title = (p.title || "").trim();
@@ -224,22 +192,11 @@
     setPlaying(s.playing !== false && s.stopped !== true);
   }
 
-  // ---- collapse / expand ----------------------------------------------
-  function resize(dims) {
-    if (win && W.LogicalSize) { try { win.setSize(new W.LogicalSize(dims[0], dims[1])); } catch (e) {} }
-  }
-  function setCollapsed(on, persist) {
-    mini.classList.toggle("collapsed", on);
-    resize(on ? COLLAPSED : EXPANDED);
-    if (persist !== false) { try { localStorage.setItem("sk-mini-collapsed", on ? "1" : "0"); } catch (e) {} }
-  }
-
   // ---- wiring ----------------------------------------------------------
   var mc = function (action) { return invoke("mini_control", { action: action }); };
   el("prev").onclick = function () { mc("previous"); };
   el("next").onclick = function () { mc("next"); };
   el("pp").onclick = function () { mc("toggle"); };
-  el("ovPlay").onclick = function (e) { e.stopPropagation(); mc("toggle"); };
   el("like").onclick = function () {
     mc("like");
     var b = el("like"); b.classList.add("liked");
@@ -247,15 +204,23 @@
   };
   el("home").onclick = function () { invoke("mini_open_main"); };
   el("close").onclick = function () { invoke("mini_hide"); };
-  el("collapse").onclick = function () { setCollapsed(true); };
-  el("ovExpand").onclick = function (e) { e.stopPropagation(); setCollapsed(false); };
-  mini.addEventListener("dblclick", function (e) {
-    if (e.target.closest("button")) return;
+  el("mini").addEventListener("dblclick", function (e) {
+    if (e.target.closest("button") || e.target.closest("#bar")) return;
     invoke("mini_open_main");
   });
 
+  // Click-to-seek on the progress bar (optimistic local update; the next tick confirms).
+  bar.addEventListener("click", function (e) {
+    if (!(base.dur > 0)) return;
+    var r = bar.getBoundingClientRect();
+    var pct = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    var ms = Math.round(pct * base.dur);
+    setPosition(ms);
+    mc("setposition:" + ms);
+  });
+
   // Keyboard control while the mini has focus: Space/K play-pause, ←/P previous, →/N next,
-  // L like, Enter collapse/expand, O open the app, Esc hide.
+  // L like, O/Enter open the app, Esc close.
   document.addEventListener("keydown", function (e) {
     if (e.repeat) return;
     var k = e.key;
@@ -263,13 +228,9 @@
     else if (k === "ArrowRight" || k === "n" || k === "N") { e.preventDefault(); mc("next"); }
     else if (k === "ArrowLeft" || k === "p" || k === "P") { e.preventDefault(); mc("previous"); }
     else if (k === "l" || k === "L") { e.preventDefault(); el("like").click(); }
-    else if (k === "Enter") { e.preventDefault(); setCollapsed(!mini.classList.contains("collapsed")); }
-    else if (k === "o" || k === "O") { e.preventDefault(); invoke("mini_open_main"); }
+    else if (k === "o" || k === "O" || k === "Enter") { e.preventDefault(); invoke("mini_open_main"); }
     else if (k === "Escape") { invoke("mini_hide"); }
   });
-
-  // Re-apply persisted collapsed state on load.
-  try { if (localStorage.getItem("sk-mini-collapsed") === "1") setCollapsed(true, false); } catch (e) {}
 
   // Live pushes from media.rs, then a one-shot pull so we paint immediately.
   listen("sk-np", function (ev) { paintNP(ev.payload); });

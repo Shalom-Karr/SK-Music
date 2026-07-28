@@ -162,11 +162,14 @@ fn queue_save(x: f64, y: f64) {
     });
 }
 
-/// Transport/like/radio from the mini player, whitelisted before it reaches the webview bridge.
+/// Transport/like/radio/seek from the mini player, whitelisted before it reaches the webview bridge.
 #[tauri::command]
 pub fn mini_control(app: tauri::AppHandle, action: String) {
     const ALLOWED: [&str; 5] = ["toggle", "next", "previous", "like", "radio"];
-    if ALLOWED.contains(&action.as_str()) {
+    let seek_ok = action
+        .strip_prefix("setposition:")
+        .is_some_and(|v| v.parse::<u64>().is_ok());
+    if ALLOWED.contains(&action.as_str()) || seek_ok {
         crate::media::control(&app, &action);
     }
 }
