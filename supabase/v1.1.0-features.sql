@@ -153,7 +153,7 @@ $$;
 
 -- A playlist's items ordered by position asc (owner-guarded; empty if not owned).
 create or replace function public.get_playlist(p_id uuid)
-returns table (video_id text, title text, artist text, position int)
+returns table (video_id text, title text, artist text, "position" int)
 language sql security invoker stable as $$
   select i.video_id, i.title, i.artist, i.position
   from public.zemer_playlist_item i
