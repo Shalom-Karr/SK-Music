@@ -524,6 +524,8 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .np-info{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:8px}
 .np-title{font-family:Fraunces,serif;font-weight:600;font-size:clamp(24px,3.4vw,34px);line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .np-artist{color:var(--muted);font-size:15px;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#npArtist:not(:empty){cursor:pointer}
+#npArtist:not(:empty):hover{color:var(--text);text-decoration:underline;text-underline-offset:3px}
 .np-seek{margin:20px 0 6px}
 .np-times{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:9px}
 .np-controls{display:flex;align-items:center;justify-content:center;gap:22px;margin-top:14px}
@@ -889,7 +891,7 @@ fill="url(#royal)" stroke="none">
     <div class="np-main">
       <div class="art np-art"><img id="npArt" alt=""><div class="ph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg></div></div>
       <div class="np-info">
-        <div style="min-width:0"><div class="np-title" id="npTitle"></div><div class="np-artist" id="npArtist"></div></div>
+        <div style="min-width:0"><div class="np-title" id="npTitle"></div><div class="np-artist" id="npArtist" role="button" tabindex="0" aria-label="Go to artist" onclick="npOpenArtist()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"></div></div>
         <button class="iconbtn heart" id="npLike" onclick="toggleLikeCurrent()" title="Like" aria-label="Like" aria-pressed="false" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg></button>
         <button class="iconbtn" id="npShare" onclick="openShare(event)" title="Share" aria-label="Share" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0 0 6c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92z"/></svg></button>
       </div>
@@ -1013,6 +1015,7 @@ const ICON = {
   play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
   pause: '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>',
   heart: '<svg viewBox="0 0 24 24"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg>',
+  share: '<svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0 0 6c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92z"/></svg>',
 };
 const EQ = '<span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>';
 const TABS = [
@@ -1316,6 +1319,22 @@ function shareSong(withTime) {
   const title = (t.title || "SK Music") + (t.artist ? " · " + t.artist : "");
   if (navigator.share) navigator.share({ title, url }).catch(() => {});
   else navigator.clipboard.writeText(url).then(() => showToast(`Link copied${sec > 1 ? ` — starts at ${fmt(sec)}` : ""}`, 2600)).catch(() => showToast("Couldn't copy the link", 2600));
+}
+function shareDetail() {
+  if (!state.detailPath) return;
+  const url = location.origin + state.detailPath;
+  const title = (state.detailTitle || "SK Music") + " · SK Music";
+  if (navigator.share) navigator.share({ title, url }).catch(() => {});
+  else navigator.clipboard.writeText(url).then(() => showToast("Link copied", 2600)).catch(() => showToast("Couldn't copy the link", 2600));
+}
+// Now-playing artist → artist page. Tracks carry only the artist NAME, so resolve the id through the
+// catalog map; multi-artist strings ("A & B", "A feat. B") fall back to the first name.
+async function npOpenArtist() {
+  const t = state.queue[state.qi]; if (!t || !t.artist) return;
+  const map = await artistByName();
+  const a = map.get(t.artist.toLowerCase()) || map.get(t.artist.split(/,|&|·|\sfeat\.?\s|\sft\.?\s/i)[0].trim().toLowerCase());
+  if (!a) return showToast("No artist page for " + t.artist, 2600);
+  closeNow(); openArtist(a.id);
 }
 function refreshLikeUI(id) {
   const on = isLiked(id);
@@ -1855,6 +1874,7 @@ function detailBack() { history.back(); }
 function renderDetailView(v) {
   secN = 0;
   state.detailKind = ({ Artist: "artist", Album: "album", Playlist: "playlist", "Curated Playlist": "curated" })[v.kind] || "detail"; // play.source attribution
+  state.detailPath = v.path; state.detailTitle = v.title;
   el("tbTitle").textContent = v.title; el("tbTitle").style.display = ""; el("tbSearch").style.display = "none";
   // Enrich every track with the artist name up-front (artist-page songs carry no artist field) so the
   // queue — and the play analytics — always know who it is. Hiding it in a row is separate (opt.hideArtist).
@@ -1864,7 +1884,7 @@ function renderDetailView(v) {
   let h = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
     <div class="detail-hero"><div class="cover ${v.round ? "round" : ""}">${artHTML(v.thumb, v.round ? ICON.artist : NOTE, v.round)}</div>
     <div class="dh-meta"><div class="dh-kind">${v.kind}</div><div class="dh-title">${esc(v.title)}</div><div class="dh-sub">${v.sub}</div></div></div>`;
-  h += `<div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button>` : ""}${qid ? `<button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}</div>`;
+  h += `<div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button>` : ""}${qid ? `<button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}${v.path ? `<button class="btn-ghost" onclick="shareDetail()">${ICON.share}Share</button>` : ""}</div>`;
   for (const s of v.sections) {
     if (s.tracks && s.tracks.length) {
       let body = songRows(s.tracks, { index: true, artist: v.artistName, hideArtist: !!s.plays, plays: s.plays });
