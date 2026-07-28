@@ -1,6 +1,6 @@
 [package]
 name = "sk-music-desktop"
-version = "0.2.2"
+version = "0.2.3"
 description = "SK Music — native desktop shell (Tauri 2) for the kosher Jewish-music web client"
 authors = ["SK Music"]
 license = "GPL-3.0-or-later"
@@ -35,13 +35,24 @@ tauri-plugin-notification = "2"
 # OS media controls: Windows SMTC / macOS Now Playing / Linux MPRIS (wired up in src/media.rs).
 souvlaki = "0.7"
 
-# Runtime compositing of the "now playing" tray-icon badge over the app icon (src/tray.rs).
-# No codec features needed — we operate on the raw RGBA buffer Tauri hands us, so the PNG/JPEG
-# decoders stay out of the build.
-image = { version = "0.25", default-features = false }
+# Tray icon: decode the bundled 128px PNG, Lanczos it to tray size, and composite the
+# "now playing" badge over it (src/tray.rs). Only the PNG codec is enabled.
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# Taskbar jump list (src/jumplist.rs): ICustomDestinationList + IShellLinkW COM.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_Variant",
+  "Win32_UI_Shell",
+  "Win32_UI_Shell_PropertiesSystem",
+  "Win32_UI_Shell_Common",
+] }
 
 [profile.release]
 panic = "abort"

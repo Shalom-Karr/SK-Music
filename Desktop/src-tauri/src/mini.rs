@@ -45,7 +45,7 @@ pub fn init(app: &tauri::AppHandle) {
     });
 }
 
-fn auto_show(app: &tauri::AppHandle) {
+pub(crate) fn auto_show(app: &tauri::AppHandle) {
     if !crate::settings::auto_mini() || !crate::media::is_playing() {
         return;
     }

@@ -9,6 +9,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod deeplink;
+#[cfg(target_os = "windows")]
+mod jumplist;
 mod media;
 mod mini;
 mod settings;
@@ -35,7 +37,21 @@ fn main() {
         // (including one triggered by a skmusic:// deep link) is forwarded here so the
         // deep-link plugin can re-emit the URL, and we focus the running window instead
         // of opening a duplicate copy of the app.
-        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            // Taskbar jump-list tasks relaunch the exe with --control=<action>; the forwarded argv
+            // routes into the same handlers the tray uses, WITHOUT focusing the window.
+            if let Some(action) = argv.iter().find_map(|a| a.strip_prefix("--control=")) {
+                match action {
+                    "mini" => mini::toggle(app),
+                    "updates" => {
+                        updater::open_update_window(app);
+                        updater::check_for_updates(app, true);
+                    }
+                    "toggle" | "next" | "previous" | "like" | "radio" => media::control(app, action),
+                    _ => {}
+                }
+                return;
+            }
             deeplink::focus_main_window(app);
         }))
         // Registers the skmusic:// handler; deeplink::init() attaches on_open_url.
@@ -69,10 +85,15 @@ fn main() {
             settings::init(handle)?;
             tray::init(handle)?;
             media::init(handle)?;
+            // The remote SPA reports playback via events, not commands (remote ACL) — hook them.
+            media::hook_report_events(handle);
             // Sleep/resume self-heal watcher (cross-platform, no Win32).
             media::watch_resume(handle);
             // Auto-show/hide the mini player with the main window's focus.
             mini::init(handle);
+            // Taskbar jump list mirroring the tray's controls.
+            #[cfg(target_os = "windows")]
+            jumplist::init();
             deeplink::init(handle)?;
             updater::init(handle)?;
             // Autostart launched us with "--minimized": come up hidden to the tray.

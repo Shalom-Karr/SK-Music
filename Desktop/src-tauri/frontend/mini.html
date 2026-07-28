@@ -36,7 +36,7 @@
     background: var(--surface-2) center/cover no-repeat;
     display: grid; place-items: center;
   }
-  .art::after { content: ""; position: absolute; inset: 0; box-shadow: inset -1px 0 0 var(--line-2); }
+  .art::after { content: ""; position: absolute; inset: 0; box-shadow: inset -1px 0 0 var(--line-2); pointer-events: none; } /* paints above the hover overlay — must never eat its clicks */
   .art-glyph { width: 30px; height: 30px; color: var(--faint); }
   .art.has-art .art-glyph { display: none; }
 

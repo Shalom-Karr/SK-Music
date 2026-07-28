@@ -231,16 +231,22 @@ fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Right-click inside the main window pops the SAME menu as the tray (invoked by the SPA's
-/// contextmenu handler through the bridge). Popup position defaults to the cursor.
-#[tauri::command]
-pub fn show_app_menu(app: tauri::AppHandle) {
+/// Right-click inside the main window pops the SAME menu as the tray. Reached two ways: the
+/// `show_app_menu` command (local pages) and the `sk-menu` event (the REMOTE SPA — remote origins
+/// can't invoke app commands, so it emits instead; see media::hook_report_events). Popup position
+/// defaults to the cursor.
+pub fn show_app_menu_inner(app: &tauri::AppHandle) {
     let Some(window) = app.get_webview_window(MAIN_WINDOW) else { return };
     if let Some(lock) = HANDLES.get() {
         if let Ok(h) = lock.lock() {
             let _ = window.popup_menu(&h.menu);
         }
     }
+}
+
+#[tauri::command]
+pub fn show_app_menu(app: tauri::AppHandle) {
+    show_app_menu_inner(&app);
 }
 
 /// Flip the persisted "Mini player when unfocused" setting and mirror it into the check item.
@@ -381,14 +387,30 @@ fn apply_icon(h: &mut TrayHandles, playing: bool) {
     }
 }
 
-/// Build the idle + "playing" tray icon variants from the app's default window icon. Returns
-/// `(None, None)` if the app has no default icon.
+/// The bundled 128px icon, decoded and Lanczos-resized to tray size at startup. Handing the tray
+/// the full-size window icon leaves the downscale to Windows, which renders it blurry.
+const TRAY_SOURCE: &[u8] = include_bytes!("../icons/128x128.png");
+const TRAY_SIZE: u32 = 32;
+
+/// Build the idle + "playing" tray icon variants. Returns `(None, None)` only if both the bundled
+/// PNG decode AND the default-window-icon fallback are unavailable.
 fn build_icons(app: &tauri::AppHandle) -> (Option<Image<'static>>, Option<Image<'static>>) {
-    let Some(base) = app.default_window_icon() else {
+    let idle = image::load_from_memory(TRAY_SOURCE)
+        .ok()
+        .map(|img| {
+            let small = img
+                .resize_exact(TRAY_SIZE, TRAY_SIZE, image::imageops::FilterType::Lanczos3)
+                .into_rgba8();
+            Image::new_owned(small.into_raw(), TRAY_SIZE, TRAY_SIZE)
+        })
+        .or_else(|| {
+            app.default_window_icon()
+                .map(|b| Image::new_owned(b.rgba().to_vec(), b.width(), b.height()))
+        });
+    let Some(idle) = idle else {
         return (None, None);
     };
-    let idle = Image::new_owned(base.rgba().to_vec(), base.width(), base.height());
-    let playing = make_playing_icon(base).unwrap_or_else(|| idle.clone());
+    let playing = make_playing_icon(&idle).unwrap_or_else(|| idle.clone());
     (Some(idle), Some(playing))
 }
 
@@ -487,10 +509,14 @@ fn in_triangle(p: (f32, f32), a: (f32, f32), b: (f32, f32), c: (f32, f32)) -> bo
 fn hook_close_to_tray(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
         let win = window.clone();
+        let handle = app.clone();
         window.on_window_event(move |event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 let _ = win.hide();
+                // Hiding doesn't emit a Focused(false) the mini's focus hook could see — surface
+                // the mini explicitly so close-to-tray keeps a control on screen while playing.
+                crate::mini::auto_show(&handle);
             }
         });
     }
