@@ -2450,7 +2450,13 @@ if ("mediaSession" in navigator) {
    accept transport commands (media keys, SMTC buttons, tray Play/Pause/Next/Prev) back through
    window.__skMediaControl. Contract documented in Desktop/src-tauri/src/media.rs. */
 const SK_NATIVE = !!(window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === "function");
-function skInvoke(cmd, payload) { if (SK_NATIVE) try { window.__TAURI__.core.invoke(cmd, { payload }); } catch (e) {} }
+// Report via EVENTS, not invoke: this page is a REMOTE origin to the desktop shell, and remote
+// webviews can't call app commands (the capability grant covers core permissions only — the invoke
+// is silently denied). core:event's emit IS allowed; Rust listens (media::hook_report_events).
+function skInvoke(cmd, payload) {
+  if (!SK_NATIVE) return;
+  try { window.__TAURI__.event.emit(cmd === "now_playing" ? "sk-np-report" : "sk-state-report", payload); } catch (e) {}
+}
 function skNowPlaying(t, art) {
   if (!SK_NATIVE || !t) return;
   // queue/queueBase/videoId feed the desktop tray's "Up Next" submenu and mini player (absolute
@@ -2483,7 +2489,7 @@ if (SK_NATIVE) window.__skMediaControl = (action) => { try {
 if (SK_NATIVE) document.addEventListener("contextmenu", (e) => {
   if (e.target.closest("input, textarea, [contenteditable]")) return;
   e.preventDefault();
-  try { window.__TAURI__.core.invoke("show_app_menu"); } catch {}
+  try { window.__TAURI__.event.emit("sk-menu", {}); } catch {} // event, not invoke — remote-origin ACL
 });
 // After system sleep the webview's audio pipeline can come back wedged: the UI says playing but the
 // clock is frozen. Sample the position twice, 2.5 s apart — frozen while "playing" → reload the
