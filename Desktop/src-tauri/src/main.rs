@@ -9,6 +9,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod deeplink;
+mod download;
 #[cfg(target_os = "windows")]
 mod jumplist;
 mod media;
@@ -94,6 +95,12 @@ fn main() {
         ))
         // Native "track changed" toasts while hidden (driven from media.rs).
         .plugin(tauri_plugin_notification::init())
+        // Offline downloads: serve a downloaded song's local audio to the SPA's <audio> element.
+        // Custom scheme so the remote-origin page can play it under its `media-src` CSP; supports
+        // HTTP Range for scrubbing. All other download plumbing is event-driven (download::init).
+        .register_uri_scheme_protocol("skdl", |ctx, req| {
+            download::serve_protocol(ctx.app_handle(), &req)
+        })
         .invoke_handler(tauri::generate_handler![
             media::now_playing,
             media::set_playback_state,
@@ -123,6 +130,8 @@ fn main() {
             jumplist::init();
             deeplink::init(handle)?;
             updater::init(handle)?;
+            // Offline downloads: event listeners + the single download worker (src/download.rs).
+            download::init(handle)?;
             // Autostart launched us with "--minimized": come up hidden to the tray.
             if std::env::args().any(|a| a == "--minimized") {
                 if let Some(window) = app.get_webview_window("main") {

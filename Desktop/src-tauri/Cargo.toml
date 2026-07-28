@@ -1,6 +1,6 @@
 [package]
 name = "sk-music-desktop"
-version = "1.0.2"
+version = "1.1.0"
 description = "SK Music — native desktop shell (Tauri 2) for the kosher Jewish-music web client"
 authors = ["SK Music"]
 license = "GPL-3.0-or-later"
@@ -41,6 +41,12 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# Offline downloads (src/download.rs): fetch the signed googlevideo audio URL in ranged
+# chunks. reqwest is already in the tree (updater plugin); tokio powers the download
+# worker's queue channel + extract timeout via tauri::async_runtime (tokio-backed).
+reqwest = "0.13"
+tokio = { version = "1", features = ["time", "sync"] }
 
 # Taskbar jump list (src/jumplist.rs): ICustomDestinationList + IShellLinkW COM.
 [target.'cfg(windows)'.dependencies]

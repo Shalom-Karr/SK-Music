@@ -1113,6 +1113,77 @@ async function handleRadio(request, url) {
   }
 }
 
+// ─── Lyrics proxy (/lyrics) ──────────────────────────────────────────────────
+
+// Proxy LRCLIB (lrclib.net — a free, open lyrics API the upstream project already uses) so the
+// client can fetch lyrics same-origin (works behind content filters) and we can cache hard: lyrics
+// are immutable per song, so a hit is edge-cached for a week. A miss (404 upstream) is a normal
+// outcome, not an error — it returns nulls at 200 and is only cached briefly, since a song not yet
+// on LRCLIB today may be synced there tomorrow.
+async function handleLyrics(request, url, ctx) {
+  if (request.method !== "GET")
+    return Response.json({ error: "method not allowed" }, { status: 405, headers: { "Cache-Control": "no-store" } });
+
+  // artist + title are required; length-cap each so the route can't be handed unbounded junk.
+  const artist = (url.searchParams.get("artist") || "").trim().slice(0, 200);
+  const title = (url.searchParams.get("title") || "").trim().slice(0, 200);
+  if (!artist || !title)
+    return Response.json({ error: "artist and title required" }, { status: 400, headers: { "Cache-Control": "no-store" } });
+
+  // duration is optional but sharpens LRCLIB's match — keep it only when it's a small positive integer.
+  const durRaw = parseInt(url.searchParams.get("duration") || "", 10);
+  const duration = Number.isFinite(durRaw) && durRaw > 0 && durRaw < 36000 ? durRaw : null;
+
+  // Edge cache is shared across users and keyed on a normalized query (case/whitespace-folded) so
+  // "Uncle Moishy" and "uncle  moishy" collapse onto one entry.
+  const norm = (s) => s.toLowerCase().replace(/\s+/g, " ").trim();
+  const edgeCache = caches.default;
+  const cacheKey = new Request(
+    `https://sk/lyrics?artist=${encodeURIComponent(norm(artist))}&title=${encodeURIComponent(norm(title))}&duration=${duration || ""}`
+  );
+  const cached = await edgeCache.match(cacheKey);
+  if (cached) return cached;
+
+  // Live LRCLIB lookup. They ask callers to identify themselves via a descriptive User-Agent.
+  const params = new URLSearchParams({ artist_name: artist, track_name: title });
+  if (duration) params.set("duration", String(duration));
+  let res;
+  try {
+    res = await fetch(`https://lrclib.net/api/get?${params.toString()}`, {
+      headers: { "User-Agent": "SK Music (https://github.com/Shalom-Karr/SK-Music)" },
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch {
+    return Response.json({ error: "unavailable" }, { status: 502, headers: { "Cache-Control": "no-store" } });
+  }
+
+  // 404 / no match: normal miss. Nulls at 200, cached only briefly (never edge-put) so a song that
+  // gets synced upstream later isn't pinned as missing for the full week.
+  if (res.status === 404) {
+    return Response.json(
+      { synced: null, plain: null },
+      { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=3600" } }
+    );
+  }
+  if (!res.ok)
+    return Response.json({ error: "unavailable" }, { status: 502, headers: { "Cache-Control": "no-store" } });
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    return Response.json({ error: "unavailable" }, { status: 502, headers: { "Cache-Control": "no-store" } });
+  }
+
+  // Hit — lyrics are immutable per song, so cache aggressively (7 days) at both the edge and downstream.
+  const response = Response.json(
+    { synced: data.syncedLyrics ?? null, plain: data.plainLyrics ?? null, source: "lrclib" },
+    { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=604800" } }
+  );
+  if (ctx) ctx.waitUntil(edgeCache.put(cacheKey, response.clone()));
+  return response;
+}
+
 // ─── KV page overrides ────────────────────────────────────────────────────────
 
 // Derive the correct MIME type from a file path extension.
@@ -1240,6 +1311,7 @@ export default {
     if (pathname === "/zemer-home-rows") return handleHomeRows(env, ctx);
     if (pathname === "/zemer-new") return handleZemerNew(env, ctx);
     if (pathname === "/radio") return handleRadio(request, url);
+    if (pathname === "/lyrics") return handleLyrics(request, url, ctx);
     if (pathname === "/trending") {
       // Content negotiation: browser navigations (Accept: text/html) get the human-readable charts
       // page; the app's fetch() and API callers (Accept: */*) keep getting JSON. Fetch the extensionless

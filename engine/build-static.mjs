@@ -783,7 +783,11 @@ const CSP = [
   // so pin the inert image channel to any-https rather than whack-a-mole a host list. The exfil-relevant
   // directives (connect/script/frame/object/base) stay tight.
   "img-src 'self' data: blob: https:",
-  "media-src 'self' blob:",
+  // skdl: is the SK Music DESKTOP app's offline-download scheme (Tauri custom URI scheme served from
+  // Rust; src/download.rs). It serves a downloaded song's local audio file to the html5 <audio> element
+  // so a saved track plays from disk (and offline). Inert in a browser — no such origin exists there.
+  // Windows/WebView2 serves custom schemes as http://<scheme>.localhost, macOS/Linux as <scheme>://localhost.
+  "media-src 'self' blob: skdl: http://skdl.localhost https://skdl.localhost",
   "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
   // ipc: + ipc.localhost are the Tauri desktop app's IPC transport (invoke → now_playing/set_playback_state);
   // harmless for browsers, required so the desktop media bridge isn't blocked.
