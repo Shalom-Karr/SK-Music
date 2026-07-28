@@ -307,13 +307,18 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 .sechead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 4px 14px}
 .sechead h2{font-family:Fraunces,serif;font-weight:600;font-size:21px;letter-spacing:.2px;margin:0}
-.sechead h2.sec-title{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:var(--primary);transition:filter .15s,text-decoration-color .15s;text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--primary)}
-.sechead h2.sec-title:hover{filter:brightness(1.15)}
-.sec-ic{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;color:var(--primary);transition:transform .15s}
+.sechead h2.sec-title{align-self:center;display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 18px;border-radius:22px;cursor:pointer;background:var(--surface-2);border:1px solid var(--line-2);color:var(--text);font-family:inherit;font-size:16px;font-weight:700;letter-spacing:.3px;text-decoration:none;box-shadow:0 8px 22px -8px rgba(0,0,0,.2);transition:background .15s,color .15s,border-color .15s,box-shadow .15s,transform .15s}
+.sechead h2.sec-title:hover{background:var(--primary);color:var(--primary-ink);border-color:var(--primary);box-shadow:0 12px 30px -8px var(--primary-glow);transform:scale(1.03)}
+.sec-ic{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;color:inherit;transition:transform .15s}
 .sec-ic svg{width:100%;height:100%;fill:currentColor}
 .sechead h2.sec-title:hover .sec-ic{transform:translateX(3px)}
 .sechead .more{font-size:12.5px;font-weight:600;color:var(--faint);cursor:pointer}
 .sechead .more:hover{color:var(--primary)}
+.sec-tabs{display:flex;align-items:center;gap:6px;margin:0 6px 18px;border-bottom:1px solid var(--line-2)}
+.sec-tab{height:40px;padding:0 16px;background:transparent;border:0;border-bottom:2px solid transparent;color:var(--muted);font-size:14px;font-weight:700;cursor:pointer;transition:.15s}
+.sec-tab.active{color:var(--text);border-bottom-color:var(--primary)}
+.sec-panel{display:none;padding:4px}
+.sec-panel.active{display:block}
 
 .rail{display:grid;grid-auto-flow:column;grid-auto-columns:172px;gap:18px;overflow-x:auto;overflow-y:hidden;
   padding:4px 4px 14px;scroll-snap-type:x proximity;scrollbar-width:thin}
@@ -1244,7 +1249,7 @@ function applyRoute(url) {
   if ((m = p.match(/^\/zemer-playlists\/(.+)$/))) return openCuratedPlaylist(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/playlists\/(.+)$/))) return openPlaylist(decodeURIComponent(m[1]), true);
   if (p === "/queue") { const qid = u.searchParams.get("qid") || ""; const title = u.searchParams.get("title") || "Queue"; if (qid && queues.get(qid)) return openQueue(title, qid, true); go("home", true); return; }
-  if (p === "/album-queue") { const title = u.searchParams.get("title") || "Queue"; const ids = (u.searchParams.get("ids") || "").split(",").filter(Boolean); if (ids.length) return openAlbumQueue(title, ids, true); go("home", true); return; }
+  if (p === "/album-queue") { const title = u.searchParams.get("title") || "Queue"; const ids = (u.searchParams.get("ids") || "").split(",").filter(Boolean); const tab = u.searchParams.get("tab") || "albums"; if (ids.length) return openAlbumQueue(title, ids, true, tab); go("home", true); return; }
   if ((m = p.match(/^\/songs?\/(.+)$/))) return openSong(decodeURIComponent(m[1]), true, parseInt(u.searchParams.get("t") || "0", 10) || 0);
   if ((m = p.match(/^\/search\/(.+)$/))) { go("search", true); const qv = decodeURIComponent(m[1]); setTimeout(() => { const b = el("q"); if (b) { b.value = qv; doSearch(); } }, 60); return; }
   if (p === "/search") { // /search?query=ss[&filter=nofemale,audioonly] — prefill + run.
@@ -1364,13 +1369,19 @@ let secN = 0, expSeq = 0;
 function section(title, body, more, meta) {
   if (!body) return "";
   meta = meta || {};
-  if (!meta.qid) { const qm = body.match(/playFrom\('(q\d+)',/); if (qm) meta.qid = qm[1]; }
-  if (!meta.albums) { const am = [...body.matchAll(/openAlbum\('([^']+)'\)/g)]; if (am.length) meta.albums = am.map((m) => m[1]); }
   const d = (secN++ % 8) * 0.05;
-  const secIcon = '<span class="sec-ic">' + ICON.play + '</span>';
+  const secIcon = '<span class="sec-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>';
   let h2 = `<h2>${esc(title)}</h2>`;
-  if (meta.qid) h2 = `<h2 class="sec-title" role="button" tabindex="0" data-qid="${meta.qid}" onkeydown="${KDACT}" onclick="openSectionQueue(this)">${esc(title)}${secIcon}</h2>`;
-  else if (meta.albums && meta.albums.length) h2 = `<h2 class="sec-title" role="button" tabindex="0" data-albums="${encodeURIComponent(JSON.stringify(meta.albums))}" onkeydown="${KDACT}" onclick="openSectionQueue(this)">${esc(title)}${secIcon}</h2>`;
+  let attrs = "";
+  if (meta.tracks && meta.tracks.length) {
+    const qid = regQueue(meta.tracks);
+    attrs += ` data-qid="${qid}"`;
+  }
+  if (meta.albums && meta.albums.length) {
+    const min = meta.albums.map((a) => ({ id: a.id, title: a.title, artist: a.artist, thumbnail: a.thumbnail, year: a.year }));
+    attrs += ` data-albums="${encodeURIComponent(JSON.stringify(min))}"`;
+  }
+  if (attrs) h2 = `<h2 class="sec-title" role="button" tabindex="0" ${attrs} onkeydown="${KDACT}" onclick="openSectionQueue(this)">${esc(title)}${secIcon}</h2>`;
   return `<div class="section" style="animation-delay:${d}s"><div class="sechead">${h2}${more || ""}</div>${body}</div>`;
 }
 
@@ -1439,7 +1450,8 @@ async function trendingSections() {
   const artCards = names.map((n) => _artistByName.get((n || "").toLowerCase())).filter(Boolean);
   if (!songs.length && !artCards.length) return "";
   let h = "";
-  if (songs.length) h += section("Trending Songs", songCards(songs.slice(0, 24)));
+  const tSongs = songs.slice(0, 24);
+  if (tSongs.length) h += section("Trending Songs", songCards(tSongs), null, { tracks: tSongs });
   if (artCards.length) h += railOf("Trending Artists", artCards.slice(0, 18), artistCard);
   return h;
 }
@@ -1460,7 +1472,7 @@ async function loadHome() {
     const mp = mourningPeriod();
     const heroP = mp ? `Instrumental music is set aside for ${mp.indexOf("sefira") === 0 ? "Sefira" : "the Three Weeks"} — only the <b>${num(tracks.length)}</b> songs from the Acapella playlist.` : `Only songs from the Acapella playlist — <b>${num(tracks.length)}</b> songs.`;
     v.innerHTML = `<div class="hero" style="background:linear-gradient(120deg,#12202a,var(--surface) 70%)"><div class="eyebrow">Acapella</div><h1>Acapella</h1><p>${heroP}</p></div>`
-      + (tracks.length ? section("Quick Picks", quickPicks(shuffled.slice(0, 24))) + (trend || "") + section(`All Acapella songs · ${num(tracks.length)}`, songRows(tracks.slice(0, 150), { index: true })) : emptyState("Acapella unavailable", "Couldn't load the Acapella playlist right now."));
+      + (tracks.length ? (() => { const qp = shuffled.slice(0, 24); return section("Quick Picks", quickPicks(qp), null, { tracks: qp }) + (trend || "") + section(`All Acapella songs · ${num(tracks.length)}`, songRows(tracks.slice(0, 150), { index: true }), null, { tracks: tracks.slice(0, 150) }); })() : emptyState("Acapella unavailable", "Couldn't load the Acapella playlist right now."));
     window.__appReady && window.__appReady();
     return;
   }
@@ -1468,15 +1480,15 @@ async function loadHome() {
   await artistByName(); // load artist flags so the parental gate (artist allow/blocklist + kid-only) applies below
   const quick = gate(d.quickPicks), newS = gate(d.newSongs), recent = gate(readRecent()), vids = gate(d.featuredVideos);
   let h = `<div class="hero"><div class="eyebrow">Kosher music, by construction</div><h1>Only the music you trust.</h1><p>Every song here comes from a whitelisted artist's full catalog — searched, not filtered. Nothing outside it.</p><span class="heb">מוזיקה</span></div>` + (trend || "");
-  if (quick.length) h += section("Quick Picks", quickPicks(quick));
+  if (quick.length) h += section("Quick Picks", quickPicks(quick), null, { tracks: quick });
   h += railOf("Curated Playlists", ((zpl && zpl.playlists) || []).filter((p) => p.id !== "auto-trending" && p.id !== "auto-top-50"), zpCard); // Trending/Top 50 fold into the Trending Songs section
   h += railOf("Latest Releases", gate(d.latestReleases), albumCard);
-  if (newS.length) h += section("New Songs", songCards(newS));
-  if (recent.length) h += section("Keep Listening", songCards(recent.slice(0, 14)));
+  if (newS.length) h += section("New Songs", songCards(newS), null, { tracks: newS });
+  if (recent.length) h += section("Keep Listening", songCards(recent.slice(0, 14)), null, { tracks: recent.slice(0, 14) });
   h += railOf("Featured Playlists", gate(d.featuredPlaylists), playlistCard);
   h += railOf("Artists You'll Like", gate(d.featuredArtists), artistCard);
   h += railOf("Albums", gate(d.featuredAlbums), albumCard);
-  if (!blockVideos() && vids.length) h += section("Music Videos", songCards(vids));
+  if (!blockVideos() && vids.length) h += section("Music Videos", songCards(vids), null, { tracks: vids });
   v.innerHTML = h || emptyState("No content yet", "The catalog is still being built.");
   window.__appReady && window.__appReady();
 }
@@ -1525,9 +1537,9 @@ async function loadKid() {
   const d = home || {}, a = gate((arts && arts.artists) || []);
   const quick = gate(d.quickPicks), newS = gate(d.newSongs);
   let h = `<div class="hero" style="background:linear-gradient(120deg,#2a2410,var(--surface) 70%)"><div class="eyebrow" style="color:var(--gold)">Safe for little ears</div><h1>Kid Zone</h1><p>A hand-picked corner of the catalog — only Kid-Zone-approved artists and releases.</p><span class="heb">ילדים</span></div>`;
-  if (quick.length) h += section("Quick Picks", quickPicks(quick));
+  if (quick.length) h += section("Quick Picks", quickPicks(quick), null, { tracks: quick });
   h += railOf("Latest Releases", gate(d.latestReleases), albumCard);
-  if (newS.length) h += section("New Songs", songCards(newS));
+  if (newS.length) h += section("New Songs", songCards(newS), null, { tracks: newS });
   h += railOf("Albums", gate(d.featuredAlbums), albumCard);
   if (a.length) h += section(`Artists (${a.length})`, `<div class="grid">${a.map(artistCell).join("")}</div>`);
   v.innerHTML = (quick.length || a.length) ? h : (h + emptyState("No Kid Zone content yet", "Check back after the next harvest."));
@@ -1568,14 +1580,14 @@ async function loadForYou() {
   const recent = gate(readRecent()), liked = gate(readLiked());       // gate() = content + parental (allow/blocklist, kid-only) + Acapella
   const taste = tasteArtists([...liked, ...liked, ...recent]);         // likes weighted 2× over plays
   let h = hero + (trend || "");
-  if (recent.length) h += section("Jump back in", songCards(recent.slice(0, 14)));
+  if (recent.length) h += section("Jump back in", songCards(recent.slice(0, 14)), null, { tracks: recent.slice(0, 14) });
   const mix = taste.length ? gate(await songsFromArtists(taste, 14)) : [];
   const qp = gate(d.quickPicks);
-  if (mix.length >= 4) h += section(liked.length ? `Because you like ${esc(taste[0].name)}` : "Made for you", songCards(mix));
-  else if (qp.length) h += section("Made for you", quickPicks(qp));
+  if (mix.length >= 4) h += section(liked.length ? `Because you like ${esc(taste[0].name)}` : "Made for you", songCards(mix), null, { tracks: mix });
+  else if (qp.length) h += section("Made for you", quickPicks(qp), null, { tracks: qp });
   h += railOf("New for you", gate(d.latestReleases), albumCard);
   h += railOf(taste.length ? "Your artists" : "Artists to explore", gate(taste.length ? taste.slice(0, 16) : d.featuredArtists), artistCard);
-  const fresh = gate(d.newSongs); if (fresh.length) h += section("Fresh songs", songCards(fresh));
+  const fresh = gate(d.newSongs); if (fresh.length) h += section("Fresh songs", songCards(fresh), null, { tracks: fresh });
   v.innerHTML = (trend || mix.length || qp.length || recent.length || liked.length) ? h : hero + emptyState("Play a few songs", "For You fills in as you listen. Browse Home to get started.");
 }
 
@@ -1873,24 +1885,96 @@ function renderDetailView(v) {
 }
 function pushDetail(v, fromRoute) { renderDetailView(v); if (!fromRoute) pushURL(v.path); }
 function shufflePlay(qid) { const q = queues.get(qid); if (!q || !q.length) return; const s = q.slice(); for (let i = s.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[s[i], s[j]] = [s[j], s[i]]; } state.queue = s; playIndex(0); }
-function openQueue(title, qid, fromRoute) { const tracks = queues.get(qid); if (!tracks || !tracks.length) return; const v = { path: `/queue?qid=${qid}&title=${encodeURIComponent(title)}`, kind: "Queue", title, sub: `<b>${num(tracks.length)}</b> songs`, thumb: tracks[0] ? yt(tracks[0].videoId) : "", sections: [{ label: "Tracks", tracks }] }; renderDetailView(v); if (!fromRoute) pushURL(v.path); showDetail(); }
-async function openAlbumQueue(title, albums, fromRoute) {
-  if (!albums || !albums.length) return;
-  detailLoading("Queue");
+let sectionState = null;
+function sectionLoadingRows(n) { return `<div class="rows">${Array.from({ length: n || 8 }, () => `<div class="row"><div class="sk" style="width:46px;height:46px;border-radius:9px"></div><div class="text"><div class="sk" style="height:13px;width:45%;border-radius:5px"></div><div class="sk" style="height:11px;width:28%;border-radius:5px;margin-top:7px"></div></div></div>`).join("")}</div>`; }
+function renderSectionView(fromRoute) {
+  if (!sectionState) return;
+  secN = 0;
+  state.detailKind = "section";
+  el("tbTitle").textContent = sectionState.title; el("tbTitle").style.display = ""; el("tbSearch").style.display = "none";
+  const { title, qid, albums, tracks } = sectionState;
+  const hasAlbums = albums && albums.length;
+  const hasTracks = (tracks && tracks.length) || (qid && queues.get(qid)?.length);
+  const activeTab = sectionState.activeTab || (hasAlbums ? "albums" : "songs");
+  const cover = hasAlbums ? (albums[0].thumbnail || "") : (qid && queues.get(qid)?.[0] ? yt(queues.get(qid)[0].videoId) : "");
+  let sub = "";
+  if (hasAlbums) {
+    sub = `<b>${num(albums.length)}</b> albums`;
+    if (tracks && tracks.length) sub += ` · <b>${num(tracks.length)}</b> songs`;
+  } else if (hasTracks) {
+    const list = tracks || queues.get(qid);
+    sub = `<b>${num(list.length)}</b> songs`;
+  }
+  let h = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
+    <div class="detail-hero"><div class="cover">${artHTML(cover, NOTE, false)}</div>
+    <div class="dh-meta"><div class="dh-kind">Section</div><div class="dh-title">${esc(title)}</div><div class="dh-sub" id="secSub">${sub}</div></div></div>`;
+  h += `<div class="actions"><button class="btn-play" onclick="playSectionAll()">${ICON.play} Play All</button><button class="btn-ghost" onclick="playSectionAll(true)"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button></div>`;
+  if (hasAlbums) {
+    h += `<div class="sec-tabs"><button class="sec-tab ${activeTab === "albums" ? "active" : ""}" data-tab="albums" onclick="switchSectionTab('albums')">Albums</button><button class="sec-tab ${activeTab === "songs" ? "active" : ""}" data-tab="songs" onclick="switchSectionTab('songs')">Songs</button></div>`;
+    h += `<div class="sec-panel ${activeTab === "albums" ? "active" : ""}" data-tab="albums"><div class="rail">${albums.map(albumCard).join("")}</div></div>`;
+    h += `<div class="sec-panel ${activeTab === "songs" ? "active" : ""}" data-tab="songs"><div id="secSongsBody">${(tracks && tracks.length) ? songRows(tracks, { index: true }) : (activeTab === "songs" ? sectionLoadingRows(8) : '<div style="padding:18px 6px;color:var(--muted)">Tap the <b>Songs</b> tab to load tracks.</div>')}</div></div>`;
+  } else {
+    h += `<div id="secSongsBody">${(tracks && tracks.length) ? songRows(tracks, { index: true }) : ""}</div>`;
+  }
+  el("v-detail").innerHTML = h; showDetail();
+  if (activeTab === "songs" && hasAlbums && !(tracks && tracks.length)) loadSectionSongs();
+  if (!fromRoute) pushURL(sectionState.path);
+}
+async function loadSectionSongs() {
+  if (!sectionState || !sectionState.albums || !sectionState.albums.length) return;
+  const body = el("secSongsBody");
+  if (body.dataset.loaded === "1") return;
+  body.innerHTML = sectionLoadingRows(8);
   await ensureFilters();
-  const ids = typeof albums[0] === "string" ? albums : albums.map((a) => a.id);
+  const ids = sectionState.albums.map((a) => a.id);
   const results = await Promise.all(ids.map((id) => detailGet("/album?id=" + encodeURIComponent(id)).catch(() => null)));
-  const albumObjs = [], allTracks = [];
+  const allTracks = [];
   for (const d of results) {
     if (!d || d.error || hiddenArtist(d.album.artist)) continue;
-    albumObjs.push(d.album);
-    const tracks = gate(d.tracks || []).filter((t) => !(blockVideos() && t.isVideo));
-    allTracks.push(...tracks);
+    allTracks.push(...gate(d.tracks || []).filter((t) => !(blockVideos() && t.isVideo)));
   }
-  if (!allTracks.length) { el("v-detail").innerHTML = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>` + emptyState("No playable songs", "These albums are hidden by your filters or have no whitelisted tracks."); return; }
+  sectionState.tracks = allTracks;
+  sectionState.allQid = allTracks.length ? regQueue(allTracks) : null;
+  body.dataset.loaded = "1";
+  body.innerHTML = allTracks.length ? songRows(allTracks, { index: true }) : emptyState("No playable songs", "These albums are hidden by your filters or have no whitelisted tracks.");
+  const sub = el("secSub"); if (sub) sub.innerHTML = `<b>${num(sectionState.albums.length)}</b> albums · <b>${num(allTracks.length)}</b> songs`;
+}
+function switchSectionTab(tab) {
+  if (!sectionState) return;
+  sectionState.activeTab = tab;
+  for (const b of document.querySelectorAll(".sec-tab")) b.classList.toggle("active", b.dataset.tab === tab);
+  for (const p of document.querySelectorAll(".sec-panel")) p.classList.toggle("active", p.dataset.tab === tab);
+  if (tab === "songs") loadSectionSongs();
+}
+async function playSectionAll(shuffle) {
+  if (!sectionState) return;
+  if (sectionState.qid && !sectionState.albums?.length) {
+    const list = queues.get(sectionState.qid);
+    if (!list || !list.length) return;
+    if (shuffle) shufflePlay(sectionState.qid); else playFrom(sectionState.qid, 0);
+    return;
+  }
+  if (!sectionState.tracks?.length && sectionState.albums?.length) await loadSectionSongs();
+  const qid = sectionState.allQid || (sectionState.tracks?.length ? regQueue(sectionState.tracks) : null);
+  if (!qid) return;
+  if (shuffle) shufflePlay(qid); else playFrom(qid, 0);
+}
+function openQueue(title, qid, fromRoute) { const tracks = queues.get(qid); if (!tracks || !tracks.length) return; sectionState = { title, qid, tracks, albums: [], activeTab: "songs", path: `/queue?qid=${qid}&title=${encodeURIComponent(title)}` }; renderSectionView(fromRoute); }
+async function openAlbumQueue(title, albums, fromRoute, activeTab) {
+  if (!albums || !albums.length) return;
+  detailLoading("Section");
+  let albumObjs = albums;
+  if (typeof albums[0] === "string") {
+    await ensureFilters();
+    const results = await Promise.all(albums.map((id) => detailGet("/album?id=" + encodeURIComponent(id)).catch(() => null)));
+    albumObjs = results.filter((d) => d && !d.error && d.album && !hiddenArtist(d.album.artist)).map((d) => d.album);
+  }
+  if (!albumObjs.length) { el("v-detail").innerHTML = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>` + emptyState("No playable albums", "These albums are hidden by your filters."); return; }
   const idsParam = albumObjs.map((a) => a.id).join(",");
-  const v = { path: `/album-queue?title=${encodeURIComponent(title)}&ids=${idsParam}`, kind: "Queue", title, sub: `<b>${num(allTracks.length)}</b> songs · <b>${num(albumObjs.length)}</b> albums`, thumb: albumObjs[0]?.thumbnail || "", sections: [{ label: "Tracks", tracks: allTracks }, { label: "Albums", items: albumObjs, render: albumCard }] };
-  pushDetail(v, fromRoute);
+  activeTab = activeTab || "albums";
+  sectionState = { title, albums: albumObjs, tracks: [], activeTab, path: `/album-queue?title=${encodeURIComponent(title)}&ids=${idsParam}&tab=${activeTab}` };
+  renderSectionView(fromRoute);
+  if (activeTab === "songs") await loadSectionSongs();
 }
 function openSectionQueue(el) {
   const qid = el.getAttribute("data-qid");
