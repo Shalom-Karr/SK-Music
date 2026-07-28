@@ -264,6 +264,32 @@ pub fn open_update_window(app: &AppHandle) {
     }
 }
 
+/// Bridge the About page's Updates card. The main window is REMOTE content, so it can't invoke
+/// `updater_check` / `updater_version` (the default capability grants core events only) — it emits
+/// instead, and we answer:
+///   SPA -> Rust : `sk-check-updates {}` · `sk-app-version-request {}`
+///   Rust -> SPA : `sk-app-version { version }`
+/// The existing `updater://*` broadcasts and the update dialog narrate the check itself, so this is
+/// only the trigger + the installed-version readout. Deliberately no "restart to update" event —
+/// that button lives on the local dialog (which can invoke `updater_restart` directly), so a
+/// compromised remote page can't force a restart mid-playback.
+pub fn hook_spa_events(app: &AppHandle) {
+    use tauri::Listener;
+
+    let h = app.clone();
+    app.listen("sk-check-updates", move |_| {
+        open_update_window(&h); // the dialog narrates the check the next line kicks off
+        check_for_updates(&h, true);
+    });
+    let h = app.clone();
+    app.listen("sk-app-version-request", move |_| {
+        let _ = h.emit(
+            "sk-app-version",
+            json!({ "version": h.package_info().version.to_string() }),
+        );
+    });
+}
+
 /// Route tray menu items owned by this module. Returns `true` when handled so the
 /// tray module can early-return.
 pub fn handle_menu_event(app: &AppHandle, id: &str) -> bool {

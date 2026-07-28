@@ -95,6 +95,9 @@ fn main() {
         ))
         // Native "track changed" toasts while hidden (driven from media.rs).
         .plugin(tauri_plugin_notification::init())
+        // Opens off-site links in the OS browser. Rust-side only (deeplink::init_external_links) —
+        // registering the plugin grants the remote SPA nothing, since capabilities are explicit.
+        .plugin(tauri_plugin_opener::init())
         // Offline downloads: serve a downloaded song's local audio to the SPA's <audio> element.
         // Custom scheme so the remote-origin page can play it under its `media-src` CSP; supports
         // HTTP Range for scrubbing. All other download plumbing is event-driven (download::init).
@@ -129,7 +132,11 @@ fn main() {
             #[cfg(target_os = "windows")]
             jumplist::init();
             deeplink::init(handle)?;
+            // Off-site links from the SPA → the OS default browser.
+            deeplink::init_external_links(handle);
             updater::init(handle)?;
+            // The About page's Updates card talks to the updater over events (remote ACL).
+            updater::hook_spa_events(handle);
             // Offline downloads: event listeners + the single download worker (src/download.rs).
             download::init(handle)?;
             // Autostart launched us with "--minimized": come up hidden to the tray.
