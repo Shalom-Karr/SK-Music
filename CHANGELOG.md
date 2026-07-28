@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.1.1 — 2026-07-28 (desktop + web)
+
+Follow-up fixes on top of 1.1.0.
+
+**Desktop — mini player**
+- The mini player is now **display-aware**. On a **single monitor** it still pops up when the main
+  window loses focus (you switched to another app that covers it) — the classic behavior. On a
+  **multi-monitor** setup it no longer pops on focus loss (the main window is usually still visible on
+  another screen); there it surfaces only when you **minimize**. This fixes two multi-monitor annoyances:
+  **dragging** the window briefly flickered the mini, and **clicking another screen** popped it even
+  though the main window was fully visible. Minimize/restore is detected authoritatively (via the resize
+  event, since minimizing can report focus-loss before the minimized flag flips), and close-to-tray
+  still surfaces the mini explicitly. Monitor count is checked live, so plugging/unplugging a display
+  is picked up immediately.
+
+**Desktop / web — tray radio**
+- The tray's radio item now reads **"Start radio"** when nothing is playing (and **"Start radio from
+  this song"** once a track is active). Clicking it with nothing playing now starts a generic mix
+  instead of doing nothing. (Label updates live from the now-playing state.)
+
 ## 1.1.0 — 2026-07-28 (web + desktop)
 
 **Why the bump:** the first big *feature* release since 1.0 — playback UX, a real

@@ -41,6 +41,8 @@ struct TrayHandles {
     menu: Menu<Wry>,
     now_playing: MenuItem<Wry>,
     play_pause: MenuItem<Wry>,
+    /// "Start radio from this song" when something's playing, else "Start radio" (generic mix).
+    radio: MenuItem<Wry>,
     up_next: Submenu<Wry>,
     autostart: CheckMenuItem<Wry>,
     notify: CheckMenuItem<Wry>,
@@ -74,7 +76,8 @@ fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     let next_i = MenuItem::with_id(app, "next", "Next", true, None::<&str>)?;
     let prev_i = MenuItem::with_id(app, "previous", "Previous", true, None::<&str>)?;
     let like_i = MenuItem::with_id(app, "like", "Like this song", true, None::<&str>)?;
-    let radio_i = MenuItem::with_id(app, "radio", "Start radio from this song", true, None::<&str>)?;
+    // Starts as the no-track label (nothing plays at launch); set_now_playing swaps it live.
+    let radio_i = MenuItem::with_id(app, "radio", "Start radio", true, None::<&str>)?;
 
     let mini_i = MenuItem::with_id(app, "mini", "Mini player", true, None::<&str>)?;
     let show_i = MenuItem::with_id(app, "show", "Show SK Music", true, None::<&str>)?;
@@ -226,6 +229,7 @@ fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         menu,
         now_playing: now_playing_i,
         play_pause: play_pause_i,
+        radio: radio_i,
         up_next: up_next_i,
         autostart: autostart_i,
         notify: notify_i,
@@ -298,6 +302,8 @@ pub fn set_now_playing(title: Option<&str>, artist: Option<&str>, playing: bool)
     };
     let _ = h.now_playing.set_text(label.as_str());
     let _ = h.play_pause.set_text(if playing { "Pause" } else { "Play" });
+    // With a current track, radio seeds from it; with nothing playing, offer a generic mix instead.
+    let _ = h.radio.set_text(if title.is_some() { "Start radio from this song" } else { "Start radio" });
     apply_icon(&mut h, playing);
 }
 
@@ -533,8 +539,8 @@ fn hook_close_to_tray(app: &tauri::AppHandle) {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 let _ = win.hide();
-                // Hiding doesn't emit a Focused(false) the mini's focus hook could see — surface
-                // the mini explicitly so close-to-tray keeps a control on screen while playing.
+                // Hiding doesn't emit a Focused(false) the mini's hook could see — surface the mini
+                // explicitly so close-to-tray keeps a control on screen while playing.
                 crate::mini::auto_show(&handle);
             }
         });
