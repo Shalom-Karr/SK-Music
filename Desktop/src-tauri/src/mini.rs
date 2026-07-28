@@ -21,12 +21,58 @@ use tauri::{LogicalPosition, Manager, WebviewUrl, WebviewWindow, WebviewWindowBu
 pub const LABEL: &str = "mini";
 
 /// Expanded footprint (logical px) + screen-edge margin for the default placement.
-const MINI_W: f64 = 340.0;
-const MINI_H: f64 = 92.0;
+const MINI_W: f64 = 380.0;
+const MINI_H: f64 = 104.0;
 const MARGIN: f64 = 24.0;
+
+/// True while the mini is on screen because WE auto-showed it (main window unfocused during
+/// playback) rather than the user opening it — only auto-shown minis auto-hide again.
+static AUTO_SHOWN: AtomicBool = AtomicBool::new(false);
+
+/// Auto-show/hide the mini with the main window's focus (feature: "if the app is not in focus,
+/// show the mini player"). Hooked in `.setup()`. Focus loss also covers minimize + close-to-tray.
+pub fn init(app: &tauri::AppHandle) {
+    let Some(main) = app.get_webview_window("main") else { return };
+    let handle = app.clone();
+    main.on_window_event(move |event| {
+        if let tauri::WindowEvent::Focused(focused) = event {
+            if *focused {
+                auto_hide(&handle);
+            } else {
+                auto_show(&handle);
+            }
+        }
+    });
+}
+
+fn auto_show(app: &tauri::AppHandle) {
+    if !crate::settings::auto_mini() || !crate::media::is_playing() {
+        return;
+    }
+    if let Some(win) = app.get_webview_window(LABEL) {
+        if win.is_visible().unwrap_or(false) {
+            return; // already up (user-opened or a previous auto-show) — leave ownership as-is
+        }
+        let _ = win.show(); // no set_focus: the user just moved focus elsewhere on purpose
+        AUTO_SHOWN.store(true, Ordering::SeqCst);
+        return;
+    }
+    if create(app, false).is_ok() {
+        AUTO_SHOWN.store(true, Ordering::SeqCst);
+    }
+}
+
+fn auto_hide(app: &tauri::AppHandle) {
+    if AUTO_SHOWN.swap(false, Ordering::SeqCst) {
+        if let Some(win) = app.get_webview_window(LABEL) {
+            let _ = win.hide();
+        }
+    }
+}
 
 /// Show/hide the mini player, creating it on first use. Wired to the tray's "Mini player" item.
 pub fn toggle(app: &tauri::AppHandle) {
+    AUTO_SHOWN.store(false, Ordering::SeqCst); // an explicit toggle takes ownership either way
     if let Some(win) = app.get_webview_window(LABEL) {
         if win.is_visible().unwrap_or(false) {
             let _ = win.hide();
@@ -36,12 +82,12 @@ pub fn toggle(app: &tauri::AppHandle) {
         }
         return;
     }
-    if let Err(e) = create(app) {
+    if let Err(e) = create(app, true) {
         eprintln!("[mini] failed to create mini player: {e}");
     }
 }
 
-fn create(app: &tauri::AppHandle) -> tauri::Result<()> {
+fn create(app: &tauri::AppHandle, focused: bool) -> tauri::Result<()> {
     let win = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("mini.html".into()))
         .title("SK Music — Mini")
         .inner_size(MINI_W, MINI_H)
@@ -50,6 +96,7 @@ fn create(app: &tauri::AppHandle) -> tauri::Result<()> {
         .skip_taskbar(true)
         .resizable(false)
         .visible(true)
+        .focused(focused)
         .build()?;
 
     // Restore the last position; fall back to the primary monitor's bottom-right corner, then to a
@@ -141,9 +188,11 @@ pub fn mini_open_main(app: tauri::AppHandle) {
     }
 }
 
-/// Hide the mini player (the × button); reopened later via the tray.
+/// Hide the mini player (the × button); reopened later via the tray. An explicit hide also drops
+/// auto-shown ownership so the next main-window focus change starts from a clean slate.
 #[tauri::command]
 pub fn mini_hide(app: tauri::AppHandle) {
+    AUTO_SHOWN.store(false, Ordering::SeqCst);
     if let Some(win) = app.get_webview_window(LABEL) {
         let _ = win.hide();
     }

@@ -37,11 +37,14 @@ const MAIN_WINDOW: &str = "main";
 /// `run_on_main_thread`).
 struct TrayHandles {
     tray: TrayIcon<Wry>,
+    /// The whole tray menu — also popped up in-window by `show_app_menu` (right-click in the app).
+    menu: Menu<Wry>,
     now_playing: MenuItem<Wry>,
     play_pause: MenuItem<Wry>,
     up_next: Submenu<Wry>,
     autostart: CheckMenuItem<Wry>,
     notify: CheckMenuItem<Wry>,
+    auto_mini: CheckMenuItem<Wry>,
     /// App icon and its play-badged variant, built once. `None` if the app has no default icon.
     icon_idle: Option<Image<'static>>,
     icon_playing: Option<Image<'static>>,
@@ -97,6 +100,14 @@ fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         crate::settings::notify_on_track(),
         None::<&str>,
     )?;
+    let auto_mini_i = CheckMenuItem::with_id(
+        app,
+        "auto_mini_toggle",
+        "Mini player when unfocused",
+        true,
+        crate::settings::auto_mini(),
+        None::<&str>,
+    )?;
 
     let check_updates_i = MenuItem::with_id(
         app,
@@ -130,6 +141,7 @@ fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
             &sep4,
             &autostart_i,
             &notify_i,
+            &auto_mini_i,
             &sep5,
             &check_updates_i,
             &quit_i,
@@ -160,8 +172,16 @@ fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
                 "mini" => crate::mini::toggle(app),
                 "autostart_toggle" => toggle_autostart(app),
                 "notify_toggle" => toggle_notify(),
+                "auto_mini_toggle" => toggle_auto_mini(),
                 // The only real exit path: close-to-tray means the window's X never quits.
-                "quit" => app.exit(0),
+                // Destroy the webviews FIRST so WebView2 tears down its profile locks cleanly —
+                // a hard process exit leaves them lingering and a fast relaunch hangs on them.
+                "quit" => {
+                    for (_, win) in app.webview_windows() {
+                        let _ = win.destroy();
+                    }
+                    app.exit(0);
+                }
                 // "Up Next" entries: id is `upnext_<absoluteIndex>` -> jump the queue there.
                 other => {
                     if let Some(idx) = other.strip_prefix("upnext_") {
@@ -197,16 +217,41 @@ fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     let tray = builder.build(app)?;
     let _ = HANDLES.set(Mutex::new(TrayHandles {
         tray,
+        menu,
         now_playing: now_playing_i,
         play_pause: play_pause_i,
         up_next: up_next_i,
         autostart: autostart_i,
         notify: notify_i,
+        auto_mini: auto_mini_i,
         icon_idle,
         icon_playing,
         last_icon_playing: false,
     }));
     Ok(())
+}
+
+/// Right-click inside the main window pops the SAME menu as the tray (invoked by the SPA's
+/// contextmenu handler through the bridge). Popup position defaults to the cursor.
+#[tauri::command]
+pub fn show_app_menu(app: tauri::AppHandle) {
+    let Some(window) = app.get_webview_window(MAIN_WINDOW) else { return };
+    if let Some(lock) = HANDLES.get() {
+        if let Ok(h) = lock.lock() {
+            let _ = window.popup_menu(&h.menu);
+        }
+    }
+}
+
+/// Flip the persisted "Mini player when unfocused" setting and mirror it into the check item.
+fn toggle_auto_mini() {
+    let desired = !crate::settings::auto_mini();
+    crate::settings::set_auto_mini(desired);
+    if let Some(lock) = HANDLES.get() {
+        if let Ok(h) = lock.lock() {
+            let _ = h.auto_mini.set_checked(desired);
+        }
+    }
 }
 
 /// Reflect the current track in the tray: tooltip + the disabled header + the Play/Pause label + the

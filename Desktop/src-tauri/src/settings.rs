@@ -17,15 +17,23 @@ use std::sync::{Mutex, OnceLock};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
     /// Show a native toast when the track changes while the window is hidden.
     pub notify_on_track: bool,
+    /// Auto-show the mini player while music plays and the main window is unfocused/minimized.
+    pub auto_mini: bool,
     /// Last mini-player window position (logical pixels). `None` until it's moved once.
     /// (The collapsed/expanded flag lives in the mini page's localStorage, not here.)
     pub mini_x: Option<f64>,
     pub mini_y: Option<f64>,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self { notify_on_track: false, auto_mini: true, mini_x: None, mini_y: None }
+    }
 }
 
 struct State {
@@ -78,6 +86,14 @@ pub fn notify_on_track() -> bool {
 
 pub fn set_notify_on_track(value: bool) {
     update(|s| s.notify_on_track = value);
+}
+
+pub fn auto_mini() -> bool {
+    get().auto_mini
+}
+
+pub fn set_auto_mini(value: bool) {
+    update(|s| s.auto_mini = value);
 }
 
 pub fn mini_pos() -> Option<(f64, f64)> {

@@ -22,10 +22,13 @@ fn main() {
     // suspends occluded/hidden renderers, which freezes the YouTube-IFrame audio. These flags disable that
     // — they MUST be set before the webview is created.
     #[cfg(target_os = "windows")]
-    std::env::set_var(
-        "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
-        "--disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion",
-    );
+    {
+        let mut args = String::from("--disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion");
+        // Debug builds expose CDP so the webview (incl. the invoke bridge) can be inspected live.
+        #[cfg(debug_assertions)]
+        args.push_str(" --remote-debugging-port=9333");
+        std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", args);
+    }
 
     tauri::Builder::default()
         // single-instance MUST be registered BEFORE deep-link: a second launch
@@ -58,6 +61,7 @@ fn main() {
             mini::mini_sync,
             mini::mini_open_main,
             mini::mini_hide,
+            tray::show_app_menu,
         ])
         .setup(|app| {
             let handle = app.handle();
@@ -67,6 +71,8 @@ fn main() {
             media::init(handle)?;
             // Sleep/resume self-heal watcher (cross-platform, no Win32).
             media::watch_resume(handle);
+            // Auto-show/hide the mini player with the main window's focus.
+            mini::init(handle);
             deeplink::init(handle)?;
             updater::init(handle)?;
             // Autostart launched us with "--minimized": come up hidden to the tray.
