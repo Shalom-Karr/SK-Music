@@ -1885,11 +1885,35 @@ function loadPodcasts() {
 }
 
 /* ============================ CREDITS ============================ */
+// Desktop only: version + "Check for updates" right where people look for it (the tray menu has the
+// same item, but nobody finds it there first). Talks to Rust over events — see skCheckUpdates.
+function updatesCard() {
+  if (!SK_NATIVE) return "";
+  const btn = "background:linear-gradient(180deg,var(--primary-2),var(--primary));color:#fff;border:none;border-radius:10px;padding:10px 18px;font-weight:800;font-size:13.5px;cursor:pointer";
+  return `
+      <div class="credits-card">
+        <h3>Updates</h3>
+        <p>You're on <b id="skVer">SK Music Desktop</b>. Updates download in the background and install the next time you quit — or check right now.</p>
+        <button type="button" onclick="skCheckUpdates()" style="${btn};margin-top:10px">Check for updates</button>
+        <p style="color:var(--faint);font-size:13px;margin-top:10px">Also in the tray: right-click the SK Music icon next to your clock.</p>
+      </div>`;
+}
+// The installed version comes from Rust (sk-app-version, answered on boot) — repaint whenever the
+// About page is (re)rendered, since the answer can beat or trail the render either way.
+let skAppVer = "";
+function skPaintVersion() {
+  const n = el("skVer"); if (!n) return;
+  if (skAppVer) n.textContent = "SK Music Desktop v" + skAppVer;
+  else skEmit("sk-app-version-request", {}); // boot answer missed us — ask again; the listener repaints
+}
+// Rust opens the update dialog and narrates the check there (updater.rs::hook_spa_events).
+function skCheckUpdates() { skEmit("sk-check-updates", {}); showToast("Checking for updates…", 2200); }
 function loadCredits() {
   state.loaded.credits = true;
   el("v-credits").innerHTML = `
     <div class="credits-page">
       <div class="hero" style="background:linear-gradient(120deg,#241528,var(--surface) 70%);margin-bottom:16px"><div class="eyebrow">About</div><h1>SK Music</h1><p>A fast, kosher music web client — search and stream a whitelisted catalog of Jewish music, filtered by construction.</p></div>
+      ${updatesCard()}
       <div class="credits-card">
         <h3>Features</h3>
         <ul style="margin:6px 0 2px 18px;display:grid;gap:7px">
@@ -1952,6 +1976,7 @@ function loadCredits() {
         </a>
       </div>
     </div>`;
+  skPaintVersion();
 }
 
 /* ---- Redirector: in-app install page for the YouTube → SK Music browser add-on ---- */
@@ -3237,6 +3262,51 @@ if (SK_NATIVE) document.addEventListener("contextmenu", (e) => {
   e.preventDefault();
   try { window.__TAURI__.event.emit("sk-menu", {}); } catch {} // event, not invoke — remote-origin ACL
 });
+/* ---- Desktop shell: off-site links → the OS browser -------------------------------------------
+   In the app window a `target="_blank"` link opens nothing (a native window has no tabs) and a
+   same-window navigation would replace the whole SPA with GitHub — both look like "the link is
+   dead". So every link we don't want to keep in-app is handed to Rust (deeplink.rs
+   ::init_external_links), which opens it in the user's default browser.
+
+   Stays in-app: same-origin SPA routes (the router owns them), and — load-bearing — the Supabase /
+   Google OAuth redirect, which is a full-page navigation that has to come BACK to this origin with
+   the session in the hash (see acctOAuth); punting it to the browser would strand the login there.
+   Goes out: anything cross-origin, plus our own `target="_blank"` assets like /redirector.user.js,
+   which is only useful in the browser where Tampermonkey lives.
+
+   The auth host list is deliberately narrow: `accounts.google.com` is the consent screen, NOT
+   `chromewebstore.google.com` (the Tampermonkey link on /redirector), which belongs in the browser
+   like every other off-site link. */
+const SK_AUTH_HOST_RX = /(^|\.)supabase\.co$|^accounts\.google\.com$/i;
+function skStaysInApp(u, a) {
+  if (SK_AUTH_HOST_RX.test(u.hostname)) return true;        // OAuth round-trip must land back here
+  if (u.origin !== location.origin) return false;           // anything off-site → browser
+  return !(a && a.target === "_blank");                     // same-origin: only _blank goes out
+}
+function skOpenExternal(url) { skEmit("sk-open-external", { url: url }); }
+if (SK_NATIVE) {
+  document.addEventListener("click", (e) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = e.target && e.target.closest && e.target.closest("a[href]");
+    if (!a) return;
+    const href = a.getAttribute("href") || "";
+    if (!href || href.charAt(0) === "#") return;
+    let u; try { u = new URL(a.href, location.href); } catch (err) { return; }
+    if (!/^https?:$/.test(u.protocol) || skStaysInApp(u, a)) return;
+    e.preventDefault();
+    skOpenExternal(u.href);
+  }, true);
+  // window.open() is just as dead in the app window — route it the same way. It always means "a new
+  // window", so it's judged as if it were target="_blank" (same-origin included).
+  const _open = window.open;
+  window.open = function (url, name, features) {
+    try {
+      const u = new URL(url == null ? "" : String(url), location.href);
+      if (/^https?:$/.test(u.protocol) && !skStaysInApp(u, { target: "_blank" })) { skOpenExternal(u.href); return null; }
+    } catch (err) {}
+    return _open.call(window, url, name, features);
+  };
+}
 /* ============================ SK-OFFLINE: desktop offline downloads ============================
    DESKTOP ONLY (gated on SK_NATIVE). The remote SPA and Rust talk purely over core:event — remote
    origins can't invoke app commands (see media.rs / the default capability). Rust side lives in
@@ -3337,6 +3407,10 @@ if (SK_NATIVE) {
   ev.listen("sk-dl-progress", (e) => { const p = e.payload || {}; if (!p.videoId) return; const cur = skDL.map.get(p.videoId) || {}; skDL.map.set(p.videoId, { status: "downloading", received: p.received || 0, total: (p.total != null ? p.total : cur.total) || null }); const panel = el("skDlPanel"); if (panel && panel.classList.contains("on")) skRenderDownloads(); skUpdateNpButton(); });
   ev.listen("sk-dl-done", (e) => { const p = e.payload || {}; if (p.item) skDL.map.set(p.videoId, { status: "done", item: p.item }); skRenderDownloads(); skUpdateNpButton(); skPaintRows(); showToast("Saved for offline", 1600); });
   ev.listen("sk-dl-error", (e) => { const p = e.payload || {}; if (!p.videoId) return; const cur = skDL.map.get(p.videoId) || {}; skDL.map.set(p.videoId, { status: "error", item: cur.item, message: p.message || "Download failed" }); skRenderDownloads(); skUpdateNpButton(); showToast(p.message ? "Download failed — " + esc(p.message) : "Download failed", 4200); });
+  // Ask only once the listener is actually attached — ev.listen registers over IPC, so an immediate
+  // request would race Rust's reply and drop it. (skPaintVersion re-asks if it still lands empty.)
+  ev.listen("sk-app-version", (e) => { skAppVer = (e.payload && e.payload.version) || ""; skPaintVersion(); })
+    .then(() => skEmit("sk-app-version-request", {}));
   skEmit("sk-dl-list-request", {}); // load the existing library on boot
   try { const mo = new MutationObserver(() => { clearTimeout(skDL._t); skDL._t = setTimeout(skPaintRows, 140); }); mo.observe(document.body, { childList: true, subtree: true }); } catch (e) {}
 }
