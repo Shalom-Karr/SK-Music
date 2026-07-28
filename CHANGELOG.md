@@ -1,0 +1,106 @@
+# Changelog
+
+Version numbers track the **desktop app** (`Desktop/src-tauri`); the web app deploys continuously
+from `main`, so web changes are listed under the desktop release they shipped alongside. Desktop
+releases live at `desktop-v<version>` tags with signed installers; installed apps self-update from
+them via the `/updates` route.
+
+## desktop-v1.0.1 — 2026-07-28
+
+**Why the bump:** first post-1.0 patch — two playback reliability fixes reported within hours of
+1.0.0, plus a tray interaction change.
+
+- Tray **left-click** now surfaces the mini player *and* pops the full menu (double-click opens the
+  main app). Menu popups anchor on a visible window so a tray-hidden main window can't auto-dismiss
+  them.
+- Web: seeks are **verify-retried** — the YouTube iframe occasionally swallows a `seekTo`
+  (confirmed live: an identical seek landed once and was silently ignored seconds later), so the
+  handler confirms the position moved and re-issues up to twice.
+- Web: a skip that lands **paused** (YouTube's `loadVideoById` sometimes settles cued instead of
+  autoplaying) is nudged back into playback ~2 s later; intentional pauses cancel the nudge.
+
+## desktop-v1.0.0 — 2026-07-28
+
+**Why the bump:** the mini player and the platform around it reached "deserves a version number"
+quality — everything below (0.2.x) was the run-up. 1.0.0 itself simplified the mini player: the
+collapsed tiny-box mode was **removed** (it bred its own bug class), the progress bar became
+**click-to-seek** (slim visual, 14 px hit target), and the mini is fully **keyboard-drivable**
+(Space/K play-pause, ←→ or N/P skip, L like, O/Enter open app, Esc close).
+
+- Web (same push): the About page gained a real feature list.
+
+## desktop-v0.2.3 — 2026-07-28
+
+**Why the bump:** the release that made the desktop app actually *work* — the metadata bridge had
+been silently dead in every release build since 0.1.x.
+
+- **Release-mode bridge fix:** remote origins (the deployed SPA the window loads) cannot invoke
+  Tauri app commands — the ACL denies them silently, and dev builds masked it because `devUrl` made
+  the site the app's own origin. The webview now reports playback via **events**
+  (`sk-np-report`/`sk-state-report`/`sk-menu`), which the remote grant does allow; Rust listens and
+  routes into the same handlers. This is why the tray/mini said "Not playing" during playback.
+- **Taskbar jump list** (Windows): Play/Pause, Next, Previous, Like, Start radio, Mini player,
+  Check for updates — tasks relaunch the exe with `--control=<action>`, forwarded by
+  single-instance to the running app.
+- Close-to-tray explicitly auto-shows the mini (hiding a window emits no focus event).
+- Tiny-box play/expand buttons fixed (an `::after` overlay swallowed their clicks).
+- **Crisp icons**: the full icon set regenerated from the vector logo at 1024 px; the tray
+  Lanczos-downscales its own 32 px icon instead of letting Windows crush the full-size one.
+- Web (same day): empty-queue Play resumes the last listen (≤ 20 min) or starts the trending mix;
+  right-click in the desktop app pops the tray menu.
+
+## desktop-v0.2.2 — 2026-07-28
+
+**Why the bump:** the mini player rework + the fix for it loading the wrong content entirely.
+
+- **Mini player fixed and redesigned.** In 0.2.1 the mini window could load the *full web app*
+  instead of `mini.html` (`devUrl` hijacked local-asset resolution; the asset protocol's
+  `index.html` fallback then bootstrapped the remote site — also why it couldn't be dragged).
+  `devUrl` removed; the bootstrap refuses to hand off any window that isn't `main`. New layout:
+  art flush-left, one-line title + artist, like/transport/elapsed-of-total, drag anywhere,
+  double-click opens the app.
+- **Auto-show:** while music plays, unfocusing or minimizing the main window shows the mini
+  (without stealing focus); focusing it again hides an auto-shown mini. Tray toggle, default on.
+- Updater re-checks **daily**, not just at startup.
+- Quit destroys all webviews before exiting so WebView2 releases its profile locks (the
+  freeze-on-fast-relaunch fix).
+- Web (same day): the desktop bridge contract (queue for Up Next, `like`/`radio`/`playindex`/
+  `resumecheck` actions with post-sleep self-heal).
+
+## desktop-v0.2.1 — 2026-07-28
+
+**Why the bump:** "Check for updates" got a face — a status dialog showing the installed version
+and narrating the check live (spinner, up-to-date, downloading with progress + release notes,
+restart-to-update button) instead of a silent background check.
+
+## desktop-v0.2.0 — 2026-07-28
+
+**Why the bump:** the desktop app went from "shell" to "desktop citizen" — seven features in one
+agent-built batch: the first mini player, Start with Windows (launches hidden to tray), tray
+Like/Start-radio items, a tray icon that shows playback state, the Up Next tray submenu, optional
+track-change toasts, and sleep/resume self-heal (wall-clock vs monotonic drift detection →
+`resumecheck` into the webview).
+
+- Web (same day, the run-up): **gapless playback** (double-buffer prime, ~200 ms handoffs),
+  **Zemer Radio** everywhere (song/artist/album/playlist stations, Radio mode, queue-end Autoplay
+  with prefetch), **real release dates** from the upstream feed, For You cold start from the
+  telemetry top-50, artist-page A–Z strip + downsized thumbnails, kind back-button behavior,
+  youtube-nocookie embeds (clean console).
+
+## desktop-v0.1.2 — 2026-07-13
+
+Analytics-era maintenance release of the original shell (pre-dates this changelog's detail level).
+
+## desktop-v0.1.1 — 2026-07-13
+
+Early shell fixes (pre-dates this changelog's detail level).
+
+## desktop-v0.1.0 — 2026-07-12
+
+First desktop release: the Tauri 2 shell around the deployed web app — system tray with
+close-to-tray background play, OS media keys / SMTC, `skmusic://` deep links, signed auto-updater.
+
+## v1.0.0 (web) — 2026-07-09
+
+The original web release: whitelisted catalog, client-side Hebrew-aware search, YouTube-iframe
+playback, content filters + parental controls, Kid Zone, charts, PWA.
