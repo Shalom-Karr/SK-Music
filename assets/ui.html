@@ -2730,13 +2730,13 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   refreshStat(); setInterval(() => { if (document.visibilityState !== "hidden") refreshStat(); }, 30000); // the corpus stat is near-static; poll slowly and pause on hidden tabs (battery/requests)
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refreshStat(); });
   // Route from the URL: a shared /artists/:id (etc.) opens directly, with Home seeded underneath so Back works.
-  const path = location.pathname;
+  const path = location.pathname, qs = location.search; // capture BOTH before any replaceState — it wipes the query string (?t=21 share timestamps)
   // /trending in a browser = the public charts page, but SPA-mode navigations short-circuit to this shell
   // before the Worker can content-negotiate — so hand the visit to the real page (an asset at /charts).
   if (path === "/trending") { location.replace("/charts" + location.search); return; }
   if (path === "/search") { applyRoute(location.href); } // honour ?query= / ?filter= on first load (a tab path, but query-driven)
   else if (path === "/" || PATH_TAB[path]) { go(PATH_TAB[path] || "home", true); }
-  else { history.replaceState({}, "", "/"); go("home", true); history.pushState({}, "", path + location.search); applyRoute(location.href); }
+  else { history.replaceState({}, "", "/"); go("home", true); history.pushState({}, "", path + qs); applyRoute(location.href); }
   track("load"); // first pageview
   setTimeout(function(){ window.__appReady && window.__appReady(); }, 4500); // safety: never let the splash stick
   // Warm the search/detail dataset in the background so the first artist/song click is instant.
