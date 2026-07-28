@@ -1,11 +1,10 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "SK Music",
-  "version": "0.1.2",
+  "version": "0.2.2",
   "identifier": "dev.shalomkarr.skmusic",
   "build": {
-    "frontendDist": "./frontend",
-    "devUrl": "https://skmusic.shalomkarr.workers.dev"
+    "frontendDist": "./frontend"
   },
   "app": {
     "windows": [

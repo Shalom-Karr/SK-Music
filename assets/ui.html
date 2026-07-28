@@ -400,6 +400,18 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .gcell .art{transition:transform .18s var(--ease)}
 .gcell .n{font-size:14px;font-weight:600;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 
+/* A–Z fast-scroll strip (Artists tab) — fixed to the content column's right edge; hidden with the tab
+   since position:fixed still hides inside the display:none view. */
+.azstrip{position:fixed;top:50%;transform:translateY(-50%);right:calc((100vw - min(100vw,1500px))/2 + 4px);z-index:29;
+  display:flex;flex-direction:column;align-items:center;padding:7px 2px;border-radius:13px;
+  background:rgba(14,10,11,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid var(--line);
+  user-select:none;-webkit-user-select:none;touch-action:none}
+.azstrip b{font-size:10px;font-weight:700;line-height:1.4;padding:0 6px;color:var(--muted);cursor:pointer}
+.azstrip b:hover{color:var(--text)}
+.azstrip b.off{opacity:.28;cursor:default;pointer-events:none}
+.azstrip b.hot{color:var(--primary)}
+@media (max-height:560px){.azstrip{display:none!important}}
+
 /* ============================ Chips / toggles ============================ */
 .chips{display:flex;gap:9px;flex-wrap:wrap;margin:2px 4px 16px}
 .chip{height:36px;padding:0 16px;border-radius:18px;border:1px solid var(--line);background:var(--surface-2);
@@ -529,12 +541,14 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .np-head .lbl{flex:1;text-align:center;font-size:11.5px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
 .np-head .iconbtn{width:44px;height:44px;color:var(--text)}
 .np-body{flex:1;display:grid;gap:18px;padding:6px 26px 26px;min-height:0;overflow:hidden;
-  grid-template-columns:1fr;grid-template-rows:minmax(0,1fr);max-width:560px;margin:0 auto;width:100%}
+  grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);max-width:560px;margin:0 auto;width:100%}
 .np-main{display:flex;flex-direction:column;justify-content:center;min-height:0;overflow:hidden}
 .np-art{width:min(74vw,44vh,440px);aspect-ratio:1;margin:0 auto 20px;border-radius:20px;box-shadow:0 40px 90px -20px rgba(0,0,0,.8);flex:0 0 auto}
 .np-info{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:8px}
 .np-title{font-family:Fraunces,serif;font-weight:600;font-size:clamp(24px,3.4vw,34px);line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .np-artist{color:var(--muted);font-size:15px;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#npArtist:not(:empty){cursor:pointer}
+#npArtist:not(:empty):hover{color:var(--text);text-decoration:underline;text-underline-offset:3px}
 .np-seek{margin:20px 0 6px}
 .np-times{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:9px}
 .np-controls{display:flex;align-items:center;justify-content:center;gap:22px;margin-top:14px}
@@ -549,8 +563,15 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .nb-controls .skip{width:36px;height:36px;color:var(--muted)}
 .nb-controls .skip:hover{color:var(--text)}
 .nb-controls .skip svg{width:21px;height:21px}
-.np-upnext{display:none;min-height:0;overflow:hidden;flex-direction:column}
-.np-upnext h4{font-family:Fraunces,serif;font-size:17px;margin:0 0 10px;flex:0 0 auto}
+.np-upnext{display:flex;min-height:0;overflow:hidden;flex-direction:column}
+.np-upnext h4{font-family:Fraunces,serif;font-size:17px;margin:0 0 10px;flex:0 0 auto;display:flex;align-items:center}
+.np-clear{margin-left:8px;padding:6px 12px;border-radius:12px;border:none;background:var(--surface-4);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.np-clear:hover{background:var(--surface-3)}
+.np-auto{margin-left:auto;display:inline-flex;align-items:center;gap:7px;font-family:"Hanken Grotesk",system-ui,sans-serif;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
+.np-auto input{appearance:none;-webkit-appearance:none;width:30px;height:17px;border-radius:9px;background:var(--surface-4);position:relative;cursor:pointer;transition:background .16s;margin:0}
+.np-auto input:checked{background:var(--primary)}
+.np-auto input::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:left .16s}
+.np-auto input:checked::after{left:15px}
 .np-upnext .rows{overflow-y:auto;min-height:0;padding-right:6px}
 
 /* ============================ Mobile tab bar ============================ */
@@ -579,7 +600,6 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
   #nowbar.on{display:flex}
   #now .np-body{max-width:1120px;grid-template-columns:1.05fr .95fr;grid-template-rows:minmax(0,1fr);align-items:stretch;gap:48px;padding:16px 44px 30px}
   #now .np-main{justify-content:center}
-  #now .np-upnext{display:flex}
   #now .np-art{width:auto;height:min(46vh,30vw,430px);margin:0 auto 20px}
 }
 @media(max-width:899px){
@@ -613,6 +633,19 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
   .dh-title{font-size:clamp(26px,8vw,40px)}
   .actions{justify-content:center}
   .hero{padding:22px 20px}
+  #now .np-body{display:flex;flex-direction:column;max-width:none;padding:10px 18px calc(14px + env(safe-area-inset-bottom,0px));gap:12px}
+  #now .np-main{justify-content:flex-start;flex:none;min-height:0;padding-top:4px}
+  #now .np-upnext{flex:1;min-height:0;display:flex}
+  #now .np-art{width:min(54vw,28vh,230px);margin-bottom:12px}
+  #now .np-title{font-size:clamp(22px,5.5vw,30px)}
+  #now .np-artist{font-size:14px}
+  #now .np-seek{margin:14px 0 4px}
+  #now .np-times{margin-top:6px}
+  #now .np-controls{gap:16px;margin-top:10px}
+  #now .np-controls .big{width:64px;height:64px}
+  #now .np-controls .iconbtn{width:48px;height:48px}
+  #now .np-controls .big svg{width:30px;height:30px}
+  #now .np-controls .iconbtn svg{width:26px;height:26px}
 }
 @media(hover:none){.card .play-fab{display:none}.row .rowbtn,.row .heart{opacity:1}}
 /* ============================ boot splash ============================ */
@@ -900,7 +933,7 @@ fill="url(#royal)" stroke="none">
     <div class="np-main">
       <div class="art np-art"><img id="npArt" alt=""><div class="ph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg></div></div>
       <div class="np-info">
-        <div style="min-width:0"><div class="np-title" id="npTitle"></div><div class="np-artist" id="npArtist"></div></div>
+        <div style="min-width:0"><div class="np-title" id="npTitle"></div><div class="np-artist" id="npArtist" role="button" tabindex="0" aria-label="Go to artist" onclick="npOpenArtist()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"></div></div>
         <button class="iconbtn heart" id="npLike" onclick="toggleLikeCurrent()" title="Like" aria-label="Like" aria-pressed="false" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg></button>
         <button class="iconbtn" id="npShare" onclick="openShare(event)" title="Share" aria-label="Share" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0 0 6c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92z"/></svg></button>
       </div>
@@ -915,11 +948,11 @@ fill="url(#royal)" stroke="none">
         <button class="iconbtn skip rpt" onclick="toggleRepeat()" title="Repeat this song" aria-label="Repeat this song" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg></button>
       </div>
     </div>
-    <div class="np-upnext"><h4>Up Next</h4><div class="rows" id="npQueue"></div></div>
+    <div class="np-upnext"><h4>Up Next<label class="np-auto" title="Keep playing similar songs when the queue ends"><input type="checkbox" id="npAuto" onchange="setRadioAutoplay(this.checked)"><span>Autoplay</span></label><button class="np-clear" onclick="clearQueue()" title="Clear the upcoming queue">Clear Queue</button></h4><div class="rows" id="npQueue"></div></div>
   </div>
 </div>
 
-<div id="ytwrap" aria-hidden="true"><div id="ytplayer"></div></div>
+<div id="ytwrap" aria-hidden="true"><div id="ytplayer"></div><div id="ytplayer2"></div></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <audio id="audio" preload="metadata"></audio>
 
@@ -1017,6 +1050,7 @@ const ICON = {
   home: '<svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>',
   search: '<svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14"/></svg>',
   artist: '<svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8m0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4"/></svg>',
+  radio: '<svg viewBox="0 0 24 24"><path d="M3.24 6.15A2 2 0 0 0 2 8v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H8.3l8.26-3.34L15.88.9zM7 20a3 3 0 1 1 0-6 3 3 0 0 1 0 6m13-8h-2v-2h-2v2H4V8h16z"/></svg>',
   kid: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20M8.5 9a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3m7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3M12 17.5c-2.3 0-4.3-1.2-5.4-3h10.8c-1.1 1.8-3.1 3-5.4 3"/></svg>',
   library: '<svg viewBox="0 0 24 24"><path d="M4 6H2v14a2 2 0 0 0 2 2h14v-2H4zm16-4H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2m-9 12V6l7 4z"/></svg>',
   foryou: '<svg viewBox="0 0 24 24"><path d="m12 2 2.5 5.8L20.5 8l-4.4 4.2L17.3 18 12 15l-5.3 3 1.2-5.8L3.5 8l6-.2z"/></svg>',
@@ -1025,6 +1059,7 @@ const ICON = {
   play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
   pause: '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>',
   heart: '<svg viewBox="0 0 24 24"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg>',
+  share: '<svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0 0 6c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92z"/></svg>',
 };
 const EQ = '<span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>';
 const TABS = [
@@ -1240,7 +1275,10 @@ const scrollTop = () => { el("content").scrollTo ? window.scrollTo(0, 0) : 0; do
 /* ---- deep-linkable URL routing (shareable /artists/:id, /albums/:id, /playlists/:id, /songs/:id) ---- */
 const TAB_PATH = { home: "/", foryou: "/foryou", search: "/search", artists: "/artists", playlists: "/playlists", podcasts: "/podcasts", kidzone: "/kidzone", library: "/library", credits: "/about", redirector: "/redirector", download: "/download" };
 const PATH_TAB = Object.fromEntries(Object.entries(TAB_PATH).map(([k, v]) => [v, k]));
-function pushURL(path, replace) { try { if (location.pathname + location.search !== path) { history[replace ? "replaceState" : "pushState"]({}, "", path); track("nav"); } } catch {} }
+// Each pushed entry carries its in-app depth (d) so detailBack() can tell "there's an in-app page
+// behind us" (history.back is safe) from "this is the boot entry" (back would LEAVE the site — a
+// deep-linked artist/album must fall back to its natural tab instead). replaceState keeps the depth.
+function pushURL(path, replace) { try { if (location.pathname + location.search !== path) { const d = replace ? ((history.state && history.state.d) || 0) : ((history.state && history.state.d) || 0) + 1; history[replace ? "replaceState" : "pushState"]({ d }, "", path); track("nav"); } } catch {} }
 function applyRoute(url) {
   const u = new URL(url, location.origin), p = u.pathname; let m;
   if (state.nowOpen) closeNow();
@@ -1295,7 +1333,15 @@ async function refreshStat() {
 /* ============================ render helpers ============================ */
 const queues = new Map(); let qSeq = 0;
 function regQueue(tracks) { const id = "q" + (++qSeq); queues.set(id, tracks); return id; }
-const artHTML = (src, ph, round) => `<div class="art${round ? " round" : ""}"><img loading="lazy" alt="" src="${src || ""}" onerror="this.classList.add('hide')"${src ? "" : ' class="hide"'}><div class="ph" aria-hidden="true">${ph || NOTE}</div></div>`;
+// Google-image-CDN thumbnails (yt3/lh3 googleusercontent/ggpht) accept size params after the last "=".
+// The corpus ships full-size URLs (=w2880-h1200 banners ≈ 290 KB) — rewrite to a square center-crop
+// (=s320-c ≈ 25 KB) sized for the card/cell it renders in. Non-Google hosts pass through untouched.
+function sizedArt(src, px) {
+  if (!src || !/^https:\/\/(yt3|lh[0-9]?)\.(googleusercontent|ggpht)\.com\//.test(src)) return src;
+  const cut = src.lastIndexOf("=");
+  return (cut > src.lastIndexOf("/") ? src.slice(0, cut) : src) + `=s${px || 320}-c-k-c0x00ffffff-no-rj`;
+}
+const artHTML = (src, ph, round, px) => `<div class="art${round ? " round" : ""}"><img loading="lazy" alt="" src="${sizedArt(src, px) || ""}" onerror="this.classList.add('hide')"${src ? "" : ' class="hide"'}><div class="ph" aria-hidden="true">${ph || NOTE}</div></div>`;
 
 /* ============================ likes ============================ */
 let _liked = null;
@@ -1331,6 +1377,22 @@ function shareSong(withTime) {
   if (navigator.share) navigator.share({ title, url }).catch(() => {});
   else navigator.clipboard.writeText(url).then(() => showToast(`Link copied${sec > 1 ? ` — starts at ${fmt(sec)}` : ""}`, 2600)).catch(() => showToast("Couldn't copy the link", 2600));
 }
+function shareDetail() {
+  if (!state.detailPath) return;
+  const url = location.origin + state.detailPath;
+  const title = (state.detailTitle || "SK Music") + " · SK Music";
+  if (navigator.share) navigator.share({ title, url }).catch(() => {});
+  else navigator.clipboard.writeText(url).then(() => showToast("Link copied", 2600)).catch(() => showToast("Couldn't copy the link", 2600));
+}
+// Now-playing artist → artist page. Tracks carry only the artist NAME, so resolve the id through the
+// catalog map; multi-artist strings ("A & B", "A feat. B") fall back to the first name.
+async function npOpenArtist() {
+  const t = state.queue[state.qi]; if (!t || !t.artist) return;
+  const map = await artistByName();
+  const a = map.get(t.artist.toLowerCase()) || map.get(t.artist.split(/,|&|·|\sfeat\.?\s|\sft\.?\s/i)[0].trim().toLowerCase());
+  if (!a) return showToast("No artist page for " + t.artist, 2600);
+  closeNow(); openArtist(a.id);
+}
 function refreshLikeUI(id) {
   const on = isLiked(id);
   try { document.querySelectorAll(`[data-like="${CSS.escape(id)}"]`).forEach((b) => { b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); b.setAttribute("aria-label", on ? "Unlike" : "Like"); }); } catch {}
@@ -1359,7 +1421,7 @@ function songCard(t, qid, i) {
 }
 function songCards(tracks) { const qid = regQueue(tracks); return `<div class="rail">${tracks.map((t, i) => songCard(t, qid, i)).join("")}</div>`; }
 function quickPicks(tracks) { const qid = regQueue(tracks); return `<div class="qpgrid">${tracks.map((t, i) => songRow(t, qid, i)).join("")}</div>`; }
-const albumCard = (a) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openAlbum('${a.id}')" onmouseenter="pf('album','${a.id}')">${artHTML(a.thumbnail)}<div class="t">${esc(a.title)}</div><div class="s">${esc(a.artist || "")}${a.year ? " · " + a.year : ""}</div></div>`;
+const albumCard = (a) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openAlbumFromCard(this)" data-id="${a.id}" data-playlist-id="${a.playlistId || ""}" data-title="${esc(a.title || "")}" data-artist="${esc(a.artist || "")}" data-year="${a.year || ""}" data-thumb="${a.thumbnail || ""}" onmouseenter="pf('album','${a.id}')">${artHTML(a.thumbnail)}<div class="t">${esc(a.title)}</div><div class="s">${esc(a.artist || "")}${a.year ? " · " + a.year : ""}</div></div>`;
 const playlistCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openPlaylist('${p.id}')">${artHTML(p.thumbnail)}<div class="t">${esc(p.title)}</div><div class="s">${esc(p.artist || "Playlist")}</div></div>`;
 // Curated playlist card — SVG cover; click → the curated detail (albums + songs).
 const zpCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openCuratedPlaylist('${p.id}')">${artHTML(p.thumbnail)}<div class="t">${esc(p.title)}</div><div class="s">${num(p.trackCount || 0)} songs</div></div>`;
@@ -1387,12 +1449,13 @@ function section(title, body, more, meta) {
 
 // Trending rails from real play analytics (top played songs + artists over N days). Aggregates come from the
 // Worker /trending route (Supabase-backed, edge-cached). Empty string until there's data → collapses cleanly.
-let _artistByName = null, _artistList = null;
+let _artistByName = null, _artistById = null, _artistList = null;
 async function artistByName() {
   if (_artistByName) return _artistByName;
   const d = await getJSON("/artists"); // full catalog incl. gender flags (no filter param)
   _artistList = (d && d.artists) || []; // keep the raw list too so the Artists page reuses it (no 2nd fetch)
   _artistByName = new Map(_artistList.map((a) => [(a.name || "").toLowerCase(), a]));
+  _artistById = new Map(_artistList.map((a) => [a.id, a])); // /trending artists arrive id-keyed
   return _artistByName;
 }
 // Content-filter safety net: is this artist hidden by the current filters? (kol isha / chasidish)
@@ -1423,7 +1486,12 @@ let blockGlobal = new Set(), blockFemale = new Set(), _blLoad = null;
 // caught, which the artist-level isFemale flag misses.
 function loadBlockedIds() { return _blLoad || (_blLoad = fetch("/data/blocked-ids.json").then((r) => (r.ok ? r.json() : null)).then((d) => { if (d) { blockGlobal = new Set(d.global || []); blockFemale = new Set(d.female || []); } }).catch(() => { _blLoad = null; })); }
 const blockedId = (id) => !!id && (blockGlobal.has(id) || (noFemale() && blockFemale.has(id)));
-const songOK = (t) => { if (!t) return false; if (blockedId(t.videoId)) return false; const m = acapellaMode(); if (!m) return true; if (!acapellaSet) return false; const inSet = acapellaSet.has(t.videoId); return m === "only" ? inSet : !inSet; }; // per-id block + Acapella (only → in the playlist; hide → not in it)
+// Acapella = curated-playlist membership OR the title says so ("Acapella", "ווקאלי", "vocal version").
+// The app-blended trending surfaces vocal tracks the playlist doesn't know (off-catalog uploads,
+// alternate-id versions) — both Hide and Only must still classify those correctly.
+const AC_TITLE_RX = /a\s?-?c+a?p+el+l?a|ווקאלי|אקפלה|\bvocal (version|set|cover)\b|\(vocal\)/i; // acapella/accapella/acappella/a cappella/a-capella + Hebrew + vocal-version forms
+const acapellaTrack = (t) => !!(acapellaSet && acapellaSet.has(t.videoId)) || !!(t.title && AC_TITLE_RX.test(t.title));
+const songOK = (t) => { if (!t) return false; if (blockedId(t.videoId)) return false; const m = acapellaMode(); if (!m) return true; if (!acapellaSet) return false; return m === "only" ? acapellaTrack(t) : !acapellaTrack(t); }; // per-id block + Acapella (only → Acapella tracks; hide → everything else)
 const acArtistOK = (name) => { const m = acapellaMode(); if (!m) return true; const n = (name || "").toLowerCase(); if (m === "only") return acapellaArtists && acapellaArtists.has(n); const a = _artistByName && _artistByName.get(n); return !(a && a.isAcapellaOnly); }; // hide → drop artists whose whole catalog is Acapella
 // gate(): parental (hiddenArtist) always; in Acapella mode, songs must be in the playlist and artists/albums/playlists
 // must belong to an artist who has an Acapella song.
@@ -1431,23 +1499,31 @@ const gate = (list) => Array.isArray(list) ? list.filter((x) => x && !hiddenArti
 // Load the artist-flag map AND the parental profile before any content/parental gate runs — else the gate
 // silently no-ops (hiddenArtist returns false when _artistByName is null, and parental rules aren't loaded).
 async function ensureFilters() { await Promise.all([artistByName(), loadBlockedIds()]); if (acapella()) await loadAcapella(); if (loggedIn() && !acct.profile) await onLogin(); }
-// One Trending Songs + one Trending Artists, merging TWO sources: SK Music's own play analytics (/trending,
-// play-ranked → listed first) and the upstream index trending playlists (auto-trending + Top 50; the acapella
-// top-50 in Acapella mode). Deduped by videoId/name and gated by the content filters.
+// One Trending Songs + one Trending Artists, merging THREE sources: SK Music's own web plays and the
+// Zemer app's listening stats — pre-blended and id-resolved by the Worker /trending (score-ranked →
+// listed first) — plus the upstream index trending playlists (auto-trending + Top 50; the acapella
+// top-50 in Acapella mode). Deduped by videoId/artistId and gated by the content filters.
 async function trendingSections() {
-  const t = await fetch("/trending?days=30").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const t = await fetch("/trending?days=30&b=" + Math.floor(Date.now() / 600000)).then((r) => (r.ok ? r.json() : null)).catch(() => null); // &b= 10-min bucket busts filter-proxy caches so the app-blended ranking actually reaches clients
+
   await artistByName(); await loadBlockedIds(); if (acapella()) await loadAcapella(); // flags + block-ids + Acapella set so trending honours the filters
   // /zp-live is a Worker route that proxies the upstream index + edge-caches (~6h) — so the twice-daily-updated
   // trending stays fresh, same-origin (works behind content filters), without re-baking.
   const zIds = acapellaMode() === "only" ? ["auto-acapella-top-50"] : ["auto-trending", "auto-top-50"];
   const zLists = await Promise.all(zIds.map((id) => fetch("/zp-live?id=" + id).then((r) => (r.ok ? r.json() : null)).then((d) => (d && d.tracks) || []).catch(() => [])));
-  const skSongs = ((t && t.songs) || []).map((s) => ({ videoId: s.videoId || s.video_id, title: s.title, artist: s.artist })); // /trending may return snake_case video_id
+  // Rails order by TOTAL listens (web + app) desc, left to right — the raw-popularity view; the
+  // API's blended reach score only decides which items make the list.
+  const byTotal = (a, b) => ((b.plays || 0) + (b.appPlays || 0)) - ((a.plays || 0) + (a.appPlays || 0));
+  const skSongs = ((t && t.songs) || []).slice().sort(byTotal).map((s) => ({ videoId: s.videoId || s.video_id, title: s.title, artist: s.artist })); // /trending may return snake_case video_id
   const zSongs = zLists.flat().map((s) => ({ videoId: s.videoId || s.video_id, title: s.title, artist: s.artist }));
   const seen = new Set(), songs = [];
   for (const s of [...skSongs, ...zSongs]) { if (!s.videoId || seen.has(s.videoId) || hiddenArtist(s.artist) || !songOK(s)) continue; seen.add(s.videoId); songs.push(s); }
-  const aSeen = new Set(), names = [];
-  for (const n of [...((t && t.artists) || []).map((a) => a.artist), ...songs.map((s) => s.artist)]) { const k = (n || "").toLowerCase(); if (!k || aSeen.has(k) || hiddenArtist(n) || !acArtistOK(n)) continue; aSeen.add(k); names.push(n); }
-  const artCards = names.map((n) => _artistByName.get((n || "").toLowerCase())).filter(Boolean);
+  // Artist cards: /trending artists carry catalog ids → direct _artistById hits in blended-score order
+  // (name lookup only as fallback for unresolved/legacy rows); songs' artists pad out the rail after.
+  const aSeen = new Set(), artCards = [];
+  const pushCard = (a) => { if (!a || aSeen.has(a.id) || hiddenArtist(a.name) || !acArtistOK(a.name)) return; aSeen.add(a.id); artCards.push(a); };
+  for (const x of ((t && t.artists) || []).slice().sort(byTotal)) pushCard((x.id && _artistById.get(x.id)) || _artistByName.get((x.artist || "").toLowerCase()));
+  for (const s of songs) pushCard(_artistByName.get((s.artist || "").toLowerCase()));
   if (!songs.length && !artCards.length) return "";
   let h = "";
   const tSongs = songs.slice(0, 24);
@@ -1460,7 +1536,33 @@ const railOf = (title, items, render) => {
   const meta = render === albumCard ? { albums: items } : null;
   return section(title, `<div class="rail${render === artistCard ? " round" : ""}">${items.map(render).join("")}</div>`, null, meta);
 };
+// Zemer app fleet rows — upstream /home-rows (Top Albums/Videos/Artists ranked by 30-day device
+// reach across the Zemer app), proxied same-origin by the Worker and refreshed twice daily via the
+// cron. Rendered at the BOTTOM of Home and For You; every row passes the content + parental gate.
+async function zemerRowsSections() {
+  const d = await fetch("/zemer-home-rows").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  if (!d) return "";
+  await artistByName(); await loadBlockedIds(); if (acapella()) await loadAcapella(); // gate() needs flags + block-ids + Acapella set loaded — don't rely on a sibling section having done it
+  const songs = gate((d.topVideos || []).map((t) => ({ videoId: t.videoId, title: t.title, artist: t.artist, explicit: t.explicit, isVideo: t.isVideo, durationSec: t.durationSec })));
+  const albums = gate((d.topAlbums || []).map((a) => ({ id: a.id, playlistId: a.playlistId, title: a.title, artist: a.artist, year: a.year, thumbnail: a.thumbnail })));
+  const artists = gate((d.topArtists || []).map((a) => ({ id: a.id, name: a.name, thumbnail: a.thumbnail })));
+  let h = "";
+  if (songs.length) h += section("Zemer Trending Songs", songCards(songs.slice(0, 19)), null, { tracks: songs.slice(0, 19) });
+  h += railOf("Zemer Trending Albums", albums.slice(0, 24), albumCard);
+  h += railOf("Zemer Trending Artists", artists.slice(0, 18), artistCard);
+  return h;
+}
 const skRail = (n, round) => `<div class="rail${round ? " round" : ""}">${Array.from({ length: n || 6 }, () => `<div class="sk-card"><div class="sk art"${round ? ' style="border-radius:50%"' : ""}></div><div class="sk l1"></div><div class="sk l2"></div></div>`).join("")}</div>`;
+// Upstream releases feed via the Worker /zemer-new proxy — REAL release dates (the corpus /home
+// sections order by harvest time). Fetched once per session; null on failure → callers fall back
+// to the corpus sections. Served unfiltered; every consumer must gate() what it renders.
+let _newFeedP = null;
+const newFeed = () => _newFeedP || (_newFeedP = fetch("/zemer-new").then((r) => (r.ok ? r.json() : null)).catch(() => null));
+function feedAlbums(nf) { // albums + singles, gated, newest real release first
+  const c = (nf && nf.categories) || {};
+  const list = gate([...(c.albums || []), ...(c.singles || [])]).filter((a) => a.id && a.thumbnail);
+  return list.sort((a, b) => (Date.parse(b.releaseDate) || 0) - (Date.parse(a.releaseDate) || 0));
+}
 
 /* ============================ HOME ============================ */
 async function loadHome() {
@@ -1476,19 +1578,22 @@ async function loadHome() {
     window.__appReady && window.__appReady();
     return;
   }
-  const [d, trend, zpl] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections(), getJSON("/zemer-playlists")]);
+  const [d, trend, zpl, zemerRows, nf] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections(), getJSON("/zemer-playlists"), zemerRowsSections(), newFeed()]);
   await artistByName(); // load artist flags so the parental gate (artist allow/blocklist + kid-only) applies below
-  const quick = gate(d.quickPicks), newS = gate(d.newSongs), recent = gate(readRecent()), vids = gate(d.featuredVideos);
-  let h = `<div class="hero"><div class="eyebrow">Kosher music, by construction</div><h1>Only the music you trust.</h1><p>Every song here comes from a whitelisted artist's full catalog — searched, not filtered. Nothing outside it.</p><span class="heb">מוזיקה</span></div>` + (trend || "");
+  const quick = gate(d.quickPicks), recent = gate(readRecent()), vids = gate(d.featuredVideos);
+  const fAlbums = feedAlbums(nf), fSongs = gate(((nf && nf.categories) || {}).songs || []).filter((t) => t.videoId);
+  const newS = fSongs.length ? fSongs : gate(d.newSongs); // real release dates when the feed has them, corpus otherwise
+  let h = `<div class="hero"><div class="eyebrow">Kosher music, by construction</div><h1>Only the music you trust.</h1><p>Every song here comes from a whitelisted artist's full catalog — searched, not filtered. Nothing outside it.</p>${acapellaMode() === "only" ? "" : `<button class="btn-play" style="margin-top:16px" onclick="startRadio('shuffle','')">${ICON.radio} Radio mode</button>`}<span class="heb">מוזיקה</span></div>` + (trend || "");
   if (quick.length) h += section("Quick Picks", quickPicks(quick), null, { tracks: quick });
   h += railOf("Curated Playlists", ((zpl && zpl.playlists) || []).filter((p) => p.id !== "auto-trending" && p.id !== "auto-top-50"), zpCard); // Trending/Top 50 fold into the Trending Songs section
-  h += railOf("Latest Releases", gate(d.latestReleases), albumCard);
+  h += railOf("Latest Releases", fAlbums.length ? fAlbums.slice(0, 24) : gate(d.latestReleases), albumCard);
   if (newS.length) h += section("New Songs", songCards(newS), null, { tracks: newS });
   if (recent.length) h += section("Keep Listening", songCards(recent.slice(0, 14)), null, { tracks: recent.slice(0, 14) });
   h += railOf("Featured Playlists", gate(d.featuredPlaylists), playlistCard);
   h += railOf("Artists You'll Like", gate(d.featuredArtists), artistCard);
   h += railOf("Albums", gate(d.featuredAlbums), albumCard);
   if (!blockVideos() && vids.length) h += section("Music Videos", songCards(vids), null, { tracks: vids });
+  h += zemerRows || "";
   v.innerHTML = h || emptyState("No content yet", "The catalog is still being built.");
   window.__appReady && window.__appReady();
 }
@@ -1497,7 +1602,7 @@ async function loadHome() {
 let artistsAll = [];
 async function loadArtists() {
   state.loaded.artists = true; const v = el("v-artists");
-  v.innerHTML = `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:6px 0 20px"><div class="searchbox" style="max-width:420px;margin:0;flex:1;min-width:220px"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14"/></svg><input id="aq" placeholder="Filter artists" autocomplete="off"></div><div id="artCount" class="art-count"></div></div><div class="grid" id="agrid">${skRail(0)}</div><div id="artSentinel" style="height:1px"></div>`;
+  v.innerHTML = `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:6px 0 20px"><div class="searchbox" style="max-width:420px;margin:0;flex:1;min-width:220px"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14"/></svg><input id="aq" placeholder="Filter artists" autocomplete="off"></div><div id="artCount" class="art-count"></div></div><div class="grid" id="agrid">${skRail(0)}</div><div id="artSentinel" style="height:1px"></div><div class="azstrip" id="azStrip" aria-hidden="true"></div>`;
   el("agrid").innerHTML = `<div class="grid" style="display:contents">${Array.from({ length: 12 }, () => `<div><div class="sk" style="aspect-ratio:1;border-radius:50%"></div><div class="sk l1" style="height:12px;margin:12px auto 0;width:70%"></div></div>`).join("")}</div>`;
   await ensureFilters(); // also loads the full artist catalog into _artistList (via artistByName)
   artistsAll = gate(_artistList || []); // reuse that catalog — no 2nd /artists fetch; gate() applies every content + parental filter (incl. kid_only + the allow/blocklist)
@@ -1512,6 +1617,7 @@ function renderArtists(q) {
   _artShown = 0;
   const g = el("agrid"); if (g) g.innerHTML = _artView.length ? "" : emptyState("No artists found", "Try a different name.");
   artMore(); // first window (self-continues until the viewport is filled)
+  paintAzStrip();
   const c = el("artCount"); if (!c) return;
   const n = _artView.length, total = artistsAll.length, s = n === 1 ? "" : "s";
   c.innerHTML = acapella()
@@ -1526,6 +1632,32 @@ function artMore() {
   _artShown = Math.min(_artShown + ART_PAGE, _artView.length);
   const st = el("artSentinel");
   if (st && _artShown < _artView.length && st.getBoundingClientRect().top < innerHeight + 500) requestAnimationFrame(artMore);
+}
+// A–Z fast-scroll strip: letters reflect the CURRENT view (filters + search), tap or drag to jump.
+const azBucket = (name) => { const c = (name || "").trim().charAt(0).toUpperCase(); return c >= "A" && c <= "Z" ? c : "#"; };
+function paintAzStrip() {
+  const s = el("azStrip"); if (!s) return;
+  s.style.display = _artView.length > 40 ? "" : "none"; // a short (filtered) list doesn't need letter nav
+  const have = new Set(_artView.map((a) => azBucket(a.name)));
+  s.innerHTML = ["#", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((l) => `<b class="${have.has(l) ? "" : "off"}" data-l="${l}">${l}</b>`).join("");
+  if (s._wired) return; s._wired = 1;
+  const jump = (ev) => { const t = document.elementFromPoint(ev.clientX, ev.clientY); if (t && t.dataset && t.dataset.l) azJump(t.dataset.l, t); };
+  s.addEventListener("pointerdown", (ev) => { ev.preventDefault(); try { s.setPointerCapture(ev.pointerId); } catch {} jump(ev); });
+  s.addEventListener("pointermove", (ev) => { if (ev.buttons) jump(ev); });
+}
+function azJump(letter, btn) {
+  const idx = _artView.findIndex((a) => azBucket(a.name) === letter); if (idx < 0) return;
+  const g = el("agrid"); if (!g) return;
+  while (_artShown <= idx && _artShown < _artView.length) { // windowed render → fill synchronously up to the target
+    g.insertAdjacentHTML("beforeend", _artView.slice(_artShown, _artShown + ART_PAGE).map(artistCell).join(""));
+    _artShown = Math.min(_artShown + ART_PAGE, _artView.length);
+  }
+  const cell = g.children[idx]; if (!cell) return;
+  scrollTo({ top: cell.getBoundingClientRect().top + scrollY - 92 }); // clear the sticky topbar
+  if (btn && btn !== document.querySelector(".azstrip b.hot")) {
+    document.querySelectorAll(".azstrip b.hot").forEach((b) => b.classList.remove("hot"));
+    btn.classList.add("hot"); setTimeout(() => btn.classList.remove("hot"), 400);
+  }
 }
 
 /* ============================ KID ZONE ============================ */
@@ -1575,20 +1707,31 @@ async function loadForYou() {
   state.loaded.foryou = true; secN = 0; const v = el("v-foryou");
   const hero = `<div class="hero" style="background:linear-gradient(120deg,#2a1220,var(--surface) 70%)"><div class="eyebrow">Your mix</div><h1>For You</h1><p>A personalized blend of what you play and the whole whitelisted catalog — it sharpens as you listen.</p><span class="heb">בשבילך</span></div>`;
   v.innerHTML = hero + section("Made for you", skRail(6));
-  const [d, trend] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections()]);
+  const [d, trend, zemerRows, nf] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections(), zemerRowsSections(), newFeed()]);
   await ensureFilters();                                              // artist map + parental profile + Acapella set (the /home payload is NOT parental-gated server-side — gate() must run here)
   const recent = gate(readRecent()), liked = gate(readLiked());       // gate() = content + parental (allow/blocklist, kid-only) + Acapella
   const taste = tasteArtists([...liked, ...liked, ...recent]);         // likes weighted 2× over plays
+  // Cold start: a brand-new user has no plays/likes to personalize from — seed from the telemetry
+  // Top 50 (what the whole Zemer+SK audience actually plays) instead of showing an empty page.
+  let cold = [];
+  if (!recent.length && !liked.length) {
+    const coldId = acapellaMode() === "only" ? "auto-acapella-top-50" : "auto-top-50";
+    cold = gate(await fetch("/zp-live?id=" + coldId).then((r) => (r.ok ? r.json() : null)).then((x) => (x && x.tracks) || []).catch(() => []))
+      .map((s) => ({ videoId: s.videoId || s.video_id, title: s.title, artist: s.artist, explicit: s.explicit, durationSec: s.durationSec })).filter((s) => s.videoId);
+  }
   let h = hero + (trend || "");
   if (recent.length) h += section("Jump back in", songCards(recent.slice(0, 14)), null, { tracks: recent.slice(0, 14) });
   const mix = taste.length ? gate(await songsFromArtists(taste, 14)) : [];
   const qp = gate(d.quickPicks);
   if (mix.length >= 4) h += section(liked.length ? `Because you like ${esc(taste[0].name)}` : "Made for you", songCards(mix), null, { tracks: mix });
+  else if (cold.length >= 4) h += section("Popular right now", quickPicks(cold.slice(0, 24)), null, { tracks: cold.slice(0, 24) });
   else if (qp.length) h += section("Made for you", quickPicks(qp), null, { tracks: qp });
-  h += railOf("New for you", gate(d.latestReleases), albumCard);
+  const nfAlbums = feedAlbums(nf);
+  h += railOf("New for you", nfAlbums.length ? nfAlbums.slice(0, 24) : gate(d.latestReleases), albumCard);
   h += railOf(taste.length ? "Your artists" : "Artists to explore", gate(taste.length ? taste.slice(0, 16) : d.featuredArtists), artistCard);
   const fresh = gate(d.newSongs); if (fresh.length) h += section("Fresh songs", songCards(fresh), null, { tracks: fresh });
-  v.innerHTML = (trend || mix.length || qp.length || recent.length || liked.length) ? h : hero + emptyState("Play a few songs", "For You fills in as you listen. Browse Home to get started.");
+  h += zemerRows || "";
+  v.innerHTML = (trend || mix.length || cold.length || qp.length || recent.length || liked.length) ? h : hero + emptyState("Play a few songs", "For You fills in as you listen. Browse Home to get started.");
 }
 
 /* ============================ PLAYLISTS ============================ */
@@ -1819,8 +1962,8 @@ function sClick(kind, rank, id) { const q = (el("q") && el("q").value || "").tri
 function renderResults() {
   const c = sData && sData.categories; if (!c) return;
   const artistRow = (x, i) => `<div class="row" role="button" tabindex="0" onkeydown="${KDACT}" onclick="sClick('artists',${i},'${x.id}');openArtist('${x.id}')">${artHTML(x.thumbnail, ICON.artist, true).replace('class="art round"', 'class="art round" style="width:46px;height:46px;flex:none"')}<div class="text"><div class="title">${esc(x.name)}</div><div class="sub">Artist</div></div></div>`;
-  const albumRow = (x, i) => `<div class="row" role="button" tabindex="0" onkeydown="${KDACT}" onclick="sClick('albums',${i},'${x.id}');openAlbum('${x.id}')"><img class="thumb" alt="" src="${x.thumbnail || ""}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${esc(x.title)}</div><div class="sub">${esc(x.artist || "")}${x.year ? " · " + x.year : ""}</div></div></div>`;
-  const plRow = (x, i) => `<div class="row" role="button" tabindex="0" onkeydown="${KDACT}" onclick="sClick('playlists',${i},'${x.id}');openPlaylist('${x.id}')"><img class="thumb" alt="" src="${x.thumbnail || ""}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${esc(x.title)}</div><div class="sub">${esc(x.artist || "Playlist")}</div></div></div>`;
+  const albumRow = (x, i) => `<div class="row" role="button" tabindex="0" onkeydown="${KDACT}" onclick="sClick('albums',${i},'${x.id}');openAlbum('${x.id}')"><img class="thumb" alt="" src="${sizedArt(x.thumbnail, 128) || ""}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${esc(x.title)}</div><div class="sub">${esc(x.artist || "")}${x.year ? " · " + x.year : ""}</div></div></div>`;
+  const plRow = (x, i) => `<div class="row" role="button" tabindex="0" onkeydown="${KDACT}" onclick="sClick('playlists',${i},'${x.id}');openPlaylist('${x.id}')"><img class="thumb" alt="" src="${sizedArt(x.thumbnail, 128) || ""}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${esc(x.title)}</div><div class="sub">${esc(x.artist || "Playlist")}</div></div></div>`;
   const render = (k) => {
     const arr = gate(c[k] || []); if (!arr.length) return ""; // parental + Acapella gate (songs by set, artist/album/playlist by Acapella-artist)
     if (k === "songs" || k === "videos") return songRows(arr, { index: true, searchKind: k });
@@ -1855,10 +1998,15 @@ async function loadLibrary() {
 
 /* ============================ DETAIL ============================ */
 function showDetail() { for (const [t] of TABS) el("v-" + t).classList.remove("on"); el("v-detail").classList.add("on"); state.detailOpen = true; renderNav(); scrollTop(); }
-function detailBack() { history.back(); }
+function detailBack() {
+  if (state.detailKind === "artist") return go("artists"); // an artist page's natural "up" is always the Artists tab
+  if (history.state && history.state.d) return history.back(); // an in-app page is behind us — genuine "where you came from"
+  go(state.detailKind === "playlist" || state.detailKind === "curated" ? "playlists" : "home"); // deep-link entry (no in-app history): back must not leave the site — land on the section's natural tab
+}
 function renderDetailView(v) {
   secN = 0;
   state.detailKind = ({ Artist: "artist", Album: "album", Playlist: "playlist", "Curated Playlist": "curated" })[v.kind] || "detail"; // play.source attribution
+  state.detailPath = v.path; state.detailTitle = v.title;
   el("tbTitle").textContent = v.title; el("tbTitle").style.display = ""; el("tbSearch").style.display = "none";
   // Enrich every track with the artist name up-front (artist-page songs carry no artist field) so the
   // queue — and the play analytics — always know who it is. Hiding it in a row is separate (opt.hideArtist).
@@ -1866,9 +2014,9 @@ function renderDetailView(v) {
   const all = v.sections.flatMap((s) => s.tracks || []);
   const qid = all.length ? regQueue(all) : null;
   let h = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
-    <div class="detail-hero"><div class="cover ${v.round ? "round" : ""}">${artHTML(v.thumb, v.round ? ICON.artist : NOTE, v.round)}</div>
+    <div class="detail-hero"><div class="cover ${v.round ? "round" : ""}">${artHTML(v.thumb, v.round ? ICON.artist : NOTE, v.round, 640)}</div>
     <div class="dh-meta"><div class="dh-kind">${v.kind}</div><div class="dh-title">${esc(v.title)}</div><div class="dh-sub">${v.sub}</div></div></div>`;
-  h += `<div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button>` : ""}${qid ? `<button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}</div>`;
+  h += `<div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button>` : ""}${qid ? `<button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}${v.radio ? `<button class="btn-ghost" onclick="startRadio('${v.radio.kind}','${v.radio.seed}')">${ICON.radio}Radio</button>` : ""}${v.path ? `<button class="btn-ghost" onclick="shareDetail()">${ICON.share}Share</button>` : ""}</div>`;
   for (const s of v.sections) {
     if (s.tracks && s.tracks.length) {
       let body = songRows(s.tracks, { index: true, artist: v.artistName, hideArtist: !!s.plays, plays: s.plays });
@@ -1884,13 +2032,15 @@ function renderDetailView(v) {
   el("v-detail").innerHTML = h; showDetail();
 }
 function pushDetail(v, fromRoute) { renderDetailView(v); if (!fromRoute) pushURL(v.path); }
-function shufflePlay(qid) { const q = queues.get(qid); if (!q || !q.length) return; const s = q.slice(); for (let i = s.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[s[i], s[j]] = [s[j], s[i]]; } state.queue = s; playIndex(0); }
+function shufflePlay(qid) { const q = queues.get(qid); if (!q || !q.length) return; const s = q.slice(); for (let i = s.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[s[i], s[j]] = [s[j], s[i]]; } state.queue = s; state.radio = null; playIndex(0); }
 let sectionState = null;
 function sectionLoadingRows(n) { return `<div class="rows">${Array.from({ length: n || 8 }, () => `<div class="row"><div class="sk" style="width:46px;height:46px;border-radius:9px"></div><div class="text"><div class="sk" style="height:13px;width:45%;border-radius:5px"></div><div class="sk" style="height:11px;width:28%;border-radius:5px;margin-top:7px"></div></div></div>`).join("")}</div>`; }
 function renderSectionView(fromRoute) {
   if (!sectionState) return;
   secN = 0;
   state.detailKind = "section";
+  state.detailPath = sectionState.path;
+  state.detailTitle = sectionState.title;
   el("tbTitle").textContent = sectionState.title; el("tbTitle").style.display = ""; el("tbSearch").style.display = "none";
   const { title, qid, albums, tracks } = sectionState;
   const hasAlbums = albums && albums.length;
@@ -1926,11 +2076,20 @@ async function loadSectionSongs() {
   if (body.dataset.loaded === "1") return;
   body.innerHTML = sectionLoadingRows(8);
   await ensureFilters();
-  const ids = sectionState.albums.map((a) => a.id);
-  const results = await Promise.all(ids.map((id) => detailGet("/album?id=" + encodeURIComponent(id)).catch(() => null)));
+  const results = await Promise.all(sectionState.albums.map(async (a) => {
+    const d = await detailGet("/album?id=" + encodeURIComponent(a.id)).catch(() => null);
+    if (d && !d.error && !hiddenArtist(d.album.artist)) return d;
+    // New-release albums may not be in the baked corpus yet; fall back to their YouTube playlist id.
+    if (a.playlistId) {
+      const pd = await fetchJSON("/playlist?id=" + encodeURIComponent(a.playlistId));
+      if (pd && Array.isArray(pd.tracks) && pd.tracks.length) return { album: a, tracks: pd.tracks };
+    }
+    return null;
+  }));
   const allTracks = [];
   for (const d of results) {
-    if (!d || d.error || hiddenArtist(d.album.artist)) continue;
+    if (!d || !d.tracks) continue;
+    if (d.album && hiddenArtist(d.album.artist || d.album.artistName)) continue;
     allTracks.push(...gate(d.tracks || []).filter((t) => !(blockVideos() && t.isVideo)));
   }
   sectionState.tracks = allTracks;
@@ -1996,24 +2155,58 @@ async function openArtist(id, fromRoute) {
   const d = await detailGet("/artist?id=" + encodeURIComponent(id)); if (!d || d.error) return notAvailable("artist");
   await ensureFilters(); // load artist flags + parental profile BEFORE gating (else the parental gate no-ops)
   if ((noFemale() && d.artist.isFemale) || (noChasid() && d.artist.isChasid) || hiddenArtist(d.artist.name) || blockedId(d.artist.id)) return blockedByFilter("artist");
-  // Acapella mode: show THIS artist's tracks from the Acapella playlist itself (matched by artist name — the
-  // same basis they appear in the Artists list), not the corpus catalog. Hide albums/singles/playlists.
-  const acOn = acapella(); // when on, fail CLOSED: show the artist's Acapella tracks (or nothing if the set didn't load) — NEVER the full catalog
+  // Acapella filter, per mode — "only" and "hide" are OPPOSITES here (a single any-mode branch used to
+  // show just the Acapella tracks even in Hide, the exact inverse of what Hide means):
+  //   only → the artist's Acapella tracks: playlist membership (matched by artist name, fail closed if
+  //          the set didn't load) UNION title-detected catalog songs. Albums/singles/playlists hide.
+  //   hide → the artist's normal catalog MINUS Acapella tracks (playlist + title detection).
+  const am = acapellaMode(), acOnly = am === "only";
   const nm = (d.artist.name || "").toLowerCase();
-  const songs = acOn ? ((acapellaTracks || []).filter((t) => (t.artist || "").toLowerCase() === nm)) : d.songs;
-  const videos = (acOn || blockVideos()) ? [] : d.videos, albums = acOn ? [] : d.albums, singles = acOn ? [] : d.singles, plists = acOn ? [] : (d.playlists || []); // Audio-only hides the Videos section + keeps videos out of the play queue
+  let songs = d.songs || [];
+  if (acOnly) {
+    const seen = new Set();
+    songs = [...(acapellaTracks || []).filter((t) => (t.artist || "").toLowerCase() === nm), ...(d.songs || []).filter((t) => acapellaTrack(t))]
+      .filter((t) => t.videoId && !seen.has(t.videoId) && seen.add(t.videoId));
+  } else if (am === "hide") {
+    songs = (d.songs || []).filter((t) => !acapellaTrack(t));
+  }
+  const videos = (acOnly || blockVideos()) ? [] : (am === "hide" ? (d.videos || []).filter((t) => !acapellaTrack(t)) : d.videos);
+  const albums = acOnly ? [] : d.albums, singles = acOnly ? [] : d.singles, plists = acOnly ? [] : (d.playlists || []); // Audio-only hides the Videos section + keeps videos out of the play queue
   const n = (songs?.length || 0) + (videos?.length || 0);
-  pushDetail({ path: "/artists/" + id, kind: "Artist", title: d.artist.name, sub: acOn ? `<b>${num(n)}</b> Acapella songs` : `<b>${num(n)}</b> songs · <b>${num(d.albums?.length || 0)}</b> albums`, thumb: d.artist.thumbnail, round: true, artistName: d.artist.name, sections: [
+  pushDetail({ path: "/artists/" + id, kind: "Artist", title: d.artist.name, sub: acOnly ? `<b>${num(n)}</b> Acapella songs` : `<b>${num(n)}</b> songs · <b>${num(d.albums?.length || 0)}</b> albums`, thumb: d.artist.thumbnail, round: true, artistName: d.artist.name, radio: acOnly ? null : { kind: "artist", seed: id }, sections: [
     { label: "Songs", tracks: songs, plays: true, collapse: 6 }, { label: "Albums", items: albums, render: albumCard }, { label: "Singles & EPs", items: singles, render: albumCard },
     { label: "Videos", tracks: videos, collapse: 6 }, { label: "Playlists", items: plists, render: playlistCard } ] }, fromRoute);
 }
-async function openAlbum(id, fromRoute) {
+function openAlbumFromCard(el) {
+  const { id, playlistId, title, artist, year, thumb } = el.dataset;
+  openAlbum(id, false, playlistId, { title, artist, year, thumbnail: thumb });
+}
+async function openAlbum(id, fromRoute, playlistId, meta) {
   detailLoading("Album");
-  const d = await detailGet("/album?id=" + encodeURIComponent(id)); if (!d || d.error) return notAvailable("album");
-  await ensureFilters(); // /album carries no flags — hiddenArtist(album artist) is the ONLY gate, so the map MUST be loaded first
-  if (hiddenArtist(d.album.artist)) return blockedByFilter("album");
-  const tracks = gate(d.tracks || []).filter((t) => !(blockVideos() && t.isVideo)); // Acapella (songOK) + Audio-only on the tracklist
-  pushDetail({ path: "/albums/" + id, kind: "Album", title: d.album.title, sub: `<b>${esc(d.album.artist)}</b>${d.album.year ? " · " + d.album.year : ""} · <b>${num(tracks.length)}</b> tracks${d.album.totalDurationSec ? " · " + fmtLong(d.album.totalDurationSec) : ""}`, thumb: d.album.thumbnail, artistName: d.album.artist, sections: [{ label: "Tracks", tracks }] }, fromRoute);
+  const d = await detailGet("/album?id=" + encodeURIComponent(id));
+  if (d && !d.error) {
+    await ensureFilters(); // /album carries no flags — hiddenArtist(album artist) is the ONLY gate, so the map MUST be loaded first
+    if (hiddenArtist(d.album.artist)) return blockedByFilter("album");
+    const tracks = gate(d.tracks || []).filter((t) => !(blockVideos() && t.isVideo)); // Acapella (songOK) + Audio-only on the tracklist
+    return pushDetail({ path: "/albums/" + id, kind: "Album", title: d.album.title, sub: `<b>${esc(d.album.artist)}</b>${d.album.year ? " · " + d.album.year : ""} · <b>${num(tracks.length)}</b> tracks${d.album.totalDurationSec ? " · " + fmtLong(d.album.totalDurationSec) : ""}`, thumb: d.album.thumbnail, artistName: d.album.artist, radio: acapellaMode() === "only" ? null : { kind: "album", seed: id }, sections: [{ label: "Tracks", tracks }] }, fromRoute);
+  }
+  // Fallback: some new-release albums from /zemer-new are not in the baked corpus, but they carry a YouTube playlist id.
+  // Fetch the Worker /playlist endpoint directly (not through the client engine) so brand-new tracks that aren't
+  // in the local baked dataset yet can still play; the local content filters still run on the raw result.
+  if (playlistId) {
+    const pd = await fetchJSON("/playlist?id=" + encodeURIComponent(playlistId));
+    if (pd && Array.isArray(pd.tracks) && pd.tracks.length) {
+      await ensureFilters();
+      const tracks = gate(pd.tracks).filter((t) => !(blockVideos() && t.isVideo));
+      if (tracks.length) {
+        const title = (meta && meta.title) || pd.playlist.title;
+        const artist = (meta && meta.artist) || "";
+        const year = (meta && meta.year) || "";
+        return pushDetail({ path: "/albums/" + id, kind: "Album", title, sub: `<b>${esc(artist)}</b>${year ? " · " + year : ""} · <b>${num(tracks.length)}</b> tracks`, thumb: (meta && meta.thumbnail) || pd.playlist.thumbnail, artistName: artist, radio: null, sections: [{ label: "Tracks", tracks }] }, fromRoute);
+      }
+    }
+  }
+  notAvailable("album");
 }
 async function openPlaylist(id, fromRoute) {
   detailLoading("Playlist");
@@ -2025,7 +2218,7 @@ async function openPlaylist(id, fromRoute) {
   const sub = tracks.length
     ? `<b>${esc(d.playlist.artist || "Playlist")}</b> · <b>${num(tracks.length)}</b> of ${num(d.total || 0)} whitelisted`
     : (d.status === "unavailable" ? "couldn't load contents" : `${num(d.total || 0)} songs · none in the kosher catalog`);
-  pushDetail({ path: "/playlists/" + id, kind: "Playlist", title: d.playlist.title, sub, thumb: d.playlist.thumbnail, sections: tracks.length ? [{ label: "Tracks", tracks }] : [] }, fromRoute);
+  pushDetail({ path: "/playlists/" + id, kind: "Playlist", title: d.playlist.title, sub, thumb: d.playlist.thumbnail, radio: (tracks.length && acapellaMode() !== "only") ? { kind: "playlist", seed: id } : null, sections: tracks.length ? [{ label: "Tracks", tracks }] : [] }, fromRoute);
   if (!tracks.length) el("v-detail").innerHTML += d.status === "unavailable"
     ? emptyState("Playlist unavailable", "Couldn't fetch this playlist's contents right now — try again.")
     : emptyState("No kosher songs here", "None of this playlist's songs are in the whitelisted catalog.");
@@ -2040,6 +2233,7 @@ async function openCuratedPlaylist(id, fromRoute) {
   const albums = gate(d.albums || []);
   const p = d.playlist;
   pushDetail({ path: "/zemer-playlists/" + id, kind: "Curated Playlist", title: p.title, thumb: p.thumbnail,
+    radio: (tracks.length && acapellaMode() !== "only") ? { kind: "playlist", seed: id } : null,
     sub: `<b>${num(tracks.length)}</b> songs${p.totalDurationSec ? " · " + fmtLong(p.totalDurationSec) : ""}`,
     sections: [
       albums.length ? { label: "Albums", items: albums, render: albumCard } : null,
@@ -2051,6 +2245,10 @@ async function openSong(id, fromRoute, startAt) {
   // Deep-link entry (/song/:id). VERIFY the track is whitelisted + allowed BEFORE any playback starts — a
   // kosher app must never play blocked content, not even for a moment. (In-app taps use playFrom() directly,
   // with already-filtered data.) Nothing is queued or loaded into the player until the checks pass.
+  // When the user navigates back to the current song while a queue is already playing, don't replace the
+  // queue with a single-song queue and don't restart playback from 0.
+  const cur = state.queue[state.qi];
+  if (fromRoute && cur && cur.videoId === id) { if (startAt > 0) PB.nextStart = startAt; openNow(); return; }
   const t = await getJSON("/track?v=" + encodeURIComponent(id));
   const deny = (title, sub, reason) => { track("blocked", Object.assign({ v: id, reason }, t && !t.error ? { title: t.title, artist: t.artist } : {})); blockedPage(title, sub); history.replaceState({}, "", "/song/" + id); };
   if (!t || t.error) return deny("Not in the catalog", "This song isn’t from a whitelisted artist, so it can’t be played here.", "not-whitelisted");
@@ -2058,7 +2256,7 @@ async function openSong(id, fromRoute, startAt) {
   if (loggedIn() && !acct.profile) await onLogin(); // a fresh /song/:id load races the async login — load the parental profile BEFORE deciding
   if (acapella()) await loadAcapella(); // Acapella mode: need the playlist set before deciding
   if (blockGlobal.has(id)) return deny("Not available", "This song isn’t available on SK Music.", "global-block");
-  const reason = ((t.isFemale || blockFemale.has(id)) && noFemale()) ? "hide female singers" : (t.isChasid && noChasid()) ? "hide Chassidish" : (t.isVideo && blockVideos()) ? "audio only" : (hiddenArtist(t.artist) ? "parental" : (!songOK({ videoId: id }) ? "acapella" : null));
+  const reason = ((t.isFemale || blockFemale.has(id)) && noFemale()) ? "hide female singers" : (t.isChasid && noChasid()) ? "hide Chassidish" : (t.isVideo && blockVideos()) ? "audio only" : (hiddenArtist(t.artist) ? "parental" : (!songOK({ videoId: id, title: t.title }) ? "acapella" : null));
   if (reason) return deny("Access denied", reason === "parental" ? `“${t.title}” isn’t allowed by this account’s Parental Controls.` : reason === "acapella" ? (mourningPeriod() ? `“${t.title}” isn’t Acapella — instrumental music is set aside for ${mourningPeriod().indexOf("sefira") === 0 ? "Sefira" : "the Three Weeks"}.` : (acapellaMode() === "hide" ? `“${t.title}” is an Acapella song — you’ve set the Acapella filter to Hide.` : `“${t.title}” isn’t in the Acapella playlist. Change the Acapella filter to play it.`)) : `“${t.title}” is blocked by your content filter (${reason}). Change it in the filter menu to play this.`, reason);
   if (startAt > 0) PB.nextStart = startAt;
   playFrom(regQueue([{ videoId: id, title: t.title, artist: t.artist, isFemale: t.isFemale, isChasid: t.isChasid, isVideo: t.isVideo, durationSec: t.durationSec, explicit: t.explicit }]), 0); // playIndex → nowbar + saveRecent + track(play) + mediaSession + PB.load
@@ -2174,11 +2372,12 @@ const PB = {
   play() {
     if (this.mode === "yt") { if (this.ready) this.yt.playVideo(); }
     else { setBuffering(true); audio.play().then(() => setBuffering(false)).catch((e) => { console.warn("[html5 play] play blocked", e); setBuffering(false); }); if (isIOSDevice()) { ensureIOSKeepAlive(); resumeIOSKeepAlive(); } }
+    cueNext(); // re-arm the gapless cue (cleared if a pause/seek cancelled a handoff; html5-mode no-op)
   },
-  pause() { this.mode === "yt" ? this.ready && this.yt.pauseVideo() : audio.pause(); },
-  stop() { this.pending = null; if (this.mode === "yt") { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
+  pause() { if (gapless && gapless.phase === "start") cancelSwap(); this.mode === "yt" ? this.ready && this.yt.pauseVideo() : audio.pause(); }, // a primed (inert) standby survives a pause; only a firing one is cancelled
+  stop() { cancelSwap(); this.pending = null; if (this.mode === "yt") { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
   paused() { return this.mode === "yt" ? (!this.ready || this.yt.getPlayerState() !== 1) : audio.paused; }, // methods exist only after onReady
-  seek(sec) { this.mode === "yt" ? this.ready && this.yt.seekTo(sec, true) : (audio.currentTime = sec); },
+  seek(sec) { if (gapless && gapless.phase === "start") cancelSwap(); this.mode === "yt" ? this.ready && this.yt.seekTo(sec, true) : (audio.currentTime = sec); cueNext(); },
   cur() {
     if (this.mode === "yt") return this.ready ? this.yt.getCurrentTime() || 0 : 0;
     // Until the audio element has a non-zero position, don't extrapolate from the AudioContext;
@@ -2214,16 +2413,100 @@ const PB = {
 const RATES = [1, 1.25, 1.5, 2, 0.75];
 function cycleRate() { PB.setRate(RATES[(RATES.indexOf(PB.rate) + 1) % RATES.length]); updateRateUI(); }
 function updateRateUI() { const l = (PB.rate === 1 ? "1×" : PB.rate + "×"); document.querySelectorAll(".rateBtn").forEach((b) => { b.textContent = l; b.classList.toggle("on", PB.rate !== 1); b.setAttribute("aria-label", "Playback speed " + l); }); }
+
+/* ---- Gapless advance (double-buffer prime) ----
+   The standby player pre-cues the next queue track and PRIMES it immediately: the moment the cue
+   loads it plays MUTED just long enough to buffer (muted autoplay is always permitted), then pauses
+   back at 0 — held primed for the rest of the song, zero audible overlap. Near the end
+   (GAPLESS_FIRE) — or on the ended event, since YouTube over-reports durations by up to several
+   seconds and a pre-end window alone can be missed entirely — the primed standby starts audibly at
+   the user's volume/rate and the players swap roles on its PLAYING event: back-to-back songs with no
+   break and no skipped intro. Any manual transport action (new load, pause, seek, stop, repeat-on)
+   cancels the handoff and the normal path takes over. Repeat-one and the html5 fallback never use it. */
+let ytStandby = null, ytStandbyBoot = null, standbyReady = false, gapless = null; // gapless = {idx, phase: "warm"|"primed"|"start"}
+let cued = { id: null, idx: -1 };
+const GAPLESS_FIRE = 0.5;
+const cueDead = new Set(); // videoIds whose standby playback errored (embed-blocked etc.) — never re-cue them; the normal path handles them at track end
+function nextPlayableIndex() { // the index playIndex(qi+1) would actually land on (Acapella-aware)
+  const am = acapellaMode();
+  for (let j = state.qi + 1; j < state.queue.length; j++) {
+    if (!am) return j;
+    if (!acapellaSet) return -1; // set not loaded → fail closed; the normal path handles it
+    if (am === "only" ? acapellaTrack(state.queue[j]) : !acapellaTrack(state.queue[j])) return j;
+  }
+  return -1;
+}
+function cueNext() {
+  if (PB.mode !== "yt" || !standbyReady || (gapless && gapless.phase === "start") || state.repeat) return;
+  const idx = nextPlayableIndex(), t = idx >= 0 ? state.queue[idx] : null;
+  if (!t || !t.videoId || cueDead.has(t.videoId)) { if (cued.id) cancelSwap(); return; }
+  if (cued.id === t.videoId && cued.idx === idx) return; // already cued (or primed) for the right track
+  if (gapless) { try { ytStandby.stopVideo(); } catch {} gapless = null; } // primed for a stale target → reset
+  cued = { id: t.videoId, idx, at: performance.now() };
+  try { ytStandby.cueVideoById(t.videoId); } catch { cued = { id: null, idx: -1 }; }
+}
+function cancelSwap() {
+  if (gapless) { try { ytStandby.stopVideo(); ytStandby.unMute(); } catch {} gapless = null; }
+  cued = { id: null, idx: -1 };
+}
+function beginWarm() { // buffer the cued track silently right away
+  // getVideoData() is NOT reliably populated for a merely-cued video, so the identity check here is
+  // best-effort only: match when metadata exists, otherwise just give the cue a beat to land. The
+  // authoritative identity check happens at prime time (PLAYING → metadata guaranteed).
+  const data = (() => { try { return ytStandby.getVideoData() || {}; } catch { return {}; } })();
+  if (data.video_id !== cued.id && performance.now() - (cued.at || 0) < 800) return; // the tick retries
+  gapless = { idx: cued.idx, phase: "warm" };
+  try { ytStandby.mute(); ytStandby.playVideo(); } catch { gapless = null; }
+}
+function fireSwap() { // make the primed standby audible; the swap completes on its PLAYING event
+  gapless.phase = "start";
+  try {
+    PB.muted ? ytStandby.mute() : (ytStandby.unMute(), ytStandby.setVolume(Math.round(PB.vol * 100)));
+    if (PB.rate !== 1) ytStandby.setPlaybackRate(PB.rate);
+    ytStandby.playVideo();
+  } catch { gapless = null; }
+}
+// NOTE: the warm is driven from tick() polling, not the CUED event — in this player configuration
+// (videoless boot + nocookie host) cueVideoById settles at UNSTARTED without ever firing CUED.
+function onStandbyState(code) {
+  if (code !== 1 || !gapless) return;
+  if (gapless.phase === "warm") {
+    const vid = (() => { try { return (ytStandby.getVideoData() || {}).video_id; } catch { return null; } })();
+    if (vid && cued.id && vid !== cued.id) { try { ytStandby.stopVideo(); } catch {} gapless = null; return; } // warmed a stale video — reset; the tick re-cues
+    gapless.phase = "primed"; try { ytStandby.pauseVideo(); ytStandby.seekTo(0, true); } catch {}
+  } else if (gapless.phase === "start") completeSwap(); // audible start confirmed → hand off
+}
+function completeSwap() {
+  if (!gapless) return;
+  const idx = gapless.idx; gapless = null; cued = { id: null, idx: -1 };
+  const old = PB.yt; PB.yt = ytStandby; ytStandby = old;
+  try { old.stopVideo(); } catch {}
+  if (idx < 0 || idx >= state.queue.length) return;
+  state.qi = idx; trackStarted(state.queue[idx]);
+  // Mirror onPlayback(1) for the new active player — its PLAYING event was consumed as the handoff signal.
+  streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); setPlayIcons();
+  radioPrefetch(); cueNext();
+}
 window.onYouTubeIframeAPIReady = function () {
-  PB.yt = new YT.Player("ytplayer", {
+  // Two identical hidden players: the ACTIVE one (PB.yt) plays; the STANDBY pre-cues the next queue
+  // track for the gapless handoff. Events route by comparing e.target against the current PB.yt.
+  const mk = (elId, first) => new YT.Player(elId, {
     height: "180", width: "320",
-    playerVars: { autoplay: 1, controls: 0, disablekb: 1, fs: 0, rel: 0, modestbranding: 1, iv_load_policy: 3, playsinline: 1, origin: location.origin },
+    // Privacy-enhanced embed host: skips the ad/tracking subsystem (doubleclick, view-through
+    // conversion beacons) — those calls die against content filters and spam the console.
+    host: "https://www.youtube-nocookie.com",
+    playerVars: { autoplay: first ? 1 : 0, controls: 0, disablekb: 1, fs: 0, rel: 0, modestbranding: 1, iv_load_policy: 3, playsinline: 1, origin: location.origin },
     events: {
-      onReady() { PB.ready = true; PB.yt.setVolume(Math.round(PB.vol * 100)); if (PB.pending) { PB.yt.loadVideoById(PB.pending); PB.pending = null; } },
-      onStateChange(e) { onPlayback(e.data); },
-      onError() { onPlaybackError(); }, // 101/150 embed-disabled · 100 removed/private · 2/5 bad-id/html5
+      onReady(e) {
+        if (first) { PB.ready = true; PB.yt.setVolume(Math.round(PB.vol * 100)); if (PB.pending) { PB.yt.loadVideoById(PB.pending); PB.pending = null; } }
+        else { ytStandby = e.target; standbyReady = true; cueNext(); } // may never fire for a videoless player — tick() also polls ytStandbyBoot into readiness
+      },
+      onStateChange(e) { e.target === PB.yt ? onPlayback(e.data) : onStandbyState(e.data); },
+      onError(e) { if (e.target === PB.yt) onPlaybackError(); else { if (cued.id) cueDead.add(cued.id); cancelSwap(); } }, // 101/150 embed-disabled · 100 removed/private · 2/5 bad-id/html5; a dead cue is blacklisted so the handoff isn't retried against it
     },
   });
+  PB.yt = mk("ytplayer", true);
+  ytStandbyBoot = mk("ytplayer2", false); // promoted to ytStandby by its onReady OR by tick()'s readiness poll
 };
 (function loadYT() {
   const s = document.createElement("script"); s.src = "https://www.youtube.com/iframe_api"; s.onerror = fallbackToStream;
@@ -2236,7 +2519,7 @@ function fallbackToStream() {
   const t = state.queue[state.qi]; if (t && !audio.src) PB.load(t.videoId);
 }
 
-function playFrom(qid, i, source) { const q = queues.get(qid); if (!q) return; state.queue = q; state.playSource = source || (state.detailOpen ? (state.detailKind || "detail") : (state.tab || "home")); playIndex(i); }
+function playFrom(qid, i, source) { const q = queues.get(qid); if (!q) return; state.queue = q; state.radio = null; state.playSource = source || (state.detailOpen ? (state.detailKind || "detail") : (state.tab || "home")); playIndex(i); }
 // Play-duration tracking — measure REAL listen time (excludes pauses) and emit the `play` event on end/skip,
 // not on start, so a 2-second skip is distinguishable from a real listen (drives `qualified` + trending).
 let playSes = null;
@@ -2255,15 +2538,25 @@ addEventListener("pagehide", flushEvents); addEventListener("visibilitychange", 
 function playIndex(i, dir) {
   if (i < 0 || i >= state.queue.length) return;
   const am = acapellaMode();
-  if (am) { // Acapella filter: only → play only playlist songs; hide → never play a playlist song
+  if (am) { // Acapella filter: only → play only Acapella tracks; hide → never play one (playlist OR title-detected)
     if (!acapellaSet) { loadAcapella().then(() => { if (acapellaSet) playIndex(i, dir); }); showToast("Loading Acapella…", 1500); return; } // fail CLOSED: don't play until the set is ready
-    const ok = (v) => am === "only" ? acapellaSet.has(v) : !acapellaSet.has(v);
+    const ok = (trk) => am === "only" ? acapellaTrack(trk) : !acapellaTrack(trk);
     const step = dir || 1; let j = i; // scan in the travel direction (no wrap) so end-of-queue stops instead of looping
-    while (j >= 0 && j < state.queue.length && !ok(state.queue[j].videoId)) j += step;
+    while (j >= 0 && j < state.queue.length && !ok(state.queue[j])) j += step;
     if (j < 0 || j >= state.queue.length) { showToast(am === "only" ? "No more Acapella songs in this queue." : "No more non-Acapella songs in this queue.", 2600); return; }
     i = j;
   }
-  state.qi = i; const t = state.queue[i]; PB.fallbackDur = t.durationSec || 0;
+  state.qi = i; const t = state.queue[i];
+  cancelSwap(); // a manual jump always wins over an in-flight gapless handoff
+  trackStarted(t);
+  PB.load(t.videoId); setPlayIcons();
+  radioPrefetch(); // on the queue's last track: pull the next radio page now so the advance is gapless
+  cueNext();
+}
+// Start-of-track bookkeeping shared by playIndex and the gapless handoff: now-bar/Now-Playing UI,
+// recents, the shareable /song URL, the play-duration session, and the browser/OS media sessions.
+function trackStarted(t) {
+  PB.fallbackDur = t.durationSec || 0; // catalog duration — trusted when Safari misreports the stream's
   if ("audioSession" in navigator) try { navigator.audioSession.type = "playback"; } catch {}
   el("nowbar").classList.add("on");
   const art = yt(t.videoId, "hq");
@@ -2275,7 +2568,6 @@ function playIndex(i, dir) {
   playBegin(t); // start a play-duration session — the `play` event fires on end/skip with real listen time
   if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: t.title || "", artist: t.artist || "", album: "SK Music", artwork: [{ src: art, sizes: "480x360", type: "image/jpeg" }] });
   skNowPlaying(t, art); // desktop app: drive the native OS media session (Windows SMTC / Linux MPRIS) with real SK Music metadata
-  PB.load(t.videoId); setPlayIcons();
 }
 // Move the "now playing" indicator (EQ bars + highlight) to the current song across any visible list,
 // without re-rendering — the row keeps its rank number when it stops playing.
@@ -2290,14 +2582,33 @@ function refreshNowPlaying() {
     if (title) { if (on && !eq) title.insertAdjacentHTML("afterbegin", EQ); else if (!on && eq) eq.remove(); }
   });
 }
-function toggle() { if (!state.queue.length) return; PB.paused() ? PB.play() : PB.pause(); }
-function next() { if (state.qi < state.queue.length - 1) playIndex(state.qi + 1, 1); else PB.pause(); }
+function toggle() { if (!state.queue.length) return resumeOrRadio(); PB.paused() ? PB.play() : PB.pause(); }
+// Empty-queue Play: resume the last listen if it's fresh (≤ 20 min since it last ticked), otherwise
+// start the endless trending mix — the play button always does something musical.
+function resumeOrRadio() {
+  let saved = null; try { saved = JSON.parse(localStorage.getItem("zw_lastPlay") || "null"); } catch {}
+  if (saved && saved.t && saved.t.videoId && Date.now() - (saved.at || 0) <= 20 * 60 * 1000) {
+    PB.nextStart = Math.max(0, (saved.pos || 0) - 2); // back up a touch so the resume has context
+    playFrom(regQueue([saved.t]), 0, "resume");
+    return;
+  }
+  if (acapellaMode() === "only") { showToast("Pick a song to start playing.", 2200); return; }
+  startRadio("shuffle", "");
+}
+let _lastPlaySavedAt = 0;
+function saveLastPlay(c) { // called from tick() ~every 5 s while something plays
+  const t = state.queue[state.qi]; if (!t || !t.videoId || !(c > 0)) return;
+  const nowT = Date.now(); if (nowT - _lastPlaySavedAt < 5000) return;
+  _lastPlaySavedAt = nowT;
+  try { localStorage.setItem("zw_lastPlay", JSON.stringify({ t: { videoId: t.videoId, title: t.title, artist: t.artist, isVideo: t.isVideo, durationSec: t.durationSec, explicit: t.explicit }, pos: Math.floor(c), at: nowT })); } catch {}
+}
+function next() { if (state.qi < state.queue.length - 1) playIndex(state.qi + 1, 1); else radioContinue(); }
 function prev() { if (PB.cur() > 3 || state.qi <= 0) PB.seek(0); else playIndex(state.qi - 1, -1); }
 // Repeat one: when a song ends with repeat on, replay it instead of advancing (manual next/prev still work).
 function repeatOrNext() { if (state.repeat && state.qi >= 0) playIndex(state.qi); else next(); }
-function toggleRepeat() { state.repeat = !state.repeat; document.querySelectorAll(".rpt").forEach((b) => { b.classList.toggle("on", state.repeat); b.setAttribute("aria-pressed", state.repeat); }); showToast(state.repeat ? "Repeat this song" : "Repeat off", 1300); }
+function toggleRepeat() { state.repeat = !state.repeat; document.querySelectorAll(".rpt").forEach((b) => { b.classList.toggle("on", state.repeat); b.setAttribute("aria-pressed", state.repeat); }); showToast(state.repeat ? "Repeat this song" : "Repeat off", 1300); if (state.repeat) cancelSwap(); else cueNext(); }
 function seekBy(d) { if (!state.queue.length) return; const dur = PB.dur(); if (!dur) return; PB.seek(Math.max(0, Math.min(dur - 0.5, PB.cur() + d))); }
-function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); paintQueue(); }
+function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); const au = el("npAuto"); if (au) au.checked = radioAutoplay(); paintQueue(); }
 function closeNow() { state.nowOpen = false; el("now").classList.remove("on"); }
 function saveRecent(t) { try { const h = readRecent().filter((x) => x.videoId !== t.videoId); h.unshift({ videoId: t.videoId, title: t.title, artist: t.artist, explicit: t.explicit, isVideo: t.isVideo }); localStorage.setItem("zw_recent", JSON.stringify(h.slice(0, 80))); } catch {} acctSyncRecents(); }
 function toggleMute() { PB.setMuted(!PB.muted); el("vol").value = PB.muted ? 0 : Math.round(PB.vol * 100); paintSeek(el("vol")); }
@@ -2307,6 +2618,77 @@ function paintQueue() {
     return `<div class="row ${playing ? "playing" : ""}" role="button" tabindex="0" onkeydown="${KDACT}" onclick="playIndex(${i})"><img class="thumb" alt="" src="${yt(t.videoId)}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${playing ? EQ : ""}${esc(t.title)}</div><div class="sub">${esc(t.artist || "")}</div></div></div>`;
   }).join("");
   el("npQueue").innerHTML = up || "";
+}
+function clearQueue() {
+  const cur = state.queue[state.qi];
+  state.queue = cur ? [cur] : [];
+  state.qi = state.queue.length ? 0 : -1;
+  state.radio = null;
+  paintQueue();
+  if (state.nowOpen) refreshNowPlaying();
+  showToast("Queue cleared", 1500);
+}
+
+/* ============================ Zemer Radio ============================ */
+// Corpus-native "what plays next" from the Zemer search server's /radio (proxied same-origin by the
+// Worker — see zemer-search docs/radio.md). The server ranks by real co-listening (session + library
+// co-occurrence) and applies allowFemale/kidZone + blocked-ids in-engine; the client re-gates for its
+// local-only filters (Chasidish / DJ / Israeli / Acapella) and dedupes against the current queue.
+// `continuation` is an opaque token — pass it back verbatim for the next page of the same station.
+const radioAutoplay = () => LS.get("zw_radioAutoplay", "1") === "1";
+function setRadioAutoplay(on) { LS.set("zw_radioAutoplay", on ? "1" : "0"); showToast(on ? "Autoplay on — similar songs keep playing when the queue ends." : "Autoplay off — playback stops at the end of the queue.", 2400); }
+async function radioFetch(p) { // {kind, seed} = fresh station · {continuation} = next page
+  await ensureFilters(); // artist flags + blocked-ids (+ the Acapella set) BEFORE gate() runs
+  const qs = p.continuation ? "continuation=" + encodeURIComponent(p.continuation)
+    : filterQS(`kind=${p.kind}${p.seed ? "&seed=" + encodeURIComponent(p.seed) : ""}&limit=30`);
+  const d = await fetchJSON("/radio?" + qs).catch(() => null);
+  if (!d || !Array.isArray(d.tracks)) return null;
+  const have = new Set(state.queue.map((t) => t.videoId));
+  const tracks = gate(d.tracks.map((t) => ({ videoId: t.videoId, title: t.title, artist: t.artist, isVideo: !!t.isVideo, durationSec: t.durationSec, explicit: !!t.explicit })))
+    .filter((t) => t.videoId && !have.has(t.videoId));
+  return { tracks, continuation: d.continuation || null };
+}
+let _radioBusy = false, _radioPlayOnLand = false;
+// Fetch the next radio page and append it. playNow (or _radioPlayOnLand set while in flight) also
+// starts the first appended track. A queue swap during the fetch (new playFrom/startRadio) drops
+// the result — state.queue is compared by reference, and every append replaces the array.
+async function radioTopUp(playNow) {
+  const q = state.queue, last = q[q.length - 1];
+  if (!last) { if (playNow) PB.pause(); return; }
+  _radioBusy = true;
+  try {
+    const r = (state.radio && state.radio.continuation)
+      ? await radioFetch({ continuation: state.radio.continuation })
+      : await radioFetch({ kind: "song", seed: last.videoId });
+    if (state.queue !== q) return; // a different queue started while we were fetching
+    const play = playNow || _radioPlayOnLand;
+    if (!r || !r.tracks.length) { if (play) { PB.pause(); if (r) showToast("No more similar songs found.", 2200); } return; }
+    state.radio = { continuation: r.continuation };
+    const at = state.queue.length;
+    state.queue = state.queue.concat(r.tracks);
+    if (play) playIndex(at, 1);
+    else { if (state.nowOpen) paintQueue(); cueNext(); } // silently extend Up Next + pre-cue the first appended track
+  } finally { _radioBusy = false; _radioPlayOnLand = false; }
+}
+// Prefetch: called every time a track starts (playIndex). When the LAST queued track begins, pull
+// the next radio page in the background so end-of-queue advance is instant — no fetch gap.
+function radioPrefetch() {
+  if (!radioAutoplay() || _radioBusy || acapellaMode() === "only") return;
+  if (state.qi < state.queue.length - 1) return; // only once we're on the last track
+  radioTopUp(false);
+}
+async function radioContinue() { // queue ran out with nothing appended — the prefetch fallback path
+  if (!radioAutoplay() || !state.queue.length || acapellaMode() === "only") { PB.pause(); return; } // Acapella-only: the station can't honor the set — stop cleanly
+  if (_radioBusy) { _radioPlayOnLand = true; showToast("Finding similar songs…", 1600); return; } // prefetch in flight → play as soon as it lands
+  showToast("Finding similar songs…", 1600);
+  radioTopUp(true);
+}
+async function startRadio(kind, seed) { // detail-page Radio button → a whole artist/album station
+  showToast("Starting radio…", 1400);
+  const r = await radioFetch({ kind, seed });
+  if (!r || !r.tracks.length) return showToast("Radio isn't available right now.", 2600);
+  state.queue = r.tracks; state.radio = { continuation: r.continuation }; state.playSource = "radio";
+  playIndex(0);
 }
 
 /* progress + state — unified across both engines */
@@ -2322,6 +2704,18 @@ function tick() {
   if (!seeking) { el("nbSeek").value = el("npSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); }
   el("nbCur").textContent = el("npCur").textContent = fmt(c);
   el("nbDur").textContent = el("npDur").textContent = d ? fmt(d) : "0:00";
+  // Gapless: WARM as soon as the standby's cue has loaded (polled here — see onStandbyState note),
+  // then FIRE near the end (re-validating that the cue still matches what playIndex would choose).
+  if (PB.mode === "yt" && !state.repeat && !seeking) {
+    if (!standbyReady && ytStandbyBoot) { // onReady is unreliable for a videoless player — probe it functional
+      try { ytStandbyBoot.getPlayerState(); ytStandby = ytStandbyBoot; standbyReady = true; } catch {}
+    }
+    if (standbyReady && cued.idx < 0 && !gapless) cueNext(); // nothing cued (e.g. readiness arrived late) → cue now
+    if (!gapless && cued.idx >= 0) beginWarm(); // no-op until the cued video is actually loaded
+    else if (gapless && gapless.phase === "primed" && d > 0 && c > 0 && d - c <= GAPLESS_FIRE
+        && cued.idx === nextPlayableIndex() && state.queue[cued.idx] && state.queue[cued.idx].videoId === cued.id) fireSwap();
+  }
+  if (!PB.paused()) saveLastPlay(c); // resume point for the empty-queue Play button
   skTick(c);
   if ("mediaSession" in navigator && navigator.mediaSession.setPositionState) {
     try { navigator.mediaSession.setPositionState({ duration: d || 0, playbackRate: PB.rate, position: Math.min(Math.max(c, 0), d || 0) }); } catch {}
@@ -2331,7 +2725,13 @@ function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing �
   if (code === 1) { isBuffering = false; streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); } // rate resets on each load
   else if (code === 2) { isBuffering = false; playAccrue(); } // paused → bank the elapsed listen time
   else if (code === 3) { isBuffering = true; }
-  else if (code === 0) { isBuffering = false; stopTick(); playFinalize(); repeatOrNext(); }
+  else if (code === 0) { // ended: a primed/starting standby takes over instantly; anything else falls back to the normal path
+    isBuffering = false; stopTick();
+    const cueValid = gapless && cued.idx === nextPlayableIndex() && state.queue[cued.idx] && state.queue[cued.idx].videoId === cued.id;
+    if (gapless && gapless.phase === "primed" && cueValid) fireSwap(); // completes on the standby's PLAYING event
+    else if (gapless && gapless.phase === "start") { /* fireSwap already issued — the handoff completes on PLAYING */ }
+    else { cancelSwap(); playFinalize(); repeatOrNext(); }
+  }
   setPlayIcons();
 }
 function showToast(msg, ms) { const t = el("toast"); t.innerHTML = msg; t.classList.add("on"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), ms || 4200); }
@@ -2402,7 +2802,13 @@ if ("mediaSession" in navigator) {
    window.__skMediaControl. Contract documented in Desktop/src-tauri/src/media.rs. */
 const SK_NATIVE = !!(window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === "function");
 function skInvoke(cmd, payload) { if (SK_NATIVE) try { window.__TAURI__.core.invoke(cmd, { payload }); } catch (e) {} }
-function skNowPlaying(t, art) { if (SK_NATIVE && t) skInvoke("now_playing", { title: t.title || "", artist: t.artist || "", album: "SK Music", artUrl: art || "", durationMs: t.durationSec ? Math.round(t.durationSec * 1000) : undefined, positionMs: 0, playing: true }); }
+function skNowPlaying(t, art) {
+  if (!SK_NATIVE || !t) return;
+  // queue/queueBase/videoId feed the desktop tray's "Up Next" submenu and mini player (absolute
+  // indexes so a tray click maps straight onto playindex:<n>).
+  skInvoke("now_playing", { title: t.title || "", artist: t.artist || "", album: "SK Music", artUrl: art || "", durationMs: t.durationSec ? Math.round(t.durationSec * 1000) : undefined, positionMs: 0, playing: true,
+    videoId: t.videoId || "", queueBase: state.qi + 1, queue: state.queue.slice(state.qi + 1, state.qi + 7).map((x) => ({ title: x.title || "", artist: x.artist || "" })) });
+}
 function skPlaybackState() { if (SK_NATIVE) skInvoke("set_playback_state", { playing: !(PB.paused() || !state.queue.length), positionMs: Math.round((PB.cur() || 0) * 1000) }); }
 let _skPosAt = 0;
 function skTick(c) { if (!SK_NATIVE || seeking) return; const now = performance.now(); if (now - _skPosAt < 1000) return; _skPosAt = now; skInvoke("set_playback_state", { playing: !PB.paused(), positionMs: Math.round((c || 0) * 1000) }); }
@@ -2415,10 +2821,34 @@ if (SK_NATIVE) window.__skMediaControl = (action) => { try {
   else if (action === "stop") PB.pause();
   else if (action === "seekforward") seekBy(10);
   else if (action === "seekback") seekBy(-10);
+  else if (action === "like") toggleLikeCurrent();
+  else if (action === "radio") { const t = state.queue[state.qi]; if (t && t.videoId && acapellaMode() !== "only") startRadio("song", t.videoId); }
+  else if (action === "resumecheck") skResumeCheck(); // post-OS-resume health check from the desktop shell
+  else if (action.indexOf("playindex:") === 0) { const n = +action.slice(10); if (n >= 0 && n < state.queue.length) playIndex(n); }
   else if (action.indexOf("seekby:") === 0) seekBy((+action.slice(7) || 0) / 1000);
   else if (action.indexOf("setposition:") === 0) PB.seek((+action.slice(12) || 0) / 1000);
   else if (action.indexOf("setvolume:") === 0) PB.setVol(Math.max(0, Math.min(1, +action.slice(10) || 0)));
 } catch (e) {} };
+// Desktop shell: right-click anywhere (except editable fields) pops the SAME menu as the tray, so
+// the app window is a first-class control surface too.
+if (SK_NATIVE) document.addEventListener("contextmenu", (e) => {
+  if (e.target.closest("input, textarea, [contenteditable]")) return;
+  e.preventDefault();
+  try { window.__TAURI__.core.invoke("show_app_menu"); } catch {}
+});
+// After system sleep the webview's audio pipeline can come back wedged: the UI says playing but the
+// clock is frozen. Sample the position twice, 2.5 s apart — frozen while "playing" → reload the
+// current track at its position (PB.nextStart survives the load).
+function skResumeCheck() {
+  if (!state.queue.length || PB.paused()) return;
+  const at = PB.cur();
+  setTimeout(() => {
+    const t = state.queue[state.qi];
+    if (!t || PB.paused() || Math.abs(PB.cur() - at) > 0.5) return; // advanced (or user paused) → healthy
+    console.warn("[sk] playback wedged after resume — reloading at", Math.round(at));
+    PB.nextStart = at; cancelSwap(); PB.load(t.videoId);
+  }, 2500);
+}
 // Arrow seek: a quick tap jumps ±15s; holding scrubs, starting at ~1s/sec and accelerating.
 let scrubTimer = null, scrubStart = 0, tapDir = 0;
 function stopScrub() { if (scrubTimer) { clearInterval(scrubTimer); scrubTimer = null; } }
@@ -2934,7 +3364,19 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
       document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reg.update(); });
       setInterval(() => reg.update(), 3600000);
     }).catch(() => {});
-    if (hadController) { let refreshing = false; navigator.serviceWorker.addEventListener("controllerchange", () => { if (!refreshing) { refreshing = true; location.reload(); } }); }
+    // Reload once when a new SW takes over — but NEVER while the window is hidden. In the desktop app the
+    // window closes to the tray (webview stays alive, background-timer throttling is disabled), so a hidden
+    // reload would silently re-run boot, re-open the current /song/:id URL and AUTOPLAY it — audio starting on
+    // its own an hour after the app was "closed". Defer the refresh until the window is visible again; an
+    // already-playing track keeps playing until then.
+    if (hadController) {
+      let refreshing = false;
+      const reloadForUpdate = () => { if (refreshing) return; refreshing = true; location.reload(); };
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (document.visibilityState === "visible") reloadForUpdate();
+        else document.addEventListener("visibilitychange", function onVis() { if (document.visibilityState === "visible") { document.removeEventListener("visibilitychange", onVis); reloadForUpdate(); } });
+      });
+    }
   }
   if (!consumeAuthHash()) restoreSession(); // email-confirm/OAuth/magic-link hash → session, else restore the saved one
   maybeShowRecovery(); // password-reset link (#type=recovery) → open the "Set a new password" form
@@ -2943,10 +3385,13 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   refreshStat(); setInterval(() => { if (document.visibilityState !== "hidden") refreshStat(); }, 30000); // the corpus stat is near-static; poll slowly and pause on hidden tabs (battery/requests)
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refreshStat(); });
   // Route from the URL: a shared /artists/:id (etc.) opens directly, with Home seeded underneath so Back works.
-  const path = location.pathname;
+  const path = location.pathname, qs = location.search; // capture BOTH before any replaceState — it wipes the query string (?t=21 share timestamps)
+  // /trending in a browser = the public charts page, but SPA-mode navigations short-circuit to this shell
+  // before the Worker can content-negotiate — so hand the visit to the real page (an asset at /charts).
+  if (path === "/trending") { location.replace("/charts" + location.search); return; }
   if (path === "/search") { applyRoute(location.href); } // honour ?query= / ?filter= on first load (a tab path, but query-driven)
   else if (path === "/" || PATH_TAB[path]) { go(PATH_TAB[path] || "home", true); }
-  else { history.replaceState({}, "", "/"); go("home", true); history.pushState({}, "", path + location.search); applyRoute(location.href); }
+  else { history.replaceState({}, "", "/"); go("home", true); history.pushState({}, "", path + qs); applyRoute(location.href); }
   track("load"); // first pageview
   setTimeout(function(){ window.__appReady && window.__appReady(); }, 4500); // safety: never let the splash stick
   // Warm the search/detail dataset in the background so the first artist/song click is instant.

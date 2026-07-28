@@ -27,7 +27,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use serde_json::json;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
 /// Tray menu ids/labels — the tray module builds items with these and routes their
@@ -51,12 +51,20 @@ struct PendingUpdate {
     bytes: Vec<u8>,
 }
 
-/// Kick off the silent check-on-startup. Called from `.setup()`.
+/// Re-check cadence for a long-running (tray-resident) app — the startup check alone never fires
+/// again for users who keep it open for weeks.
+const RECHECK_INTERVAL_SECS: u64 = 60 * 60 * 24;
+
+/// Kick off the silent check-on-startup, then re-check daily for as long as the app runs.
+/// Called from `.setup()`.
 pub fn init(app: &AppHandle) -> tauri::Result<()> {
     let handle = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_secs(STARTUP_CHECK_DELAY_SECS));
-        check_for_updates(&handle, false);
+        loop {
+            check_for_updates(&handle, false);
+            std::thread::sleep(Duration::from_secs(RECHECK_INTERVAL_SECS));
+        }
     });
     Ok(())
 }
@@ -178,11 +186,42 @@ pub fn apply_pending_on_exit() {
     }
 }
 
+/// Label of the small update-status dialog window.
+const WINDOW_LABEL: &str = "updater";
+
+/// Open (or refocus) the update dialog — a local `update.html` that shows the current
+/// version and mirrors the live check via the `updater://*` events this module already
+/// broadcasts to every window. Created lazily on the first "Check for updates…".
+pub fn open_update_window(app: &AppHandle) {
+    if let Some(win) = app.get_webview_window(WINDOW_LABEL) {
+        let _ = win.show();
+        let _ = win.set_focus();
+        return;
+    }
+    if let Err(e) = tauri::WebviewWindowBuilder::new(
+        app,
+        WINDOW_LABEL,
+        tauri::WebviewUrl::App("update.html".into()),
+    )
+    .title("SK Music — Updates")
+    .inner_size(380.0, 232.0)
+    .decorations(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .resizable(false)
+    .center()
+    .build()
+    {
+        eprintln!("[updater] failed to open update window: {e}");
+    }
+}
+
 /// Route tray menu items owned by this module. Returns `true` when handled so the
 /// tray module can early-return.
 pub fn handle_menu_event(app: &AppHandle, id: &str) -> bool {
     match id {
         MENU_ID_CHECK_UPDATES => {
+            open_update_window(app); // the dialog narrates the check the next line kicks off
             check_for_updates(app, true);
             true
         }
@@ -204,4 +243,10 @@ pub fn updater_check(app: AppHandle) {
 #[tauri::command]
 pub fn updater_restart(app: AppHandle) {
     install_pending_and_restart(&app);
+}
+
+/// The update dialog paints the installed version before any check event arrives.
+#[tauri::command]
+pub fn updater_version(app: AppHandle) -> String {
+    app.package_info().version.to_string()
 }

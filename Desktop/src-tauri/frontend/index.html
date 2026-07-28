@@ -45,6 +45,16 @@
   // Thin native shell: probe that the SK Music origin is reachable (cross-origin <img> load fires
   // onload if reachable, onerror if a network filter blocks it), then hand the same webview over to
   // the live app. If it's blocked, show a retry instead of a raw WebView2 error page.
+  // Guard: ONLY the main window may hand off to the remote app. The asset protocol falls back to
+  // this page for unknown paths, so a mis-resolved mini/updater window would otherwise silently
+  // become a shrunken copy of the full app.
+  try {
+    var _lbl = window.__TAURI__ && window.__TAURI__.window && window.__TAURI__.window.getCurrentWindow().label;
+    if (_lbl && _lbl !== "main") {
+      document.getElementById("status").textContent = "Window asset failed to load (" + _lbl + ") — please report this.";
+      throw new Error("halt bootstrap");
+    }
+  } catch (e) { if (e && e.message === "halt bootstrap") throw e; }
   var SITE = "https://skmusic.shalomkarr.workers.dev";
   var statusEl = document.getElementById("status");
   var done = false, timer = null;

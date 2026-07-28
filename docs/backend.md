@@ -89,7 +89,9 @@ assets/ui.html  ──batch──▶  Worker POST /a  ──bulk insert──▶
      their email against `zemer_admin`, then `SELECT *` from `zemer_analytics` over a time window (RLS
      permits it only for admins). It renders sessions, bounce, traffic sources, countries, an hour×day
      heatmap, per-event breakdowns, etc.
-   - The **home Trending rails** come from the Worker `/trending` route calling `top_songs` + `top_artists`
+   - The **home Trending rails** come from the Worker `/trending` route calling `top_songs` + `top_artists`,
+     blended with the Zemer app's listening stats (`tracking.zemer.io`, cron-resolved to catalog ids in KV —
+     see [architecture.md](architecture.md) §4)
      (edge-cached 30 min).
 
 ---

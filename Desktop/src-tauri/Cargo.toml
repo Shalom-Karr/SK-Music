@@ -1,6 +1,6 @@
 [package]
 name = "sk-music-desktop"
-version = "0.1.2"
+version = "0.2.2"
 description = "SK Music — native desktop shell (Tauri 2) for the kosher Jewish-music web client"
 authors = ["SK Music"]
 license = "GPL-3.0-or-later"
@@ -25,8 +25,20 @@ tauri-plugin-deep-link = "2"
 # Signed auto-update via a minisign-signed manifest on the skmusic origin (wired up in src/updater.rs).
 tauri-plugin-updater = "2"
 
+# Launch on login (optionally minimized). Cross-platform: registry Run key on Windows,
+# LaunchAgent on macOS, .desktop autostart on Linux (wired up in src/main.rs + src/tray.rs).
+tauri-plugin-autostart = "2"
+
+# Native "track changed" toasts while the window is hidden to tray (wired up in src/media.rs).
+tauri-plugin-notification = "2"
+
 # OS media controls: Windows SMTC / macOS Now Playing / Linux MPRIS (wired up in src/media.rs).
 souvlaki = "0.7"
+
+# Runtime compositing of the "now playing" tray-icon badge over the app icon (src/tray.rs).
+# No codec features needed — we operate on the raw RGBA buffer Tauri hands us, so the PNG/JPEG
+# decoders stay out of the build.
+image = { version = "0.25", default-features = false }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
