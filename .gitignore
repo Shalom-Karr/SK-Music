@@ -1,5 +1,6 @@
 node_modules/
 .env
+.env.*
 *.local.md
 
 # fetched catalog snapshot (rebuilt in CI; large/binary — never source)

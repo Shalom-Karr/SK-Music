@@ -649,6 +649,10 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .tp-bar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--primary),var(--primary-2,var(--primary)))}
 .tp-help{display:inline-block;margin-top:7px;font-size:12.5px;font-weight:600;color:var(--primary-2,var(--primary));text-decoration:none}
 .tp-help:hover{text-decoration:underline}
+/* SK-OFFLINE: eager download-state styling (module also injects these on first panel open) */
+#npDownload.on{color:#4ade80}
+#npDownload.busy{opacity:.55}
+.row.sk-dl-done .title::after{content:"";display:inline-block;width:12px;height:12px;margin-left:7px;vertical-align:-1px;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234ade80'%3E%3Cpath d='M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z'/%3E%3C/svg%3E")}
 /* hidden YouTube IFrame audio engine — rendered off-screen so audio keeps playing */
 #ytwrap{position:fixed;left:-9999px;bottom:0;width:320px;height:180px;opacity:0;pointer-events:none;z-index:-1}
 .iconbtn.rateBtn{width:auto;min-width:40px;height:34px;padding:0 11px;border-radius:12px;font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums}
@@ -985,6 +989,8 @@ fill="url(#royal)" stroke="none">
         <div style="min-width:0"><div class="np-title" id="npTitle"></div><div class="np-artist" id="npArtist" role="button" tabindex="0" aria-label="Go to artist" onclick="npOpenArtist()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"></div></div>
         <button class="iconbtn heart" id="npLike" onclick="toggleLikeCurrent()" title="Like" aria-label="Like" aria-pressed="false" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg></button>
         <button class="iconbtn" id="npShare" onclick="openShare(event)" title="Share" aria-label="Share" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0 0 6c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92z"/></svg></button>
+        <!-- SK-OFFLINE: desktop-only "download for offline" toggle; hidden until the native shell shows it -->
+        <button class="iconbtn" id="npDownload" onclick="skToggleDownloadCurrent()" title="Download for offline" aria-label="Download for offline" style="width:48px;height:48px;flex:none;display:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z"/></svg></button>
         <button class="iconbtn" id="npMenu" onclick="if(state.queue[state.qi])openSongMenu(this,state.queue[state.qi])" title="More" aria-label="More actions" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4m0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/></svg></button>
       </div>
       <div class="np-seek"><input type="range" class="seek" id="npSeek" min="0" max="1000" value="0" aria-label="Seek">
@@ -1313,6 +1319,8 @@ function renderNav() {
   }
   // About sits at the end of the last group (below Library)
   html += `<div class="navlink ${state.tab === "credits" && !state.detailOpen ? "on" : ""}" role="link" tabindex="0" ${state.tab === "credits" && !state.detailOpen ? 'aria-current="page"' : ""} onclick="go('credits')" onkeydown="${KDACT}" id="creditsLink"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20m1 15h-2v-6h2zm0-8h-2V7h2z"/></svg><span>About</span></div>`;
+  // SK-OFFLINE: desktop-only "Downloads" link (opens a self-contained overlay; no router/tab needed)
+  if (typeof SK_NATIVE !== "undefined" && SK_NATIVE) html += `<div class="navlink" role="link" tabindex="0" onclick="skOpenDownloads()" onkeydown="${KDACT}" id="skDownloadsLink"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z"/></svg><span>Downloads</span></div>`;
   if (open) html += "</div>";
   el("nav").innerHTML = html;
   if (el("tabbar")) el("tabbar").innerHTML = TABS.filter((t) => t[4]).map(([k, l, ic]) => `<div class="tab ${k === "kidzone" ? "kid" : ""} ${k === state.tab && !state.detailOpen ? "on" : ""}" role="link" tabindex="0" ${k === state.tab && !state.detailOpen ? 'aria-current="page"' : ""} onclick="go('${k}')" onkeydown="${KDACT}">${ic}<span>${l}</span></div>`).join("");
@@ -2443,17 +2451,27 @@ function blockedByFilter(kind) { blockedPage("Access denied", `This ${kind} is b
 const audio = el("audio");
 const PB = {
   mode: "yt", yt: null, ready: false, pending: null, nextStart: 0, vol: 1, muted: false, rate: 1,
-  load(id, startSec) { startSec = startSec || this.nextStart || 0; this.nextStart = 0; if (this.mode === "yt") { const a = startSec ? { videoId: id, startSeconds: startSec } : id; if (this.ready) { this.yt.loadVideoById(a); nudgePlay(); } else this.pending = a; } else { audio.src = "/stream?v=" + encodeURIComponent(id); if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); } },
-  play() { this.mode === "yt" ? this.ready && this.yt.playVideo() : audio.play().catch(() => {}); cueNext(); }, // re-arm the gapless cue (cleared if a pause/seek cancelled a handoff)
-  pause() { clearTimeout(_loadNudge); if (xf) finishCrossfade(); if (gapless && gapless.phase === "start") cancelSwap(); this.mode === "yt" ? this.ready && this.yt.pauseVideo() : audio.pause(); }, // a primed (inert) standby survives a pause; a firing one is cancelled; a fade is finished (snap to the new track) then paused
-  stop() { clearTimeout(_loadNudge); cancelSwap(); this.pending = null; if (this.mode === "yt") { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
-  paused() { return this.mode === "yt" ? (!this.ready || this.yt.getPlayerState() !== 1) : audio.paused; }, // methods exist only after onReady
-  seek(sec) { if (gapless && gapless.phase === "start") cancelSwap(); this.mode === "yt" ? this.ready && this.yt.seekTo(sec, true) : (audio.currentTime = sec); cueNext(); },
-  cur() { return this.mode === "yt" ? (this.ready ? this.yt.getCurrentTime() || 0 : 0) : audio.currentTime; },
-  dur() { return this.mode === "yt" ? (this.ready ? this.yt.getDuration() || 0 : 0) : (audio.duration || 0); },
-  setVol(v) { this.vol = v; this.muted = false; if (this.mode === "yt") { if (this.ready) { this.yt.unMute(); this.yt.setVolume(Math.round(v * 100)); } } else { audio.muted = false; audio.volume = v; } },
-  setMuted(m) { this.muted = m; if (this.mode === "yt") { if (this.ready) m ? this.yt.mute() : this.yt.unMute(); } else audio.muted = m; },
-  setRate(r) { this.rate = r; if (this.mode === "yt") { if (this.ready) this.yt.setPlaybackRate(r); } else audio.playbackRate = r; },
+  // SK-OFFLINE: `local` is a per-track override — when a downloaded copy exists (desktop only) the html5
+  // <audio> element plays the local file instead of the YT iframe, WITHOUT flipping the persistent `mode`
+  // (so YT stays the online engine). useYt() is the single "talk to the iframe?" predicate the methods share.
+  local: false,
+  useYt() { return this.mode === "yt" && !this.local; },
+  load(id, startSec) {
+    startSec = startSec || this.nextStart || 0; this.nextStart = 0;
+    const localSrc = (typeof skLocalSrc === "function") ? skLocalSrc(id) : null; // SK-OFFLINE: prefer a downloaded copy
+    if (localSrc) { this.local = true; cancelSwap(); clearTimeout(_loadNudge); try { if (this.mode === "yt" && this.ready) this.yt.stopVideo(); } catch {} audio.src = localSrc; if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); return; }
+    this.local = false;
+    if (this.mode === "yt") { try { audio.pause(); } catch {} const a = startSec ? { videoId: id, startSeconds: startSec } : id; if (this.ready) { this.yt.loadVideoById(a); nudgePlay(); } else this.pending = a; } else { audio.src = "/stream?v=" + encodeURIComponent(id); if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); } },
+  play() { this.useYt() ? this.ready && this.yt.playVideo() : audio.play().catch(() => {}); cueNext(); }, // re-arm the gapless cue (cleared if a pause/seek cancelled a handoff)
+  pause() { clearTimeout(_loadNudge); if (xf) finishCrossfade(); if (gapless && gapless.phase === "start") cancelSwap(); this.useYt() ? this.ready && this.yt.pauseVideo() : audio.pause(); }, // a primed standby survives a pause; a firing one is cancelled; a fade is finished (snap to the new track) then paused
+  stop() { clearTimeout(_loadNudge); cancelSwap(); this.pending = null; if (this.useYt()) { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
+  paused() { return this.useYt() ? (!this.ready || this.yt.getPlayerState() !== 1) : audio.paused; }, // methods exist only after onReady
+  seek(sec) { if (xf) abortCrossfade(); if (gapless && gapless.phase === "start") cancelSwap(); this.useYt() ? this.ready && this.yt.seekTo(sec, true) : (audio.currentTime = sec); cueNext(); },
+  cur() { return this.useYt() ? (this.ready ? this.yt.getCurrentTime() || 0 : 0) : audio.currentTime; },
+  dur() { return this.useYt() ? (this.ready ? this.yt.getDuration() || 0 : 0) : (audio.duration || 0); },
+  setVol(v) { this.vol = v; this.muted = false; if (this.useYt()) { if (this.ready) { this.yt.unMute(); this.yt.setVolume(Math.round(v * 100)); } } else { audio.muted = false; audio.volume = v; } },
+  setMuted(m) { this.muted = m; if (this.useYt()) { if (this.ready) m ? this.yt.mute() : this.yt.unMute(); } else audio.muted = m; },
+  setRate(r) { this.rate = r; if (this.useYt()) { if (this.ready) this.yt.setPlaybackRate(r); } else audio.playbackRate = r; },
 };
 // loadVideoById occasionally lands CUED/paused instead of autoplaying (a skip that "pauses").
 // Verify playback engaged shortly after every load and nudge it; an intentional pause/stop
@@ -2496,7 +2514,7 @@ function nextPlayableIndex() { // the index playIndex(qi+1) would actually land 
   return -1;
 }
 function cueNext() {
-  if (PB.mode !== "yt" || !standbyReady || (gapless && gapless.phase === "start") || state.repeat) return;
+  if (PB.mode !== "yt" || PB.local || !standbyReady || (gapless && gapless.phase === "start") || state.repeat) return; // SK-OFFLINE: no YT gapless while a local file plays
   const idx = nextPlayableIndex(), t = idx >= 0 ? state.queue[idx] : null;
   if (!t || !t.videoId || cueDead.has(t.videoId)) { if (cued.id) cancelSwap(); return; }
   if (cued.id === t.videoId && cued.idx === idx) return; // already cued (or primed) for the right track
@@ -2697,7 +2715,7 @@ function trackStarted(t) {
   el("nbArt").src = yt(t.videoId); el("nbArt").classList.remove("hide"); el("nbTitle").textContent = t.title || ""; el("nbArtist").textContent = t.artist || "";
   el("npArt").src = art; el("npArt").classList.remove("hide"); el("npTitle").textContent = t.title || ""; el("npArtist").textContent = t.artist || "";
   el("npBg").style.backgroundImage = `url('${art}')`;
-  saveRecent(t); paintQueue(); refreshLikeUI(t.videoId); refreshNowPlaying(); if (lyricsOpen()) loadLyrics();
+  saveRecent(t); paintQueue(); refreshLikeUI(t.videoId); refreshNowPlaying(); if (lyricsOpen()) loadLyrics(); if (typeof skUpdateNpButton === "function") skUpdateNpButton(); // SK-OFFLINE: reflect this track's downloaded state
   pushURL("/song/" + t.videoId, true); // shareable per-song URL reflecting what's playing (no history spam)
   playBegin(t); // start a play-duration session — the `play` event fires on end/skip with real listen time
   if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: t.title || "", artist: t.artist || "", album: "SK Music", artwork: [{ src: art, sizes: "480x360", type: "image/jpeg" }] });
@@ -2989,7 +3007,7 @@ function tick() {
   el("nbDur").textContent = el("npDur").textContent = d ? fmt(d) : "0:00";
   // Gapless: WARM as soon as the standby's cue has loaded (polled here — see onStandbyState note),
   // then FIRE near the end (re-validating that the cue still matches what playIndex would choose).
-  if (PB.mode === "yt" && !state.repeat && !seeking && !PB.paused() && !xf) { // !paused: a pause in the final 0.5s must NOT let the fire window un-pause playback; !xf: a fade owns the transition
+  if (PB.mode === "yt" && !PB.local && !state.repeat && !seeking && !PB.paused() && !xf) { // !paused: a pause in the final 0.5s must NOT let the fire window un-pause playback; !xf: a fade owns the transition; !local: skip while a downloaded file plays
     if (!standbyReady && ytStandbyBoot) { // onReady is unreliable for a videoless player — probe it functional
       try { ytStandbyBoot.getPlayerState(); ytStandby = ytStandbyBoot; standbyReady = true; } catch {}
     }
@@ -3046,7 +3064,7 @@ function onPlaybackError() {
 audio.addEventListener("play", () => { streamFails = 0; startTick(); audio.playbackRate = PB.rate; setPlayIcons(); playResume(); });
 audio.addEventListener("pause", () => { stopTick(); setPlayIcons(); playAccrue(); });
 audio.addEventListener("ended", () => { stopTick(); playFinalize(); repeatOrNext(); });
-audio.addEventListener("error", () => { if (PB.mode === "html5") onPlaybackError(); });
+audio.addEventListener("error", () => { if (PB.local) { const t = state.queue[state.qi]; if (t && t.videoId) skDL.bad.add(t.videoId); PB.local = false; onPlaybackError(); } else if (PB.mode === "html5") onPlaybackError(); }); // SK-OFFLINE: a bad local file → blacklist it for the session and skip
 ["nbSeek", "npSeek"].forEach((id) => {
   const s = el(id);
   s.addEventListener("input", () => { seeking = true; paintSeek(s); el("nbCur").textContent = el("npCur").textContent = fmt((s.value / 1000) * PB.dur()); });
@@ -3109,6 +3127,98 @@ if (SK_NATIVE) document.addEventListener("contextmenu", (e) => {
   e.preventDefault();
   try { window.__TAURI__.event.emit("sk-menu", {}); } catch {} // event, not invoke — remote-origin ACL
 });
+/* ============================ SK-OFFLINE: desktop offline downloads ============================
+   DESKTOP ONLY (gated on SK_NATIVE). The remote SPA and Rust talk purely over core:event — remote
+   origins can't invoke app commands (see media.rs / the default capability). Rust side lives in
+   Desktop/src-tauri/src/download.rs. Event contract:
+     SPA -> Rust : sk-dl-request {videoId,title,artist} · sk-dl-delete {videoId} · sk-dl-list-request {}
+     Rust -> SPA : sk-dl-list {items} · sk-dl-done {videoId,item} · sk-dl-progress {videoId,phase,received,total} · sk-dl-error {videoId,message}
+   Each library item carries a ready-to-play `src` (skdl:// custom scheme) that PB.load() feeds to the
+   html5 <audio> element — so a downloaded song plays from disk, and offline. */
+const skDL = { map: new Map(), bad: new Set(), _t: 0 }; // videoId -> { status:"done"|"downloading"|"error", item?, received?, total?, message? }
+function skEmit(name, payload) { try { window.__TAURI__.event.emit(name, payload || {}); } catch (e) {} }
+function skIsDownloaded(id) { const e = skDL.map.get(id); return !!(e && e.status === "done"); }
+// Consulted by PB.load(): returns the local playback URL when a completed download exists (prefer it
+// over the YouTube iframe — saves bandwidth online and is the ONLY engine offline). null => play via YT.
+function skLocalSrc(id) { if (typeof SK_NATIVE === "undefined" || !SK_NATIVE || skDL.bad.has(id)) return null; const e = skDL.map.get(id); return (e && e.status === "done" && e.item && e.item.src) ? e.item.src : null; }
+function skDownload(id, title, artist) { if (!id || skIsDownloaded(id) || (skDL.map.get(id) || {}).status === "downloading") return; skDL.map.set(id, { status: "downloading", received: 0, total: null }); skDL.bad.delete(id); skEmit("sk-dl-request", { videoId: id, title: title || "", artist: artist || "" }); skUpdateNpButton(); skRenderDownloads(); showToast("Downloading for offline…", 1800); }
+function skDeleteDownload(id) { if (!id) return; skEmit("sk-dl-delete", { videoId: id }); skDL.map.delete(id); skUpdateNpButton(); skRenderDownloads(); skPaintRows(); }
+function skToggleDownloadCurrent() { const t = state.queue[state.qi]; if (!t || !t.videoId) return; if (skIsDownloaded(t.videoId)) { skDeleteDownload(t.videoId); showToast("Removed download", 1500); } else skDownload(t.videoId, t.title, t.artist); }
+function skPlayDownload(id) { const e = skDL.map.get(id); if (!e || e.status !== "done") return; const it = e.item || {}; state.queue = [{ videoId: id, title: it.title || "", artist: it.artist || "" }]; state.radio = null; state.playSource = "downloads"; playIndex(0); skCloseDownloads(); }
+function skFmtBytes(n) { if (!n) return ""; const u = ["B", "KB", "MB", "GB"]; let i = 0; while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; } return (i >= 2 ? n.toFixed(1) : Math.round(n)) + " " + u[i]; }
+function skUpdateNpButton() { const b = el("npDownload"); if (!b) return; const t = state.queue[state.qi]; const id = t && t.videoId; const e = id ? skDL.map.get(id) : null; const st = e ? e.status : "idle"; b.classList.toggle("on", st === "done"); b.classList.toggle("busy", st === "downloading"); b.title = st === "done" ? "Downloaded — click to remove" : st === "downloading" ? "Downloading…" : "Download for offline"; b.setAttribute("aria-label", b.title); }
+function skPaintRows() { document.querySelectorAll(".row[data-v]").forEach((row) => { const on = skIsDownloaded(row.dataset.v); if (row.classList.contains("sk-dl-done") !== on) row.classList.toggle("sk-dl-done", on); }); }
+function skEnsurePanel() {
+  if (el("skDlPanel")) return;
+  const st = document.createElement("style");
+  st.textContent = `
+    #npDownload.on{color:#4ade80}
+    #npDownload.busy{opacity:.55}
+    .row.sk-dl-done .title::after{content:"";display:inline-block;width:12px;height:12px;margin-left:7px;vertical-align:-1px;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234ade80'%3E%3Cpath d='M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z'/%3E%3C/svg%3E")}
+    .sk-dl-overlay{position:fixed;inset:0;z-index:60;display:none;background:rgba(6,4,5,.6);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:24px}
+    .sk-dl-overlay.on{display:flex}
+    .sk-dl-sheet{width:min(560px,94vw);max-height:82vh;display:flex;flex-direction:column;background:#171012;border:1px solid rgba(255,240,235,.10);border-radius:16px;box-shadow:0 24px 70px -20px rgba(0,0,0,.8);overflow:hidden}
+    .sk-dl-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid rgba(255,240,235,.08)}
+    .sk-dl-head h3{margin:0;font-size:18px;font-weight:650;color:#f6ece8}
+    .sk-dl-x{background:transparent;border:0;color:#b09a93;font-size:18px;cursor:pointer;width:32px;height:32px;border-radius:8px}
+    .sk-dl-x:hover{background:rgba(255,240,235,.08);color:#f6ece8}
+    .sk-dl-list{overflow-y:auto;padding:8px}
+    .sk-dl-empty{padding:36px 22px;text-align:center;color:#b09a93;font-size:14px;line-height:1.6}
+    .sk-dl-row{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:11px}
+    .sk-dl-row:hover{background:rgba(255,240,235,.05)}
+    .sk-dl-row>img{width:46px;height:46px;border-radius:8px;object-fit:cover;flex:none;background:#0b0809;cursor:pointer}
+    .sk-dl-meta{min-width:0;flex:1}
+    .sk-dl-t{font-size:14px;font-weight:600;color:#f6ece8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+    .sk-dl-s{font-size:12px;color:#b09a93;margin-top:2px}
+    .sk-dl-s.err{color:#ffb3ba}
+    .sk-dl-bar{height:4px;border-radius:3px;background:rgba(255,240,235,.12);margin-top:6px;overflow:hidden}
+    .sk-dl-bar>i{display:block;height:100%;background:linear-gradient(90deg,#ff8189,#ff5d6b);transition:width .25s}
+    .sk-dl-act{flex:none;background:transparent;border:0;color:#b09a93;cursor:pointer;width:34px;height:34px;border-radius:8px}
+    .sk-dl-act:hover{background:rgba(255,240,235,.08);color:#ff5d6b}
+    .sk-dl-act svg{width:20px;height:20px;fill:currentColor}
+  `;
+  document.head.appendChild(st);
+  const wrap = document.createElement("div");
+  wrap.id = "skDlPanel"; wrap.className = "sk-dl-overlay";
+  wrap.innerHTML = `<div class="sk-dl-sheet" role="dialog" aria-label="Downloads" aria-modal="true"><div class="sk-dl-head"><h3>Downloads</h3><button class="sk-dl-x" aria-label="Close" onclick="skCloseDownloads()">✕</button></div><div class="sk-dl-list" id="skDlList"></div></div>`;
+  wrap.addEventListener("click", (e) => { if (e.target === wrap) skCloseDownloads(); });
+  wrap.querySelector("#skDlList").addEventListener("click", (e) => {
+    const del = e.target.closest("[data-del]"); if (del) return void skDeleteDownload(del.getAttribute("data-del"));
+    const rty = e.target.closest("[data-retry]"); if (rty) { const id = rty.getAttribute("data-retry"); const it = (skDL.map.get(id) || {}).item || {}; return void skDownload(id, it.title, it.artist); }
+    const play = e.target.closest("[data-play]"); if (play) return void skPlayDownload(play.getAttribute("data-play"));
+  });
+  document.body.appendChild(wrap);
+}
+function skOpenDownloads() { skEnsurePanel(); skEmit("sk-dl-list-request", {}); el("skDlPanel").classList.add("on"); skRenderDownloads(); if (typeof closeSidebar === "function") closeSidebar(); }
+function skCloseDownloads() { const p = el("skDlPanel"); if (p) p.classList.remove("on"); }
+function skRenderDownloads() {
+  const box = el("skDlList"); if (!box) return;
+  const items = [...skDL.map.entries()];
+  if (!items.length) { box.innerHTML = `<div class="sk-dl-empty">No downloads yet.<br>Open a song and tap the download button in Now Playing to save it for offline.</div>`; return; }
+  items.sort((a, b) => { const ra = a[1].status === "downloading" ? 1 : 0, rb = b[1].status === "downloading" ? 1 : 0; if (ra !== rb) return rb - ra; return ((b[1].item && b[1].item.added) || 0) - ((a[1].item && a[1].item.added) || 0); });
+  box.innerHTML = items.map(([id, e]) => {
+    const it = e.item || {}, title = esc(it.title || id), artist = esc(it.artist || ""), art = yt(id);
+    if (e.status === "downloading") { const pct = e.total ? Math.min(100, Math.round(e.received / e.total * 100)) : null; return `<div class="sk-dl-row"><img src="${art}" alt=""><div class="sk-dl-meta"><div class="sk-dl-t">${title}</div><div class="sk-dl-s">${pct != null ? pct + "% · " + skFmtBytes(e.received) : "Preparing…"}</div><div class="sk-dl-bar"><i style="width:${pct != null ? pct : 12}%"></i></div></div></div>`; }
+    if (e.status === "error") return `<div class="sk-dl-row"><img src="${art}" alt=""><div class="sk-dl-meta"><div class="sk-dl-t">${title}</div><div class="sk-dl-s err">${esc(e.message || "Failed")}</div></div><button class="sk-dl-act" data-retry="${id}" title="Retry" aria-label="Retry"><svg viewBox="0 0 24 24"><path d="M17.65 6.35A8 8 0 1 0 19.73 14h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4z"/></svg></button>`;
+    return `<div class="sk-dl-row"><img src="${art}" alt="" data-play="${id}" title="Play"><div class="sk-dl-meta"><div class="sk-dl-t" data-play="${id}">${title}</div><div class="sk-dl-s">${artist}${it.bytes ? " · " + skFmtBytes(it.bytes) : ""}</div></div><button class="sk-dl-act" data-del="${id}" title="Remove" aria-label="Remove"><svg viewBox="0 0 24 24"><path d="M6 7h12l-1 13H7zm3-3h6l1 2H8zM4 6h16v2H4z"/></svg></button></div>`;
+  }).join("");
+}
+if (SK_NATIVE) {
+  const nd = el("npDownload"); if (nd) nd.style.display = "flex";
+  const ev = window.__TAURI__.event;
+  ev.listen("sk-dl-list", (e) => {
+    const items = (e.payload && e.payload.items) || [];
+    const inflight = new Map([...skDL.map].filter(([, v]) => v.status === "downloading"));
+    skDL.map = new Map(); items.forEach((it) => skDL.map.set(it.videoId, { status: "done", item: it }));
+    inflight.forEach((v, k) => { if (!skDL.map.has(k)) skDL.map.set(k, v); });
+    skRenderDownloads(); skUpdateNpButton(); skPaintRows();
+  });
+  ev.listen("sk-dl-progress", (e) => { const p = e.payload || {}; if (!p.videoId) return; const cur = skDL.map.get(p.videoId) || {}; skDL.map.set(p.videoId, { status: "downloading", received: p.received || 0, total: (p.total != null ? p.total : cur.total) || null }); const panel = el("skDlPanel"); if (panel && panel.classList.contains("on")) skRenderDownloads(); skUpdateNpButton(); });
+  ev.listen("sk-dl-done", (e) => { const p = e.payload || {}; if (p.item) skDL.map.set(p.videoId, { status: "done", item: p.item }); skRenderDownloads(); skUpdateNpButton(); skPaintRows(); showToast("Saved for offline", 1600); });
+  ev.listen("sk-dl-error", (e) => { const p = e.payload || {}; if (!p.videoId) return; const cur = skDL.map.get(p.videoId) || {}; skDL.map.set(p.videoId, { status: "error", item: cur.item, message: p.message || "Download failed" }); skRenderDownloads(); skUpdateNpButton(); showToast("Download failed", 3000); });
+  skEmit("sk-dl-list-request", {}); // load the existing library on boot
+  try { const mo = new MutationObserver(() => { clearTimeout(skDL._t); skDL._t = setTimeout(skPaintRows, 140); }); mo.observe(document.body, { childList: true, subtree: true }); } catch (e) {}
+}
 // Seek with verify-retry: the YT iframe swallows seekTo calls while it's still buffering a prior
 // seek (observed: three in a row ignored) — keep re-issuing until the position converges, up to
 // ~4.5 s. One chain at a time: a newer seek cancels an older chain so the latest target wins.

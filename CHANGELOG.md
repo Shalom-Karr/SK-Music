@@ -1,5 +1,58 @@
 # Changelog
 
+## 1.1.0 — 2026-07-28 (web + desktop)
+
+**Why the bump:** the first big *feature* release since 1.0 — playback UX, a real
+library/sharing layer, discovery, and desktop offline downloads. Everything is additive and
+gated so nothing changes for users who don't opt in.
+
+**Playback UX**
+- **Shuffle mode** — a persistent toggle in Now Playing. Shuffles the not-yet-played tail in
+  place, so the gapless/next path keeps working unchanged.
+- **Sleep timer** — pause after 15/30/45/60 min, or at the end of the current song. 🌙
+- **Queue editor** — the Up Next list is now drag-to-reorder, with per-row *Play next* and
+  *Remove*.
+- **Crossfade** — optional 3/6/9/12-second fade between songs, extending the dual-player
+  engine. Off by default; the tuned gapless handoff is untouched when it's off. Manual
+  transport aborts a fade; pause finishes it and pauses the new track.
+- **Time-synced lyrics** — a Lyrics tab in Now Playing (LRCLIB via the Worker's `/lyrics`),
+  with the active line highlighted and tap-to-seek; falls back to plain lyrics or a tidy
+  "no lyrics found."
+
+**Library & sharing**
+- **User playlists** — create/rename/delete, add songs, server-backed via Supabase so they
+  sync across devices (RPCs in `supabase/v1.1.0-features.sql`).
+- **Follow an artist** — a Follow button on artist pages; followed artists' newest releases
+  surface in a "New from artists you follow" shelf on For You.
+- **Share a song** — share sheet (native share or copy link) from the song menu and Now Playing.
+- **Offline downloads (desktop app)** — save a song's audio for offline playback. A hidden
+  youtube.com webview has YouTube's own player mint the signed audio-only stream URL (no
+  yt-dlp, no signature forging), Rust downloads it in ranged chunks, and a `skdl://` scheme
+  serves it to the html5 `<audio>` element. New Downloads library + a download button in Now
+  Playing. Entirely `SK_NATIVE`-gated — invisible on the web.
+
+**Content ops**
+- **Report a problem** — flag any song from the song menu; reports land in a Supabase review queue.
+- **Tagging progress** — a "Help improve the catalog" card in the Library shows Israeli/Chasidish
+  tag coverage, with contributor links for signed-in users.
+
+**Discovery**
+- **Search history & saved searches** — recent searches and starrable saved searches on the
+  search landing.
+- **Per-song radio + "Fans also like"** — start a radio station from any song's menu; artist
+  pages gain a similar-artists shelf.
+- **Better For You** — "Artists you've been playing" (recently-played) and "New from artists
+  you follow" shelves.
+
+**Login merge**
+- Likes and history now **merge** (union) with the account on sign-in instead of overwriting —
+  DB entries are never clobbered (idempotent `set_like`).
+
+**Deploy notes (for the maintainer)**
+- Run `supabase/v1.1.0-features.sql` in the Supabase dashboard (4 tables + 12 RPCs; idempotent).
+- Redeploy the web app so the CSP `media-src` change (adds `skdl:`) ships — the desktop app
+  needs it to play downloaded files.
+
 ## desktop-v1.0.2 — 2026-07-28
 
 **Why the bump:** a security + reliability hardening pass — three parallel audit agents (web player,
