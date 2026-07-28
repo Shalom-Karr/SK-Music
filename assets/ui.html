@@ -615,6 +615,13 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .schip-star{color:var(--faint);font-size:13px;line-height:1}
 .schip-star.on{color:var(--gold)}
 .schip-star:hover{color:var(--gold)}
+/* user playlists */
+.pl-signin{padding:16px 18px;border-radius:14px;background:var(--surface-2);border:1px solid var(--line-2);color:var(--muted);font-size:13.5px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0 2px}
+.pl-cover{aspect-ratio:1;border-radius:var(--r-md);background:linear-gradient(135deg,#2a1c3a,#1a1420);display:grid;place-items:center;margin-bottom:10px}
+.pl-cover svg{width:38%;height:38%;fill:var(--primary-2);opacity:.9}
+.pl-cover.pl-plus{font-size:34px;font-weight:300;color:var(--primary-2);background:linear-gradient(135deg,#241528,var(--surface-2))}
+.pl-new .t{color:var(--primary-2)}
+.rowmenu svg{fill:currentColor}
 /* hidden YouTube IFrame audio engine — rendered off-screen so audio keeps playing */
 #ytwrap{position:fixed;left:-9999px;bottom:0;width:320px;height:180px;opacity:0;pointer-events:none;z-index:-1}
 .iconbtn.rateBtn{width:auto;min-width:40px;height:34px;padding:0 11px;border-radius:12px;font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums}
@@ -950,6 +957,7 @@ fill="url(#royal)" stroke="none">
         <div style="min-width:0"><div class="np-title" id="npTitle"></div><div class="np-artist" id="npArtist" role="button" tabindex="0" aria-label="Go to artist" onclick="npOpenArtist()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"></div></div>
         <button class="iconbtn heart" id="npLike" onclick="toggleLikeCurrent()" title="Like" aria-label="Like" aria-pressed="false" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg></button>
         <button class="iconbtn" id="npShare" onclick="openShare(event)" title="Share" aria-label="Share" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0 0 6c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92z"/></svg></button>
+        <button class="iconbtn" id="npMenu" onclick="if(state.queue[state.qi])openSongMenu(this,state.queue[state.qi])" title="More" aria-label="More actions" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4m0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/></svg></button>
       </div>
       <div class="np-seek"><input type="range" class="seek" id="npSeek" min="0" max="1000" value="0" aria-label="Seek">
         <div class="np-times"><span id="npCur">0:00</span><span id="npDur">0:00</span></div></div>
@@ -1320,6 +1328,7 @@ function applyRoute(url) {
   if ((m = p.match(/^\/artists\/(.+)$/))) return openArtist(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/albums\/(.+)$/))) return openAlbum(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/zemer-playlists\/(.+)$/))) return openCuratedPlaylist(decodeURIComponent(m[1]), true);
+  if ((m = p.match(/^\/my-playlists\/(.+)$/))) return openUserPlaylist(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/playlists\/(.+)$/))) return openPlaylist(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/songs?\/(.+)$/))) return openSong(decodeURIComponent(m[1]), true, parseInt(u.searchParams.get("t") || "0", 10) || 0);
   if ((m = p.match(/^\/search\/(.+)$/))) { go("search", true); const qv = decodeURIComponent(m[1]); setTimeout(() => { const b = el("q"); if (b) { b.value = qv; doSearch(); } }, 60); return; }
@@ -1452,6 +1461,8 @@ function songRow(t, qid, i, opt) {
     <div class="text"><div class="title">${playing ? EQ : ""}<span style="overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</span>${t.explicit ? '<span class="tag">E</span>' : ""}${t.isVideo ? '<span class="tag">VIDEO</span>' : ""}</div>
     <div class="sub">${[esc(opt.hideArtist ? "" : (t.artist || opt.artist || "")), opt.plays && t.playCount ? plays(t.playCount) + " plays" : "", opt.date && t.addedAt ? ago(t.addedAt) : ""].filter(Boolean).join(" · ")}</div></div>
     ${heartAt(qid, i, t.videoId)}
+    <button class="iconbtn rowbtn rowmenu" style="width:36px;height:40px" aria-label="More actions" title="More" onclick="event.stopPropagation();songMenuAt('${qid}',${i},event)"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4m0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/></svg></button>
+    ${opt.plEdit ? `<button class="iconbtn rowbtn" style="width:36px;height:40px" aria-label="Remove from playlist" title="Remove" onclick="event.stopPropagation();removeFromUserPlaylist('${esc(opt.plEdit)}','${safeId(t.videoId)}')"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg></button>` : ""}
     ${t.durationSec ? `<div class="dur">${fmt(t.durationSec)}</div>` : ""}
     <button class="iconbtn rowbtn" style="width:40px;height:40px" aria-label="Play" onclick="event.stopPropagation();playFrom('${qid}',${i})">${ICON.play}</button></div>`;
 }
@@ -2069,6 +2080,112 @@ async function loadLibrary() {
   }
   if (hist.length) h += section("Recently Played", songRows(hist, { index: true }));
   el("v-library").innerHTML = h;
+  renderMyPlaylistsSection(); // async: prepend the user's playlists once loaded
+}
+// Also render the library when it's empty of local data but the user has server playlists.
+async function renderMyPlaylistsSection() {
+  const v = el("v-library"); if (!v || state.tab !== "library") return;
+  let card;
+  if (!loggedIn()) card = `<div class="pl-signin">Sign in to create playlists that sync across your devices. <button class="btn-ghost" style="margin-left:8px" onclick="openAuth('in')">Sign in</button></div>`;
+  else {
+    const pls = await loadMyPlaylists();
+    const cards = pls.map((p) => `<div class="card pl-card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openUserPlaylist('${esc(p.id)}')"><div class="pl-cover">${ICON.playlist || ICON.library}</div><div class="t">${esc(p.name)}</div><div class="s">${num(p.item_count || 0)} song${(+p.item_count === 1) ? "" : "s"}</div></div>`).join("");
+    card = `<div class="rail pl-rail"><div class="card pl-card pl-new" role="button" tabindex="0" onkeydown="${KDACT}" onclick="newPlaylistPrompt()"><div class="pl-cover pl-plus">+</div><div class="t">New playlist</div><div class="s">&nbsp;</div></div>${cards}</div>`;
+  }
+  const html = section("Your Playlists", card);
+  if (state.tab !== "library") return;
+  // Insert right after the hero if not already present.
+  if (v.querySelector(".pl-rail, .pl-signin")) return; // avoid double-insert on quick re-renders
+  const hero = v.querySelector(".hero");
+  if (hero) hero.insertAdjacentHTML("afterend", html); else v.insertAdjacentHTML("afterbegin", html);
+}
+/* ---- user playlists (server-backed via Supabase RPCs) ---- */
+let _myPlaylists = null;
+function invalidatePlaylists() { _myPlaylists = null; }
+async function loadMyPlaylists(force) {
+  if (!loggedIn()) return [];
+  if (_myPlaylists && !force) return _myPlaylists;
+  _myPlaylists = (await sbRpc("get_my_playlists")) || [];
+  return _myPlaylists;
+}
+function requirePlaylistLogin() { if (loggedIn()) return true; showToast("<b>Sign in to create playlists.</b> They sync across your devices.", 4000); openAuth("in"); return false; }
+async function newPlaylistPrompt(then) {
+  if (!requirePlaylistLogin()) return;
+  const name = prompt("Playlist name:"); if (!name || !name.trim()) return;
+  const id = await sbRpc("create_playlist", { p_name: name.trim() });
+  invalidatePlaylists();
+  if (id) { showToast(`Created “${esc(name.trim())}”.`, 2200); if (then) then(typeof id === "string" ? id : (id && id.id)); else if (state.tab === "library") { state.loaded.library = false; loadLibrary(); } }
+}
+async function addTrackToPlaylist(pid, t) {
+  await sbRpc("add_to_playlist", { p_id: pid, p_video_id: t.videoId, p_title: t.title || null, p_artist: t.artist || null });
+  invalidatePlaylists(); showToast("Added to playlist. ✓", 1800);
+}
+async function openUserPlaylist(pid, fromRoute) {
+  detailLoading("Playlist");
+  const rows = (await sbRpc("get_playlist", { p_id: pid })) || [];
+  const pls = await loadMyPlaylists(); const meta = pls.find((p) => p.id === pid);
+  const tracks = gate(rows.map((r) => ({ videoId: r.video_id, title: r.title, artist: r.artist }))).filter((t) => !(blockVideos() && t.isVideo));
+  const name = meta ? meta.name : "Playlist";
+  el("tbTitle").textContent = name; el("tbTitle").style.display = ""; el("tbSearch").style.display = "none";
+  state.detailKind = "userplaylist"; state.userPlaylistId = pid;
+  const qid = tracks.length ? regQueue(tracks) : null;
+  let h = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
+    <div class="detail-hero"><div class="cover">${artHTML("", NOTE)}</div><div class="dh-meta"><div class="dh-kind">Your Playlist</div><div class="dh-title">${esc(name)}</div><div class="dh-sub"><b>${num(tracks.length)}</b> songs</div></div></div>
+    <div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button><button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}
+    <button class="btn-ghost" onclick="renamePlaylistPrompt('${esc(pid)}')">Rename</button><button class="btn-ghost" onclick="deletePlaylistConfirm('${esc(pid)}')">Delete</button></div>`;
+  h += tracks.length ? `<div id="plBody">${songRows(tracks, { index: true, plEdit: pid })}</div>` : emptyState("Empty playlist", "Use the ⋯ menu on any song to add it here.");
+  el("v-detail").innerHTML = h; showDetail();
+  if (!fromRoute) pushURL("/my-playlists/" + pid);
+}
+async function renamePlaylistPrompt(pid) { const n = prompt("Rename playlist:"); if (!n || !n.trim()) return; await sbRpc("rename_playlist", { p_id: pid, p_name: n.trim() }); invalidatePlaylists(); openUserPlaylist(pid); }
+async function deletePlaylistConfirm(pid) { if (!confirm("Delete this playlist? This can't be undone.")) return; await sbRpc("delete_playlist", { p_id: pid }); invalidatePlaylists(); showToast("Playlist deleted.", 2000); go("library"); state.loaded.library = false; loadLibrary(); }
+async function removeFromUserPlaylist(pid, videoId) { await sbRpc("remove_from_playlist", { p_id: pid, p_video_id: videoId }); invalidatePlaylists(); openUserPlaylist(pid); }
+/* ---- consolidated song-actions menu (⋯) ---- */
+let _menuTrack = null;
+function songMenuAt(qid, i, e) { e && e.stopPropagation(); const q = queues.get(qid); const t = q && q[i]; if (t) openSongMenu(e.currentTarget, t); }
+function openSongMenu(anchor, t) {
+  _menuTrack = t;
+  const acaOnly = acapellaMode() === "only";
+  const ico = { pl: '<svg viewBox="0 0 24 24"><path d="M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v6l5-3z"/></svg>', radio: ICON.radio, artist: ICON.artist, share: ICON.share, flag: '<svg viewBox="0 0 24 24"><path d="M14.4 6 14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>' };
+  let html = `<div class="mihead">${esc(t.title || "Song")}</div>`;
+  html += `<button class="mi" role="menuitem" onclick="openAddToPlaylistMenu()">${ico.pl}<span>Add to playlist</span></button>`;
+  if (!acaOnly) html += `<button class="mi" role="menuitem" onclick="closeMenus();smRadio()">${ico.radio}<span>Start radio</span></button>`;
+  if (t.artist) html += `<button class="mi" role="menuitem" onclick="closeMenus();smArtist()">${ico.artist}<span>Go to artist</span></button>`;
+  html += `<button class="mi" role="menuitem" onclick="closeMenus();smShare()">${ico.share}<span>Share</span></button>`;
+  html += `<div class="misep"></div><button class="mi" role="menuitem" onclick="closeMenus();smReport()">${ico.flag}<span>Report a problem</span></button>`;
+  popMenu(anchor, html);
+}
+function smRadio() { const t = _menuTrack; if (t && t.videoId && acapellaMode() !== "only") startRadio("song", t.videoId); }
+function smArtist() { const t = _menuTrack; if (t && t.artist) gotoArtistByName(t.artist); }
+function smShare() { const t = _menuTrack; if (t) shareSong(t); }
+function smReport() { const t = _menuTrack; if (t) reportSong(t); }
+async function openAddToPlaylistMenu() {
+  if (!requirePlaylistLogin()) { closeMenus(); return; }
+  const t = _menuTrack;
+  const pls = await loadMyPlaylists();
+  const items = pls.map((p) => `<button class="mi" role="menuitem" onclick="closeMenus();addTrackToPlaylist('${esc(p.id)}',window._menuTrack)"><span>${esc(p.name)}</span><span class="sub">${num(p.item_count || 0)}</span></button>`).join("");
+  const m = el("popmenu");
+  m.innerHTML = `<div class="mihead">Add to playlist</div><button class="mi" role="menuitem" onclick="newPlaylistPrompt((id)=>id&&addTrackToPlaylist(id,window._menuTrack))"><span>＋ New playlist…</span></button><div class="misep"></div>${items || '<div class="qempty">No playlists yet.</div>'}`;
+  window._menuTrack = t; // keep the track for the submenu handlers
+}
+// Share: native share sheet when available, else copy the deep link.
+function shareSong(t) {
+  const url = location.origin + "/song/" + safeId(t.videoId);
+  const data = { title: t.title || "SK Music", text: `${t.title || ""}${t.artist ? " — " + t.artist : ""}`, url };
+  if (navigator.share) { navigator.share(data).catch(() => {}); return; }
+  try { navigator.clipboard.writeText(url); showToast("Link copied to clipboard.", 2000); } catch { showToast(url, 4000); }
+}
+// Report a problem → content_report RPC (needs an account).
+async function reportSong(t) {
+  if (!loggedIn()) { showToast("<b>Sign in to report a song.</b>", 3200); openAuth("in"); return; }
+  const reason = prompt("What's wrong with this song?\n(e.g. wrong artist, should be filtered, bad audio, duplicate)");
+  if (!reason || !reason.trim()) return;
+  await sbRpc("submit_report", { p_video_id: safeId(t.videoId), p_reason: reason.trim().slice(0, 120), p_note: (t.title || "") + (t.artist ? " — " + t.artist : "") });
+  showToast("Thanks — reported for review. 🙏", 3000);
+}
+function gotoArtistByName(name) {
+  const a = _artistByName && _artistByName.get((name || "").toLowerCase());
+  if (a) openArtist(a.id); else showToast("No artist page for " + esc(name), 2600);
 }
 
 /* ============================ DETAIL ============================ */
