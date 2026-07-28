@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.1.2 — 2026-07-28 (web only — no desktop rebuild)
+
+Playlist polish + clearer download status. All client-side; the desktop app picks it up
+automatically (it loads the web UI), so no new installer.
+
+**Playlists**
+- **Share a playlist** — a Share button on your playlist page toggles it **public/private** and, when
+  public, gives you **Copy link** / **Send link**. Public playlists open read-only at `/p/<id>` for
+  anyone with the link (no account needed), still filtered by the viewer's own content settings.
+- **No accidental duplicates** — adding a song that's already in a playlist is a no-op, and the
+  Add-to-playlist menu now **greys out** the playlists it's already in (shows "✓ Added").
+- **In-app modal** — creating, renaming, and deleting a playlist (and reporting a song) now use a
+  styled in-app dialog instead of the browser's `prompt()`/`confirm()`.
+
+**Downloads (desktop)**
+- The Now Playing download button now clearly shows **downloading / done / failed** state (failed turns
+  red — click to retry), and a failed download surfaces the actual reason in the toast.
+
+**Deploy note:** run `supabase/v1.1.2-playlists.sql` (after `v1.1.0-features.sql`) — it adds the
+`is_public` column and the sharing / "already added" RPCs. Sharing and grey-out stay inert until then.
+
 ## 1.1.1 — 2026-07-28 (desktop + web)
 
 Follow-up fixes on top of 1.1.0.
