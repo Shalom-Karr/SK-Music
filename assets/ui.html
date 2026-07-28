@@ -3113,7 +3113,7 @@ if (SK_NATIVE) window.__skMediaControl = (action) => { try {
   else if (action === "seekback") seekBy(-10);
   else if (action === "like") toggleLikeCurrent();
   else if (action === "repeat") toggleRepeat();
-  else if (action === "radio") { const t = state.queue[state.qi]; if (t && t.videoId && acapellaMode() !== "only") startRadio("song", t.videoId); }
+  else if (action === "radio") { if (acapellaMode() !== "only") { const t = state.queue[state.qi]; (t && t.videoId) ? startRadio("song", t.videoId) : startRadio("shuffle", ""); } } // no current song → generic mix (matches the tray's "Start radio" label)
   else if (action === "resumecheck") skResumeCheck(); // post-OS-resume health check from the desktop shell
   else if (action.indexOf("playindex:") === 0) { const n = +action.slice(10); if (n >= 0 && n < state.queue.length) playIndex(n); }
   else if (action.indexOf("seekby:") === 0) seekBy((+action.slice(7) || 0) / 1000);
