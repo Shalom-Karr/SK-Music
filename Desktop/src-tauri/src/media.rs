@@ -74,19 +74,40 @@
 //! killed by the OS tile.
 
 use std::cell::RefCell;
-use std::time::Duration;
+use std::sync::Mutex;
+use std::time::{Duration, Instant, SystemTime};
 
 use souvlaki::{
     MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig,
     SeekDirection,
 };
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 thread_local! {
     /// Lives only on the Tauri main thread (created in `init`, mutated via
     /// `run_on_main_thread`). `MediaControls` need not be `Send` this way.
     static CONTROLS: RefCell<Option<MediaControls>> = const { RefCell::new(None) };
 }
+
+/// Last now-playing state, cached for the mini player. `now_playing` stores the full incoming
+/// payload here (as the same camelCase JSON the webview sent) and `set_playback_state` patches the
+/// live `playing`/`position_ms`, so a mini window that opens mid-song can paint instantly via the
+/// `mini_sync` command instead of waiting for the next push.
+struct Snapshot {
+    now_playing: Option<serde_json::Value>,
+    playing: bool,
+    position_ms: Option<u64>,
+}
+impl Snapshot {
+    const fn new() -> Self {
+        Self { now_playing: None, playing: false, position_ms: None }
+    }
+}
+static SNAPSHOT: Mutex<Snapshot> = Mutex::new(Snapshot::new());
+
+/// Title of the last track we ran the toast/change check against — used to fire the "track changed"
+/// notification at most once per track (independent of whether the toast was actually shown).
+static LAST_TITLE: Mutex<Option<String>> = Mutex::new(None);
 
 /// Wire up the OS media session. Best-effort: a failure here (no D-Bus, SMTC
 /// unavailable, headless, ...) is logged and the app keeps running without
@@ -221,7 +242,112 @@ fn nonempty(value: &Option<String>) -> Option<&str> {
     value.as_deref().map(str::trim).filter(|v| !v.is_empty())
 }
 
-#[derive(serde::Deserialize)]
+/// Cache a full now-playing payload for the mini player (see `Snapshot`).
+fn store_now_playing(value: serde_json::Value, playing: bool, position_ms: Option<u64>) {
+    if let Ok(mut s) = SNAPSHOT.lock() {
+        s.now_playing = Some(value);
+        s.playing = playing;
+        s.position_ms = position_ms;
+    }
+}
+
+/// Patch only the live playback fields of the cached snapshot (a position/play-pause tick carries no
+/// metadata, so the last track stays put).
+fn store_playback(playing: bool, position_ms: Option<u64>) {
+    if let Ok(mut s) = SNAPSHOT.lock() {
+        s.playing = playing;
+        if position_ms.is_some() {
+            s.position_ms = position_ms;
+        }
+    }
+}
+
+/// The last-known now-playing state as one JSON object, with `playing`/`positionMs` overlaid from the
+/// most recent playback tick. Backs the mini player's `mini_sync` command so it can paint on open.
+pub fn snapshot_value() -> serde_json::Value {
+    let Ok(s) = SNAPSHOT.lock() else {
+        return serde_json::json!({});
+    };
+    let mut v = s.now_playing.clone().unwrap_or_else(|| serde_json::json!({}));
+    if let Some(obj) = v.as_object_mut() {
+        obj.insert("playing".into(), serde_json::json!(s.playing));
+        if let Some(p) = s.position_ms {
+            obj.insert("positionMs".into(), serde_json::json!(p));
+        }
+    }
+    v
+}
+
+/// Fire a native "track changed" toast — but only when the title actually changed, the toggle is on,
+/// and the main window is hidden to the tray (otherwise the on-screen UI already shows it). The
+/// last-seen title is recorded on every call regardless of the gates, so the change test stays right
+/// even across periods where notifications are off.
+fn notify_track_change(app: &tauri::AppHandle, title: Option<&str>, artist: Option<&str>) {
+    let changed = {
+        let Ok(mut last) = LAST_TITLE.lock() else {
+            return;
+        };
+        let changed = last.as_deref() != title;
+        *last = title.map(str::to_string);
+        changed
+    };
+    if !changed || !crate::settings::notify_on_track() {
+        return;
+    }
+    let Some(title) = title else {
+        return;
+    };
+    if let Some(win) = app.get_webview_window("main") {
+        if win.is_visible().unwrap_or(true) {
+            return;
+        }
+    }
+    use tauri_plugin_notification::NotificationExt;
+    let _ = app
+        .notification()
+        .builder()
+        .title(format!("♪ {title}"))
+        .body(artist.unwrap_or(""))
+        .show();
+}
+
+/// Detect a system sleep/resume without native window subclassing: sample the monotonic clock and
+/// the wall clock across a fixed sleep; if the wall clock advanced far more than the monotonic clock,
+/// the machine was suspended in between. On resume the OS often restores the webview in a wedged
+/// state (YouTube-IFrame audio silent though "playing"), so after a short grace we ask the web player
+/// to self-heal via `resumecheck`. Cross-platform by construction — no Win32 message hooks. Spawned
+/// from `.setup()`.
+pub fn watch_resume(app: &tauri::AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        const STEP: Duration = Duration::from_secs(30);
+        const SLEEP_THRESHOLD: Duration = Duration::from_secs(90);
+        loop {
+            let mono = Instant::now();
+            let wall = SystemTime::now();
+            std::thread::sleep(STEP);
+            let mono_elapsed = mono.elapsed();
+            // If the clock was set backwards, `duration_since` errors — treat that as "no jump".
+            let wall_elapsed = SystemTime::now().duration_since(wall).unwrap_or(mono_elapsed);
+            if wall_elapsed > mono_elapsed + SLEEP_THRESHOLD {
+                std::thread::sleep(Duration::from_secs(3)); // let network/webview settle
+                control(&app, "resumecheck");
+            }
+        }
+    });
+}
+
+/// One upcoming track, as sent in `now_playing.queue`. Used to build the tray's "Up Next" submenu.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueueEntry {
+    pub title: Option<String>,
+    pub artist: Option<String>,
+}
+
+// Serialize + Clone (in addition to Deserialize) so the same struct the webview sends can be cached
+// and re-emitted verbatim to the mini player.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NowPlaying {
     title: Option<String>,
@@ -232,9 +358,14 @@ pub struct NowPlaying {
     position_ms: Option<u64>,
     playing: Option<bool>,
     stopped: Option<bool>,
+    // Extras the web bridge may include; all optional, tolerate absence. `video_id` is unused on the
+    // Rust side today but carried through for forward-compat; `queue_base`/`queue` drive Up Next.
+    video_id: Option<String>,
+    queue_base: Option<u64>,
+    queue: Option<Vec<QueueEntry>>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaybackState {
     playing: Option<bool>,
@@ -245,6 +376,18 @@ pub struct PlaybackState {
 /// Set full metadata + playback state. Call on track change.
 #[tauri::command]
 pub fn now_playing(app: tauri::AppHandle, payload: NowPlaying) -> Result<(), String> {
+    let playing = payload.playing.unwrap_or(true) && !payload.stopped.unwrap_or(false);
+    let value = serde_json::to_value(&payload).unwrap_or(serde_json::Value::Null);
+
+    // Push the whole payload to the mini player (no-op if it isn't open) and cache it so a
+    // freshly-opened mini window can paint immediately via `mini_sync`.
+    let _ = app.emit_to(crate::mini::LABEL, "sk-np", &value);
+    store_now_playing(value, playing, payload.position_ms);
+
+    // Track-change toast while hidden (self-gated: change / toggle / visibility).
+    notify_track_change(&app, nonempty(&payload.title), nonempty(&payload.artist));
+
+    let app_main = app.clone();
     app.run_on_main_thread(move || {
         with_controls(|controls| {
             let meta = MediaMetadata {
@@ -263,9 +406,10 @@ pub fn now_playing(app: tauri::AppHandle, payload: NowPlaying) -> Result<(), Str
                 eprintln!("[media] set_playback failed: {e:?}");
             }
         });
-        // Mirror the track onto the tray (tooltip + now-playing line), independent of SMTC availability.
-        let playing = payload.playing.unwrap_or(true) && !payload.stopped.unwrap_or(false);
+        // Mirror the track onto the tray (tooltip + now-playing line + icon), independent of SMTC
+        // availability, and rebuild the "Up Next" submenu from the queue.
         crate::tray::set_now_playing(nonempty(&payload.title), nonempty(&payload.artist), playing);
+        crate::tray::set_up_next(&app_main, payload.queue_base, payload.queue.as_deref());
     })
     .map_err(|e| e.to_string())
 }
@@ -274,6 +418,13 @@ pub fn now_playing(app: tauri::AppHandle, payload: NowPlaying) -> Result<(), Str
 /// play/pause/seek and periodic position ticks.
 #[tauri::command]
 pub fn set_playback_state(app: tauri::AppHandle, payload: PlaybackState) -> Result<(), String> {
+    let playing = payload.playing.unwrap_or(true) && !payload.stopped.unwrap_or(false);
+    let value = serde_json::to_value(&payload).unwrap_or(serde_json::Value::Null);
+
+    // Keep the mini player and the cached snapshot in step with play/pause + position ticks.
+    let _ = app.emit_to(crate::mini::LABEL, "sk-state", &value);
+    store_playback(playing, payload.position_ms);
+
     app.run_on_main_thread(move || {
         with_controls(|controls| {
             if let Err(e) =
@@ -282,7 +433,7 @@ pub fn set_playback_state(app: tauri::AppHandle, payload: PlaybackState) -> Resu
                 eprintln!("[media] set_playback failed: {e:?}");
             }
         });
-        crate::tray::set_playing(payload.playing.unwrap_or(true) && !payload.stopped.unwrap_or(false));
+        crate::tray::set_playing(playing);
     })
     .map_err(|e| e.to_string())
 }
