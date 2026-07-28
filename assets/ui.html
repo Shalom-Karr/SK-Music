@@ -622,6 +622,8 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .pl-cover.pl-plus{font-size:34px;font-weight:300;color:var(--primary-2);background:linear-gradient(135deg,#241528,var(--surface-2))}
 .pl-new .t{color:var(--primary-2)}
 .rowmenu svg{fill:currentColor}
+.follow-btn.on{background:var(--primary);color:var(--primary-ink);border-color:var(--primary)}
+.follow-btn.on svg{fill:var(--primary-ink)}
 /* hidden YouTube IFrame audio engine — rendered off-screen so audio keeps playing */
 #ytwrap{position:fixed;left:-9999px;bottom:0;width:320px;height:180px;opacity:0;pointer-events:none;z-index:-1}
 .iconbtn.rateBtn{width:auto;min-width:40px;height:34px;padding:0 11px;border-radius:12px;font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums}
@@ -1755,7 +1757,7 @@ async function loadForYou() {
   const hero = `<div class="hero" style="background:linear-gradient(120deg,#2a1220,var(--surface) 70%)"><div class="eyebrow">Your mix</div><h1>For You</h1><p>A personalized blend of what you play and the whole whitelisted catalog — it sharpens as you listen.</p><span class="heb">בשבילך</span></div>`;
   v.innerHTML = hero + section("Made for you", skRail(6));
   const [d, trend, zemerRows, nf] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections(), zemerRowsSections(), newFeed()]);
-  await ensureFilters();                                              // artist map + parental profile + Acapella set (the /home payload is NOT parental-gated server-side — gate() must run here)
+  await ensureFilters(); await loadFollows();                         // artist map + parental profile + Acapella set + follow state
   const recent = gate(readRecent()), liked = gate(readLiked());       // gate() = content + parental (allow/blocklist, kid-only) + Acapella
   const taste = tasteArtists([...liked, ...liked, ...recent]);         // likes weighted 2× over plays
   // Cold start: a brand-new user has no plays/likes to personalize from — seed from the telemetry
@@ -1767,12 +1769,17 @@ async function loadForYou() {
       .map((s) => ({ videoId: s.videoId || s.video_id, title: s.title, artist: s.artist, explicit: s.explicit, durationSec: s.durationSec })).filter((s) => s.videoId);
   }
   let h = hero + (trend || "");
+  const followed = followedReleases(nf); // new releases from artists you follow — the top personal shelf
+  if (followed.length) h += railOf("New from artists you follow", followed.slice(0, 24), albumCard);
   if (recent.length) h += section("Jump back in", songCards(recent.slice(0, 14)));
   const mix = taste.length ? gate(await songsFromArtists(taste, 14)) : [];
   const qp = gate(d.quickPicks);
   if (mix.length >= 4) h += section(liked.length ? `Because you like ${esc(taste[0].name)}` : "Made for you", songCards(mix));
   else if (cold.length >= 4) h += section("Popular right now", quickPicks(cold.slice(0, 24)));
   else if (qp.length) h += section("Made for you", quickPicks(qp));
+  // Recently-played artists (from history, distinct from the taste blend used above) as their own shelf.
+  const recentArtists = tasteArtists(recent).slice(0, 16);
+  if (recentArtists.length >= 3) h += railOf("Artists you've been playing", recentArtists, artistCard);
   const nfAlbums = feedAlbums(nf);
   h += railOf("New for you", nfAlbums.length ? nfAlbums.slice(0, 24) : gate(d.latestReleases), albumCard);
   h += railOf(taste.length ? "Your artists" : "Artists to explore", gate(taste.length ? taste.slice(0, 16) : d.featuredArtists), artistCard);
@@ -2187,6 +2194,30 @@ function gotoArtistByName(name) {
   const a = _artistByName && _artistByName.get((name || "").toLowerCase());
   if (a) openArtist(a.id); else showToast("No artist page for " + esc(name), 2600);
 }
+/* ---- artist follows (server-backed) ---- */
+let _followSet = null; // Set of channel_ids; loaded on login / first artist page
+async function loadFollows(force) {
+  if (!loggedIn()) { _followSet = new Set(); return _followSet; }
+  if (_followSet && !force) return _followSet;
+  const rows = (await sbRpc("get_my_follows")) || [];
+  _followSet = new Set(rows.map((r) => r.channel_id));
+  return _followSet;
+}
+function isFollowing(cid) { return !!(_followSet && _followSet.has(cid)); }
+async function toggleFollow(cid, name, btn) {
+  if (!loggedIn()) { showToast("<b>Sign in to follow artists</b> and get their new releases.", 3600); openAuth("in"); return; }
+  if (!_followSet) await loadFollows();
+  const now = !_followSet.has(cid);
+  if (btn) { btn.classList.toggle("on", now); const l = btn.querySelector(".follow-lbl"); if (l) l.textContent = now ? "Following" : "Follow"; }
+  if (now) { _followSet.add(cid); await sbRpc("follow_artist", { p_channel_id: cid, p_name: name || null }); showToast("Following — new releases will show on For You.", 2800); }
+  else { _followSet.delete(cid); await sbRpc("unfollow_artist", { p_channel_id: cid }); showToast("Unfollowed.", 1500); }
+}
+// A "New from artists you follow" shelf: releases-feed albums whose artist resolves (by name) to a
+// followed channel id. Empty (returns "") when signed out, no follows, or no matching new releases.
+function followedReleases(nf) {
+  if (!loggedIn() || !_followSet || !_followSet.size) return [];
+  return feedAlbums(nf).filter((a) => { const art = _artistByName && _artistByName.get((a.artist || "").toLowerCase()); return art && _followSet.has(art.id); });
+}
 
 /* ============================ DETAIL ============================ */
 function showDetail() { for (const [t] of TABS) el("v-" + t).classList.remove("on"); el("v-detail").classList.add("on"); state.detailOpen = true; renderNav(); scrollTop(); }
@@ -2208,7 +2239,7 @@ function renderDetailView(v) {
   let h = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
     <div class="detail-hero"><div class="cover ${v.round ? "round" : ""}">${artHTML(v.thumb, v.round ? ICON.artist : NOTE, v.round, 640)}</div>
     <div class="dh-meta"><div class="dh-kind">${v.kind}</div><div class="dh-title">${esc(v.title)}</div><div class="dh-sub">${v.sub}</div></div></div>`;
-  h += `<div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button>` : ""}${qid ? `<button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}${v.radio ? `<button class="btn-ghost" onclick="startRadio('${v.radio.kind}','${v.radio.seed}')">${ICON.radio}Radio</button>` : ""}${v.path ? `<button class="btn-ghost" onclick="shareDetail()">${ICON.share}Share</button>` : ""}</div>`;
+  h += `<div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button>` : ""}${qid ? `<button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}${v.radio ? `<button class="btn-ghost" onclick="startRadio('${v.radio.kind}','${v.radio.seed}')">${ICON.radio}Radio</button>` : ""}${v.follow ? `<button class="btn-ghost follow-btn ${isFollowing(v.follow.channelId) ? "on" : ""}" onclick="toggleFollow('${esc(v.follow.channelId)}','${esc(v.follow.name).replace(/'/g, "\\'")}',this)"><svg viewBox="0 0 24 24"><path d="M15 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4m0 2c-3 0-9 1.5-9 4.5V21h18v-2.5c0-3-6-4.5-9-4.5"/></svg><span class="follow-lbl">${isFollowing(v.follow.channelId) ? "Following" : "Follow"}</span></button>` : ""}${v.path ? `<button class="btn-ghost" onclick="shareDetail()">${ICON.share}Share</button>` : ""}</div>`;
   for (const s of v.sections) {
     if (s.tracks && s.tracks.length) {
       let body = songRows(s.tracks, { index: true, artist: v.artistName, hideArtist: !!s.plays, plays: s.plays });
@@ -2236,7 +2267,7 @@ function detailLoading(kind, round) {
 async function openArtist(id, fromRoute) {
   detailLoading("Artist", true);
   const d = await detailGet("/artist?id=" + encodeURIComponent(id)); if (!d || d.error) return notAvailable("artist");
-  await ensureFilters(); // load artist flags + parental profile BEFORE gating (else the parental gate no-ops)
+  await ensureFilters(); await loadFollows(); // artist flags + parental profile + follow state BEFORE render (so the Follow button shows the right state)
   if ((noFemale() && d.artist.isFemale) || (noChasid() && d.artist.isChasid) || hiddenArtist(d.artist.name) || blockedId(d.artist.id)) return blockedByFilter("artist");
   // Acapella filter, per mode — "only" and "hide" are OPPOSITES here (a single any-mode branch used to
   // show just the Acapella tracks even in Hide, the exact inverse of what Hide means):
@@ -2256,9 +2287,27 @@ async function openArtist(id, fromRoute) {
   const videos = (acOnly || blockVideos()) ? [] : (am === "hide" ? (d.videos || []).filter((t) => !acapellaTrack(t)) : d.videos);
   const albums = acOnly ? [] : d.albums, singles = acOnly ? [] : d.singles, plists = acOnly ? [] : (d.playlists || []); // Audio-only hides the Videos section + keeps videos out of the play queue
   const n = (songs?.length || 0) + (videos?.length || 0);
-  pushDetail({ path: "/artists/" + id, kind: "Artist", title: d.artist.name, sub: acOnly ? `<b>${num(n)}</b> Acapella songs` : `<b>${num(n)}</b> songs · <b>${num(d.albums?.length || 0)}</b> albums`, thumb: d.artist.thumbnail, round: true, artistName: d.artist.name, radio: acOnly ? null : { kind: "artist", seed: id }, sections: [
+  pushDetail({ path: "/artists/" + id, kind: "Artist", title: d.artist.name, sub: acOnly ? `<b>${num(n)}</b> Acapella songs` : `<b>${num(n)}</b> songs · <b>${num(d.albums?.length || 0)}</b> albums`, thumb: d.artist.thumbnail, round: true, artistName: d.artist.name, radio: acOnly ? null : { kind: "artist", seed: id }, follow: { channelId: id, name: d.artist.name }, sections: [
     { label: "Songs", tracks: songs, plays: true, collapse: 6 }, { label: "Albums", items: albums, render: albumCard }, { label: "Singles & EPs", items: singles, render: albumCard },
     { label: "Videos", tracks: videos, collapse: 6 }, { label: "Playlists", items: plists, render: playlistCard } ] }, fromRoute);
+  if (!acOnly) appendSimilarArtists(id, nm); // "Fans also like" from the co-listening radio graph
+}
+// Derive a "Similar artists" shelf from the artist's radio station: the distinct OTHER artists the
+// co-listening graph surfaces. Appended after render so it never delays the artist page.
+async function appendSimilarArtists(id, selfName) {
+  try {
+    const d = await fetchJSON("/radio?" + filterQS(`kind=artist&seed=${encodeURIComponent(id)}&limit=40`)).catch(() => null);
+    if (!d || !Array.isArray(d.tracks) || state.detailKind !== "artist" || state.detailPath !== "/artists/" + id) return;
+    const seen = new Set([selfName]), arts = [];
+    for (const t of d.tracks) {
+      const nm = (t.artist || "").toLowerCase(); if (!nm || seen.has(nm)) continue; seen.add(nm);
+      const a = _artistByName && _artistByName.get(nm);
+      if (a && !hiddenArtist(a.name) && !blockedId(a.id)) { arts.push(a); if (arts.length >= 14) break; }
+    }
+    if (arts.length >= 3 && state.detailKind === "artist") {
+      el("v-detail").insertAdjacentHTML("beforeend", section("Fans also like", `<div class="rail round">${arts.map(artistCard).join("")}</div>`));
+    }
+  } catch {}
 }
 async function openAlbum(id, fromRoute) {
   detailLoading("Album");
