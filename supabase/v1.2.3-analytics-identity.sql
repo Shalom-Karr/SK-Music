@@ -53,7 +53,7 @@ create or replace function public.admin_user_history(
   p_limit int default 300
 )
 returns jsonb
-language plpgsql security definer set search_path = public stable as $$
+language plpgsql security definer set search_path = '' stable as $$
 declare
   v_rows jsonb;
   v_lim  int := least(greatest(coalesce(p_limit, 300), 1), 1000);
@@ -101,7 +101,7 @@ grant execute on function public.admin_user_history(uuid, int, int) to authentic
 -- ---------------------------------------------------------------------------
 create or replace function public.identity_split(days int default 7)
 returns jsonb
-language sql security definer set search_path = public stable as $$
+language sql security definer set search_path = '' stable as $$
   with w as (
     select user_id, meta ->> 'vid' as vid, session
     from public.zemer_analytics

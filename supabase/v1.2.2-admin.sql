@@ -8,9 +8,11 @@
 --   The Supabase anon key ships in the client. Anyone can read admin.html, lift
 --   the key, and call the REST API directly. So NOTHING here may rely on the UI
 --   hiding a button. Every function is SECURITY DEFINER and re-checks
---   is_zemer_admin() itself, on every call, server-side. That check — email in
---   public.zemer_admin, taken from the verified JWT, never from a parameter — is
---   the only thing standing between a signed-in stranger and every user's row.
+--   is_zemer_admin() itself, on every call, server-side. That check — membership
+--   in public.zemer_admin, keyed on the caller's identity from the verified JWT,
+--   never from a parameter — is the only thing standing between a signed-in
+--   stranger and every user's row. (v1.2.4 re-keys it from the mutable `email`
+--   claim to auth.uid(); run that migration too.)
 --
 --   Consequences that shaped the design:
 --     · pin_hash is NEVER returned by any function here. Admins get has_pin
@@ -52,7 +54,7 @@ revoke all on public.zemer_admin_audit from anon, authenticated;
 -- ---------------------------------------------------------------------------
 create or replace function public.admin_guard()
 returns void
-language plpgsql security definer set search_path = public stable as $$
+language plpgsql security definer set search_path = '' stable as $$
 begin
   if not public.is_zemer_admin() then
     raise exception 'not authorized' using errcode = '42501';
@@ -72,7 +74,7 @@ create or replace function public.admin_list_users(
   p_offset int  default 0
 )
 returns jsonb
-language plpgsql security definer set search_path = public stable as $$
+language plpgsql security definer set search_path = '' stable as $$
 declare
   v_rows  jsonb;
   v_total bigint;
@@ -132,16 +134,14 @@ $$;
 -- ---------------------------------------------------------------------------
 -- admin_user_detail — one user, plus what they've been listening to.
 --
--- NOTE ON "LISTENING HISTORY": public.zemer_analytics has no user_id column —
--- play events carry a per-tab `session` and an ip, never an account. There is
--- therefore NO per-user play log to serve here, and inventing one would mean
--- attaching identity to the analytics stream (a deliberate privacy decision, not
--- a schema detail). What exists per-user is `recents` (the recently-played list
--- the app syncs) and the likes table. Both are returned below.
+-- Returns `recents` (the recently-played list the app syncs) and the likes table.
+-- The real per-song play history lives in admin_user_history (v1.2.3), which reads
+-- the account-attributed analytics rows; it is a separate call so a large history
+-- doesn't hold up this panel.
 -- ---------------------------------------------------------------------------
 create or replace function public.admin_user_detail(p_user uuid)
 returns jsonb
-language plpgsql security definer set search_path = public stable as $$
+language plpgsql security definer set search_path = '' stable as $$
 declare v_out jsonb;
 begin
   perform public.admin_guard();
@@ -201,7 +201,7 @@ $$;
 -- ---------------------------------------------------------------------------
 create or replace function public.admin_set_user(p_user uuid, p_patch jsonb)
 returns jsonb
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = '' as $$
 declare
   v_before jsonb;
   v_after  jsonb;
@@ -249,7 +249,7 @@ $$;
 -- ---------------------------------------------------------------------------
 create or replace function public.admin_clear_pin(p_user uuid)
 returns jsonb
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = '' as $$
 declare v_admin text := auth.jwt() ->> 'email';
 begin
   perform public.admin_guard();

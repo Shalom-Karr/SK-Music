@@ -94,7 +94,8 @@
       Sign in with Google
     </button>
     <div class="msg" id="loginMsg"></div>
-    <div class="hint">Admin only — your email must be in the <b>zemer_admin</b> table. Signing in with Google grants nothing on its own.</div>
+    <div class="hint">Admin only — your email must be in the <b>zemer_admin</b> table. Signing in with Google grants nothing on its own.<br><br>
+      To grant access, in this order: Supabase → <b>Authentication → Users → Add user</b> <i>first</i>, then add that email to <b>zemer_admin</b>. Adding the email to <b>zemer_admin</b> before the account exists lets whoever registers it first hold the password on an admin row.</div>
   </form>
 </section>
 
