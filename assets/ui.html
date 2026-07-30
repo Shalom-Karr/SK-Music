@@ -624,6 +624,15 @@ body.on-air .live-note{display:block}
 #popmenu.on{opacity:1;transform:none;pointer-events:auto}
 #popmenu .mihead{padding:7px 12px 5px;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--faint)}
 #popmenu .misep{height:1px;background:var(--line-2);margin:5px 6px}
+/* Cover picker — the playlist's own songs as a thumbnail grid. */
+#popmenu .cover-pick-h{padding:8px 10px 6px;font-size:12px;color:var(--faint);font-weight:700;letter-spacing:.03em}
+#popmenu .cover-pick-grid{display:grid;grid-template-columns:repeat(3,74px);gap:8px;padding:2px 10px 8px;max-height:280px;overflow-y:auto}
+#popmenu .cover-pick{display:block;width:74px;padding:0;background:transparent;border:0;cursor:pointer;text-align:left}
+#popmenu .cover-pick img{width:74px;height:74px;object-fit:cover;border-radius:9px;display:block;border:2px solid transparent}
+#popmenu .cover-pick.on img{border-color:var(--primary)}
+#popmenu .cover-pick:hover img{border-color:var(--line-2)}
+#popmenu .cover-pick span{display:block;font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.25;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 #popmenu .mi{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:transparent;color:var(--text);
   cursor:pointer;font:inherit;font-size:13.5px;padding:9px 12px;border-radius:9px;transition:background .1s}
 #popmenu .mi:hover,#popmenu .mi:focus-visible{background:var(--surface-4);outline:none}
@@ -2260,7 +2269,7 @@ async function renderMyPlaylistsSection() {
   if (!loggedIn()) card = `<div class="pl-signin">Sign in to create playlists that sync across your devices. <button class="btn-ghost" style="margin-left:8px" onclick="openAuth('in')">Sign in</button></div>`;
   else {
     const pls = await loadMyPlaylists();
-    const cards = pls.map((p) => `<div class="card pl-card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openUserPlaylist('${esc(p.id)}')"><div class="pl-cover">${ICON.playlist || ICON.library}</div><div class="t">${esc(p.name)}</div><div class="s">${num(p.item_count || 0)} song${(+p.item_count === 1) ? "" : "s"}</div></div>`).join("");
+    const cards = pls.map((p) => `<div class="card pl-card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openUserPlaylist('${esc(p.id)}')">${plCoverHTML(p)}<div class="t">${esc(p.name)}</div><div class="s">${num(p.item_count || 0)} song${(+p.item_count === 1) ? "" : "s"}</div></div>`).join("");
     card = `<div class="rail pl-rail"><div class="card pl-card pl-new" role="button" tabindex="0" onkeydown="${KDACT}" onclick="newPlaylistPrompt()"><div class="pl-cover pl-plus">+</div><div class="t">New playlist</div><div class="s">&nbsp;</div></div>${cards}</div>`;
   }
   const html = section("Your Playlists", card);
@@ -2273,6 +2282,15 @@ async function renderMyPlaylistsSection() {
 /* ---- user playlists (server-backed via Supabase RPCs) ---- */
 let _myPlaylists = null;
 function invalidatePlaylists() { _myPlaylists = null; }
+// A playlist's cover is one of its own songs. An explicit pick wins; otherwise the first track stands
+// in, so every playlist has artwork without anyone choosing one. Falls back to the generic glyph only
+// while the playlist is genuinely empty.
+const plCoverId = (p) => (p && (p.cover_video_id || p.first_video_id)) || "";
+function plCoverHTML(p) {
+  const v = plCoverId(p);
+  return v ? `<div class="pl-cover" style="padding:0;overflow:hidden">${artHTML(yt(v))}</div>`
+           : `<div class="pl-cover">${ICON.playlist || ICON.library}</div>`;
+}
 async function loadMyPlaylists(force) {
   if (!loggedIn()) return [];
   if (_myPlaylists && !force) return _myPlaylists;
@@ -2327,9 +2345,9 @@ async function openUserPlaylist(pid, fromRoute) {
   state.detailKind = "userplaylist"; state.userPlaylistId = pid;
   const qid = tracks.length ? regQueue(tracks) : null;
   let h = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
-    <div class="detail-hero"><div class="cover">${artHTML("", NOTE)}</div><div class="dh-meta"><div class="dh-kind">Your Playlist${meta && meta.is_public ? ' · <span class="pl-pub">Public 🔗</span>' : ""}</div><div class="dh-title">${esc(name)}</div><div class="dh-sub"><b>${num(tracks.length)}</b> songs</div></div></div>
+    <div class="detail-hero"><div class="cover">${artHTML(plCoverId(meta) ? yt(plCoverId(meta)) : "", NOTE)}</div><div class="dh-meta"><div class="dh-kind">Your Playlist${meta && meta.is_public ? ' · <span class="pl-pub">Public 🔗</span>' : ""}</div><div class="dh-title">${esc(name)}</div><div class="dh-sub"><b>${num(tracks.length)}</b> songs</div></div></div>
     <div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button><button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}
-    <button class="btn-ghost" onclick="openPlaylistShareMenu('${esc(pid)}',event)"><svg viewBox="0 0 24 24" style="width:17px;height:17px;margin-right:5px;vertical-align:-3px;fill:currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0 0 6c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92z"/></svg>Share</button><button class="btn-ghost" onclick="renamePlaylistPrompt('${esc(pid)}')">Rename</button><button class="btn-ghost" onclick="deletePlaylistConfirm('${esc(pid)}')">Delete</button></div>`;
+    <button class="btn-ghost" onclick="openPlaylistShareMenu('${esc(pid)}',event)"><svg viewBox="0 0 24 24" style="width:17px;height:17px;margin-right:5px;vertical-align:-3px;fill:currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0 0 6c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92z"/></svg>Share</button><button class="btn-ghost" onclick="renamePlaylistPrompt('${esc(pid)}')">Rename</button>${tracks.length ? `<button class="btn-ghost" onclick="openCoverPicker('${esc(pid)}',event)"><svg viewBox="0 0 24 24" style="width:17px;height:17px;margin-right:5px;vertical-align:-3px;fill:currentColor"><path d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2M8.5 13.5l2.5 3 3.5-4.5 4.5 6H5z"/></svg>Cover</button>` : ""}<button class="btn-ghost" onclick="deletePlaylistConfirm('${esc(pid)}')">Delete</button></div>`;
   h += tracks.length ? `<div id="plBody">${songRows(tracks, { index: true, plEdit: pid })}</div>` : emptyState("Empty playlist", "Use the ⋯ menu on any song to add it here.");
   el("v-detail").innerHTML = h; showDetail();
   if (!fromRoute) pushURL("/my-playlists/" + pid);
@@ -2348,6 +2366,31 @@ async function renamePlaylistPrompt(pid) {
 async function deletePlaylistConfirm(pid) {
   if (!(await askConfirm({ title: "Delete playlist?", sub: "This can’t be undone.", submit: "Delete", danger: true }))) return;
   await sbRpc("delete_playlist", { p_id: pid }); invalidatePlaylists(); showToast("Playlist deleted.", 2000); go("library"); state.loaded.library = false; loadLibrary();
+}
+/* ---- playlist cover art ----------------------------------------------------
+   The cover is one of the playlist's own songs, so the picker is just its tracklist. No uploads means
+   no storage, no arbitrary URLs and nothing to moderate — and the server re-checks membership anyway,
+   so a hand-crafted request can't set a cover to something that isn't in the playlist. */
+async function openCoverPicker(pid, ev) {
+  const rows = (await sbRpc("get_playlist", { p_id: pid })) || [];
+  const tracks = gate(rows.map((r) => ({ videoId: r.video_id, title: r.title, artist: r.artist })));
+  if (!tracks.length) { showToast("Add a song first — the cover comes from the playlist's own artwork.", 3200); return; }
+  const pls = await loadMyPlaylists(); const cur = (pls.find((p) => p.id === pid) || {}).cover_video_id || "";
+  const grid = tracks.slice(0, 40).map((t) =>
+    `<button class="mi cover-pick${t.videoId === cur ? " on" : ""}" role="menuitem" title="${esc(t.title || "")}" onclick="setPlaylistCover('${esc(pid)}','${esc(t.videoId)}')">
+       <img src="${yt(t.videoId)}" alt="" loading="lazy"><span>${esc(t.title || "")}</span></button>`).join("");
+  popMenu(ev ? ev.currentTarget : el("content"),
+    `<div class="cover-pick-h">Choose a cover</div><div class="cover-pick-grid">${grid}</div>` +
+    (cur ? `<div class="misep"></div><button class="mi" role="menuitem" onclick="setPlaylistCover('${esc(pid)}',null)"><span>Use the first song instead</span></button>` : ""));
+}
+async function setPlaylistCover(pid, videoId) {
+  closeMenus();
+  const r = await sbRpc("set_playlist_cover", { p_id: pid, p_video_id: videoId });
+  if (r === null) { showToast("Couldn't change the cover — try again.", 3200); return; }
+  invalidatePlaylists();
+  state.loaded.library = false; // same cache the rename fix had to clear, for the same reason
+  openUserPlaylist(pid);
+  showToast(videoId ? "Cover updated." : "Cover reset to the first song.", 1800);
 }
 async function removeFromUserPlaylist(pid, videoId) { await sbRpc("remove_from_playlist", { p_id: pid, p_video_id: videoId }); invalidatePlaylists(); openUserPlaylist(pid); }
 /* ---- playlist sharing (public/private + shareable link) ---- */

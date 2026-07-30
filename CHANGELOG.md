@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.2.7 — 2026-07-30 (web only — no desktop rebuild)
+
+**Playlist cover art**
+- **Pick a cover for any playlist** — a Cover button on the playlist page opens a grid of that
+  playlist's own songs; tap one to make its artwork the cover, or reset to the first song.
+- Playlists in your Library and the playlist page itself now show real artwork instead of a generic
+  glyph. **No one has to choose one** — with no explicit pick, the first track's art stands in.
+- A cover is one of the playlist's own songs rather than an upload: no storage, no arbitrary URLs and
+  nothing to moderate. The server re-checks membership, so a cover can't be set to a song that isn't
+  in the playlist.
+
+**Playlist rename**
+- **Renaming works.** The rename always reached the database — but the Library list is cached and was
+  never invalidated, so the old name kept rendering exactly where you'd look to check. Deleting
+  already refreshed that list; renaming didn't.
+- Underneath it, a broader fix: every `returns void` RPC (rename, delete, add, remove, reorder)
+  replies `204` with an empty body, and the client's JSON parse threw on that — so **success was being
+  reported as failure** for all of them. Nothing checked the result, which is the only reason it went
+  unnoticed. Rename now surfaces a real error instead of silently doing nothing.
+
+**Deploy note:** run `supabase/v1.2.7-playlist-cover.sql`. Covers stay hidden until it's applied —
+`get_my_playlists()` gains two columns and the client tolerates their absence.
+
 ## 1.2.6 — 2026-07-30 (web only — no desktop rebuild)
 
 **Why the bump:** Zemer Radio shipped with the ordinary transport attached, which quietly offered
