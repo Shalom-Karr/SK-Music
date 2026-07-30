@@ -148,6 +148,13 @@
     <label for="password">Password</label>
     <input id="password" type="password" required autocomplete="current-password" placeholder="••••••••" />
     <button class="btn" id="signInBtn" type="submit">Sign in</button>
+    <div style="display:flex;align-items:center;gap:10px;margin:14px 0 12px;color:#7c6963;font-size:12px">
+      <span style="flex:1;height:1px;background:rgba(255,255,255,.12)"></span>or<span style="flex:1;height:1px;background:rgba(255,255,255,.12)"></span>
+    </div>
+    <button class="btn" id="googleBtn" type="button" style="background:#fff;color:#1f1f1f;display:flex;align-items:center;justify-content:center;gap:9px">
+      <svg viewBox="0 0 48 48" width="17" height="17" aria-hidden="true"><path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8a10 10 0 0 1-4.4 6.6v5.5h7.1c4.1-3.8 6.6-9.4 6.6-16.1"/><path fill="#34A853" d="M24 46c6 0 11-2 14.5-5.4l-7.1-5.5a13 13 0 0 1-19.4-6.8H4.7v5.7A22 22 0 0 0 24 46"/><path fill="#FBBC05" d="M12 28.3a13 13 0 0 1 0-8.6v-5.7H4.7a22 22 0 0 0 0 20z"/><path fill="#EA4335" d="M24 11.4c3.2 0 6.2 1.1 8.5 3.3l6.3-6.3A21 21 0 0 0 24 2 22 22 0 0 0 4.7 14l7.3 5.7A13 13 0 0 1 24 11.4"/></svg>
+      Sign in with Google
+    </button>
     <div class="msg" id="loginMsg"></div>
     <div class="hint">Admin only. Your email must be in the <b>zemer_admin</b> table. To grant access: Supabase → <b>Authentication → Users → Add user</b>, then add the same email to <b>zemer_admin</b>.</div>
   </form>
@@ -181,7 +188,7 @@ const TABLE = 'zemer_analytics';
 // Only the columns the dashboard actually reads. select=* also pulled url / user_agent / region —
 // which are never used here — so this trims the paginated download's payload (user_agent especially
 // is a long string on every row). `id` is included for potential keyset paging / de-dupe.
-const COLS = 'id,created_at,event,path,referrer,ip,country,city,browser,os,device,screen,session,meta';
+const COLS = 'id,created_at,event,path,referrer,ip,country,city,browser,os,device,screen,session,user_id,meta';
 
 // tiny Supabase client over fetch
 let SESSION = JSON.parse(localStorage.getItem('sk_session') || 'null');
@@ -232,8 +239,38 @@ const num = (n) => (n ?? 0).toLocaleString('en-US');
 let RANGE_H = 168, timer = null;
 
 /* ---------- auth ---------- */
-async function boot() { if (SESSION?.access_token && await sbIsAdmin()) enterApp(SESSION); else sbSignOut(); }
+// Google OAuth — the SAME Supabase project and provider the main app uses, so an admin signs in with
+// the account they already have. GoTrue's /authorize is a full-page redirect that bounces back here
+// with the session in the URL hash; consumeHash() claims it on boot, exactly like the app does.
+// Being in zemer_admin is still what grants access — signing in with Google grants nothing on its own.
+function googleSignIn() {
+  location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(location.origin + location.pathname)}`;
+}
+function consumeHash() {
+  const h = location.hash || '';
+  if (h.indexOf('access_token=') < 0) return null;
+  const p = new URLSearchParams(h.slice(1));
+  const access_token = p.get('access_token'), refresh_token = p.get('refresh_token');
+  history.replaceState(null, '', location.pathname + location.search); // don't leave the token in the URL
+  if (!access_token) return null;
+  let user = null;
+  try { user = JSON.parse(atob(access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); } catch {}
+  const s = { access_token, refresh_token, user: { email: user && (user.email || (user.user_metadata || {}).email), id: user && user.sub } };
+  SESSION = s; localStorage.setItem('sk_session', JSON.stringify(s));
+  return s;
+}
+async function boot() {
+  const fromHash = consumeHash();
+  if (fromHash) {
+    if (await sbIsAdmin()) return enterApp(fromHash);
+    sbSignOut();
+    const msg = $('loginMsg'); if (msg) msg.textContent = 'Not authorized — that account is not in the zemer_admin table.';
+    return;
+  }
+  if (SESSION?.access_token && await sbIsAdmin()) enterApp(SESSION); else sbSignOut();
+}
 $('loginForm').addEventListener('submit', (e) => { e.preventDefault(); doAuth(); });
+$('googleBtn').addEventListener('click', googleSignIn);
 
 async function doAuth() {
   const email = $('email').value.trim(), password = $('password').value;
@@ -469,6 +506,14 @@ function modelFromRows(rows) {
     avg: ss.avgMin < 1 ? (ss.avgMin * 60).toFixed(0) + 's' : ss.avgMin.toFixed(1) + 'm',
     bouncePct: ss.bounce, eventsPerSession: ss.count ? (rows.length / ss.count).toFixed(1) : '0',
     visitorsIp: new Set(rows.map((r) => r.ip).filter(Boolean)).size,
+    // Signed-in vs anonymous, counted as PEOPLE not events: an account is one person however much
+    // they play, and an anonymous visitor is their per-visitor id (vid), falling back to session for
+    // rows predating vid. Events are tallied separately because the two tell different stories —
+    // accounts usually play far more per head, so the event split flatters them.
+    acctUsers: new Set(rows.filter((r) => r.user_id).map((r) => r.user_id)).size,
+    anonUsers: new Set(rows.filter((r) => !r.user_id).map((r) => r.meta?.vid || r.session).filter(Boolean)).size,
+    acctEvents: rows.filter((r) => r.user_id).length,
+    anonEvents: rows.filter((r) => !r.user_id).length,
     artistPairs: tally(plays, null, (r) => r.meta?.artist), songPairs,
     eventPairs: tally(rows, 'event'), zeroSearchPairs: zeroSearch,
     likedSongPairs: likePairs, likedArtistPairs: tally(likes, null, (r) => r.meta?.artist),
@@ -513,7 +558,21 @@ function paint(m, tableRows) {
 }
 
 function contentHTML(m) {
+  const totalPeople = m.acctUsers + m.anonUsers;
+  const acctPct = totalPeople ? (m.acctUsers / totalPeople) * 100 : 0;
+  const acctEvPct = m.events ? (m.acctEvents / m.events) * 100 : 0;
   return `
+    <div class="grid stats">
+      <div class="stat c" style="grid-column:1/-1">
+        <div class="k">Signed in vs anonymous</div>
+        <div class="v mono">${acctPct.toFixed(1)}%<span style="font-size:14px;color:var(--muted);font-weight:400"> of people signed in</span></div>
+        <div class="s">${num(m.acctUsers)} account${m.acctUsers === 1 ? '' : 's'} · ${num(m.anonUsers)} anonymous — ${acctEvPct.toFixed(0)}% of events from accounts</div>
+        <div style="margin-top:10px;height:8px;border-radius:999px;background:var(--card2);overflow:hidden;display:flex">
+          <div style="width:${acctPct.toFixed(2)}%;background:var(--good)"></div>
+          <div style="flex:1;background:var(--dim);opacity:.45"></div>
+        </div>
+      </div>
+    </div>
     <div class="grid stats">
       <div class="stat a"><div class="k">Events</div><div class="v mono">${num(m.events)}</div><div class="s">${num(m.eventsToday)} today</div></div>
       <div class="stat b"><div class="k">Visitors</div><div class="v mono">${num(m.visitors)}</div><div class="s">${num(m.visitorsReturning)} returning</div></div>
@@ -578,6 +637,9 @@ function renderTable() {
   const recent = rows.slice(0, 80).map((r) => `<tr>
     <td class="mono">${esc(new Date(r.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }))}</td>
     <td><span class="pill ${evClass(r.event)}">${esc(r.event || '—')}</span></td>
+    <td>${r.user_id
+      ? `<span class="pill" style="background:rgba(52,211,153,.14);color:var(--good)" title="${esc(r.user_id)}">account</span>`
+      : '<span class="pill" style="color:var(--dim)">anon</span>'}</td>
     <td class="path">${esc(r.path || '')}${metaStr(r) ? ` <span style="color:var(--dim)">· ${esc(metaStr(r))}</span>` : ''}</td>
     <td>${esc(r.browser || '—')} <span style="color:var(--dim)">${esc(r.os || '')}</span></td>
     <td>${esc(r.device || '—')}${(r.screen || r.meta?.screen) ? ` <span style="color:var(--dim)">${esc(r.screen || r.meta?.screen)}</span>` : ''}</td>
@@ -587,7 +649,7 @@ function renderTable() {
   $('tblwrap').innerHTML = `
     <h3 style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">Recent events <span class="chips">${chips}</span></h3>
     <div class="scroll">${rows.length ? `<table>
-      <thead><tr><th>Time</th><th>Event</th><th>Path / detail</th><th>Browser</th><th>Device</th><th>Location</th><th>IP</th></tr></thead>
+      <thead><tr><th>Time</th><th>Event</th><th>Who</th><th>Path / detail</th><th>Browser</th><th>Device</th><th>Location</th><th>IP</th></tr></thead>
       <tbody>${recent}</tbody></table>` : '<div class="empty">No matching events. Browse the site (hard-refresh once so the latest code loads), then Refresh.</div>'}</div>`;
 }
 

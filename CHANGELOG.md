@@ -1,5 +1,64 @@
 # Changelog
 
+## 1.2.3 — 2026-07-30 (web only — no desktop rebuild)
+
+**Why the bump:** analytics could not tell you *who* was listening — only that a tab was. Play events
+now carry the signed-in account, which turns the admin console's listening view into a real history
+and makes signed-in vs anonymous measurable.
+
+**Analytics**
+- **Play events are attributed to an account** when the listener is signed in. Signed-out events stay
+  anonymous, and that absence is exactly what the new split measures.
+- **New card at the top of the dashboard: signed in vs anonymous** — the share of *people* with an
+  account, with the account/anonymous headcount and the share of events underneath. People and events
+  are shown separately on purpose: accounts play far more per head, so the event split flatters them.
+- **Every row in Recent events is marked `account` or `anon`** (hover an account chip for the id).
+- **Admin console shows a real play history** — per song, with timestamps, for the last 90 days.
+
+**Privacy / trust — worth being explicit about**
+- The beacon is unauthenticated. The Worker takes the account id from the request body and does not
+  verify it against a token (it holds only the anon key, and resolving a token per event would mean a
+  round trip on every play). A hostile client can therefore post events tagged with someone else's id.
+- That is acceptable **only** because this id is attribution and nothing else: it grants no access,
+  gates no content, and is never read to make an authorization decision. It is exactly as trustworthy
+  as the IP and user-agent already in the stream. It must not be extended into any access-control path.
+- History only exists from this release forward. Older events were never attributed and can't be
+  retroactively assigned; the console says so rather than showing a misleading empty list.
+
+**Deploy note:** run `supabase/v1.2.3-analytics-identity.sql`. The Worker tolerates the gap — if the
+column isn't there yet it retries the insert without it, so analytics keeps flowing either way.
+
+## 1.2.2 — 2026-07-30 (web only — no desktop rebuild)
+
+**Why the bump:** an admin console, so account problems can be fixed for a user instead of talked
+through with them.
+
+**Admin console (`/admin`)**
+- A user table: name, email, filter summary, PIN state, Kid Zone, artist mode, PIN failures (with a
+  lockout flag), created and last-sign-in dates. Search by name or email.
+- Click a row for the full picture, with every content filter editable on the user's behalf —
+  including the Zemer Radio policy, Kid Zone and artist mode. Edits stage and write on **Save**, so a
+  mis-click isn't instantly live on someone's account.
+- **Clear PIN** for a parent locked out of their own controls. An admin can clear a PIN but can never
+  read or set one, so this can't be used to impersonate the parental gate.
+
+**Sign-in**
+- **Google sign-in on `/analytics` and `/admin`**, using the same Supabase project and provider as the
+  app — admins use the account they already have. Password sign-in still works, and the session is
+  shared between the two pages.
+- Being in `zemer_admin` is what grants access. Signing in with Google grants nothing on its own.
+
+**How it's actually secured** (the anon key is public, so the UI gates nothing)
+- Every read and write goes through `admin_*` SECURITY DEFINER functions that re-check `zemer_admin`
+  membership server-side on **every** call, with `execute` revoked from `anon` as a second layer.
+- **`pin_hash` is never returned by any path** — admins see `has_pin` only.
+- `admin_set_user` reads its patch key by key rather than merging, so a crafted key can't reach
+  `pin_hash`, `id` or `email`.
+- **Every admin write is logged** to a new `zemer_admin_audit` table with the acting admin and the
+  before/after. One user editing another's parental controls without a trail shouldn't exist.
+
+**Deploy note:** run `supabase/v1.2.2-admin.sql`, then add your email to `zemer_admin`.
+
 ## 1.2.1 — 2026-07-30 (web only — no desktop rebuild)
 
 **Why the bump:** Zemer Radio shipped this morning with only an account-level on/off switch. A parent

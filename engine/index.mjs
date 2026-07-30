@@ -458,6 +458,8 @@ function detectClient(uaString) {
   return { browser, os, device };
 }
 
+const UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // Bulk-insert event rows into Supabase. If a 400 comes back and any rows carry
 // a `screen` field (not yet in older schemas), fold it into meta and retry so
 // no data is lost during a schema migration window.
@@ -476,10 +478,13 @@ async function persistEvents(env, rows) {
     body: JSON.stringify(rows),
   }).catch(() => null);
 
-  if (result && result.status === 400 && rows.some((r) => r.screen != null)) {
-    const adapted = rows.map(({ screen, ...rest }) => ({
+  // Schema-migration tolerance: a column the deployed DB doesn't have yet 400s the whole batch.
+  // Fold `screen` into meta and drop `user_id` entirely, then retry, so analytics keeps flowing in
+  // the window between deploying this Worker and running the migration that adds the column.
+  if (result && result.status === 400 && rows.some((r) => r.screen != null || r.user_id != null)) {
+    const adapted = rows.map(({ screen, user_id, ...rest }) => ({
       ...rest,
-      meta: Object.assign({}, rest.meta, { screen }),
+      meta: Object.assign({}, rest.meta, screen != null ? { screen } : {}),
     }));
     result = await fetch(endpoint, {
       method: "POST",
@@ -548,6 +553,11 @@ async function handleAnalyticsBeacon(request, env, ctx) {
       device,
       screen: clamp(e.screen, 24),
       session: clamp(e.sid, 64),
+      // Account attribution. Shape-checked as a UUID and otherwise dropped, so a malformed or
+      // oversized value can't reach the uuid column and 400 the whole batch. NOT verified against a
+      // token — the beacon is unauthenticated and this is attribution only, never authorization
+      // (the trust model is spelled out in supabase/v1.2.3-analytics-identity.sql).
+      user_id: UUID_RX.test(String(e.uid || "")) ? String(e.uid) : null,
       meta: clampMeta(e.meta),
     }));
 
@@ -1446,6 +1456,16 @@ export default {
       );
       const headers = new Headers(asset.headers);
       headers.set("Cache-Control", "no-store");
+      return new Response(asset.body, { status: asset.status, headers });
+    }
+    // Admin console. Serving the page is not an authorization decision — the page is public HTML and
+    // the anon key inside it is public too. Access is enforced entirely by the admin_* RPCs, which
+    // re-check zemer_admin membership from the verified JWT on every call.
+    if (pathname === "/admin" || pathname === "/admin/") {
+      const asset = await env.ASSETS.fetch(new Request(new URL("/admin.html", url), request));
+      const headers = new Headers(asset.headers);
+      headers.set("Cache-Control", "no-store");
+      headers.set("X-Robots-Tag", "noindex, nofollow");
       return new Response(asset.body, { status: asset.status, headers });
     }
     if (pathname === "/test" || pathname === "/test/") {

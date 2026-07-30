@@ -531,7 +531,7 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
     `\n</sitemapindex>\n`,
   );
   ensureWrite(path.join(DIST, "robots.txt"),
-    `User-agent: *\nAllow: /\nDisallow: /analytics\n\nSitemap: ${SITE}/sitemap.xml\n`);
+    `User-agent: *\nAllow: /\nDisallow: /analytics\nDisallow: /admin\n\nSitemap: ${SITE}/sitemap.xml\n`);
   console.log(`  sitemaps: ${registeredSitemaps.length} files + index (${tracks.length + artists.length + albums.length + playlists.length} entity URLs) → ${SITE}/sitemap.xml`);
 
   // IndexNow (Bing/Edge instant indexing) — the key file must sit at the site root and
@@ -724,6 +724,9 @@ for (const png of ["chrome.png", "edge.png"]) fs.copyFileSync(path.join(ROOT, "r
 
 // Admin analytics dashboard — Supabase auth + zemer_admin role required; noindex.
 ensureWrite(path.join(DIST, "analytics.html"), fs.readFileSync(path.join(ROOT, "assets/analytics.html"), "utf8"));
+// Admin console — same zemer_admin gate; every read/write goes through the admin_* SECURITY DEFINER
+// RPCs, which re-check membership server-side (the anon key is public, so the UI gates nothing).
+ensureWrite(path.join(DIST, "admin.html"), fs.readFileSync(path.join(ROOT, "assets/admin.html"), "utf8"));
 
 // Network connectivity test page — diagnoses filter/whitelist blocks and a real playback test.
 ensureWrite(path.join(DIST, "test.html"), fs.readFileSync(path.join(ROOT, "assets/connectivity.html"), "utf8"));
