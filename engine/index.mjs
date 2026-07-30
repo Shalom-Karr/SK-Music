@@ -1050,6 +1050,111 @@ async function handleZemerNew(env, ctx) {
   return response;
 }
 
+// ─── Zemer Stations (/stations, /station, /stations/cover) ───────────────────
+
+// Synchronized broadcast radio: ONE shared wall-clock program per station, so every listener hears
+// the same track at the same moment (see zemer-search docs/stations.md). Distinct from /radio, which
+// is a personalized queue. Proxied same-origin so it works behind content filters, and — like /radio —
+// the upstream query is rebuilt from a validated allowlist rather than forwarding url.search.
+//
+// Caching is per-route because the time-sensitivity differs sharply:
+//   /station       — carries offsetMs (where in the track the broadcast currently is). NEVER cache;
+//                    a stale offset would drop the listener into the wrong point of the song.
+//   /stations      — the card list, whose nowPlaying turns over per track (~3 min). A short edge
+//                    cache keeps Home cheap without the cards visibly lagging.
+//   /stations/cover — a generated SVG that only changes when the station catalog does. Cache hard.
+const STATION_ID_RX = /^[a-z0-9][a-z0-9-]{0,31}$/; // shape-checked, not hardcoded — a new upstream station works without a deploy
+const STATIONS_EDGE_TTL = 15;
+
+async function handleStations(request, url, ctx) {
+  if (request.method !== "GET")
+    return Response.json({ error: "method not allowed" }, { status: 405, headers: { "Cache-Control": "no-store" } });
+
+  const cache = caches.default;
+  const cacheKey = new Request("https://sk/stations");
+  const hit = await cache.match(cacheKey);
+  if (hit) return hit;
+
+  try {
+    const res = await fetch("https://search.zemer.io/stations", { signal: AbortSignal.timeout(15000) });
+    const text = await res.text();
+    const out = new Response(text, {
+      status: res.status,
+      headers: {
+        "Content-Type": "application/json",
+        // Only cache a healthy list; an upstream error must not stick for 15s.
+        "Cache-Control": res.ok ? `public, max-age=${STATIONS_EDGE_TTL}` : "no-store",
+      },
+    });
+    if (res.ok && ctx) ctx.waitUntil(cache.put(cacheKey, out.clone()));
+    return out;
+  } catch {
+    return Response.json({ error: "unavailable" }, { status: 502, headers: { "Cache-Control": "no-store" } });
+  }
+}
+
+async function handleStation(request, url) {
+  if (request.method !== "GET")
+    return Response.json({ error: "method not allowed" }, { status: 405, headers: { "Cache-Control": "no-store" } });
+
+  const id = url.searchParams.get("id") || "";
+  if (!STATION_ID_RX.test(id))
+    return Response.json({ error: "bad id" }, { status: 400, headers: { "Cache-Control": "no-store" } });
+
+  const out = new URLSearchParams({ id });
+  const nextRaw = url.searchParams.get("next");
+  if (nextRaw != null) {
+    const n = parseInt(nextRaw, 10);
+    if (Number.isFinite(n)) out.set("next", String(Math.min(10, Math.max(1, n))));
+  }
+
+  try {
+    const res = await fetch("https://search.zemer.io/station?" + out.toString(), {
+      signal: AbortSignal.timeout(15000),
+    });
+    const text = await res.text();
+    return new Response(text, {
+      status: res.status,
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    });
+  } catch {
+    return Response.json({ error: "unavailable" }, { status: 502, headers: { "Cache-Control": "no-store" } });
+  }
+}
+
+async function handleStationCover(request, url, ctx) {
+  if (request.method !== "GET")
+    return new Response("method not allowed", { status: 405, headers: { "Cache-Control": "no-store" } });
+
+  const id = url.searchParams.get("id") || "";
+  if (!STATION_ID_RX.test(id))
+    return new Response("bad id", { status: 400, headers: { "Cache-Control": "no-store" } });
+
+  const cache = caches.default;
+  const cacheKey = new Request(`https://sk/stations/cover?id=${id}`);
+  const hit = await cache.match(cacheKey);
+  if (hit) return hit;
+
+  try {
+    const res = await fetch(`https://search.zemer.io/stations/cover?id=${encodeURIComponent(id)}`, {
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return new Response("unavailable", { status: 502, headers: { "Cache-Control": "no-store" } });
+    const body = await res.arrayBuffer();
+    const out = new Response(body, {
+      status: 200,
+      headers: {
+        "Content-Type": res.headers.get("Content-Type") || "image/svg+xml",
+        "Cache-Control": "public, max-age=86400",
+      },
+    });
+    if (ctx) ctx.waitUntil(cache.put(cacheKey, out.clone()));
+    return out;
+  } catch {
+    return new Response("unavailable", { status: 502, headers: { "Cache-Control": "no-store" } });
+  }
+}
+
 // ─── Zemer Radio (/radio) ────────────────────────────────────────────────────
 
 // Live pass-through to the upstream corpus radio (co-occurrence "what plays next"; see
@@ -1311,6 +1416,9 @@ export default {
     if (pathname === "/zemer-home-rows") return handleHomeRows(env, ctx);
     if (pathname === "/zemer-new") return handleZemerNew(env, ctx);
     if (pathname === "/radio") return handleRadio(request, url);
+    if (pathname === "/stations") return handleStations(request, url, ctx);
+    if (pathname === "/station") return handleStation(request, url);
+    if (pathname === "/stations/cover") return handleStationCover(request, url, ctx);
     if (pathname === "/lyrics") return handleLyrics(request, url, ctx);
     if (pathname === "/trending") {
       // Content negotiation: browser navigations (Accept: text/html) get the human-readable charts

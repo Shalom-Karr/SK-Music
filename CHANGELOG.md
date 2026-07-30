@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.2.0 — 2026-07-30 (web only — no desktop rebuild)
+
+**Why the bump:** a new listening surface. Zemer Radio — live, synchronized broadcast stations —
+lands on Home. The desktop app picks it up automatically (it loads the web UI), so no new installer.
+
+**Zemer Radio (new)**
+- **Three live stations on Home** — Chassidish, Israeli, and DJ / Remix, from the upstream
+  `zemer-search` stations service. These are a **broadcast**, not a playlist: one shared wall-clock
+  program per station, so everyone tuned in hears the same song at the same moment. Tuning in seeks
+  to wherever the broadcast currently is rather than starting the track over.
+- Clock skew is measured on every schedule read (round-trip midpoint) so the seek lands in the right
+  place even if the device clock is off. The local schedule tops itself up as the queue drains.
+- **Pausing leaves the broadcast; playing again rejoins it live** — a radio station doesn't wait for
+  you. Short interruptions (a seek, a buffer stall) are not treated as a pause.
+- A takedown can leave a gap in the shared program (the server reports a negative offset — the next
+  track *starts in* N ms). We wait it out instead of starting early and drifting out of sync.
+- Starting a normal radio station, or playing anything else, leaves the broadcast cleanly.
+
+**Zemer Radio and your filters**
+- **New setting: Zemer Radio (on by default)** — one switch in Settings turns the whole row off. It
+  isn't a content filter, so it needs no account.
+- When it's on, **your content filters still choose which stations appear.** Hide Chasidish and the
+  Chassidish station is gone; Only Chasidish and it's the only one left; the same for Israeli, and
+  Hide DJ sets removes DJ / Remix.
+- **Hidden entirely in Kid Zone** — the upstream station pools are not Kid-Zone filtered.
+- **Hidden entirely in Acapella-only mode** (Sefira / the Three Weeks) — a station carries no
+  acapella at all, so showing one would pipe instrumental music into an acapella-only session.
+- Individual tracks are still re-checked against your own blocklist when you tune in.
+
+**Worker**
+- New same-origin proxy routes `/stations`, `/station` and `/stations/cover`, so the stations work
+  behind a content filter. Each rebuilds the upstream query from a validated allowlist rather than
+  forwarding the query string, matching the existing `/radio` hardening. `/station` is never cached
+  (it carries the live playback offset); the card list gets 15s and the generated cover art 24h.
+
 ## 1.1.3 — 2026-07-28 (desktop only — no web change)
 
 **Why the bump:** "Check for updates" could open the dialog and never tell you the answer. Reported

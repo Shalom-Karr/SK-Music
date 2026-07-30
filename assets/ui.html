@@ -315,6 +315,17 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .rail.round{grid-auto-columns:150px}
 .card{scroll-snap-align:start;cursor:pointer;border-radius:var(--r-md);transition:transform .18s var(--ease)}
 .card:hover{transform:translateY(-4px)}
+/* Zemer Radio (live broadcast stations) — the LIVE pip sits on the cover so a station card reads as
+   "on air right now" rather than as another playlist. .on-air marks the station you're tuned into. */
+.st-wrap{position:relative}
+.st-live{position:absolute;top:8px;left:8px;display:inline-flex;align-items:center;gap:5px;
+  padding:3px 8px;border-radius:999px;background:rgba(10,6,7,.72);backdrop-filter:blur(6px);
+  color:#fff;font-size:10.5px;font-weight:800;letter-spacing:.06em}
+.st-live::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--primary);
+  box-shadow:0 0 0 0 rgba(255,93,107,.7);animation:stpulse 1.8s infinite}
+@keyframes stpulse{70%{box-shadow:0 0 0 7px rgba(255,93,107,0)}100%{box-shadow:0 0 0 0 rgba(255,93,107,0)}}
+@media (prefers-reduced-motion:reduce){.st-live::before{animation:none}}
+.card.on-air .art{outline:2px solid var(--primary);outline-offset:2px}
 .art{position:relative;width:100%;aspect-ratio:1;border-radius:var(--r-md);overflow:hidden;
   background:linear-gradient(135deg,var(--surface-3),var(--surface-2));box-shadow:0 10px 24px -10px rgba(0,0,0,.6)}
 .art img{width:100%;height:100%;object-fit:cover;transition:opacity .3s,transform .45s var(--ease)}
@@ -941,6 +952,7 @@ fill="url(#royal)" stroke="none">
     <div class="isr-row" id="chasidRow"><div><span>Chasidish</span><small>Filter by Chasidic / non-Chasidic</small></div><div class="isr-seg" id="chasidSeg"><button data-v="" onclick="setChasid('')">All</button><button data-v="only" onclick="setChasid('only')">Only</button><button data-v="hide" onclick="setChasid('hide')">Hide</button></div></div>
     <div class="isr-row" id="isrRow"><div><span>Israeli artists</span><small>Filter by Israeli / non-Israeli</small></div><div class="isr-seg" id="isrSeg"><button data-v="" onclick="setIsraeli('')">All</button><button data-v="only" onclick="setIsraeli('only')">Only</button><button data-v="hide" onclick="setIsraeli('hide')">Hide</button></div></div>
     <div class="isr-row" id="acapRow"><div><span>Acapella</span><small>Only, or hide, Acapella songs</small></div><div class="isr-seg" id="acapSeg"><button data-v="" onclick="setAcapella('')">All</button><button data-v="only" onclick="setAcapella('only')">Only</button><button data-v="hide" onclick="setAcapella('hide')">Hide</button></div></div>
+    <div class="toggle" id="tgZemerRadio" role="button" tabindex="0" onclick="setZemerRadio(!zemerRadioOn())" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Zemer Radio</span><small>Live broadcast stations on Home &mdash; your filters still apply</small></div><div class="sw"></div></div>
   </div>
   <div class="locked-sec" id="lockedSec">
     <div class="locked-hd"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2M9 6a3 3 0 0 1 6 0v2H9z"/></svg>Locked by Parental Controls</div>
@@ -1280,6 +1292,16 @@ function setAcapella(v) {
   if (acapellaPref() === v) return;
   LS.set("zw_acapella", v); track("filter", { f: "acapella", on: v || "off" }); acctSyncFilters(); syncFilterUI(); state.loaded = {}; reloadCurrent();
 }
+// Zemer Radio (live broadcast stations) — on by default, one switch to turn the whole row off.
+// Not a content filter: it's a "do I want this surface at all" preference, so it needs no account.
+// When it's ON the station cards are still gated by the content filters (see stationAllowed).
+const zemerRadioOn = () => LS.get("zw_zemerRadio", "1") === "1";
+function setZemerRadio(on) {
+  LS.set("zw_zemerRadio", on ? "1" : "0");
+  if (!on) stStop();
+  track("filter", { f: "zemerRadio", on: on ? "on" : "off" });
+  syncFilterUI(); state.loaded = {}; reloadCurrent();
+}
 function gotoParental() { loggedIn() ? openParental() : openAuth("in"); }
 // Chasidish 3-state (free, no login) — "" all · "only" · "hide". Parental can set an account default too.
 function setChasid(v) { if (!parentalFilterGate("chasid")) return; const cl = guardOnlyConflict(v, "zw_israeli", "Israeli"); if (chasidMode() === v && !cl) return; LS.set("zw_chasid", v); track("filter", { f: "chasid", on: v || "off" }); acctSyncFilters(); syncFilterUI(); state.loaded = {}; reloadCurrent(); }
@@ -1288,6 +1310,7 @@ function syncFilterUI() {
   el("tgFemale").classList.toggle("on", noFemale());
   if (el("chasidSeg")) el("chasidSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", (b.dataset.v || "") === chasidMode()));
   if (el("tgDJ")) el("tgDJ").classList.toggle("on", noDJ());
+  if (el("tgZemerRadio")) el("tgZemerRadio").classList.toggle("on", zemerRadioOn());
   if (el("isrSeg")) el("isrSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", (b.dataset.v || "") === israeliMode()));
   const mp = mourningPeriod(), acLocked = acapellaLocked();
   if (el("acapSeg")) el("acapSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", (b.dataset.v || "") === acapellaPref()));
@@ -1684,12 +1707,13 @@ async function loadHome() {
     window.__appReady && window.__appReady();
     return;
   }
-  const [d, trend, zpl, zemerRows, nf] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections(), getJSON("/zemer-playlists"), zemerRowsSections(), newFeed()]);
+  const [d, trend, zpl, zemerRows, nf, stations] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections(), getJSON("/zemer-playlists"), zemerRowsSections(), newFeed(), stationsSection()]);
   await artistByName(); // load artist flags so the parental gate (artist allow/blocklist + kid-only) applies below
   const quick = gate(d.quickPicks), recent = gate(readRecent()), vids = gate(d.featuredVideos);
   const fAlbums = feedAlbums(nf), fSongs = gateFeed(((nf && nf.categories) || {}).songs || []).filter((t) => t.videoId);
   const newS = fSongs.length ? fSongs : gate(d.newSongs); // real release dates when the feed has them, corpus otherwise
   let h = `<div class="hero"><div class="eyebrow">Kosher music, by construction</div><h1>Only the music you trust.</h1><p>Every song here comes from a whitelisted artist's full catalog — searched, not filtered. Nothing outside it.</p>${acapellaMode() === "only" ? "" : `<button class="btn-play" style="margin-top:16px" onclick="startRadio('shuffle','')">${ICON.radio} Radio mode</button>`}<span class="heb">מוזיקה</span></div>` + (trend || "");
+  h += stations || ""; // Zemer Radio — live broadcast stations (off / filtered out → empty string)
   if (quick.length) h += section("Quick Picks", quickPicks(quick));
   h += railOf("Curated Playlists", ((zpl && zpl.playlists) || []).filter((p) => p.id !== "auto-trending" && p.id !== "auto-top-50"), zpCard); // Trending/Top 50 fold into the Trending Songs section
   h += railOf("Latest Releases", fAlbums.length ? fAlbums.slice(0, 24) : gate(d.latestReleases), albumCard);
@@ -2796,7 +2820,7 @@ function fallbackToStream() {
   const t = state.queue[state.qi]; if (t && !audio.src) PB.load(t.videoId);
 }
 
-function playFrom(qid, i, source) { const q = queues.get(qid); if (!q) return; state.queue = q; state.radio = null; state.playSource = source || (state.detailOpen ? (state.detailKind || "detail") : (state.tab || "home")); state.qi = i; if (state.shuffle) shuffleTail(); playIndex(state.qi); }
+function playFrom(qid, i, source) { const q = queues.get(qid); if (!q) return; stStop(); state.queue = q; state.radio = null; state.playSource = source || (state.detailOpen ? (state.detailKind || "detail") : (state.tab || "home")); state.qi = i; if (state.shuffle) shuffleTail(); playIndex(state.qi); }
 // Play-duration tracking — measure REAL listen time (excludes pauses) and emit the `play` event on end/skip,
 // not on start, so a 2-second skip is distinguishable from a real listen (drives `qualified` + trending).
 let playSes = null;
@@ -3121,11 +3145,153 @@ async function radioContinue() { // queue ran out with nothing appended — the 
   radioTopUp(true);
 }
 async function startRadio(kind, seed) { // detail-page Radio button → a whole artist/album station
+  stStop(); // leave any live broadcast — this is a personal queue, not the shared program
   showToast("Starting radio…", 1400);
   const r = await radioFetch({ kind, seed });
   if (!r || !r.tracks.length) return showToast("Radio isn't available right now.", 2600);
   state.queue = r.tracks; state.radio = { continuation: r.continuation, f: filterQS("") }; state.playSource = "radio";
   playIndex(0);
+}
+
+/* ======================= ZEMER RADIO — live broadcast stations =======================
+   Upstream ships a SYNCHRONIZED broadcast: one shared wall-clock program per station, so every
+   listener hears the same track at the same moment (zemer-search docs/stations.md; proxied
+   same-origin by the Worker as /stations, /station, /stations/cover).
+
+   This is deliberately NOT /radio. There's no personal queue to shuffle or repeat — we tune in at
+   the broadcast's current offset and follow the server's schedule. Everything here exists to keep
+   the local player aligned to the server clock, and to leave it when the user plays anything else.
+
+   Filtering: a shared program can't be personalized, so upstream pre-filters the pools to the
+   strictest common denominator (no female, no acapella, audio only). We still gate LOCALLY on top:
+     · the whole row is off when the user switches Zemer Radio off (zemerRadioOn)
+     · Kid Zone hides it — station pools are NOT kidZone-filtered upstream
+     · Acapella-ONLY (Sefira / the Three Weeks) hides it — a station carries no acapella at all, so
+       showing one would pipe non-acapella music into an acapella-only session
+     · a station whose style the user hides (Chasidish / Israeli / DJ) never appears
+     · individual entries are re-checked against this user's blocklist at tune-in */
+const STATION_STYLE = { chasidish: "chasid", israeli: "israeli", dj: "dj" };
+let skSt = null; // { id, title, skewMs, entries:[…], timer, busy, pausedAt }
+
+// The server's clock, as best we can estimate it. skewMs is re-measured on every /station read.
+const stNow = () => Date.now() + ((skSt && skSt.skewMs) || 0);
+
+function stationAllowed(id) {
+  if (!zemerRadioOn() || kidZoneActive()) return false;
+  if (acapellaMode() === "only") return false; // stations carry no acapella at all
+  const style = STATION_STYLE[id];
+  if (!style) return true; // an upstream station we don't know yet makes no style claim to check
+  if (style === "chasid") return chasidMode() !== "hide" && israeliMode() !== "only";
+  if (style === "israeli") return israeliMode() !== "hide" && chasidMode() !== "only";
+  return !noDJ() && chasidMode() !== "only" && israeliMode() !== "only"; // dj
+}
+
+const stationCard = (s) => `<div class="card st-card ${skSt && skSt.id === s.id ? "on-air" : ""}" role="button" tabindex="0" onkeydown="${KDACT}" onclick="tuneStation('${safeId(s.id)}')">
+  <div class="st-wrap">${artHTML("/stations/cover?id=" + encodeURIComponent(s.id), ICON.radio)}<span class="st-live">LIVE</span></div>
+  <div class="t">${esc(s.title || s.id)}</div>
+  <div class="s">${esc(s.nowPlaying && s.nowPlaying.title ? s.nowPlaying.title + (s.nowPlaying.artist ? " · " + s.nowPlaying.artist : "") : "On air")}</div>
+</div>`;
+
+async function stationsSection() {
+  if (!zemerRadioOn() || kidZoneActive() || acapellaMode() === "only") return "";
+  await artistByName(); // stationAllowed needs nothing, but hiddenArtist at tune-in does — warm it here
+  const d = await fetch("/stations").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const list = ((d && d.stations) || []).filter((s) => s && s.id && s.live && stationAllowed(s.id));
+  if (!list.length) return "";
+  return section("Zemer Radio", `<div class="rail">${list.map(stationCard).join("")}</div>`);
+}
+
+// One /station read: measures clock skew from the round trip and drops entries this listener blocks.
+async function stFetch(id) {
+  const t0 = Date.now();
+  const d = await fetch("/station?id=" + encodeURIComponent(id) + "&next=6").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  if (!d || !d.now) return null;
+  const skewMs = d.serverTimeMs - (t0 + (Date.now() - t0) / 2); // midpoint of the round trip
+  const entries = [d.now].concat(d.next || []).filter((e) => e && e.videoId && !blockedId(e.videoId) && !hiddenArtist(e.artist));
+  return entries.length ? { id, title: (d.station && d.station.title) || id, skewMs, entries } : null;
+}
+
+const stTrack = (e) => ({ videoId: e.videoId, title: e.title, artist: e.artist, durationSec: e.durationSec, thumbnail: e.thumbnail });
+
+async function tuneStation(id) {
+  await ensureFilters(); // blocklist + artist flags before we gate the schedule
+  showToast("Tuning in…", 1200);
+  const r = await stFetch(id);
+  if (!r) { showToast("That station isn't available right now.", 2800); return; }
+  stStop(true); // drop any previous station without touching the new one
+  skSt = r;
+  state.radio = null;
+  state.playSource = "station:" + id;
+  track("station", { id });
+  stAlign();
+  skSt.timer = setInterval(stWatch, 15000);
+  if (state.tab === "home") { const box = el("v-home"); if (box) stPaintOnAir(box); }
+}
+
+// Seek the player to wherever the broadcast currently is.
+function stAlign() {
+  if (!skSt) return;
+  const now = stNow();
+  let i = skSt.entries.findIndex((e) => now < e.endMs);
+  if (i < 0) i = skSt.entries.length - 1;
+  const e = skSt.entries[i];
+  state.queue = skSt.entries.slice(i).map(stTrack);
+  state.qi = 0;
+  if (now < e.startMs) {
+    // A negative offset means a takedown gap: this entry STARTS IN |offset| ms. Wait it out rather
+    // than starting early — starting early is exactly how a listener drifts out of the broadcast.
+    showToast("Between tracks…", 1800);
+    clearTimeout(skSt.gap);
+    skSt.gap = setTimeout(() => { if (skSt) { PB.nextStart = 0; playIndex(0); } }, Math.min(60000, e.startMs - now));
+    return;
+  }
+  PB.nextStart = Math.max(0, (now - e.startMs) / 1000); // consumed by PB.load()
+  playIndex(0);
+}
+
+function stWatch() {
+  if (!skSt) return;
+  if (state.playSource !== "station:" + skSt.id) return stStop(); // user played something else
+  if (state.queue.length - state.qi <= 2) stExtend();
+}
+
+// Top the local schedule up from the server, and re-measure skew while we're there.
+async function stExtend() {
+  if (!skSt || skSt.busy) return;
+  skSt.busy = true;
+  try {
+    const r = await stFetch(skSt.id);
+    if (!r || !skSt) return;
+    skSt.skewMs = r.skewMs;
+    skSt.entries = r.entries;
+    const have = new Set(state.queue.map((t) => t.videoId));
+    const add = r.entries.filter((e) => !have.has(e.videoId)).map(stTrack);
+    if (add.length) { state.queue = state.queue.concat(add); if (state.nowOpen) paintQueue(); cueNext(); }
+  } finally { if (skSt) skSt.busy = false; }
+}
+
+// A broadcast doesn't resume — it moves on without you. Coming back from a pause rejoins live.
+async function stRejoin() {
+  if (!skSt) return;
+  const r = await stFetch(skSt.id);
+  if (!r || !skSt) return;
+  skSt.skewMs = r.skewMs; skSt.entries = r.entries;
+  stAlign();
+}
+
+function stStop(keepSource) {
+  if (!skSt) return;
+  clearInterval(skSt.timer); clearTimeout(skSt.gap);
+  skSt = null;
+  if (!keepSource && String(state.playSource || "").indexOf("station:") === 0) state.playSource = "";
+}
+
+// Re-mark the tuned-in card without re-rendering Home.
+function stPaintOnAir(root) {
+  (root || document).querySelectorAll(".st-card").forEach((c) => {
+    const on = !!skSt && (c.getAttribute("onclick") || "").indexOf("'" + skSt.id + "'") >= 0;
+    c.classList.toggle("on-air", on);
+  });
 }
 
 /* progress + state — unified across both engines */
@@ -3159,8 +3325,13 @@ function tick() {
   skTick(c);
 }
 function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing · 2 paused · 3 buffering · 5 cued
-  if (code === 1) { streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); } // rate resets on each load
-  else if (code === 2) playAccrue(); // paused → bank the elapsed listen time
+  if (code === 1) {
+    streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); // rate resets on each load
+    // A broadcast doesn't wait for you: coming back from a real pause rejoins live rather than
+    // resuming where you left off. Short gaps (a seek, a buffer stall) are not treated as a pause.
+    if (skSt && skSt.pausedAt && Date.now() - skSt.pausedAt > 3000) { skSt.pausedAt = 0; stRejoin(); }
+    else if (skSt) skSt.pausedAt = 0;
+  } else if (code === 2) { playAccrue(); if (skSt) skSt.pausedAt = Date.now(); } // paused → bank the elapsed listen time
   else if (code === 0) { // ended: a primed/starting standby takes over instantly; anything else falls back to the normal path
     if (xf) return; // the active track finished mid-crossfade — the fade's own timer owns the advance
     stopTick();
