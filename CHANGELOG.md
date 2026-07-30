@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.2.6 — 2026-07-30 (web only — no desktop rebuild)
+
+**Why the bump:** Zemer Radio shipped with the ordinary transport attached, which quietly offered
+controls a broadcast can't honour.
+
+**Zemer Radio — it now looks and behaves like live radio**
+- **Stations have their own page at `/radio/:id`.** Tuning in used to drop you on the song page for
+  whatever happened to be playing — but the song isn't what you picked, the station is. The page shows
+  the station, what's on air, and what's coming, and the link is shareable.
+- **A LIVE pill in the player** whenever you're tuned in.
+- **The controls that can't work are gone rather than inert.** Seeking a shared broadcast would have
+  silently desynced you from everyone else; scrubbing, ±15s, shuffle, repeat and queue reordering are
+  hidden while a station plays, and every seek path — buttons, arrow keys, media keys, the tray —
+  routes through one check that refuses with an explanation.
+- The Up Next list on a station page is deliberately **not** clickable: you can't jump to a track
+  inside a shared program, so offering it would be a lie.
+- A line under the player explains that pausing leaves the broadcast and playing rejoins it live.
+
+**Offline downloads — a stall now ends**
+- A download that never reported back sat on "Preparing…" forever, because that state was only ever
+  cleared by an event arriving. The same shape as the update-dialog bug. A download with no progress
+  for three minutes now becomes a normal, retryable failure.
+
+**Admin console**
+- **Paging and sorting.** The list fetched 200 rows and said "200 of N" with no way to reach the rest —
+  a limit that degrades quietly. Now 100 per page with prev/next and sortable name, email, created,
+  last sign-in and PIN-failure columns.
+- **The user modal is tabbed** — Settings / Activity / Playlists / Library — behind an identity header
+  with an avatar and status chips, instead of one long scroll. Save and Clear PIN appear only on the
+  tab they apply to.
+
 ## 1.2.5 — 2026-07-30 (web only — no desktop rebuild)
 
 **Why the bump:** the admin console could show settings but not what a user actually has or does.

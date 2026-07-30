@@ -74,6 +74,35 @@
   .foot{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--line);position:sticky;bottom:0;background:var(--card)}
   .foot .btn{margin-top:0;width:auto;padding:9px 16px}
   .note{font-size:12px;color:var(--dim);line-height:1.6;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+  /* ---- modal: identity header + tabs ---- */
+  .mbox{display:flex;flex-direction:column}
+  .idhead{display:flex;gap:14px;align-items:center;padding:20px 22px 16px;border-bottom:1px solid var(--line);
+    background:linear-gradient(160deg,var(--card2),var(--card) 70%)}
+  .avatar{width:52px;height:52px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:19px;font-weight:800;
+    color:#fff;background:linear-gradient(135deg,var(--accent),var(--violet));letter-spacing:.02em}
+  .idmeta{min-width:0;flex:1}
+  .idmeta h2{margin:0;font-size:18px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .idmeta .sub{color:var(--muted);font-size:13px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .idtags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .tabs{display:flex;gap:4px;padding:10px 18px 0;border-bottom:1px solid var(--line);overflow-x:auto;position:sticky;top:0;background:var(--card);z-index:3}
+  .tabs button{background:transparent;border:0;border-bottom:2px solid transparent;color:var(--muted);
+    padding:9px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .tabs button:hover{color:var(--text)}
+  .tabs button.on{color:var(--text);border-bottom-color:var(--accent)}
+  .tabs .n{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;background:var(--bg2);font-size:11px;color:var(--dim)}
+  .pane{display:none;padding:18px 22px}
+  .pane.on{display:block}
+  .fieldrow{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .fieldrow:last-child{border-bottom:0}
+  .fieldrow .lbl{font-size:13.5px}
+  .fieldrow .lbl small{display:block;color:var(--dim);font-size:11.5px;margin-top:2px}
+  .empty{color:var(--dim);font-size:13px;padding:14px 0}
+  .plcard{border:1px solid var(--line);border-radius:12px;background:var(--bg2);padding:12px 14px;margin-bottom:10px}
+  .plcard .h{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  .vrow{display:flex;gap:12px;align-items:baseline;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13px}
+  .vrow:last-child{border-bottom:0}
+  .vrow .when{min-width:150px;color:var(--text)}
+  .vrow .facts{color:var(--dim);font-size:12px}
 </style>
 </head>
 <body>
@@ -110,6 +139,9 @@
   <div class="tools">
     <input id="q" placeholder="Search name or email…" autocomplete="off" />
     <button class="btn ghost" id="refreshBtn" style="width:auto;margin:0;padding:9px 16px">Refresh</button>
+    <span class="spacer"></span>
+    <button class="btn ghost" id="prevBtn" style="width:auto;margin:0;padding:9px 14px">‹ Prev</button>
+    <button class="btn ghost" id="nextBtn" style="width:auto;margin:0;padding:9px 14px">Next ›</button>
     <span class="who" id="count"></span>
   </div>
 
@@ -125,8 +157,17 @@
 </main>
 
 <div class="modal" id="modal"><div class="mbox">
-  <div class="mhead"><h2 id="mTitle">User</h2><button class="x" id="mClose">✕</button></div>
-  <div class="mbody" id="mBody"></div>
+  <div class="idhead">
+    <div class="avatar" id="mAv">?</div>
+    <div class="idmeta">
+      <h2 id="mTitle">User</h2>
+      <div class="sub" id="mSub"></div>
+      <div class="idtags" id="mTags"></div>
+    </div>
+    <button class="x" id="mClose" style="align-self:flex-start">✕</button>
+  </div>
+  <div class="tabs" id="mTabs"></div>
+  <div class="mbody" id="mBody" style="padding:0"></div>
   <div class="foot">
     <button class="btn" id="mSave" style="width:auto">Save changes</button>
     <button class="btn ghost" id="mClearPin" style="width:auto">Clear PIN</button>
@@ -235,8 +276,24 @@ function enterApp() {
 
 /* ---------- list ---------- */
 let TIMER = null;
-$('q').addEventListener('input', () => { clearTimeout(TIMER); TIMER = setTimeout(load, 250); });
+const PAGE = 100;
+let OFFSET = 0, TOTAL = 0, SORT = { key: 'created_at', dir: -1 };
+// A silent cap is the bad kind of limit: the page used to fetch 200 and say "200 of N" with no way
+// to reach the rest. Paging is server-side (the RPC already took p_offset); sorting is client-side
+// over the current page, which is honest as long as the header says so.
+$('q').addEventListener('input', () => { clearTimeout(TIMER); TIMER = setTimeout(() => { OFFSET = 0; load(); }, 250); });
 $('refreshBtn').addEventListener('click', () => load());
+$('prevBtn').addEventListener('click', () => { if (OFFSET > 0) { OFFSET = Math.max(0, OFFSET - PAGE); load(); } });
+$('nextBtn').addEventListener('click', () => { if (OFFSET + PAGE < TOTAL) { OFFSET += PAGE; load(); } });
+
+const SORTABLE = { name: 'name', email: 'email', created_at: 'created_at', last_sign_in_at: 'last_sign_in_at', pin_fails: 'pin_fails' };
+window.sortBy = (key) => {
+  if (!SORTABLE[key]) return;
+  SORT = SORT.key === key ? { key, dir: -SORT.dir } : { key, dir: key === 'name' || key === 'email' ? 1 : -1 };
+  renderRows();
+};
+const sortArrow = (key) => SORT.key === key ? (SORT.dir > 0 ? ' ▲' : ' ▼') : '';
+let PAGE_USERS = [];
 
 const filterSummary = (f) => {
   f = f || {};
@@ -255,10 +312,40 @@ const filterSummary = (f) => {
 async function load() {
   const body = $('rows');
   try {
-    const d = await rpc('admin_list_users', { p_q: $('q').value.trim() || null, p_limit: 200, p_offset: 0 });
-    const users = (d && d.users) || [];
-    $('count').textContent = `${num(users.length)} of ${num(d.total)}`;
-    if (!users.length) { body.innerHTML = '<tr><td colspan="10" class="em">No users match.</td></tr>'; return; }
+    const d = await rpc('admin_list_users', { p_q: $('q').value.trim() || null, p_limit: PAGE, p_offset: OFFSET });
+    PAGE_USERS = (d && d.users) || [];
+    TOTAL = (d && d.total) || 0;
+    const from = TOTAL ? OFFSET + 1 : 0, to = OFFSET + PAGE_USERS.length;
+    $('count').textContent = `${num(from)}–${num(to)} of ${num(TOTAL)}`;
+    $('prevBtn').disabled = OFFSET === 0;
+    $('nextBtn').disabled = OFFSET + PAGE >= TOTAL;
+    renderRows();
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="10" class="em">${esc(e.message)}</td></tr>`;
+  }
+}
+
+function renderRows() {
+  const body = $('rows');
+  const head = $('rows').closest('table').querySelector('thead tr');
+  if (head) head.innerHTML = `
+    <th onclick="sortBy('name')" style="cursor:pointer">Name${sortArrow('name')}</th>
+    <th onclick="sortBy('email')" style="cursor:pointer">Email${sortArrow('email')}</th>
+    <th>Filters</th><th>PIN</th><th>Kid&nbsp;Zone</th><th>Artists</th>
+    <th onclick="sortBy('pin_fails')" style="cursor:pointer">PIN&nbsp;fails${sortArrow('pin_fails')}</th>
+    <th onclick="sortBy('created_at')" style="cursor:pointer">Created${sortArrow('created_at')}</th>
+    <th onclick="sortBy('last_sign_in_at')" style="cursor:pointer">Last&nbsp;sign-in${sortArrow('last_sign_in_at')}</th>
+    <th>ID</th>`;
+  if (!PAGE_USERS.length) { body.innerHTML = '<tr><td colspan="10" class="em">No users match.</td></tr>'; return; }
+  const k = SORT.key;
+  const users = PAGE_USERS.slice().sort((a, b) => {
+    let x = a[k], y = b[k];
+    if (k === 'created_at' || k === 'last_sign_in_at') { x = x ? Date.parse(x) : 0; y = y ? Date.parse(y) : 0; }
+    else if (k === 'pin_fails') { x = x || 0; y = y || 0; }
+    else { x = String(x || '').toLowerCase(); y = String(y || '').toLowerCase(); }
+    return x < y ? -SORT.dir : x > y ? SORT.dir : 0;
+  });
+  {
     body.innerHTML = users.map((u) => {
       const fs = filterSummary(u.filters);
       const locked = u.pin_locked_until && new Date(u.pin_locked_until) > new Date();
@@ -275,8 +362,6 @@ async function load() {
         <td class="em" style="font-family:ui-monospace,monospace;font-size:11px">${esc(String(u.id).slice(0, 8))}</td>
       </tr>`;
     }).join('');
-  } catch (e) {
-    body.innerHTML = `<tr><td colspan="10" class="em">${esc(e.message)}</td></tr>`;
   }
 }
 
@@ -358,58 +443,92 @@ async function loadPlaylists(id) {
   } catch (e) { box.innerHTML = `<div class="note">${esc(e.message)}</div>`; }
 }
 
+let TAB = 'settings';
+window.setTab = (t) => {
+  TAB = t;
+  document.querySelectorAll('#mTabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
+  document.querySelectorAll('#mBody .pane').forEach((p) => p.classList.toggle('on', p.dataset.t === t));
+  // Save only applies to Settings; showing it elsewhere implies the other tabs are editable.
+  $('mSave').style.display = t === 'settings' ? '' : 'none';
+  $('mClearPin').style.display = t === 'settings' ? '' : 'none';
+};
+const initials = (s) => String(s || '?').trim().split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
+const fieldRow = (label, sub, control) =>
+  `<div class="fieldrow"><div class="lbl">${label}${sub ? `<small>${sub}</small>` : ''}</div>${control}</div>`;
+
 function renderUser() {
   const u = CUR, f = u.filters || {};
-  $('mTitle').textContent = u.name || u.email || 'User';
   const locked = u.pin_locked_until && new Date(u.pin_locked_until) > new Date();
   const recents = Array.isArray(u.recents) ? u.recents : [];
   const likes = Array.isArray(u.likes) ? u.likes : [];
+  const fs = filterSummary(f);
+
+  // ---- identity header ----
+  $('mAv').textContent = initials(u.name || u.email);
+  $('mTitle').textContent = u.name || u.email || 'User';
+  $('mSub').textContent = u.name ? (u.email || '') : (u.provider ? 'via ' + u.provider : '');
+  $('mTags').innerHTML = [
+    u.provider ? `<span class="pill">${esc(u.provider)}</span>` : '',
+    u.has_pin ? '<span class="pill on">PIN set</span>' : '<span class="pill">no PIN</span>',
+    locked ? '<span class="pill off">PIN locked</span>' : (u.pin_fails ? `<span class="pill warn">${num(u.pin_fails)} failed</span>` : ''),
+    u.kid_only ? '<span class="pill warn">Kid Zone</span>' : '',
+    fs.length ? `<span class="pill on">${fs.length} filter${fs.length === 1 ? '' : 's'}</span>` : '<span class="pill">no filters</span>',
+  ].filter(Boolean).join('');
+
+  // ---- tabs ----
+  $('mTabs').innerHTML = [
+    ['settings', 'Settings', ''],
+    ['activity', 'Activity', ''],
+    ['playlists', 'Playlists', ''],
+    ['library', 'Library', num(recents.length + likes.length)],
+  ].map(([t, label, n]) =>
+    `<button data-t="${t}" onclick="setTab('${t}')">${label}${n ? `<span class="n">${n}</span>` : ''}</button>`).join('');
+
   $('mBody').innerHTML = `
-    <div class="grid">
-      <div class="kv"><div class="k">Email</div><div class="v">${esc(u.email || '—')}</div></div>
-      <div class="kv"><div class="k">Sign-in</div><div class="v">${esc(u.provider || 'email')}</div></div>
-      <div class="kv"><div class="k">User ID</div><div class="v" style="font-family:ui-monospace,monospace;font-size:12px">${esc(u.id)}</div></div>
-      <div class="kv"><div class="k">Created</div><div class="v">${dt(u.created_at)}</div></div>
-      <div class="kv"><div class="k">Last sign-in</div><div class="v">${dt(u.last_sign_in_at)}</div></div>
-      <div class="kv"><div class="k">Updated</div><div class="v">${dt(u.updated_at)}</div></div>
-      <div class="kv"><div class="k">PIN</div><div class="v">${u.has_pin ? 'Set' : 'Not set'}${u.pin_fails ? ` · ${num(u.pin_fails)} failed` : ''}${locked ? ` · locked until ${dt(u.pin_locked_until)}` : ''}</div></div>
-      <div class="kv"><div class="k">Kid Zone</div><div class="v">${u.kid_only ? 'On' : 'Off'}${u.kid_only ? ` · +${(u.kid_add||[]).length} / −${(u.kid_remove||[]).length}` : ''}</div></div>
+    <div class="pane" data-t="settings">
+      ${fieldRow('Kol isha', 'Hide female singers', SEG('noFemale', f.noFemale ? '1' : '0', [['1','Hidden'],['0','Allowed']]))}
+      ${fieldRow('Chasidish', '', SEG('chasid', f.chasid || '', [['','All'],['only','Only'],['hide','Hide']]))}
+      ${fieldRow('Israeli', '', SEG('israeli', f.israeli || '', [['','All'],['only','Only'],['hide','Hide']]))}
+      ${fieldRow('Acapella', 'Forced during Sefira / the Three Weeks', SEG('acapella', f.acapella || '', [['','All'],['only','Only'],['hide','Hide']]))}
+      ${fieldRow('DJ sets', '', SEG('noDJ', f.noDJ ? '1' : '0', [['1','Hidden'],['0','Allowed']]))}
+      ${fieldRow('Videos', '', SEG('blockVideos', f.blockVideos ? '1' : '0', [['1','Blocked'],['0','Allowed']]))}
+      ${fieldRow('Zemer Radio', 'Live stations on Home', SEG('zemerRadio', f.zemerRadio || '', [['','All'],['chasidish','Chassidish'],['israeli','Israeli'],['dj','DJ'],['off','Off']]))}
+      ${fieldRow('Kid Zone only', u.kid_only ? `+${(u.kid_add||[]).length} added / −${(u.kid_remove||[]).length} hidden` : '', SEG('kid_only', u.kid_only ? '1' : '0', [['1','On'],['0','Off']]))}
+      ${fieldRow('Artists', `${num((u.artist_ids || []).length)} picked`, SEG('artist_mode', u.artist_mode || 'all', [['all','All'],['only','Only these'],['except','Except these']]))}
+      <div class="grid" style="margin-top:18px">
+        <div class="kv"><div class="k">User ID</div><div class="v" style="font-family:ui-monospace,monospace;font-size:12px">${esc(u.id)}</div></div>
+        <div class="kv"><div class="k">Created</div><div class="v">${dt(u.created_at)}</div></div>
+        <div class="kv"><div class="k">Last sign-in</div><div class="v">${dt(u.last_sign_in_at)}</div></div>
+        <div class="kv"><div class="k">Settings updated</div><div class="v">${dt(u.updated_at)}</div></div>
+        ${locked ? `<div class="kv"><div class="k">PIN locked until</div><div class="v">${dt(u.pin_locked_until)}</div></div>` : ''}
+      </div>
+      ${(u.audit || []).length ? `<h3 class="sec">Admin changes</h3><div class="list">${u.audit.map((a) =>
+        `<div class="it"><span class="t">${esc(a.action)}</span><span class="d">${esc(a.admin)} · ${dt(a.at)}</span></div>`).join('')}</div>` : ''}
     </div>
 
-    <h3 class="sec">Content filters</h3>
-    <div class="row2"><label>Kol isha</label>${SEG('noFemale', f.noFemale ? '1' : '0', [['1','Hidden'],['0','Allowed']])}</div>
-    <div class="row2"><label>Chasidish</label>${SEG('chasid', f.chasid || '', [['','All'],['only','Only'],['hide','Hide']])}</div>
-    <div class="row2"><label>Israeli</label>${SEG('israeli', f.israeli || '', [['','All'],['only','Only'],['hide','Hide']])}</div>
-    <div class="row2"><label>Acapella</label>${SEG('acapella', f.acapella || '', [['','All'],['only','Only'],['hide','Hide']])}</div>
-    <div class="row2"><label>DJ sets</label>${SEG('noDJ', f.noDJ ? '1' : '0', [['1','Hidden'],['0','Allowed']])}</div>
-    <div class="row2"><label>Videos</label>${SEG('blockVideos', f.blockVideos ? '1' : '0', [['1','Blocked'],['0','Allowed']])}</div>
-    <div class="row2"><label>Zemer Radio</label>${SEG('zemerRadio', f.zemerRadio || '', [['','All'],['chasidish','Chassidish'],['israeli','Israeli'],['dj','DJ'],['off','Off']])}</div>
-    <div class="row2"><label>Kid Zone only</label>${SEG('kid_only', u.kid_only ? '1' : '0', [['1','On'],['0','Off']])}</div>
-    <div class="row2"><label>Artists</label>${SEG('artist_mode', u.artist_mode || 'all', [['all','All'],['only','Only these'],['except','Except these']])}
-      <span class="em">${num((u.artist_ids || []).length)} picked</span></div>
+    <div class="pane" data-t="activity">
+      <h3 class="sec" style="margin-top:0">Visits <span id="visN" class="em"></span></h3>
+      <div id="vis"><div class="em">Loading…</div></div>
+      <h3 class="sec">Play history <span id="histN" class="em"></span></h3>
+      <div id="hist"><div class="em">Loading…</div></div>
+    </div>
 
-    <h3 class="sec">Visits <span id="visN" class="em"></span></h3>
-    <div id="vis"><div class="em">Loading…</div></div>
+    <div class="pane" data-t="playlists">
+      <div id="pl"><div class="em">Loading…</div></div>
+    </div>
 
-    <h3 class="sec">Playlists <span id="plN" class="em"></span></h3>
-    <div id="pl"><div class="em">Loading…</div></div>
-
-    <h3 class="sec">Play history <span id="histN" class="em"></span></h3>
-    <div id="hist"><div class="em">Loading…</div></div>
-
-    <h3 class="sec">Recently played · ${num(recents.length)}</h3>
-    ${recents.length ? `<div class="list">${recents.slice(0, 100).map((t) =>
-      `<div class="it"><span class="t">${esc(t.title || t.videoId || '—')}</span><span class="d">${esc(t.artist || '')}</span></div>`).join('')}</div>`
-      : '<div class="em">Nothing in the synced recently-played list.</div>'}
-
-    <h3 class="sec">Likes · ${num(likes.length)}</h3>
-    ${likes.length ? `<div class="list">${likes.slice(0, 100).map((l) =>
-      `<div class="it"><span class="t">${esc(l.title || l.video_id)}</span><span class="d">${esc(l.artist || '')} · ${dshort(l.added_at)}</span></div>`).join('')}</div>`
-      : '<div class="em">No likes yet.</div>'}
-
-    ${(u.audit || []).length ? `<h3 class="sec">Admin changes</h3><div class="list">${u.audit.map((a) =>
-      `<div class="it"><span class="t">${esc(a.action)}</span><span class="d">${esc(a.admin)} · ${dt(a.at)}</span></div>`).join('')}</div>` : ''}
+    <div class="pane" data-t="library">
+      <h3 class="sec" style="margin-top:0">Recently played · ${num(recents.length)}</h3>
+      ${recents.length ? `<div class="list">${recents.slice(0, 100).map((t) =>
+        `<div class="it"><span class="t">${esc(t.title || t.videoId || '—')}</span><span class="d">${esc(t.artist || '')}</span></div>`).join('')}</div>`
+        : '<div class="empty">Nothing in the synced recently-played list.</div>'}
+      <h3 class="sec">Likes · ${num(likes.length)}</h3>
+      ${likes.length ? `<div class="list">${likes.slice(0, 100).map((l) =>
+        `<div class="it"><span class="t">${esc(l.title || l.video_id)}</span><span class="d">${esc(l.artist || '')} · ${dshort(l.added_at)}</span></div>`).join('')}</div>`
+        : '<div class="empty">No likes yet.</div>'}
+    </div>
   `;
+  setTab(TAB);
 }
 
 // Edits are staged locally and written by Save, so a mis-click isn't instantly live on someone's account.
