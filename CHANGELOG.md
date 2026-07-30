@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.2.1 — 2026-07-30 (web only — no desktop rebuild)
+
+**Why the bump:** Zemer Radio shipped this morning with only an account-level on/off switch. A parent
+needs to be able to make that decision for the account, and to make it stick.
+
+**Parental Controls — Zemer Radio**
+- A new **Zemer Radio** row in Parental Controls: **All**, a single named station (**Chassidish**,
+  **Israeli**, **DJ**), or **Off**. Picking a station means that station is the *only* one the account
+  ever sees; Off removes live radio entirely.
+- **The policy outranks the account's own switch, and can only ever narrow.** Turning the personal
+  switch on cannot re-enable radio a parent blocked; turning it off still works, because that's more
+  restrictive, not less.
+- With a PIN set, the Zemer Radio switch in Settings **locks and moves into "Locked by Parental
+  Controls"**, like the other parent-set filters.
+- **Changing the policy takes a station off air immediately** rather than at the end of the current
+  track — if what's playing is no longer allowed, playback stops and the queue clears.
+- The Parental Controls header shows the state at a glance (*Radio blocked* / *Radio · Chassidish*).
+- Stored in the existing `filters` JSON alongside the Sefira rule, so it syncs across devices and
+  survives sign-out with the rest of the cached policy. **No SQL migration.**
+
 ## 1.2.0 — 2026-07-30 (web only — no desktop rebuild)
 
 **Why the bump:** a new listening surface. Zemer Radio — live, synchronized broadcast stations —
