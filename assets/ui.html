@@ -326,6 +326,21 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 @keyframes stpulse{70%{box-shadow:0 0 0 7px rgba(255,93,107,0)}100%{box-shadow:0 0 0 0 rgba(255,93,107,0)}}
 @media (prefers-reduced-motion:reduce){.st-live::before{animation:none}}
 .card.on-air .art{outline:2px solid var(--primary);outline-offset:2px}
+/* Tuned into a live station. A broadcast has no per-listener timeline, so the controls that imply one
+   are removed rather than left to no-op: seeking would silently desync you from everyone else, and
+   shuffle/repeat/queue-order have nothing to act on. Driven by one class on <body>. */
+.live-pill{display:none;align-items:center;gap:5px;padding:2px 7px;border-radius:999px;
+  background:rgba(255,93,107,.15);color:var(--primary);font-size:10.5px;font-weight:800;letter-spacing:.06em;flex:none}
+.live-pill::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--primary);
+  box-shadow:0 0 0 0 rgba(255,93,107,.7);animation:stpulse 1.8s infinite}
+body.on-air .live-pill{display:inline-flex}
+body.on-air .rpt,body.on-air .shf{display:none}
+body.on-air .seek{pointer-events:none;opacity:.55;filter:grayscale(.4)}
+body.on-air .nb-controls .skip,body.on-air .np-controls .skip{display:none}
+body.on-air .np-upnext .qh,body.on-air .np-upnext .qrm{display:none}
+body.on-air .np-upnext [draggable="true"]{pointer-events:none}
+.live-note{display:none;font-size:12px;color:var(--muted);margin-top:6px}
+body.on-air .live-note{display:block}
 .art{position:relative;width:100%;aspect-ratio:1;border-radius:var(--r-md);overflow:hidden;
   background:linear-gradient(135deg,var(--surface-3),var(--surface-2));box-shadow:0 10px 24px -10px rgba(0,0,0,.6)}
 .art img{width:100%;height:100%;object-fit:cover;transition:opacity .3s,transform .45s var(--ease)}
@@ -973,7 +988,9 @@ fill="url(#royal)" stroke="none">
   <div id="nbProgress" aria-hidden="true"></div>
   <div class="nb-track" role="button" tabindex="0" aria-label="Open now playing" onclick="openNow()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
     <div class="art"><img id="nbArt" alt=""><div class="ph" id="nbPh" aria-hidden="true"></div></div>
-    <div class="nb-meta"><div class="nb-t" id="nbTitle"></div><div class="nb-s" id="nbArtist"></div></div>
+    <!-- The LIVE pill is a SIBLING of #nbArtist, never a child: the now-bar paints that line with
+         textContent (setNow), which would wipe any nested markup on the next track change. -->
+    <div class="nb-meta"><div class="nb-t" id="nbTitle"></div><div class="nb-s" style="display:flex;align-items:center;gap:6px"><span class="live-pill">LIVE</span><span id="nbArtist"></span></div></div>
   </div>
   <div class="nb-center">
     <div class="nb-controls">
@@ -1024,7 +1041,8 @@ fill="url(#royal)" stroke="none">
         <button class="iconbtn" id="npMenu" onclick="if(state.queue[state.qi])openSongMenu(this,state.queue[state.qi])" title="More" aria-label="More actions" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4m0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/></svg></button>
       </div>
       <div class="np-seek"><input type="range" class="seek" id="npSeek" min="0" max="1000" value="0" aria-label="Seek">
-        <div class="np-times"><span id="npCur">0:00</span><span id="npDur">0:00</span></div></div>
+        <div class="np-times"><span id="npCur">0:00</span><span id="npDur">0:00</span></div>
+        <div class="live-note"><span class="live-pill" style="margin-right:6px">LIVE</span>Everyone tuned in hears this at the same moment. Pausing leaves the broadcast — playing again rejoins it live.</div></div>
       <div class="np-controls">
         <button class="iconbtn skip shf" onclick="toggleShuffle()" title="Shuffle" aria-label="Shuffle" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg></button>
         <button class="iconbtn" onclick="prev()" aria-label="Previous"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
@@ -1420,6 +1438,7 @@ function pushURL(path, replace) { try { if (location.pathname + location.search 
 function applyRoute(url) {
   const u = new URL(url, location.origin), p = u.pathname; let m;
   if (state.nowOpen) closeNow();
+  if ((m = p.match(/^\/radio\/(.+)$/))) return openStation(decodeURIComponent(m[1]), true); // live broadcast station
   if ((m = p.match(/^\/artists\/(.+)$/))) return openArtist(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/albums\/(.+)$/))) return openAlbum(decodeURIComponent(m[1]), true);
   if ((m = p.match(/^\/zemer-playlists\/(.+)$/))) return openCuratedPlaylist(decodeURIComponent(m[1]), true);
@@ -2978,7 +2997,13 @@ function openSleepMenu(e) {
   const opt = (v, label) => `<button role="menuitem" class="mi ${cur === v ? "on" : ""}" onclick="setSleep(${typeof v === "string" ? `'${v}'` : v})">${label}${cur === v ? " ✓" : ""}</button>`;
   popMenu(e.currentTarget, `<div class="mihead">Sleep timer</div>${opt(0, "Off")}${opt(15, "15 minutes")}${opt(30, "30 minutes")}${opt(45, "45 minutes")}${opt(60, "1 hour")}${opt("end", "End of this song")}`);
 }
-function seekBy(d) { if (!state.queue.length) return; const dur = PB.dur(); if (!dur) return; PB.seek(Math.max(0, Math.min(dur - 0.5, PB.cur() + d))); }
+// Single choke point for every relative/absolute seek the user can trigger — the ±15s buttons, the
+// arrow keys, media keys and the tray all land here. On a live station there is nowhere to seek TO:
+// the position is the broadcast's, shared with everyone else, so a seek would silently desync.
+function seekBy(d) {
+  if (skSt) { showToast("This is live radio — everyone hears the same moment, so it can't be scrubbed.", 2600); return; }
+  if (!state.queue.length) return; const dur = PB.dur(); if (!dur) return; PB.seek(Math.max(0, Math.min(dur - 0.5, PB.cur() + d)));
+}
 /* ---- Lyrics (time-synced, via /lyrics → LRCLIB) ---- */
 // _ly caches the fetched lyrics for the current track so switching tabs doesn't refetch. .synced is a
 // sorted [{t,text}] parsed from LRC; .plain is unsynced text; .none means the fetch found nothing.
@@ -3205,7 +3230,7 @@ function stationAllowed(id) {
   return !noDJ() && chasidMode() !== "only" && israeliMode() !== "only"; // dj
 }
 
-const stationCard = (s) => `<div class="card st-card ${skSt && skSt.id === s.id ? "on-air" : ""}" role="button" tabindex="0" onkeydown="${KDACT}" onclick="tuneStation('${safeId(s.id)}')">
+const stationCard = (s) => `<div class="card st-card ${skSt && skSt.id === s.id ? "on-air" : ""}" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openStation('${safeId(s.id)}')">
   <div class="st-wrap">${artHTML("/stations/cover?id=" + encodeURIComponent(s.id), ICON.radio)}<span class="st-live">LIVE</span></div>
   <div class="t">${esc(s.title || s.id)}</div>
   <div class="s">${esc(s.nowPlaying && s.nowPlaying.title ? s.nowPlaying.title + (s.nowPlaying.artist ? " · " + s.nowPlaying.artist : "") : "On air")}</div>
@@ -3232,19 +3257,60 @@ async function stFetch(id) {
 
 const stTrack = (e) => ({ videoId: e.videoId, title: e.title, artist: e.artist, durationSec: e.durationSec, thumbnail: e.thumbnail });
 
+// A station gets its own page at /radio/:id — tuning in shouldn't dump you on a song page for
+// whatever happened to be playing, because the song isn't the thing you chose; the station is.
+// The tracklist here is deliberately NOT clickable: you cannot jump to a track inside a shared
+// broadcast, so rendering it as a playable queue would offer something that can't work.
+async function openStation(id, fromRoute) {
+  detailLoading("Live Radio");
+  await ensureFilters();
+  const r = await stFetch(id);
+  if (!r) {
+    el("v-detail").innerHTML = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>`
+      + emptyState("Station unavailable", "That station isn't broadcasting right now. Try again in a moment.");
+    return;
+  }
+  if (!stationAllowed(id)) {
+    el("v-detail").innerHTML = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>`
+      + emptyState("Not available", "This station is hidden by your current filters or Parental Controls.");
+    return;
+  }
+  pushURL("/radio/" + encodeURIComponent(id), fromRoute);
+  state.detailOpen = true; state.detailKind = "radio";
+  el("tbTitle").textContent = "Live Radio";
+  const now = r.entries[0] || {}, upcoming = r.entries.slice(1, 8);
+  el("v-detail").innerHTML = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
+    <div class="detail-hero"><div class="cover">${artHTML("/stations/cover?id=" + encodeURIComponent(id), ICON.radio)}</div>
+      <div class="dh-meta"><div class="dh-kind"><span class="live-pill" style="display:inline-flex">LIVE</span> Live Radio</div>
+        <h1>${esc(r.title)}</h1>
+        <p style="color:var(--muted)">On air now: <b>${esc(now.title || "")}</b>${now.artist ? " · " + esc(now.artist) : ""}</p>
+        <p style="color:var(--faint);font-size:13px;max-width:52ch">A shared broadcast — everyone tuned in hears the same song at the same moment. You can't skip or scrub it, and pausing leaves the broadcast rather than holding your place.</p>
+      </div></div>
+    ${upcoming.length ? section("Up next", `<div class="rows">${upcoming.map((e) =>
+      `<div class="row" style="cursor:default"><img class="thumb" alt="" src="${sizedArt(e.thumbnail, 128) || yt(e.videoId)}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${esc(e.title || "")}</div><div class="sub">${esc(e.artist || "")}</div></div></div>`).join("")}</div>`) : ""}`;
+  tuneStationInto(r);
+}
+
+// Start playing an already-fetched schedule. Split out of tuneStation so the station PAGE can render
+// from the same read it tunes with, instead of hitting /station twice.
+function tuneStationInto(r) {
+  stStop(true); // drop any previous station without touching the new one
+  skSt = r;
+  state.radio = null;
+  state.playSource = "station:" + r.id;
+  track("station", { id: r.id });
+  stAlign();
+  stPaintTransport();
+  skSt.timer = setInterval(stWatch, 15000);
+  if (state.tab === "home") { const box = el("v-home"); if (box) stPaintOnAir(box); }
+}
+
 async function tuneStation(id) {
   await ensureFilters(); // blocklist + artist flags before we gate the schedule
   showToast("Tuning in…", 1200);
   const r = await stFetch(id);
   if (!r) { showToast("That station isn't available right now.", 2800); return; }
-  stStop(true); // drop any previous station without touching the new one
-  skSt = r;
-  state.radio = null;
-  state.playSource = "station:" + id;
-  track("station", { id });
-  stAlign();
-  skSt.timer = setInterval(stWatch, 15000);
-  if (state.tab === "home") { const box = el("v-home"); if (box) stPaintOnAir(box); }
+  tuneStationInto(r);
 }
 
 // Seek the player to wherever the broadcast currently is.
@@ -3315,6 +3381,18 @@ function stStop(keepSource) {
   clearInterval(skSt.timer); clearTimeout(skSt.gap);
   skSt = null;
   if (!keepSource && String(state.playSource || "").indexOf("station:") === 0) state.playSource = "";
+  stPaintTransport();
+}
+
+// Flip the transport into (or out of) broadcast mode. One class on <body> drives the CSS: the LIVE
+// pills appear, and the controls that assume a private timeline — seek, ±15s, shuffle, repeat, queue
+// reorder — are hidden rather than left to no-op or, worse, to silently desync the listener.
+function stPaintTransport() {
+  document.body.classList.toggle("on-air", !!skSt);
+  if (skSt) { // a station can't be shuffled or repeated; clear them so they don't apply on the way out
+    if (state.repeat) toggleRepeat();
+    if (state.shuffle) toggleShuffle();
+  }
 }
 
 // Re-mark the tuned-in card without re-rendering Home.
@@ -3404,7 +3482,9 @@ audio.addEventListener("ended", () => { stopTick(); playFinalize(); repeatOrNext
 audio.addEventListener("error", () => { if (PB.local) { const t = state.queue[state.qi]; if (t && t.videoId) skDL.bad.add(t.videoId); PB.local = false; onPlaybackError(); } else if (PB.mode === "html5") onPlaybackError(); }); // SK-OFFLINE: a bad local file → blacklist it for the session and skip
 ["nbSeek", "npSeek"].forEach((id) => {
   const s = el(id);
-  s.addEventListener("input", () => { seeking = true; paintSeek(s); el("nbCur").textContent = el("npCur").textContent = fmt((s.value / 1000) * PB.dur()); });
+  // CSS already makes the bar non-interactive on a station; this is the belt to that braces, since
+  // a range input can still be driven by the keyboard when focused.
+  s.addEventListener("input", () => { if (skSt) { paintSeek(s); return; } seeking = true; paintSeek(s); el("nbCur").textContent = el("npCur").textContent = fmt((s.value / 1000) * PB.dur()); });
   s.addEventListener("change", () => { if (xf) abortCrossfade(); const d = PB.dur(); if (d) PB.seek((s.value / 1000) * d); seeking = false; });
 });
 el("vol").addEventListener("input", (e) => { PB.setVol(e.target.value / 100); paintSeek(e.target); });
@@ -3523,7 +3603,24 @@ function skIsDownloaded(id) { const e = skDL.map.get(id); return !!(e && e.statu
 // Consulted by PB.load(): returns the local playback URL when a completed download exists (prefer it
 // over the YouTube iframe — saves bandwidth online and is the ONLY engine offline). null => play via YT.
 function skLocalSrc(id) { if (typeof SK_NATIVE === "undefined" || !SK_NATIVE || skDL.bad.has(id)) return null; const e = skDL.map.get(id); return (e && e.status === "done" && e.item && e.item.src) ? e.item.src : null; }
-function skDownload(id, title, artist) { if (!id || skIsDownloaded(id) || (skDL.map.get(id) || {}).status === "downloading") return; skDL.map.set(id, { status: "downloading", received: 0, total: null }); skDL.bad.delete(id); skEmit("sk-dl-request", { videoId: id, title: title || "", artist: artist || "" }); skUpdateNpButton(); skRenderDownloads(); showToast("Downloading for offline…", 1800); }
+function skDownload(id, title, artist) { if (!id || skIsDownloaded(id) || (skDL.map.get(id) || {}).status === "downloading") return; skDL.map.set(id, { status: "downloading", received: 0, total: null, at: Date.now() }); skDL.bad.delete(id); skEmit("sk-dl-request", { videoId: id, title: title || "", artist: artist || "" }); skUpdateNpButton(); skRenderDownloads(); showToast("Downloading for offline…", 1800); }
+// Watchdog. A download's "downloading" state is cleared by an event from Rust (sk-dl-done /
+// sk-dl-error) — so if that event never arrives (the extractor wedged, the worker died, the app was
+// asleep mid-transfer) the row sits on "Preparing…" forever with no way out but a restart. Same shape
+// as the updater bug: a spinner whose only exit is an event landing. Give it an exit that doesn't
+// depend on one — stale with no progress for STALL_MS becomes a normal, retryable failure.
+const SK_DL_STALL_MS = 180000;
+setInterval(() => {
+  if (typeof skDL === "undefined" || !skDL.map.size) return;
+  const now = Date.now(); let changed = false;
+  skDL.map.forEach((v, k) => {
+    if (v.status !== "downloading") return;
+    if (now - (v.at || 0) < SK_DL_STALL_MS) return;
+    skDL.map.set(k, { status: "error", item: v.item, message: "Timed out — tap to retry" });
+    changed = true;
+  });
+  if (changed) { skRenderDownloads(); skUpdateNpButton(); }
+}, 30000);
 function skDeleteDownload(id) { if (!id) return; skEmit("sk-dl-delete", { videoId: id }); skDL.map.delete(id); skUpdateNpButton(); skRenderDownloads(); skPaintRows(); }
 function skToggleDownloadCurrent() { const t = state.queue[state.qi]; if (!t || !t.videoId) return; if (skIsDownloaded(t.videoId)) { skDeleteDownload(t.videoId); showToast("Removed download", 1500); } else skDownload(t.videoId, t.title, t.artist); }
 function skPlayDownload(id) { const e = skDL.map.get(id); if (!e || e.status !== "done") return; const it = e.item || {}; state.queue = [{ videoId: id, title: it.title || "", artist: it.artist || "" }]; state.radio = null; state.playSource = "downloads"; playIndex(0); skCloseDownloads(); }
@@ -3606,7 +3703,7 @@ if (SK_NATIVE) {
     inflight.forEach((v, k) => { if (!skDL.map.has(k)) skDL.map.set(k, v); });
     skRenderDownloads(); skUpdateNpButton(); skPaintRows();
   });
-  ev.listen("sk-dl-progress", (e) => { const p = e.payload || {}; if (!p.videoId) return; const cur = skDL.map.get(p.videoId) || {}; skDL.map.set(p.videoId, { status: "downloading", received: p.received || 0, total: (p.total != null ? p.total : cur.total) || null }); const panel = el("skDlPanel"); if (panel && panel.classList.contains("on")) skRenderDownloads(); skUpdateNpButton(); });
+  ev.listen("sk-dl-progress", (e) => { const p = e.payload || {}; if (!p.videoId) return; const cur = skDL.map.get(p.videoId) || {}; skDL.map.set(p.videoId, { status: "downloading", received: p.received || 0, total: (p.total != null ? p.total : cur.total) || null, at: Date.now() }); const panel = el("skDlPanel"); if (panel && panel.classList.contains("on")) skRenderDownloads(); skUpdateNpButton(); });
   ev.listen("sk-dl-done", (e) => { const p = e.payload || {}; if (p.item) skDL.map.set(p.videoId, { status: "done", item: p.item }); skRenderDownloads(); skUpdateNpButton(); skPaintRows(); showToast("Saved for offline", 1600); });
   ev.listen("sk-dl-error", (e) => { const p = e.payload || {}; if (!p.videoId) return; const cur = skDL.map.get(p.videoId) || {}; skDL.map.set(p.videoId, { status: "error", item: cur.item, message: p.message || "Download failed" }); skRenderDownloads(); skUpdateNpButton(); showToast(p.message ? "Download failed — " + esc(p.message) : "Download failed", 4200); });
   // Ask only once the listener is actually attached — ev.listen registers over IPC, so an immediate
