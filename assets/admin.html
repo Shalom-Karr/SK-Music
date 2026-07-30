@@ -295,7 +295,8 @@ window.openUser = async function (id) {
   try {
     CUR = await rpc('admin_user_detail', { p_user: id });
     renderUser();
-    loadHistory(id); // separate call — a big history shouldn't hold up the settings panel
+    // Separate calls — a big history or playlist set shouldn't hold up the settings panel.
+    loadHistory(id); loadVisits(id); loadPlaylists(id);
   } catch (e) { $('mBody').innerHTML = `<div class="em">${esc(e.message)}</div>`; }
 };
 
@@ -314,6 +315,47 @@ async function loadHistory(id) {
   } catch (e) {
     box.innerHTML = `<div class="note">${esc(e.message)}</div>`;
   }
+}
+
+// When the account was actually in the app — one entry per session, not per token.
+async function loadVisits(id) {
+  const box = $('vis'); if (!box) return;
+  try {
+    const d = await rpc('admin_user_visits', { p_user: id, p_days: 90, p_limit: 100 });
+    const v = (d && d.visits) || [];
+    if (!CUR || CUR.id !== id) return;
+    const n = $('visN'); if (n) n.textContent = `· ${num(v.length)} in the last ${d.days} days`;
+    box.innerHTML = v.length
+      ? `<div class="list">${v.map((s) => {
+          const mins = s.minutes >= 1 ? `${s.minutes}m` : '<1m';
+          const where = [s.city, s.country].filter(Boolean).join(', ');
+          return `<div class="it"><span class="t">${dt(s.started)}</span><span class="d">${mins} · ${num(s.events)} events${s.plays ? ` · ${num(s.plays)} plays` : ''} · ${esc(s.device || '?')}${s.browser ? ' / ' + esc(s.browser) : ''}${where ? ' · ' + esc(where) : ''}</span></div>`;
+        }).join('')}</div>`
+      : `<div class="note">No signed-in activity recorded in the last ${d.days} days. Visits are only attributable from SK Music 1.2.3 onward, and only while the person is signed in — anonymous browsing by the same person can't be linked to the account.</div>`;
+  } catch (e) { box.innerHTML = `<div class="note">${esc(e.message)}</div>`; }
+}
+
+// The user's own playlists. These are owner-only under RLS; the admin RPC is what makes them visible.
+async function loadPlaylists(id) {
+  const box = $('pl'); if (!box) return;
+  try {
+    const d = await rpc('admin_user_playlists', { p_user: id });
+    const pls = (d && d.playlists) || [];
+    if (!CUR || CUR.id !== id) return;
+    const n = $('plN'); if (n) n.textContent = `· ${num(pls.length)}`;
+    box.innerHTML = pls.length
+      ? pls.map((p) => `<div style="margin-bottom:10px">
+          <div class="row2" style="margin-bottom:6px">
+            <b>${esc(p.name)}</b>
+            <span class="pill ${p.is_public ? 'on' : ''}">${p.is_public ? 'public' : 'private'}</span>
+            <span class="em">${num(p.count)} song${p.count === 1 ? '' : 's'} · updated ${dshort(p.updated_at)}</span>
+          </div>
+          ${(p.tracks || []).length ? `<div class="list">${p.tracks.slice(0, 60).map((t) =>
+            `<div class="it"><span class="t">${esc(t.title || t.videoId)}</span><span class="d">${esc(t.artist || '')}</span></div>`).join('')}</div>`
+            : '<div class="em" style="padding-left:2px">Empty.</div>'}
+        </div>`).join('')
+      : '<div class="em">No playlists.</div>';
+  } catch (e) { box.innerHTML = `<div class="note">${esc(e.message)}</div>`; }
 }
 
 function renderUser() {
@@ -345,6 +387,12 @@ function renderUser() {
     <div class="row2"><label>Kid Zone only</label>${SEG('kid_only', u.kid_only ? '1' : '0', [['1','On'],['0','Off']])}</div>
     <div class="row2"><label>Artists</label>${SEG('artist_mode', u.artist_mode || 'all', [['all','All'],['only','Only these'],['except','Except these']])}
       <span class="em">${num((u.artist_ids || []).length)} picked</span></div>
+
+    <h3 class="sec">Visits <span id="visN" class="em"></span></h3>
+    <div id="vis"><div class="em">Loading…</div></div>
+
+    <h3 class="sec">Playlists <span id="plN" class="em"></span></h3>
+    <div id="pl"><div class="em">Loading…</div></div>
 
     <h3 class="sec">Play history <span id="histN" class="em"></span></h3>
     <div id="hist"><div class="em">Loading…</div></div>

@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.2.5 — 2026-07-30 (web only — no desktop rebuild)
+
+**Why the bump:** the admin console could show settings but not what a user actually has or does.
+
+**Admin console**
+- **Playlists** — every playlist the user has made, public/private, song count, last updated, and the
+  full tracklist. These are owner-only under RLS; the admin RPC is what makes them visible.
+- **Visits** — one entry per session: when it started, how long it ran, event and play counts, device,
+  browser and location. `last sign-in` only tells you when a token was minted, which isn't the same as
+  when someone was actually in the app.
+- Both load independently of the settings panel, so a heavy account doesn't stall the modal.
+
+**Limits, stated in the UI rather than left to look like a bug**
+- Visits and play history only exist from 1.2.3 onward, and only while the person was **signed in**.
+  Anonymous browsing by the same person can't be linked to the account — that's structural, not a gap
+  to be filled later.
+
+**Deploy note:** run `supabase/v1.2.5-admin-detail.sql`.
+
+## 1.2.4 — 2026-07-30 (web only — no desktop rebuild)
+
+**Why the bump:** a security review of the admin console found three single points of failure. None
+was exploitable as configured — each was one setting away from silent full compromise.
+
+- **Admin is now keyed on `auth.uid()`, not the JWT's `email` claim.** Email is the one identity
+  attribute a user can ask the auth service to change. It wasn't forgeable only because "Confirm
+  email" happens to be on — an unversioned dashboard setting nothing in the repo enforces. Turn it
+  off to reduce signup friction and two requests would have granted admin.
+- **Residual default table grants stripped.** `zemer_admin` and `zemer_user` had RLS enabled but their
+  default privileges never revoked, so RLS default-deny was the *only* barrier. `anon` also held
+  SELECT on `zemer_user` including `pin_hash` — every bcrypt PIN hash one RLS toggle away from a key
+  that ships in the page source.
+- `zemer_analytics` keeps **anon INSERT** deliberately: the beacon posts with the anon key. Everything
+  else on that table is revoked.
+- The migration **refuses to apply** if any `zemer_admin` row has no matching auth user, so a
+  half-applied run can't lock every admin out.
+
+**Deploy note:** run `supabase/v1.2.4-admin-hardening.sql`, then re-run `v1.2.2` and `v1.2.3`
+(idempotent) to pick up the `search_path` alignment.
+
 ## 1.2.3 — 2026-07-30 (web only — no desktop rebuild)
 
 **Why the bump:** analytics could not tell you *who* was listening — only that a tab was. Play events
