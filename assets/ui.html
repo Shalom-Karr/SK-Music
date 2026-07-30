@@ -1128,7 +1128,14 @@ function track(event, meta) {
   if (!STATIC) return;
   const m = Object.assign({ vid: VID }, meta); // vid on every row → new-vs-returning; sid stays per-tab
   if (event === "load") { try { m.viewport = `${innerWidth}x${innerHeight}`; m.dpr = devicePixelRatio; m.pwa = matchMedia("(display-mode: standalone)").matches; } catch {} }
-  _evBuf.push({ event, path: location.pathname, url: location.href, ref: document.referrer, sid: SID, screen: SCREEN, meta: m });
+  // uid: the signed-in account, so a play can be attributed to a person rather than a tab. Absent
+  // while signed out — that absence IS the anonymous signal the dashboard splits on. Attribution
+  // only; it is never read for access control (see supabase/v1.2.3-analytics-identity.sql).
+  // try/catch, not a guard: `acct` is declared far below this function, so a track() call during
+  // boot would hit its temporal dead zone — and a ReferenceError here would kill the whole script.
+  let uid = null;
+  try { uid = (acct.session && acct.session.user && acct.session.user.id) || null; } catch (e) {}
+  _evBuf.push({ event, path: location.pathname, url: location.href, ref: document.referrer, sid: SID, screen: SCREEN, uid, meta: m });
   if (_evBuf.length >= 100) flushEvents();
   else if (!_evTimer) _evTimer = setTimeout(flushEvents, 600000); // 10 min; pagehide/visibilitychange flush covers tab close
 }

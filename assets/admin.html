@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>SK Music — Admin</title>
+<link rel="icon" href="/favicon.ico" />
+<style>
+  :root{
+    --bg:#0b1020; --bg2:#0f172a; --card:#111a2e; --card2:#16223c; --line:#1f2c47;
+    --text:#e8edf7; --muted:#8aa0c4; --dim:#5f759b; --accent:#ff5d6b; --accent2:#5b8cff;
+    --good:#34d399; --gold:#f5b544; --violet:#a78bfa;
+    --shadow:0 18px 50px rgba(0,0,0,.5); --r:16px;
+    font-family:'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 700px at 50% -10%,var(--bg2),var(--bg) 65%);color:var(--text);min-height:100vh}
+  a{color:var(--accent2)}
+  #login{min-height:100vh;display:grid;place-items:center;padding:24px}
+  .lcard{width:min(400px,92vw);background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:26px;box-shadow:var(--shadow)}
+  .brand{display:flex;align-items:center;gap:9px;margin-bottom:18px}
+  .brand h1{font-size:18px;margin:0}.brand span{color:var(--muted);font-size:13px}
+  .dot{width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 16px var(--accent)}
+  label{display:block;font-size:12px;color:var(--muted);margin:12px 0 5px}
+  input,select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg2);color:var(--text);font:inherit;font-size:14px}
+  .btn{width:100%;margin-top:16px;padding:11px;border:0;border-radius:11px;background:var(--accent);color:#fff;font:inherit;font-weight:700;cursor:pointer}
+  .btn:hover{filter:brightness(1.08)} .btn:disabled{opacity:.6;cursor:default}
+  .btn.ghost{background:var(--card2);color:var(--text);border:1px solid var(--line)}
+  .btn.danger{background:#7f1d2b}
+  .msg{margin-top:12px;font-size:13px;color:var(--accent);min-height:18px}
+  .hint{margin-top:14px;font-size:12px;color:var(--dim);line-height:1.6}
+  #app{display:none;padding:20px clamp(12px,3vw,30px) 60px;max-width:1500px;margin:0 auto}
+  .top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:6px 0 18px}
+  .top h1{font-size:20px;margin:0}
+  .who{color:var(--muted);font-size:13px}
+  .spacer{flex:1}
+  .tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  .tools input{width:min(320px,60vw)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+  .tblwrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:13px;min-width:1080px}
+  th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;position:sticky;top:0;background:var(--card2);z-index:1}
+  tbody tr{cursor:pointer} tbody tr:hover{background:var(--card2)}
+  .em{color:var(--dim)}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid var(--line);background:var(--bg2);color:var(--muted)}
+  .pill.on{background:rgba(52,211,153,.14);color:var(--good);border-color:transparent}
+  .pill.off{background:rgba(255,93,107,.13);color:var(--accent);border-color:transparent}
+  .pill.warn{background:rgba(245,181,68,.14);color:var(--gold);border-color:transparent}
+  .modal{position:fixed;inset:0;background:rgba(4,7,15,.72);backdrop-filter:blur(4px);display:none;place-items:center;padding:20px;z-index:50}
+  .modal.on{display:grid}
+  .mbox{width:min(880px,96vw);max-height:88vh;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+  .mhead{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card);z-index:2}
+  .mhead h2{margin:0;font-size:17px}
+  .mbody{padding:18px 20px}
+  .x{margin-left:auto;background:transparent;border:0;color:var(--dim);font-size:19px;cursor:pointer}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:18px}
+  .kv{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+  .kv .k{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+  .kv .v{font-size:14px;margin-top:3px;word-break:break-word}
+  h3.sec{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:20px 0 10px}
+  .row2{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .row2 label{margin:0;min-width:130px;color:var(--text);font-size:13px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg button{background:var(--bg2);border:0;color:var(--muted);padding:7px 13px;font:inherit;font-size:12.5px;cursor:pointer}
+  .seg button.on{background:var(--accent);color:#fff;font-weight:700}
+  .list{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--bg2)}
+  .list div.it{padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px;display:flex;gap:10px}
+  .list div.it:last-child{border-bottom:0}
+  .list .t{flex:1;overflow:hidden;text-overflow:ellipsis}
+  .list .d{color:var(--dim);font-size:11.5px;white-space:nowrap}
+  .foot{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--line);position:sticky;bottom:0;background:var(--card)}
+  .foot .btn{margin-top:0;width:auto;padding:9px 16px}
+  .note{font-size:12px;color:var(--dim);line-height:1.6;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+</style>
+</head>
+<body>
+
+<section id="login">
+  <form class="lcard" id="loginForm" autocomplete="on">
+    <div class="brand"><span class="dot"></span><h1>SK Music</h1><span>· Admin</span></div>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" placeholder="you@example.com" />
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" />
+    <button class="btn" id="signInBtn" type="submit">Sign in</button>
+    <div style="display:flex;align-items:center;gap:10px;margin:14px 0 12px;color:var(--dim);font-size:12px">
+      <span style="flex:1;height:1px;background:var(--line)"></span>or<span style="flex:1;height:1px;background:var(--line)"></span>
+    </div>
+    <button class="btn" id="googleBtn" type="button" style="background:#fff;color:#1f1f1f;display:flex;align-items:center;justify-content:center;gap:9px">
+      <svg viewBox="0 0 48 48" width="17" height="17" aria-hidden="true"><path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8a10 10 0 0 1-4.4 6.6v5.5h7.1c4.1-3.8 6.6-9.4 6.6-16.1"/><path fill="#34A853" d="M24 46c6 0 11-2 14.5-5.4l-7.1-5.5a13 13 0 0 1-19.4-6.8H4.7v5.7A22 22 0 0 0 24 46"/><path fill="#FBBC05" d="M12 28.3a13 13 0 0 1 0-8.6v-5.7H4.7a22 22 0 0 0 0 20z"/><path fill="#EA4335" d="M24 11.4c3.2 0 6.2 1.1 8.5 3.3l6.3-6.3A21 21 0 0 0 24 2 22 22 0 0 0 4.7 14l7.3 5.7A13 13 0 0 1 24 11.4"/></svg>
+      Sign in with Google
+    </button>
+    <div class="msg" id="loginMsg"></div>
+    <div class="hint">Admin only — your email must be in the <b>zemer_admin</b> table. Signing in with Google grants nothing on its own.</div>
+  </form>
+</section>
+
+<main id="app">
+  <div class="top">
+    <span class="dot"></span><h1>Users</h1><span class="who" id="who"></span>
+    <span class="spacer"></span>
+    <a href="/analytics" class="who">Analytics →</a>
+    <button class="btn ghost" id="signOutBtn" style="width:auto;margin:0;padding:8px 14px">Sign out</button>
+  </div>
+
+  <div class="tools">
+    <input id="q" placeholder="Search name or email…" autocomplete="off" />
+    <button class="btn ghost" id="refreshBtn" style="width:auto;margin:0;padding:9px 16px">Refresh</button>
+    <span class="who" id="count"></span>
+  </div>
+
+  <div class="card tblwrap">
+    <table>
+      <thead><tr>
+        <th>Name</th><th>Email</th><th>Filters</th><th>PIN</th><th>Kid&nbsp;Zone</th>
+        <th>Artists</th><th>PIN&nbsp;fails</th><th>Created</th><th>Last&nbsp;sign-in</th><th>ID</th>
+      </tr></thead>
+      <tbody id="rows"><tr><td colspan="10" class="em">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</main>
+
+<div class="modal" id="modal"><div class="mbox">
+  <div class="mhead"><h2 id="mTitle">User</h2><button class="x" id="mClose">✕</button></div>
+  <div class="mbody" id="mBody"></div>
+  <div class="foot">
+    <button class="btn" id="mSave" style="width:auto">Save changes</button>
+    <button class="btn ghost" id="mClearPin" style="width:auto">Clear PIN</button>
+    <span class="spacer"></span>
+    <span class="msg" id="mMsg" style="margin:0"></span>
+  </div>
+</div></div>
+
+<script>
+const SUPABASE_URL = 'https://jxttqcouabdptftlvfnd.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4dHRxY291YWJkcHRmdGx2Zm5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTc2OTAsImV4cCI6MjA5ODc5MzY5MH0.DiTcbcKTqXZTJfOqEXfvckiObinN0g15BDbLmAmmdsY';
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const num = (n) => (n ?? 0).toLocaleString('en-US');
+const dt = (s) => s ? new Date(s).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+const dshort = (s) => s ? new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '—';
+
+// Session is shared with /analytics (same key) so signing into one signs into the other.
+let SESSION = JSON.parse(localStorage.getItem('sk_session') || 'null');
+function sbSignOut() { SESSION = null; localStorage.removeItem('sk_session'); location.reload(); }
+
+async function sbSignIn(email, password) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error_description || j.msg || j.error || 'Sign-in failed');
+  SESSION = j; localStorage.setItem('sk_session', JSON.stringify(j));
+  return j;
+}
+// Same Supabase project + provider as the main app, so admins use the account they already have.
+function googleSignIn() {
+  location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(location.origin + location.pathname)}`;
+}
+function consumeHash() {
+  const h = location.hash || '';
+  if (h.indexOf('access_token=') < 0) return null;
+  const p = new URLSearchParams(h.slice(1));
+  const access_token = p.get('access_token'), refresh_token = p.get('refresh_token');
+  history.replaceState(null, '', location.pathname + location.search);
+  if (!access_token) return null;
+  let u = null;
+  try { u = JSON.parse(atob(access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); } catch {}
+  const s = { access_token, refresh_token, user: { email: u && (u.email || (u.user_metadata || {}).email), id: u && u.sub } };
+  SESSION = s; localStorage.setItem('sk_session', JSON.stringify(s));
+  return s;
+}
+async function sbIsAdmin() {
+  const email = SESSION?.user?.email; if (!email) return false;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/zemer_admin?select=email&email=eq.${encodeURIComponent(email)}`,
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SESSION.access_token}` } });
+    if (!r.ok) return false;
+    const j = await r.json();
+    return Array.isArray(j) && j.length > 0;
+  } catch { return false; }
+}
+// Every admin_* function re-checks membership server-side; this client check only decides what to render.
+async function rpc(fn, body) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SESSION?.access_token || SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {}),
+  });
+  if (r.status === 401) { sbSignOut(); throw new Error('Session expired — sign in again.'); }
+  const j = await r.json().catch(() => null);
+  if (!r.ok) throw new Error((j && (j.message || j.hint)) || 'Request failed');
+  return j;
+}
+
+/* ---------- auth ---------- */
+async function boot() {
+  const fromHash = consumeHash();
+  if (fromHash) {
+    if (await sbIsAdmin()) return enterApp();
+    SESSION = null; localStorage.removeItem('sk_session');
+    $('loginMsg').textContent = 'Not authorized — that account is not in the zemer_admin table.';
+    return;
+  }
+  if (SESSION?.access_token && await sbIsAdmin()) enterApp();
+}
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = $('loginMsg'); msg.textContent = '';
+  const email = $('email').value.trim(), password = $('password').value;
+  if (!email || !password) { msg.textContent = 'Enter email and password.'; return; }
+  $('signInBtn').disabled = true;
+  try {
+    await sbSignIn(email, password);
+    if (!(await sbIsAdmin())) { SESSION = null; localStorage.removeItem('sk_session'); throw new Error('Not authorized — your email must be in the zemer_admin table.'); }
+    enterApp();
+  } catch (err) { msg.textContent = err.message; }
+  finally { $('signInBtn').disabled = false; }
+});
+$('googleBtn').addEventListener('click', googleSignIn);
+$('signOutBtn').addEventListener('click', sbSignOut);
+
+function enterApp() {
+  $('login').style.display = 'none';
+  $('app').style.display = 'block';
+  $('who').textContent = SESSION?.user?.email || '';
+  load();
+}
+
+/* ---------- list ---------- */
+let TIMER = null;
+$('q').addEventListener('input', () => { clearTimeout(TIMER); TIMER = setTimeout(load, 250); });
+$('refreshBtn').addEventListener('click', () => load());
+
+const filterSummary = (f) => {
+  f = f || {};
+  const on = [];
+  if (f.noFemale) on.push('Kol isha');
+  if (f.chasid === 'only') on.push('Chasidish only'); else if (f.chasid === 'hide' || f.noChasid) on.push('No Chasidish');
+  if (f.israeli === 'only') on.push('Israeli only'); else if (f.israeli === 'hide') on.push('No Israeli');
+  if (f.acapella === 'only') on.push('Acapella only'); else if (f.acapella === 'hide') on.push('No Acapella');
+  if (f.noDJ) on.push('No DJ');
+  if (f.blockVideos) on.push('No videos');
+  if (f.zemerRadio === 'off') on.push('Radio off'); else if (f.zemerRadio) on.push('Radio: ' + f.zemerRadio);
+  if (f.sefira === false) on.push('Sefira lifted');
+  return on;
+};
+
+async function load() {
+  const body = $('rows');
+  try {
+    const d = await rpc('admin_list_users', { p_q: $('q').value.trim() || null, p_limit: 200, p_offset: 0 });
+    const users = (d && d.users) || [];
+    $('count').textContent = `${num(users.length)} of ${num(d.total)}`;
+    if (!users.length) { body.innerHTML = '<tr><td colspan="10" class="em">No users match.</td></tr>'; return; }
+    body.innerHTML = users.map((u) => {
+      const fs = filterSummary(u.filters);
+      const locked = u.pin_locked_until && new Date(u.pin_locked_until) > new Date();
+      return `<tr onclick="openUser('${esc(u.id)}')">
+        <td>${esc(u.name || '—')}</td>
+        <td>${esc(u.email || '—')}</td>
+        <td>${fs.length ? `<span class="pill on">${fs.length} on</span> <span class="em">${esc(fs.slice(0,2).join(', '))}${fs.length>2?'…':''}</span>` : '<span class="pill">none</span>'}</td>
+        <td>${u.has_pin ? '<span class="pill on">set</span>' : '<span class="pill">no</span>'}</td>
+        <td>${u.kid_only ? '<span class="pill warn">on</span>' : '<span class="pill">off</span>'}</td>
+        <td>${u.artist_mode === 'all' ? '<span class="em">all</span>' : `<span class="pill">${esc(u.artist_mode)} · ${num(u.artist_count)}</span>`}</td>
+        <td>${u.pin_fails ? `<span class="pill ${locked ? 'off' : 'warn'}">${num(u.pin_fails)}${locked ? ' · locked' : ''}</span>` : '<span class="em">0</span>'}</td>
+        <td class="em">${dshort(u.created_at)}</td>
+        <td class="em">${dshort(u.last_sign_in_at)}</td>
+        <td class="em" style="font-family:ui-monospace,monospace;font-size:11px">${esc(String(u.id).slice(0, 8))}</td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="10" class="em">${esc(e.message)}</td></tr>`;
+  }
+}
+
+/* ---------- detail modal ---------- */
+let CUR = null;
+$('mClose').addEventListener('click', () => $('modal').classList.remove('on'));
+$('modal').addEventListener('click', (e) => { if (e.target === $('modal')) $('modal').classList.remove('on'); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('modal').classList.remove('on'); });
+
+const SEG = (name, val, opts) => `<div class="seg">${opts.map(([v, l]) =>
+  `<button class="${val === v ? 'on' : ''}" onclick="setF('${name}','${v}')">${esc(l)}</button>`).join('')}</div>`;
+
+window.openUser = async function (id) {
+  $('modal').classList.add('on'); $('mMsg').textContent = '';
+  $('mTitle').textContent = 'Loading…'; $('mBody').innerHTML = '<div class="em">Loading…</div>';
+  try {
+    CUR = await rpc('admin_user_detail', { p_user: id });
+    renderUser();
+    loadHistory(id); // separate call — a big history shouldn't hold up the settings panel
+  } catch (e) { $('mBody').innerHTML = `<div class="em">${esc(e.message)}</div>`; }
+};
+
+// Real per-song history, from analytics rows tagged with this account.
+async function loadHistory(id) {
+  const box = $('hist'); if (!box) return;
+  try {
+    const d = await rpc('admin_user_history', { p_user: id, p_days: 90, p_limit: 300 });
+    const plays = (d && d.plays) || [];
+    if (!CUR || CUR.id !== id) return; // modal moved on while we were fetching
+    const n = $('histN'); if (n) n.textContent = `· ${num(plays.length)} plays, last ${d.days} days`;
+    box.innerHTML = plays.length
+      ? `<div class="list">${plays.slice(0, 300).map((p) =>
+          `<div class="it"><span class="t">${esc(p.title || p.videoId || '—')}</span><span class="d">${esc(p.artist || '')} · ${dt(p.at)}</span></div>`).join('')}</div>`
+      : `<div class="note">No plays recorded for this account in the last ${d.days} days. Play events only carry an account id from SK Music 1.2.3 onward — anything older is anonymous and can't be attributed retroactively.</div>`;
+  } catch (e) {
+    box.innerHTML = `<div class="note">${esc(e.message)}</div>`;
+  }
+}
+
+function renderUser() {
+  const u = CUR, f = u.filters || {};
+  $('mTitle').textContent = u.name || u.email || 'User';
+  const locked = u.pin_locked_until && new Date(u.pin_locked_until) > new Date();
+  const recents = Array.isArray(u.recents) ? u.recents : [];
+  const likes = Array.isArray(u.likes) ? u.likes : [];
+  $('mBody').innerHTML = `
+    <div class="grid">
+      <div class="kv"><div class="k">Email</div><div class="v">${esc(u.email || '—')}</div></div>
+      <div class="kv"><div class="k">Sign-in</div><div class="v">${esc(u.provider || 'email')}</div></div>
+      <div class="kv"><div class="k">User ID</div><div class="v" style="font-family:ui-monospace,monospace;font-size:12px">${esc(u.id)}</div></div>
+      <div class="kv"><div class="k">Created</div><div class="v">${dt(u.created_at)}</div></div>
+      <div class="kv"><div class="k">Last sign-in</div><div class="v">${dt(u.last_sign_in_at)}</div></div>
+      <div class="kv"><div class="k">Updated</div><div class="v">${dt(u.updated_at)}</div></div>
+      <div class="kv"><div class="k">PIN</div><div class="v">${u.has_pin ? 'Set' : 'Not set'}${u.pin_fails ? ` · ${num(u.pin_fails)} failed` : ''}${locked ? ` · locked until ${dt(u.pin_locked_until)}` : ''}</div></div>
+      <div class="kv"><div class="k">Kid Zone</div><div class="v">${u.kid_only ? 'On' : 'Off'}${u.kid_only ? ` · +${(u.kid_add||[]).length} / −${(u.kid_remove||[]).length}` : ''}</div></div>
+    </div>
+
+    <h3 class="sec">Content filters</h3>
+    <div class="row2"><label>Kol isha</label>${SEG('noFemale', f.noFemale ? '1' : '0', [['1','Hidden'],['0','Allowed']])}</div>
+    <div class="row2"><label>Chasidish</label>${SEG('chasid', f.chasid || '', [['','All'],['only','Only'],['hide','Hide']])}</div>
+    <div class="row2"><label>Israeli</label>${SEG('israeli', f.israeli || '', [['','All'],['only','Only'],['hide','Hide']])}</div>
+    <div class="row2"><label>Acapella</label>${SEG('acapella', f.acapella || '', [['','All'],['only','Only'],['hide','Hide']])}</div>
+    <div class="row2"><label>DJ sets</label>${SEG('noDJ', f.noDJ ? '1' : '0', [['1','Hidden'],['0','Allowed']])}</div>
+    <div class="row2"><label>Videos</label>${SEG('blockVideos', f.blockVideos ? '1' : '0', [['1','Blocked'],['0','Allowed']])}</div>
+    <div class="row2"><label>Zemer Radio</label>${SEG('zemerRadio', f.zemerRadio || '', [['','All'],['chasidish','Chassidish'],['israeli','Israeli'],['dj','DJ'],['off','Off']])}</div>
+    <div class="row2"><label>Kid Zone only</label>${SEG('kid_only', u.kid_only ? '1' : '0', [['1','On'],['0','Off']])}</div>
+    <div class="row2"><label>Artists</label>${SEG('artist_mode', u.artist_mode || 'all', [['all','All'],['only','Only these'],['except','Except these']])}
+      <span class="em">${num((u.artist_ids || []).length)} picked</span></div>
+
+    <h3 class="sec">Play history <span id="histN" class="em"></span></h3>
+    <div id="hist"><div class="em">Loading…</div></div>
+
+    <h3 class="sec">Recently played · ${num(recents.length)}</h3>
+    ${recents.length ? `<div class="list">${recents.slice(0, 100).map((t) =>
+      `<div class="it"><span class="t">${esc(t.title || t.videoId || '—')}</span><span class="d">${esc(t.artist || '')}</span></div>`).join('')}</div>`
+      : '<div class="em">Nothing in the synced recently-played list.</div>'}
+
+    <h3 class="sec">Likes · ${num(likes.length)}</h3>
+    ${likes.length ? `<div class="list">${likes.slice(0, 100).map((l) =>
+      `<div class="it"><span class="t">${esc(l.title || l.video_id)}</span><span class="d">${esc(l.artist || '')} · ${dshort(l.added_at)}</span></div>`).join('')}</div>`
+      : '<div class="em">No likes yet.</div>'}
+
+    ${(u.audit || []).length ? `<h3 class="sec">Admin changes</h3><div class="list">${u.audit.map((a) =>
+      `<div class="it"><span class="t">${esc(a.action)}</span><span class="d">${esc(a.admin)} · ${dt(a.at)}</span></div>`).join('')}</div>` : ''}
+  `;
+}
+
+// Edits are staged locally and written by Save, so a mis-click isn't instantly live on someone's account.
+window.setF = function (name, v) {
+  if (!CUR) return;
+  if (name === 'kid_only') CUR.kid_only = v === '1';
+  else if (name === 'artist_mode') CUR.artist_mode = v;
+  else {
+    CUR.filters = CUR.filters || {};
+    if (name === 'noFemale' || name === 'noDJ' || name === 'blockVideos') CUR.filters[name] = v === '1';
+    else if (v === '') delete CUR.filters[name];
+    else CUR.filters[name] = v;
+  }
+  renderUser();
+  $('mMsg').style.color = 'var(--gold)';
+  $('mMsg').textContent = 'Unsaved changes';
+};
+
+$('mSave').addEventListener('click', async () => {
+  if (!CUR) return;
+  $('mSave').disabled = true; $('mMsg').style.color = ''; $('mMsg').textContent = 'Saving…';
+  try {
+    await rpc('admin_set_user', { p_user: CUR.id, p_patch: {
+      filters: CUR.filters || {}, artist_mode: CUR.artist_mode, kid_only: !!CUR.kid_only,
+    }});
+    $('mMsg').style.color = 'var(--good)'; $('mMsg').textContent = 'Saved';
+    load();
+  } catch (e) { $('mMsg').style.color = 'var(--accent)'; $('mMsg').textContent = e.message; }
+  finally { $('mSave').disabled = false; }
+});
+
+$('mClearPin').addEventListener('click', async () => {
+  if (!CUR || !CUR.has_pin) { $('mMsg').textContent = 'No PIN set.'; return; }
+  if (!confirm('Clear this user’s parental PIN? They will be able to change their own filters again.')) return;
+  $('mClearPin').disabled = true; $('mMsg').style.color = ''; $('mMsg').textContent = 'Clearing…';
+  try {
+    await rpc('admin_clear_pin', { p_user: CUR.id });
+    CUR = await rpc('admin_user_detail', { p_user: CUR.id });
+    renderUser();
+    $('mMsg').style.color = 'var(--good)'; $('mMsg').textContent = 'PIN cleared';
+    load();
+  } catch (e) { $('mMsg').style.color = 'var(--accent)'; $('mMsg').textContent = e.message; }
+  finally { $('mClearPin').disabled = false; }
+});
+
+boot();
+</script>
+</body>
+</html>
