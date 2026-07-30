@@ -2338,7 +2338,12 @@ async function renamePlaylistPrompt(pid) {
   const pls = await loadMyPlaylists(); const cur = (pls.find((p) => p.id === pid) || {}).name || "";
   const n = await askText({ title: "Rename playlist", value: cur, placeholder: "Playlist name", submit: "Rename" });
   if (!n) return;
-  await sbRpc("rename_playlist", { p_id: pid, p_name: n }); invalidatePlaylists(); openUserPlaylist(pid);
+  const r = await sbRpc("rename_playlist", { p_id: pid, p_name: n });
+  if (r === null) { showToast("Couldn't rename that playlist — check your connection and try again.", 3600); return; }
+  invalidatePlaylists();
+  state.loaded.library = false; // the Library list is cached; without this the OLD name keeps rendering
+  // there even though the rename landed — which reads as "rename doesn't work". Delete already did this.
+  openUserPlaylist(pid);
 }
 async function deletePlaylistConfirm(pid) {
   if (!(await askConfirm({ title: "Delete playlist?", sub: "This can’t be undone.", submit: "Delete", danger: true }))) return;
@@ -3781,7 +3786,11 @@ async function sbAuthCall(path, body) {
     return r.ok ? { ok: true, data: j } : { ok: false, error: j.error_description || j.msg || j.error || j.message || "Something went wrong" };
   } catch { return { ok: false, error: "Network error — check your connection." }; }
 }
-async function sbRpc(fn, args) { try { const body = JSON.stringify(args || {}); const url = SB_URL + "/rest/v1/rpc/" + fn; let r = await fetch(url, { method: "POST", headers: sbHdr(true), body }); if (r.status === 401 && await acctRefresh()) r = await fetch(url, { method: "POST", headers: sbHdr(true), body }); return r.ok ? await r.json() : null; } catch { return null; } } // one-shot refresh on 401 so an expired access token (idle tab / reload after ~1h) recovers instead of failing
+async function sbRpc(fn, args) { try { const body = JSON.stringify(args || {}); const url = SB_URL + "/rest/v1/rpc/" + fn; let r = await fetch(url, { method: "POST", headers: sbHdr(true), body }); if (r.status === 401 && await acctRefresh()) r = await fetch(url, { method: "POST", headers: sbHdr(true), body }); if (!r.ok) return null; if (r.status === 204 || !+(r.headers.get("content-length") || 1)) return true; try { return await r.json(); } catch { return true; } } catch { return null; } }
+// One-shot refresh on 401 so an expired access token (idle tab / reload after ~1h) recovers instead of
+// failing. The 204 branch matters: every `returns void` RPC (rename/delete/add/remove/reorder) replies
+// 204 with an empty body, and json() on that THROWS — so the old code funnelled each of them into the
+// catch and returned null, i.e. reported success as failure. Callers can now trust a null.
 
 // --- session persistence ---
 function saveSession() { try { acct.session ? localStorage.setItem("zw_sb", JSON.stringify(acct.session)) : localStorage.removeItem("zw_sb"); } catch {} }
