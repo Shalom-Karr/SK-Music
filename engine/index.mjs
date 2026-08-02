@@ -1104,7 +1104,7 @@ async function handlePodcasts(request, url, ctx) {
     if (Number.isFinite(k)) out.set("k", String(Math.min(100, Math.max(1, k))));
     const qs = out.toString();
     return podUpstream("https://search.zemer.io/podcasts/new-episodes" + (qs ? "?" + qs : ""),
-      new Request("https://sk/pod-new?" + qs), 900, ctx); // 15 min — new episodes are not minute-fresh
+      new Request("https://sk/pod-new?" + qs), 1800, ctx); // 30 min — shows publish on a weekly cadence, not a minutely one
   }
 
   if (p === "/podcast" || p === "/podcast-channel") {
@@ -1116,15 +1116,18 @@ async function handlePodcasts(request, url, ctx) {
       if (v != null) out.set(f, v === "1" || v === "true" ? "1" : "0");
     }
     const qs = out.toString();
-    return podUpstream("https://search.zemer.io" + p + "?" + qs, new Request("https://sk" + p + "?" + qs), 1800, ctx);
+    // 6 h. A show/channel page only gains an episode when the podcast publishes, and /podcasts/new-episodes
+    // is the surface that has to be fresh — so this trades staleness we can't see for Worker requests we pay for.
+    return podUpstream("https://search.zemer.io" + p + "?" + qs, new Request("https://sk" + p + "?" + qs), 21600, ctx);
   }
 
-  // The whitelist mirror. Cached hard against its own /version stamp upstream; an hour is well inside
-  // the cadence the version endpoint moves at, and a stale allow-set only ever hides new shows.
+  // The whitelist mirror. The SPA does NOT read this — it reads the build-time snapshot in
+  // /data/podcasts.json, which costs no Worker request at all. These stay for external callers, and
+  // are cached to the same 6 h as the show endpoints: a stale allow-set only ever hides new shows.
   if (p === "/podcasts-whitelist")
-    return podUpstream("https://content.zemer.io/podcastsWhitelist", new Request("https://sk/pod-wl"), 3600, ctx);
+    return podUpstream("https://content.zemer.io/podcastsWhitelist", new Request("https://sk/pod-wl"), 21600, ctx);
   if (p === "/podcasts-whitelist/version")
-    return podUpstream("https://content.zemer.io/podcastsWhitelist/version", new Request("https://sk/pod-wlv"), 300, ctx);
+    return podUpstream("https://content.zemer.io/podcastsWhitelist/version", new Request("https://sk/pod-wlv"), 3600, ctx);
 
   return podBad("unknown podcast route");
 }
@@ -1650,7 +1653,10 @@ export default {
     if (pathname === "/zemer-home-rows") return handleHomeRows(env, ctx);
     if (pathname === "/zemer-new") return handleZemerNew(env, ctx);
     if (pathname === "/radio") return handleRadio(request, url);
-    if (pathname === "/podcast" || pathname === "/podcast-channel" || pathname.startsWith("/podcasts/") || pathname.startsWith("/podcasts-whitelist"))
+    // /podcasts/new-episodes is the ONLY API path under /podcasts/ — matched exactly so the SPA's
+    // shareable /podcasts/:podcaster falls through to the app shell instead of being answered with a
+    // JSON 400. (Series and episodes live under /shows/, which the Worker never claimed.)
+    if (pathname === "/podcast" || pathname === "/podcast-channel" || pathname === "/podcasts/new-episodes" || pathname.startsWith("/podcasts-whitelist"))
       return handlePodcasts(request, url, ctx);
     if (pathname === "/stations") return handleStations(request, url, ctx);
     if (pathname === "/station") return handleStation(request, url);

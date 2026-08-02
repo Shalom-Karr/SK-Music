@@ -488,6 +488,111 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
     }
   })();
 
+  // ── podcast show index (baked from upstream at build time) ─────────────────
+  // The podcast whitelist moves on the order of weeks, so this is a SNAPSHOT rather than a live
+  // proxy: a static asset is served without invoking the Worker at all, where a proxy route would
+  // cost one Worker request per page view. The client derives the Podcasters rail from this file,
+  // so neither the rail nor the show lookup spends a request.
+  //
+  // Two upstreams, because neither alone is sufficient:
+  //   search.zemer.io/podcasts        — id, name, author (the HOST CHANNEL name), channelId, thumbnail
+  //   content.zemer.io/podcastsWhitelist — isFemale / isKidZone / isVerified, which live only here
+  // Upstream does NOT apply allowFemale to the podcast endpoints (verified: ?allowFemale=0 returns
+  // the full list, kol-isha shows included), so those flags are what the client gates on — if the
+  // whitelist half fails we bake NOTHING rather than a list we can't filter. Fail closed.
+  await (async () => {
+    const grab = async (url) => {
+      try { const r = await fetch(url, { signal: AbortSignal.timeout(25000) }); return r.ok ? await r.json() : null; }
+      catch { return null; }
+    };
+    const [index, whitelist] = await Promise.all([
+      grab(CATALOG_BASE + "/podcasts"),
+      grab("https://content.zemer.io/podcastsWhitelist"),
+    ]);
+    const shows = (index && index.podcasts) || [];
+    if (!shows.length || !Array.isArray(whitelist) || !whitelist.length) {
+      console.warn("  !! podcasts: index or whitelist fetch failed — Podcasters rail will not render this build !!");
+      return;
+    }
+    const flags = new Map(whitelist.map((d) => [d.docId || d.id, d]));
+    emitJSON("podcasts.json", {
+      version: index.version || 0,
+      shows: shows.map((p) => {
+        const f = flags.get(p.id) || {};
+        return {
+          id: p.id, name: p.name || "", author: p.author || "",
+          channelId: p.channelId || "", thumbnail: p.thumbnail || "",
+          ...(f.isFemale ? { isFemale: 1 } : {}),
+          ...(f.isKidZone ? { isKidZone: 1 } : {}),
+          ...(f.isVerified ? { isVerified: 1 } : {}),
+        };
+      }),
+    });
+    const hosts = new Set(shows.map((p) => p.channelId).filter(Boolean));
+    console.log(`  podcasts: baked ${shows.length} shows across ${hosts.size} host channels (from ${CATALOG_BASE})`);
+  })();
+
+  // ── TorahAnytime catalog snapshot (Shiurim tab) ────────────────────────────
+  // The Shiurim tab talks to api.torahanytime.com DIRECTLY from the browser (that API echoes any
+  // request Origin back in Access-Control-Allow-Origin), so no part of the feature costs a Worker
+  // request. The three SLOW-MOVING lists — the topic tree, the speaker directory, the series index —
+  // are snapshotted here instead: a static asset is served without invoking the Worker at all, and
+  // /speakers alone is a measured ~8 s / 1.07 MB cold call that would otherwise sit in front of the
+  // tab's first paint. Lectures themselves stay live (they change hourly and carry the media URLs).
+  //
+  // Every field the client never reads is dropped — the raw three total ~1.3 MB, mostly speaker bios
+  // and phone-extension bookkeeping. Fails SOFT, unlike the podcast bake: there is no flag half here
+  // that the client depends on for gating (kol isha is decided per-lecture from flags on the live
+  // record), so a missing file just means the browse rails don't render.
+  await (async () => {
+    const grab = async (url) => {
+      try { const r = await fetch(url, { signal: AbortSignal.timeout(45000) }); return r.ok ? await r.json() : null; }
+      catch { return null; }
+    };
+    const [topicsRaw, speakersRaw, seriesRaw] = await Promise.all([
+      grab("https://api.torahanytime.com/topics"),
+      grab("https://api.torahanytime.com/speakers"),
+      grab("https://api.torahanytime.com/series/basic?limit=5000"),
+    ]);
+    // Only categories that actually have lectures — the tree carries a number of empty scaffolding
+    // nodes (ja-categories placeholders with lectures: 0) that would render as dead cards.
+    const topic = (t) => ({
+      id: t.id, name: t.english_name || t.name || "", n: t.lectures || 0,
+      ...(Array.isArray(t.subCategory) && t.subCategory.length
+        ? { sub: t.subCategory.filter((s) => s.display_active !== false).map((s) => ({ id: s.id, name: s.english_name || s.name || "", n: s.lectures || 0 })) }
+        : {}),
+    });
+    const topics = ((topicsRaw && topicsRaw.topics) || [])
+      .filter((t) => t.display_active !== false && (t.lectures || 0) > 0).map(topic)
+      .sort((a, b) => b.n - a.n);
+    // `female` rides along so the kol-isha filter can drop a speaker CARD without first fetching her
+    // lectures; `no_download` is carried for the same reason a lecture's own flag is (the app must
+    // never offer a save for a speaker who forbids it).
+    const speakers = ((speakersRaw && speakersRaw.speakers) || [])
+      .filter((s) => s.display_active !== false && (s.lecture_count || 0) > 0)
+      .map((s) => ({
+        id: s.id, first: (s.name_first || "").trim(), last: (s.name_last || "").trim(),
+        title: (s.title_short || "").trim(), photo: s.photo || "", n: s.lecture_count || 0,
+        ...(s.female ? { female: 1 } : {}), ...(s.no_download ? { noDl: 1 } : {}),
+      }))
+      .sort((a, b) => b.n - a.n);
+    const series = ((seriesRaw && seriesRaw.series) || [])
+      .filter((s) => (s.count || 0) > 0)
+      .map((s) => ({
+        id: s.id, title: s.title || "", n: s.count || 0,
+        speaker: [(s.speaker_title_short || "").trim(), (s.speaker_name_first || "").trim(), (s.speaker_name_last || "").trim()].filter(Boolean).join(" "),
+        speakerId: s.speaker_id || 0,
+        ...(s.female || s.female_only ? { female: 1 } : {}),
+      }))
+      .sort((a, b) => b.n - a.n);
+    if (!topics.length && !speakers.length && !series.length) {
+      console.warn("  !! shiurim: TorahAnytime catalog fetch failed — browse rails will not render this build !!");
+      return;
+    }
+    emitJSON("shiurim.json", { topics, speakers, series });
+    console.log(`  shiurim: baked ${topics.length} topics · ${speakers.length} speakers · ${series.length} series (from api.torahanytime.com)`);
+  })();
+
   // ── sitemaps ───────────────────────────────────────────────────────────────
   // Sitemap index → per-type sitemaps covering every URL in the app (~90k entries).
   // Chunked at 45k URLs per file (the spec caps at 50k).
