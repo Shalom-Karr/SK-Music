@@ -1,5 +1,57 @@
 # Changelog
 
+## 1.4.0 — 2026-08-02 (web + desktop)
+
+**Why the bump:** two new listening surfaces, a filter leak closed, and four bugs found in the podcasts
+code that shipped earlier the same day.
+
+**Fixed — Zemer Radio was leaking past a content filter**
+- Upstream added genre-pooled stations (**Nigunim**, **Chill**) alongside the artist-flag ones. The gate
+  treated any unrecognised station as making "no style claim" and **showed it** — so a user with **Hide
+  Chasidish** was being offered Nigunim Radio, which is the chasidish pool by definition. Unrecognised
+  stations are now **hidden**, matching the fail-closed rule used everywhere else. Chill is explicitly
+  classified as making no style claim, which is a different thing from unknown. The Parental Controls
+  picker now derives from the same map, so the two lists can't drift apart again.
+
+**Fixed — podcasts (four real bugs)**
+- **A shiur would roll into music.** A one-episode queue looked like "last track" to the radio prefetch,
+  which fetched a station from the episode's id and appended songs.
+- **The Podcasts tab went blank during Sefira and the Three Weeks** — the Acapella gate demanded playlist
+  membership no spoken word has. Episodes now use their own filter.
+- Every episode row read fields that don't exist, so subtitles, durations and resume bars never drew.
+- Two colliding `shareSong` declarations meant the now-playing menu shared a bare `/song/` URL.
+
+**Podcasts — podcasters, series, video policy**
+- A **Podcasters** rail, **series** pages, and episode pages naming the podcaster with more from that
+  show and host alongside. **Video shiurim** are a separate opt-in; audio-only episodes are unaffected.
+- The show list is **baked at build time**, so the tab costs **one** Worker request. Upstream does not
+  kol-isha-filter podcasts, so the client does it from the whitelist flags.
+
+**Shiurim (new) — TorahAnytime**
+- Browse by topic, speaker and series, search, newest and trending, with per-lecture resume. **Off by
+  default**, enabled by a parent, then switchable per account.
+- **Costs zero Worker requests** — the browser talks to TorahAnytime directly and streams from source;
+  the catalog is baked into the build. Kol isha is enforced per record, and a lecture or speaker marked
+  no-download is never offered a save.
+
+**Statuses — it moves like a story now**
+- Sliding transitions between posts, a cube turn between creators, continuous progress bars, and
+  open/close anchored to the circle you tapped. All of it respects reduced-motion. Two rows past 20.
+
+**Downloads (desktop)**
+- A **progress dialog** that stays until the download finishes, then offers **Show in folder**. Failures
+  show the reason with a Retry, and a stalled download becomes a retryable error rather than a hang.
+- The web side never sends a file path to the app — it sends the song id and the app resolves the path.
+
+**For You is gone.** Its personalised sections were a second home page; `/foryou` redirects to Home.
+
+**Known gaps, stated rather than hidden**
+- The podcast **video** setting has nothing to filter yet — upstream doesn't mark episodes as video.
+- The Shiurim **build-time bake has not run end-to-end** (`build:code` skips the data step). It fails
+  soft if TorahAnytime is unreachable.
+- **Desktop-native paths are untested** for shiurim and for Show-in-folder.
+- `playIndex` still evicts **podcast episodes** during Sefira; `regateQueue` exempts them and it does not.
+
 ## 1.3.0 — 2026-08-02 (web only — no desktop rebuild)
 
 **Why the bump:** two new content surfaces, both **off by default and unlocked by a parent**. Neither

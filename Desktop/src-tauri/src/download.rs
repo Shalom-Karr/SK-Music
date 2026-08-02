@@ -33,11 +33,13 @@
 //!   * `sk-dl-request`      `{ videoId, title, artist }`  — download this song
 //!   * `sk-dl-delete`       `{ videoId }`                 — remove a download
 //!   * `sk-dl-list-request` `{}`                          — send the current library
+//!   * `sk-dl-reveal`       `{ videoId }`                 — show the saved file in the OS file manager
 //! Rust -> SPA (main window):
-//!   * `sk-dl-progress` `{ videoId, phase, received, total }`  phase = extracting|downloading
-//!   * `sk-dl-done`     `{ videoId, item }`                    item = library entry (+ src)
-//!   * `sk-dl-error`    `{ videoId, message }`
-//!   * `sk-dl-list`     `{ items: [entry, ...] }`
+//!   * `sk-dl-progress`       `{ videoId, phase, received, total }`  phase = extracting|downloading
+//!   * `sk-dl-done`           `{ videoId, item }`                    item = library entry (+ src)
+//!   * `sk-dl-error`          `{ videoId, message }`
+//!   * `sk-dl-list`           `{ items: [entry, ...] }`
+//!   * `sk-dl-reveal-failed`  `{ videoId, message }`
 //! Hidden extractor webview -> Rust:
 //!   * `sk-yt-extracted`      `{ videoId, url, mime, itag, contentLength, title, author }`
 //!   * `sk-yt-extract-failed` `{ videoId, reason }`
@@ -182,6 +184,12 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
     });
     let h = app.clone();
     app.listen("sk-dl-list-request", move |_| emit_list(&h));
+    let h = app.clone();
+    app.listen("sk-dl-reveal", move |ev| {
+        if let Ok(r) = serde_json::from_str::<IdOnly>(ev.payload()) {
+            reveal(&h, &r.video_id);
+        }
+    });
 
     // Hidden extractor webview -> Rust
     app.listen("sk-yt-extracted", move |ev| {
@@ -366,6 +374,33 @@ fn delete(app: &AppHandle, id: &str) {
     emit_list(app);
 }
 
+/// Open the OS file manager on a finished download, with the file selected.
+///
+/// The page sends only the videoId — never a path. A path arriving from the main window would be a
+/// path arriving from REMOTE content, which would turn "reveal my song" into "select any file on this
+/// machine"; instead the id is shape-checked and then resolved against OUR OWN index, so the worst a
+/// hostile or injected SPA can reach is a file this app itself downloaded.
+fn reveal(app: &AppHandle, id: &str) {
+    use tauri_plugin_opener::OpenerExt;
+
+    if !valid_id(id) {
+        return;
+    }
+    let Some(entry) = load_index(app).remove(id) else {
+        emit_reveal_failed(app, id, "that download is no longer in the library");
+        return;
+    };
+    let path = downloads_dir(app).join(format!("{}.{}", entry.video_id, entry.ext));
+    if !path.is_file() {
+        emit_reveal_failed(app, id, "the saved file is missing from the downloads folder");
+        return;
+    }
+    if let Err(e) = app.opener().reveal_item_in_dir(&path) {
+        eprintln!("[downloads] reveal failed for {id}: {e}");
+        emit_reveal_failed(app, id, "could not open the downloads folder");
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Hidden extractor webview
 // ---------------------------------------------------------------------------
@@ -506,6 +541,15 @@ fn emit_progress(app: &AppHandle, id: &str, phase: &str, received: u64, total: O
 
 fn emit_error(app: &AppHandle, id: &str, message: &str) {
     let _ = app.emit("sk-dl-error", serde_json::json!({ "videoId": id, "message": message }));
+}
+
+/// Distinct from `sk-dl-error`: the download itself is fine, only the reveal failed — so the SPA
+/// toasts it instead of flipping the library row to a retryable failure.
+fn emit_reveal_failed(app: &AppHandle, id: &str, message: &str) {
+    let _ = app.emit(
+        "sk-dl-reveal-failed",
+        serde_json::json!({ "videoId": id, "message": message }),
+    );
 }
 
 fn emit_done(app: &AppHandle, id: &str) {
