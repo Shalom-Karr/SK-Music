@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.3.0 — 2026-08-02 (web only — no desktop rebuild)
+
+**Why the bump:** two new content surfaces, both **off by default and unlocked by a parent**. Neither
+appears for anyone who doesn't deliberately turn it on.
+
+**Podcasts & Shiurim (new)**
+- The Podcasts tab is real. New episodes from whitelisted shows, filtered by the same rules as the
+  music — kol isha, Chasidish, Israeli and DJ settings all still apply.
+- **Off until enabled.** `filters.podcasts` is opt-*in*: a new account, a signed-out device, or any
+  account a parent hasn't configured gets nothing, and the tab is **absent from the sidebar** rather
+  than shown-and-disabled. A parent enables it in Parental Controls (PIN-gated); the account then gets
+  its own Settings switch. Turning it off while someone is on the tab returns them Home.
+- **Episodes remember where you were.** A shiur is an hour, not four minutes, so there's a per-episode
+  resume point with a Continue Listening section and progress bars. The first 30 seconds are ignored —
+  that isn't a resume point.
+- Playback is the existing engine, so background play, media keys, tray controls and the desktop mini
+  player all work with episodes unchanged.
+
+**Statuses (new)**
+- A row of story circles on Home under Quick Picks, with a full-screen viewer: auto-advance, tap or
+  arrow navigation, press-and-hold to pause, resume at the first unseen, and seen-state that persists.
+- Music pauses when the viewer opens and resumes on close — and only if something was actually playing.
+- **Same gating as podcasts**: off until a parent enables it, then an account-level switch. Hidden
+  entirely in Kid Zone.
+
+**Worker**
+- New same-origin proxies: `/podcasts/new-episodes`, `/podcast`, `/podcast-channel`,
+  `/podcasts-whitelist` (+ `/version`), and `/statuses/creators`, `/statuses/posts`, `/statuses/media`.
+  All rebuild the upstream query from a validated allowlist rather than forwarding the query string,
+  matching the existing `/radio` hardening. Credentials stay server-side — nothing reaches the client.
+- `content.zemer.io` is a new upstream host, used only for the podcast whitelist mirror.
+
+**Known limits, stated rather than hidden**
+- The `blockVideos()` gate is wired for statuses but currently unreachable — that filter is hardcoded
+  off in the UI today, so it protects nothing until it's restored.
+- Statuses hasn't been exercised on real touch hardware or iOS Safari; the tap zones and the muted
+  autoplay fallback were verified with synthetic events only.
+
 ## 1.2.7 — 2026-07-30 (web only — no desktop rebuild)
 
 **Playlist cover art**

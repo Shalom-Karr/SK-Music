@@ -1060,6 +1060,75 @@ async function handleZemerNew(env, ctx) {
   return response;
 }
 
+// ─── Zemer Podcasts (/podcasts/*, /podcast, /podcast-channel) ────────────────
+
+// Spoken-word content from the Zemer stack (zemer-app#355). Discovery is whitelist-pure upstream,
+// exactly like the music catalog; an episode is a plain videoId, so playback needs nothing special.
+//
+// Two upstreams: search.zemer.io for shows/channels/episodes, and content.zemer.io for the podcast
+// whitelist — content.zemer.io is a NEW host for this Worker, added deliberately and only for the
+// whitelist mirror. Same allowlist posture as /radio: rebuild the upstream query, never forward
+// url.search, so this can't be used as an open proxy.
+const POD_ID_RX = /^[A-Za-z0-9_=-]{1,128}$/;
+const podBad = (m) => Response.json({ error: m }, { status: 400, headers: { "Cache-Control": "no-store" } });
+
+async function podUpstream(url, cacheKey, ttl, ctx) {
+  const cache = caches.default;
+  if (cacheKey) { const hit = await cache.match(cacheKey); if (hit) return hit; }
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    const text = await res.text();
+    const out = new Response(text, {
+      status: res.status,
+      headers: { "Content-Type": "application/json", "Cache-Control": res.ok && ttl ? `public, max-age=${ttl}` : "no-store" },
+    });
+    if (res.ok && ttl && cacheKey && ctx) ctx.waitUntil(cache.put(cacheKey, out.clone()));
+    return out;
+  } catch {
+    return Response.json({ error: "unavailable" }, { status: 502, headers: { "Cache-Control": "no-store" } });
+  }
+}
+
+async function handlePodcasts(request, url, ctx) {
+  if (request.method !== "GET")
+    return Response.json({ error: "method not allowed" }, { status: 405, headers: { "Cache-Control": "no-store" } });
+  const p = url.pathname;
+
+  if (p === "/podcasts/new-episodes") {
+    const out = new URLSearchParams();
+    for (const f of ["allowFemale", "blockVideos", "kidZone"]) {
+      const v = url.searchParams.get(f);
+      if (v != null) out.set(f, v === "1" || v === "true" ? "1" : "0");
+    }
+    const k = parseInt(url.searchParams.get("k") || "", 10);
+    if (Number.isFinite(k)) out.set("k", String(Math.min(100, Math.max(1, k))));
+    const qs = out.toString();
+    return podUpstream("https://search.zemer.io/podcasts/new-episodes" + (qs ? "?" + qs : ""),
+      new Request("https://sk/pod-new?" + qs), 900, ctx); // 15 min — new episodes are not minute-fresh
+  }
+
+  if (p === "/podcast" || p === "/podcast-channel") {
+    const id = url.searchParams.get("id") || "";
+    if (!POD_ID_RX.test(id)) return podBad("bad id");
+    const out = new URLSearchParams({ id });
+    for (const f of ["allowFemale", "blockVideos", "kidZone"]) {
+      const v = url.searchParams.get(f);
+      if (v != null) out.set(f, v === "1" || v === "true" ? "1" : "0");
+    }
+    const qs = out.toString();
+    return podUpstream("https://search.zemer.io" + p + "?" + qs, new Request("https://sk" + p + "?" + qs), 1800, ctx);
+  }
+
+  // The whitelist mirror. Cached hard against its own /version stamp upstream; an hour is well inside
+  // the cadence the version endpoint moves at, and a stale allow-set only ever hides new shows.
+  if (p === "/podcasts-whitelist")
+    return podUpstream("https://content.zemer.io/podcastsWhitelist", new Request("https://sk/pod-wl"), 3600, ctx);
+  if (p === "/podcasts-whitelist/version")
+    return podUpstream("https://content.zemer.io/podcastsWhitelist/version", new Request("https://sk/pod-wlv"), 300, ctx);
+
+  return podBad("unknown podcast route");
+}
+
 // ─── Zemer Stations (/stations, /station, /stations/cover) ───────────────────
 
 // Synchronized broadcast radio: ONE shared wall-clock program per station, so every listener hears
@@ -1377,6 +1446,161 @@ async function handleCspReport(request) {
   return new Response(null, { status: 204 });
 }
 
+// ─── JewishStatus statuses (/statuses/*) ─────────────────────────────────────
+
+// WhatsApp-style creator story circles from jewishstatus.com. Their backend is a public Supabase
+// project plus an R2 bucket — reverse-engineered, unversioned, and free to change under us — so every
+// failure path here returns an error the client renders as "no row" rather than as a broken UI.
+//
+// It is proxied rather than called from the browser for three reasons: the anon key stays out of
+// assets/ui.html, same-origin survives the content filters our users sit behind, and we stop
+// depending on a third party's CORS policy. As with /radio, the upstream query is rebuilt from a
+// validated allowlist — url.search is never forwarded.
+const JS_REST = "https://raiodurvjneoehnphkrs.supabase.co/rest/v1";
+const JS_CDN = "https://pub-0dd407ad34e240909673d1619658d5c2.r2.dev";
+// A Supabase *publishable* (anon) key — RLS-scoped and already shipped in their own web client.
+// Held here anyway so rotating it is a Worker deploy rather than a client cache-bust.
+const JS_KEY = "sb_publishable_Pj9SDOxf5Xxw9LavwAl5yw_5ldleSyD";
+const JS_HDRS = { apikey: JS_KEY, Authorization: "Bearer " + JS_KEY };
+// Only the music categories. JewishStatus also carries news/food/real-estate creators, which have no
+// business on a music home page, so the row is built from these three and nothing else.
+const JS_CATEGORIES = [
+  "dc207cab-3514-4ae8-a5c1-8a69fb27ced3", // Jewish Music & Events
+  "02ed4e29-d461-43f4-9aab-e16d05d3f795", // Music (Independent)
+  "5a08c0ba-400a-4576-aa33-97fa9ec38d0e", // Concerts
+];
+const JS_UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// R2 keys look like "creators/<uuid>/<uuid>.mp4" or "creators/<slug>.jpg". Every segment must start
+// with an alphanumeric, which is what makes a ".." segment unrepresentable — this route can reach
+// nothing but the two buckets' own objects, and the charset it allows is already URL-safe.
+const JS_PATH_RX = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*){0,3}$/;
+const JS_DIRS = new Set(["avatars", "status-media"]);
+const jsBad = (msg) => Response.json({ error: msg }, { status: 400, headers: { "Cache-Control": "no-store" } });
+const jsDown = () => Response.json({ error: "unavailable" }, { status: 502, headers: { "Cache-Control": "no-store" } });
+
+async function handleStatuses(request, url, ctx) {
+  if (request.method !== "GET")
+    return Response.json({ error: "method not allowed" }, { status: 405, headers: { "Cache-Control": "no-store" } });
+  const p = url.pathname;
+  if (p === "/statuses/creators") return jsCreators(ctx);
+  if (p === "/statuses/posts") return jsPosts(url, ctx);
+  if (p === "/statuses/media") return jsMedia(request, url);
+  return jsBad("unknown statuses route");
+}
+
+// The row itself: one RPC per category, merged in category order and deduped by id (a creator filed
+// under two categories would otherwise appear twice). A category that fails is dropped rather than
+// failing the whole row — a partial row still beats no row — so only a total outage 502s. Five
+// minutes of edge cache: new statuses appear all day, but not by the second, and the row is shared
+// by every visitor.
+async function jsCreators(ctx) {
+  const cache = caches.default;
+  const cacheKey = new Request("https://sk/statuses/creators");
+  const hit = await cache.match(cacheKey);
+  if (hit) return hit;
+
+  const pages = await Promise.all(JS_CATEGORIES.map(async (cat) => {
+    try {
+      const res = await fetch(JS_REST + "/rpc/browse_creators_sorted", {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, JS_HDRS),
+        body: JSON.stringify({
+          p_section: "all", p_search: null, p_limit: 100, p_offset: 0,
+          p_category: cat, p_location: null, p_sort: "recent",
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) return null;
+      const rows = await res.json();
+      return Array.isArray(rows) ? rows : null;
+    } catch {
+      return null;
+    }
+  }));
+  if (pages.every((x) => x === null)) return jsDown();
+
+  // Reshaped to the four fields the row draws with, so a schema addition upstream can't quietly grow
+  // the payload every visitor downloads.
+  const seen = new Set(), creators = [];
+  for (const rows of pages) for (const r of rows || []) {
+    if (!r || typeof r.id !== "string" || seen.has(r.id)) continue;
+    seen.add(r.id);
+    creators.push({
+      id: r.id,
+      name: typeof r.display_name === "string" ? r.display_name : "",
+      avatar: typeof r.avatar_path === "string" && r.avatar_path ? r.avatar_path : null,
+      recent: Array.isArray(r.recent_post_ids) ? r.recent_post_ids.filter((x) => typeof x === "string" && x) : [],
+    });
+  }
+
+  const out = Response.json({ creators }, { headers: { "Cache-Control": "public, max-age=300" } });
+  if (ctx) ctx.waitUntil(cache.put(cacheKey, out.clone()));
+  return out;
+}
+
+// One creator's timeline, oldest-first — the order the viewer plays in. It is READ newest-first and
+// reversed here on purpose: prolific creators run well past a page, and asc+limit would return their
+// OLDEST hundred, i.e. months-old stories that don't match the ring the row just drew from `recent`.
+async function jsPosts(url, ctx) {
+  const id = url.searchParams.get("creator") || "";
+  if (!JS_UUID_RX.test(id)) return jsBad("bad creator");
+
+  const cache = caches.default;
+  const cacheKey = new Request("https://sk/statuses/posts?creator=" + id);
+  const hit = await cache.match(cacheKey);
+  if (hit) return hit;
+
+  const q = new URLSearchParams({
+    creator_id: "eq." + id,
+    select: "id,kind,media_path,thumb_path,caption,text_body,text_bg_color,link_url,duration_seconds,posted_at",
+    order: "posted_at.desc",
+    limit: "100",
+    offset: "0",
+  });
+  try {
+    const res = await fetch(JS_REST + "/public_posts?" + q.toString(), {
+      headers: JS_HDRS,
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return jsDown();
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return jsDown();
+    const out = Response.json({ posts: rows.reverse() }, { headers: { "Cache-Control": "public, max-age=120" } });
+    if (ctx) ctx.waitUntil(cache.put(cacheKey, out.clone()));
+    return out;
+  } catch {
+    return jsDown();
+  }
+}
+
+// CDN passthrough. `d` is an allowlist of exactly the two R2 directories the app reads and `p` must
+// look like an R2 key, so this can never be pointed at an arbitrary host. Range is forwarded (and its
+// 206 passed straight back) because <video> seeks with it; the Cache API is deliberately not used
+// here, since it rejects a 206. Objects are uuid-named and never rewritten, hence immutable.
+async function jsMedia(request, url) {
+  const dir = url.searchParams.get("d") || "";
+  const path = url.searchParams.get("p") || "";
+  if (!JS_DIRS.has(dir)) return new Response("bad dir", { status: 400, headers: { "Cache-Control": "no-store" } });
+  if (!JS_PATH_RX.test(path)) return new Response("bad path", { status: 400, headers: { "Cache-Control": "no-store" } });
+
+  const range = request.headers.get("Range");
+  try {
+    const res = await fetch(`${JS_CDN}/${dir}/${path}`, {
+      headers: range ? { Range: range } : {},
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!res.ok) return new Response("unavailable", { status: 502, headers: { "Cache-Control": "no-store" } });
+    const h = new Headers({ "Cache-Control": "public, max-age=604800, immutable" });
+    for (const k of ["Content-Type", "Content-Length", "Content-Range", "Accept-Ranges", "ETag"]) {
+      const v = res.headers.get(k);
+      if (v) h.set(k, v);
+    }
+    return new Response(res.body, { status: res.status, headers: h });
+  } catch {
+    return new Response("unavailable", { status: 502, headers: { "Cache-Control": "no-store" } });
+  }
+}
+
 // ─── Entry points ─────────────────────────────────────────────────────────────
 
 export default {
@@ -1426,10 +1650,13 @@ export default {
     if (pathname === "/zemer-home-rows") return handleHomeRows(env, ctx);
     if (pathname === "/zemer-new") return handleZemerNew(env, ctx);
     if (pathname === "/radio") return handleRadio(request, url);
+    if (pathname === "/podcast" || pathname === "/podcast-channel" || pathname.startsWith("/podcasts/") || pathname.startsWith("/podcasts-whitelist"))
+      return handlePodcasts(request, url, ctx);
     if (pathname === "/stations") return handleStations(request, url, ctx);
     if (pathname === "/station") return handleStation(request, url);
     if (pathname === "/stations/cover") return handleStationCover(request, url, ctx);
     if (pathname === "/lyrics") return handleLyrics(request, url, ctx);
+    if (pathname.startsWith("/statuses/")) return handleStatuses(request, url, ctx);
     if (pathname === "/trending") {
       // Content negotiation: browser navigations (Accept: text/html) get the human-readable charts
       // page; the app's fetch() and API callers (Accept: */*) keep getting JSON. Fetch the extensionless
