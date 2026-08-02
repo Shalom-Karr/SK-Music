@@ -895,14 +895,22 @@ const CSP = [
   // Rust; src/download.rs). It serves a downloaded song's local audio file to the html5 <audio> element
   // so a saved track plays from disk (and offline). Inert in a browser — no such origin exists there.
   // Windows/WebView2 serves custom schemes as http://<scheme>.localhost, macOS/Linux as <scheme>://localhost.
-  "media-src 'self' blob: skdl: http://skdl.localhost https://skdl.localhost",
+  // TorahAnytime shiurim stream STRAIGHT from source to the <audio> element — no Worker proxy, which
+  // is what makes that feature cost zero Worker requests. That only works if the storage hosts are
+  // allowed here: dl. and proxier. are TA-branded, the S3/Spaces hosts carry the modern lectures.
+  "media-src 'self' blob: skdl: http://skdl.localhost https://skdl.localhost https://dl.torahanytime.com https://proxier.torahanytime.com https://ta-lectures.s3.us-east-005.backblazeb2.com https://ta-tusd.nyc3.digitaloceanspaces.com",
   "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
   // ipc: + ipc.localhost are the Tauri desktop app's IPC transport (invoke → now_playing/set_playback_state);
   // harmless for browsers, required so the desktop media bridge isn't blocked.
   // filter.techloq.com + www.youtube.com fetches: the /test, /connectivity and /playback-block-test
   // diagnostic pages probe them to tell the user WHAT their filter is blocking — those probes must not
   // themselves be CSP-blocked (that would be a false diagnosis). Only used by those pages.
-  "connect-src 'self' https://search.zemer.io https://content.zemer.io https://*.supabase.co https://api.github.com https://cloudflareinsights.com https://filter.techloq.com https://www.youtube.com ipc: http://ipc.localhost https://ipc.localhost",
+  // api.torahanytime.com is called BROWSER-DIRECT (it echoes any Origin), which is the whole reason
+  // Shiurim adds no Worker routes — but "CORS allows it" is only half the gate: without this entry the
+  // page's own CSP blocks the fetch before it leaves. That gap shipped once; the browse rails and the
+  // media resolver were both dead in production while every local test passed, because a plain static
+  // server doesn't apply _headers.
+  "connect-src 'self' https://search.zemer.io https://content.zemer.io https://api.torahanytime.com https://*.supabase.co https://api.github.com https://cloudflareinsights.com https://filter.techloq.com https://www.youtube.com ipc: http://ipc.localhost https://ipc.localhost",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "object-src 'none'",
