@@ -1397,7 +1397,9 @@ function setPodcasts(on) {
 // opens the door (filters.podcastVideos === "on"), and the account's own switch can only NARROW it.
 // Scoped to the podcast endpoints alone: the music-side blockVideos() is a permanent no-op and this
 // must never make it one that fires.
-const pcPodcastVideos = () => pcFilters().podcastVideos === "on";
+// Also ON by default now, and opt-OUT for the same reason: a filmed shiur is the same shiur. A parent
+// who wants audio only turns it off; `filters.podcastVideos === "off"` is the closed state.
+const pcPodcastVideos = () => pcFilters().podcastVideos !== "off";
 const podcastVideosOn = () => pcPodcastVideos() && LS.get("zw_podcastVideos", "1") === "1";
 function setPodcastVideos(on) {
   if (!pcPodcastVideos()) { showToast("<b>Video shiurim are turned off</b> for this account — a parent can enable them in Parental Controls.", 4600); return; }
@@ -1405,10 +1407,12 @@ function setPodcastVideos(on) {
   track("filter", { f: "podcastVideos", on: on ? "on" : "off" });
   syncFilterUI(); state.loaded = {}; reloadCurrent();
 }
-// Shiurim (TorahAnytime) opt IN exactly like podcasts, and for the same reason: it's a third-party
-// catalog of ~500k lectures, not the whitelisted-by-construction promise the music side makes. Only
-// filters.shiurim === "on" surfaces the tab; absent (or signed out) = no tab at all.
-const pcShiurim = () => pcFilters().shiurim === "on";
+// Shiurim (TorahAnytime) are ON by default — a parent turns them OFF, rather than having to find and
+// turn them on. Torah lectures are the one third-party surface where the default that serves this
+// audience is "available": the objection to an open catalog is about music, not shiurim.
+// The opt-OUT is `filters.shiurim === "off"`, so an absent policy (and a signed-out device) still
+// gets the tab. Kid-Zone lock still closes it regardless, below.
+const pcShiurim = () => pcFilters().shiurim !== "off";
 // Two layers, then a hard third: the parent opens the door, the account's own switch can only NARROW
 // it, and a Kid-Zone LOCK closes it regardless — TorahAnytime has no kid-curated subset for us to gate
 // on. Read from the policy rather than kidZoneActive(), which is also true while merely *visiting* the
@@ -5545,9 +5549,10 @@ async function pcTogglePodcasts() {
 async function pcTogglePodcastVideos() {
   if (!(await pcGuard())) return;
   const cur = (acct.profile && acct.profile.filters) || {};
-  const next = pcPodcastVideos() ? "" : "on";
+  // Opt-OUT now, same as shiurim: "off" is closed, an absent key means allowed.
+  const next = pcPodcastVideos() ? "off" : "";
   if (!(await pcSave({ filters: Object.assign({}, cur, { noFemale: noFemale(), noChasid: noChasid(), blockVideos: blockVideos(), podcastVideos: next }) }))) return;
-  if (next !== "on") LS.set("zw_podcastVideos", "1");
+  if (next === "off") LS.set("zw_podcastVideos", "1");
   syncFilterUI(); state.loaded = {}; renderParental(); reloadCurrent();
 }
 // Shiurim opt IN the same way, in filters.shiurim. pc_update REPLACES `filters` wholesale, so the
@@ -5555,9 +5560,11 @@ async function pcTogglePodcastVideos() {
 async function pcToggleShiurim() {
   if (!(await pcGuard())) return;
   const cur = (acct.profile && acct.profile.filters) || {};
-  const next = pcShiurim() ? "" : "on";
+  // Opt-OUT now: "off" is the closed state and clearing the key means ALLOWED. Writing "" to disable
+  // would silently re-enable it, which is the exact failure this flip invites.
+  const next = pcShiurim() ? "off" : "";
   if (!(await pcSave({ filters: Object.assign({}, cur, { noFemale: noFemale(), noChasid: noChasid(), blockVideos: blockVideos(), shiurim: next }) }))) return;
-  if (next !== "on") { LS.set("zw_shiurim", "1"); if (state.tab === "shiurim") go("home"); } // don't strand them on a tab that just vanished, and leave the account switch allowing so it isn't silently off when a parent re-enables
+  if (next === "off") { LS.set("zw_shiurim", "1"); if (state.tab === "shiurim") go("home"); } // don't strand them on a tab that just vanished, and leave the account switch allowing so it isn't silently off when a parent re-enables
   syncFilterUI(); state.loaded = {}; renderNav(); renderParental(); reloadCurrent();
 }
 // Statuses opt IN the same way, in filters.statuses — so this only ever writes "on" or clears the key.
