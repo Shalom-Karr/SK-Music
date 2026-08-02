@@ -10,8 +10,6 @@
 <link rel="apple-touch-icon" href="/assets/icon-180.png">
 <meta name="google-site-verification" content="JomKxioigLL4q8BlsKVvKrKZodnHHFU5vFXLdDjkSpw">
 <title>SK Music</title>
-  <meta name="description" content="A fast, kosher, filtered music client — search and stream a whitelisted catalog of Jewish music, entirely in the browser. | Built by Shalom Karr">
-  <meta name="author" content="Shalom Karr">
 <meta property="og:site_name" content="SK Music"><meta name="twitter:card" content="summary_large_image"><!--OGTAGS-->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -752,6 +750,44 @@ body.on-air .live-note{display:block}
 @keyframes splp{0%,100%{opacity:.42}50%{opacity:1}}
 #spfx{position:fixed;inset:0;z-index:9001;pointer-events:none}
 @media(prefers-reduced-motion:reduce){#splogo.bob{animation:none}}
+/* ============================ Statuses (JewishStatus story circles) ============================ */
+.sts-rail{display:flex;gap:16px;overflow-x:auto;overflow-y:hidden;padding:2px 2px 8px;scrollbar-width:none}
+.sts-rail::-webkit-scrollbar{display:none}
+.sts-c{flex:0 0 auto;width:84px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:center;cursor:pointer}
+.sts-ring{position:relative;width:72px;height:72px;margin:0 auto;transition:transform .18s var(--ease)}
+.sts-c:hover .sts-ring{transform:translateY(-3px)}
+.sts-ring svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.sts-ring img,.sts-ring .ph{position:absolute;left:7px;top:7px;width:58px;height:58px;border-radius:50%;object-fit:cover;background:var(--surface-3)}
+.sts-ring .ph{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:21px;color:var(--muted)}
+.sts-nm{margin-top:9px;font-size:12px;line-height:1.3;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sts-c:hover .sts-nm{color:var(--text)}
+/* fullscreen viewer — a phone-shaped card so the chrome lines up with portrait media on a desktop */
+#stsView{position:fixed;inset:0;z-index:85;display:none;align-items:center;justify-content:center;background:#070506;overscroll-behavior:contain}
+#stsView.on{display:flex}
+body.sts-open{overflow:hidden}
+.sts-card{position:relative;width:min(100vw,470px);height:100%;overflow:hidden;background:#070506}
+.sts-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.sts-stage img,.sts-stage video{max-width:100%;max-height:100%;object-fit:contain}
+.sts-txt{display:flex;align-items:center;justify-content:center;width:100%;height:100%;padding:34px;overflow:auto;
+  background:var(--surface-2);color:#fff;font-weight:600;font-size:clamp(19px,4.2vw,30px);line-height:1.35;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere}
+.sts-head{position:absolute;left:0;right:0;top:0;z-index:3;pointer-events:none;
+  padding:calc(10px + env(safe-area-inset-top,0px)) 14px 24px;background:linear-gradient(180deg,rgba(0,0,0,.72),transparent)}
+.sts-bars{display:flex;gap:3px}
+.sts-bars i{flex:1;height:2.5px;border-radius:2px;background:rgba(255,255,255,.3);overflow:hidden}
+.sts-bars i>b{display:block;height:100%;width:0;border-radius:2px;background:#fff}
+.sts-who{display:flex;align-items:center;gap:10px;margin-top:12px;pointer-events:auto}
+.sts-who img{width:36px;height:36px;flex:none;border-radius:50%;object-fit:cover;background:var(--surface-3)}
+.sts-who .n{font-size:14px;font-weight:600;line-height:1.25;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sts-who .t{font-size:12px;color:rgba(255,255,255,.55)}
+.sts-x{display:flex;align-items:center;justify-content:center;width:38px;height:38px;flex:none;margin-left:auto;
+  border:0;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;cursor:pointer}
+.sts-x svg{width:22px;height:22px;fill:currentColor}
+.sts-cap{position:absolute;left:0;right:0;bottom:0;z-index:3;pointer-events:none;
+  padding:46px 20px calc(20px + env(safe-area-inset-bottom,0px));background:linear-gradient(0deg,rgba(0,0,0,.76),transparent);
+  color:#fff;font-size:14.5px;line-height:1.4;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere}
+.sts-tap{position:absolute;top:0;bottom:0;z-index:2;border:0;background:none;cursor:pointer}
+.sts-tap.p{left:0;width:35%}
+.sts-tap.n{right:0;width:65%}
 /* ============================ a11y (additive only) ============================ */
 button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 #maincontent:focus-visible,#maincontent:focus{outline:none}
@@ -978,7 +1014,9 @@ fill="url(#royal)" stroke="none">
     <div class="isr-row" id="chasidRow"><div><span>Chasidish</span><small>Filter by Chasidic / non-Chasidic</small></div><div class="isr-seg" id="chasidSeg"><button data-v="" onclick="setChasid('')">All</button><button data-v="only" onclick="setChasid('only')">Only</button><button data-v="hide" onclick="setChasid('hide')">Hide</button></div></div>
     <div class="isr-row" id="isrRow"><div><span>Israeli artists</span><small>Filter by Israeli / non-Israeli</small></div><div class="isr-seg" id="isrSeg"><button data-v="" onclick="setIsraeli('')">All</button><button data-v="only" onclick="setIsraeli('only')">Only</button><button data-v="hide" onclick="setIsraeli('hide')">Hide</button></div></div>
     <div class="isr-row" id="acapRow"><div><span>Acapella</span><small>Only, or hide, Acapella songs</small></div><div class="isr-seg" id="acapSeg"><button data-v="" onclick="setAcapella('')">All</button><button data-v="only" onclick="setAcapella('only')">Only</button><button data-v="hide" onclick="setAcapella('hide')">Hide</button></div></div>
+    <div class="toggle" id="tgPodcasts" role="button" tabindex="0" onclick="setPodcasts(!podcastsOn())" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Podcasts &amp; Shiurim</span><small>Show the Podcasts tab &mdash; enabled for this account by a parent</small></div><div class="sw"></div></div>
     <div class="toggle" id="tgZemerRadio" role="button" tabindex="0" onclick="setZemerRadio(!zemerRadioOn())" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Zemer Radio</span><small>Live broadcast stations on Home &mdash; your filters still apply</small></div><div class="sw"></div></div>
+    <div class="toggle" id="tgStatuses" role="button" tabindex="0" onclick="setStatuses(!statusesOn())" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Statuses</span><small>Artist story circles on Home &mdash; enabled for this account by a parent</small></div><div class="sw"></div></div>
   </div>
   <div class="locked-sec" id="lockedSec">
     <div class="locked-hd"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2M9 6a3 3 0 0 1 6 0v2H9z"/></svg>Locked by Parental Controls</div>
@@ -1073,6 +1111,8 @@ fill="url(#royal)" stroke="none">
 <div id="ytwrap" aria-hidden="true"><div id="ytplayer"></div><div id="ytplayer2"></div></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <div id="popmenu" role="menu" aria-hidden="true"></div>
+<!-- fullscreen statuses viewer (contents rendered per status by stsRender) -->
+<div id="stsView" role="dialog" aria-modal="true" aria-label="Statuses" aria-hidden="true"></div>
 <audio id="audio" preload="metadata"></audio>
 
 <script>
@@ -1198,6 +1238,9 @@ const TABS = [
   ["artists", "Artists", ICON.artist, "Browse", 1],
   ["playlists", "Playlists", ICON.playlist, "Browse", 0],
   ["kidzone", "Kid Zone", ICON.kid, "Browse", 0],
+  // Podcasts is in the nav list but renderNav() drops it unless a parent has enabled it AND the
+  // account keeps it on — it was routable-only before there was a spoken-word source to point at.
+  ["podcasts", "Podcasts", ICON.podcast, "Browse", 0],
   ["library", "Library", ICON.library, "You", 1],
 ];
 const TITLES = { ...Object.fromEntries(TABS.map(([k, l]) => [k, l])), redirector: "Send YouTube here", download: "Desktop app" };
@@ -1304,6 +1347,30 @@ function filterLockedFor(name) {
 //   "<stationId>" = only that station may appear.
 // Cached with the rest of the policy, so it survives logout like every other parental rule.
 const pcZemerRadio = () => pcFilters().zemerRadio || "";
+// Podcasts are OFF until a parent turns them on. Spoken word isn't the whitelisted-music promise the
+// rest of the app makes, so it opts IN rather than out: filters.podcasts === "on" is the only thing
+// that surfaces the tab, and an account with no policy (or signed out) never sees it at all.
+const pcPodcasts = () => pcFilters().podcasts === "on";
+// Once a parent has allowed them, the account still gets its own switch — same shape as Zemer Radio:
+// the parental setting decides whether it's available, this decides whether it's shown.
+const podcastsOn = () => pcPodcasts() && LS.get("zw_podcasts", "1") === "1";
+function setPodcasts(on) {
+  if (!pcPodcasts()) { showToast("<b>Podcasts are turned off</b> for this account — a parent can enable them in Parental Controls.", 4600); return; }
+  LS.set("zw_podcasts", on ? "1" : "0");
+  track("filter", { f: "podcasts", on: on ? "on" : "off" });
+  syncFilterUI(); state.loaded = {}; renderNav(); reloadCurrent();
+}
+// Statuses (JewishStatus story circles) opt IN exactly like podcasts: they're a third-party feed of
+// whatever artists post today, which is not the whitelisted-catalog promise the rest of the app makes,
+// so filters.statuses === "on" is the ONLY thing that enables them — absent (or signed out) = blocked.
+const pcStatuses = () => pcFilters().statuses === "on";
+const statusesOn = () => pcStatuses() && LS.get("zw_statuses", "1") === "1";
+function setStatuses(on) {
+  if (!pcStatuses()) { showToast("<b>Statuses are turned off</b> for this account — a parent can enable them in Parental Controls.", 4600); return; }
+  LS.set("zw_statuses", on ? "1" : "0");
+  track("filter", { f: "statuses", on: on ? "on" : "off" });
+  syncFilterUI(); state.loaded = {}; reloadCurrent();
+}
 function parentalFilterGate(name) { if (filterLockedFor(name)) { showToast("<b>This filter is locked</b> by Parental Controls — change it there (PIN required).", 4600); return false; } return true; }
 function flipFilter(which) {
   if (which === "acapella") { // the forced Acapella row during Sefira / the Three Weeks — informational only; a parent lifts it in Parental Controls (then the free 3-state row returns)
@@ -1354,6 +1421,11 @@ function syncFilterUI() {
   if (el("chasidSeg")) el("chasidSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", (b.dataset.v || "") === chasidMode()));
   if (el("tgDJ")) el("tgDJ").classList.toggle("on", noDJ());
   if (el("tgZemerRadio")) el("tgZemerRadio").classList.toggle("on", zemerRadioOn());
+  // The account switch only exists once a parent has allowed podcasts at all — otherwise it's a
+  // control with nothing behind it.
+  if (el("tgPodcasts")) { el("tgPodcasts").style.display = pcPodcasts() ? "" : "none"; el("tgPodcasts").classList.toggle("on", podcastsOn()); }
+  // Same rule for statuses, plus the two gates that make the row impossible anyway (Kid Zone, no video).
+  if (el("tgStatuses")) { el("tgStatuses").style.display = pcStatuses() && !kidZoneActive() && !blockVideos() ? "" : "none"; el("tgStatuses").classList.toggle("on", statusesOn()); }
   if (el("isrSeg")) el("isrSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", (b.dataset.v || "") === israeliMode()));
   const mp = mourningPeriod(), acLocked = acapellaLocked();
   if (el("acapSeg")) el("acapSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", (b.dataset.v || "") === acapellaPref()));
@@ -1398,6 +1470,9 @@ function regateQueue() {
 function renderNav() {
   let html = "", grp = "", open = false;
   for (const [k, l, ic, group] of TABS) {
+    // Podcasts stay out of the nav entirely until a parent enables them AND the account keeps them on.
+    // Hidden, not disabled — an off feature shouldn't advertise itself.
+    if (k === "podcasts" && !podcastsOn()) continue;
     if (group !== grp) { if (open) html += "</div>"; grp = group; html += `<div class="navgrp"><div class="navsec">${group}</div>`; open = true; }
     html += `<div class="navlink ${k === "kidzone" ? "kid" : ""} ${k === state.tab && !state.detailOpen ? "on" : ""}" role="link" tabindex="0" ${k === state.tab && !state.detailOpen ? 'aria-current="page"' : ""} onclick="go('${k}')" onkeydown="${KDACT}">${ic}<span>${l}</span></div>`;
   }
@@ -1751,7 +1826,7 @@ async function loadHome() {
     window.__appReady && window.__appReady();
     return;
   }
-  const [d, trend, zpl, zemerRows, nf, stations] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections(), getJSON("/zemer-playlists"), zemerRowsSections(), newFeed(), stationsSection()]);
+  const [d, trend, zpl, zemerRows, nf, stations, statuses] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections(), getJSON("/zemer-playlists"), zemerRowsSections(), newFeed(), stationsSection(), statusesSection()]);
   await artistByName(); // load artist flags so the parental gate (artist allow/blocklist + kid-only) applies below
   const quick = gate(d.quickPicks), recent = gate(readRecent()), vids = gate(d.featuredVideos);
   const fAlbums = feedAlbums(nf), fSongs = gateFeed(((nf && nf.categories) || {}).songs || []).filter((t) => t.videoId);
@@ -1759,6 +1834,7 @@ async function loadHome() {
   let h = `<div class="hero"><div class="eyebrow">Kosher music, by construction</div><h1>Only the music you trust.</h1><p>Every song here comes from a whitelisted artist's full catalog — searched, not filtered. Nothing outside it.</p>${acapellaMode() === "only" ? "" : `<button class="btn-play" style="margin-top:16px" onclick="startRadio('shuffle','')">${ICON.radio} Radio mode</button>`}<span class="heb">מוזיקה</span></div>` + (trend || "");
   h += stations || ""; // Zemer Radio — live broadcast stations (off / filtered out → empty string)
   if (quick.length) h += section("Quick Picks", quickPicks(quick));
+  h += statuses || ""; // JewishStatus story circles (off / Kid Zone / upstream down → empty string)
   h += railOf("Curated Playlists", ((zpl && zpl.playlists) || []).filter((p) => p.id !== "auto-trending" && p.id !== "auto-top-50"), zpCard); // Trending/Top 50 fold into the Trending Songs section
   h += railOf("Latest Releases", fAlbums.length ? fAlbums.slice(0, 24) : gate(d.latestReleases), albumCard);
   if (newS.length) h += section("New Songs", songCards(newS));
@@ -1946,10 +2022,58 @@ function renderPlaylists(q) {
 }
 
 /* ============================ PODCASTS ============================ */
-function loadPodcasts() {
+// Episode resume. Spoken word runs an hour, so "where was I" matters far more than it does for a
+// four-minute song — the single last-play slot the music side uses isn't enough. Kept per-episode and
+// device-local; syncing it would mean another column and this is cheap to lose.
+const podPos = () => { try { return JSON.parse(LS.get("zw_podpos", "{}")) || {}; } catch { return {}; } };
+function podSavePos(id, sec) {
+  if (!id || !(sec > 30)) return;                        // ignore the first 30s — that's not a resume point
+  const m = podPos(); m[id] = Math.round(sec);
+  const keys = Object.keys(m); if (keys.length > 300) delete m[keys[0]];
+  try { LS.set("zw_podpos", JSON.stringify(m)); } catch {}
+}
+const podFmt = (s) => { s = Math.max(0, Math.round(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h}h ${m}m` : `${m}m`; };
+
+function playEpisode(videoId, title, artist, durationSec) {
+  const at = podPos()[videoId] || 0;
+  state.queue = [{ videoId, title: title || "", artist: artist || "", durationSec: durationSec || 0, isEpisode: true }];
+  state.radio = null; state.playSource = "podcast";
+  if (typeof stStop === "function") stStop();
+  PB.nextStart = at;                                     // consumed by PB.load — resumes where you left off
+  playIndex(0);
+  if (at) showToast(`Resuming at ${podFmt(at)}.`, 2000);
+}
+
+async function loadPodcasts() {
   state.loaded.podcasts = true;
-  el("v-podcasts").innerHTML = `<div class="hero" style="background:linear-gradient(120deg,#14202e,var(--surface) 70%)"><div class="eyebrow" style="color:#7db3e8">Coming soon</div><h1>Podcasts &amp; Shiurim</h1><p>The catalog is music-only today — podcasts and shiurim aren't harvested yet. This tab is wired and ready for when a spoken-word source is added.</p></div>
-    <div class="empty"><div class="em-ic">${ICON.podcast}</div><h3>No podcasts yet</h3><div>Music-only catalog for now. A podcast / shiur feed plugs in right here.</div></div>`;
+  const v = el("v-podcasts");
+  if (!podcastsOn()) { // routable even when off — say why rather than 404
+    v.innerHTML = `<div class="hero" style="background:linear-gradient(120deg,#14202e,var(--surface) 70%)"><div class="eyebrow" style="color:#7db3e8">Off</div><h1>Podcasts &amp; Shiurim</h1><p>Podcasts are turned off for this account. ${pcPodcasts() ? "Turn them back on in Settings." : "A parent can enable them in Parental Controls."}</p></div>`;
+    return;
+  }
+  v.innerHTML = `<div class="hero" style="background:linear-gradient(120deg,#14202e,var(--surface) 70%)"><div class="eyebrow" style="color:#7db3e8">Spoken word</div><h1>Podcasts &amp; Shiurim</h1><p>Whitelisted shows and shiurim, filtered by the same rules as the music.</p></div>
+    <div id="podBody">${skRail(6)}</div>`;
+  await ensureFilters();
+  const d = await getJSON("/podcasts/new-episodes?k=60&" + filterQS()).catch(() => null);
+  const eps = gate(((d && d.episodes) || []).map((e) => ({
+    videoId: e.videoId, title: e.title, artist: e.artist || e.channelTitle || "",
+    durationSec: e.durationSec, thumbnail: e.thumbnail,
+  }))).filter((e) => e.videoId);
+  const box = el("podBody"); if (!box) return;
+  if (!eps.length) { box.innerHTML = emptyState("Nothing to play", "No episodes match your current filters."); return; }
+  const pos = podPos();
+  const cont = eps.filter((e) => pos[e.videoId]);
+  const row = (e) => {
+    const at = pos[e.videoId] || 0, pct = (at && e.durationSec) ? Math.min(100, at / e.durationSec * 100) : 0;
+    return `<div class="row" role="button" tabindex="0" onkeydown="${KDACT}" onclick="playEpisode('${esc(e.videoId)}','${esc((e.title||'').replace(/'/g,'&#39;'))}','${esc((e.artist||'').replace(/'/g,'&#39;'))}',${+e.durationSec || 0})">
+      <img class="thumb" alt="" src="${sizedArt(e.thumbnail, 128) || yt(e.videoId)}" onerror="this.style.visibility='hidden'">
+      <div class="text"><div class="title">${esc(e.title || "")}</div>
+        <div class="sub">${esc(e.artist || "")}${e.durationSec ? " · " + podFmt(e.durationSec) : ""}${at ? " · " + podFmt(at) + " in" : ""}</div>
+        ${pct ? `<div style="height:3px;border-radius:2px;background:var(--surface-3);margin-top:6px;overflow:hidden"><i style="display:block;height:100%;width:${pct.toFixed(1)}%;background:var(--primary)"></i></div>` : ""}
+      </div></div>`;
+  };
+  box.innerHTML = (cont.length ? section("Continue listening", `<div class="rows">${cont.slice(0, 8).map(row).join("")}</div>`) : "")
+    + section(`New episodes · ${num(eps.length)}`, `<div class="rows">${eps.map(row).join("")}</div>`);
 }
 
 /* ============================ CREDITS ============================ */
@@ -3480,6 +3604,7 @@ function tick() {
     }
   }
   if (!PB.paused()) saveLastPlay(c); // resume point for the empty-queue Play button
+  if (!PB.paused() && state.playSource === "podcast") { const t = state.queue[state.qi]; if (t) podSavePos(t.videoId, c); } // an hour-long episode needs its own resume point
   if (_ly.synced && lyricsOpen()) paintLyricLine(c);
   skTick(c);
 }
@@ -3789,6 +3914,240 @@ function skResumeCheck() {
     PB.nextStart = at; cancelSwap(); PB.load(t.videoId);
   }, 2500);
 }
+/* ======================= STATUSES — JewishStatus story circles =======================
+   A row of WhatsApp-style creator circles under Quick Picks, sourced from jewishstatus.com via the
+   Worker (/statuses/*, which holds the anon key and keeps the whole thing same-origin so it survives
+   the content filters our users sit behind).
+
+   Discovery only: nothing here touches the play queue or the catalog. A status is video first and
+   foremost, so opening the viewer pauses the music — and closing it resumes ONLY what it interrupted.
+
+   Gating mirrors podcasts: a parent has to enable it (filters.statuses) AND the account has to keep
+   it on, and it disappears outright in Kid Zone or when videos are blocked. The upstream is a
+   third-party service we don't own, so every failure renders NO ROW rather than an error — this
+   section can never be the reason Home looks broken. */
+const STS_SEEN_KEY = "zw_stsSeen";
+const STS_HOLD_MS = 7000;   // an image/text status with no stated duration — the usual stories dwell
+const STS_STALL_MS = 12000; // a video that gains no ground for this long is broken, not buffering
+const STS_TICK_MS = 80;
+const STS_CIRC = 2 * Math.PI * 34; // ring circumference, for the segment dash maths (r=34 in a 72px box)
+let stsCreators = [];       // the row as rendered — the viewer walks this array, so order matters
+let stsV = null;            // live viewer state; null whenever the viewer is closed
+let _stsSeen = null;
+
+function stsSeenSet() {
+  if (_stsSeen) return _stsSeen;
+  let a = []; try { a = JSON.parse(LS.get(STS_SEEN_KEY, "[]")); } catch {}
+  _stsSeen = new Set(Array.isArray(a) ? a : []);
+  return _stsSeen;
+}
+// Bounded on write: the set only ever grows, and a few dozen creators posting daily would run it into
+// the thousands. Insertion order is recency, so keeping the tail keeps every id still on screen.
+function stsMarkSeen(id) {
+  const s = stsSeenSet();
+  if (!id || s.has(id)) return;
+  s.add(id);
+  const keep = [...s].slice(-800);
+  _stsSeen = new Set(keep);
+  LS.set(STS_SEEN_KEY, JSON.stringify(keep));
+}
+// "Caught up" is about the NEWEST status only — that's what decides whether the circle still calls for
+// attention. recent is oldest-first upstream, so the last id is the newest one.
+const stsCaughtUp = (c) => !!c.recent.length && stsSeenSet().has(c.recent[c.recent.length - 1]);
+const stsMediaURL = (dir, path) => "/statuses/media?d=" + dir + "&p=" + encodeURIComponent(path);
+const stsWhen = (iso) => {
+  const t = Date.parse(iso || "");
+  if (!t) return "";
+  const d = new Date(t); // the device's zone — a status posted "tonight" should read as tonight
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " · " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+};
+
+// One arc per recent status, laid out clockwise from 12 o'clock and greyed once seen. A creator with a
+// single status gets one unbroken circle (no gap to leave).
+function stsRing(c) {
+  const ids = c.recent, n = Math.max(1, ids.length), gap = n > 1 ? 8 : 0, sweep = (360 - gap * n) / n, seen = stsSeenSet();
+  let arcs = "";
+  for (let i = 0; i < n; i++) {
+    const len = STS_CIRC * sweep / 360, from = STS_CIRC * i * (sweep + gap) / 360;
+    arcs += `<circle cx="36" cy="36" r="34" fill="none" stroke-width="3" stroke-linecap="round"
+      stroke="${ids[i] && !seen.has(ids[i]) ? "var(--primary)" : "var(--line-2)"}"
+      stroke-dasharray="${len.toFixed(2)} ${STS_CIRC.toFixed(2)}" stroke-dashoffset="${(-from).toFixed(2)}"/>`;
+  }
+  return `<svg viewBox="0 0 72 72" width="72" height="72" aria-hidden="true">${arcs}</svg>`;
+}
+
+// The initial sits UNDER the avatar rather than instead of it, so a dead CDN object degrades to a
+// letter on one img error instead of leaving a hole in the ring.
+const stsCircle = (c) => `<div class="sts-c" role="button" tabindex="0" aria-label="Statuses from ${esc(c.name || "this creator")}" onkeydown="${KDACT}" onclick="stsOpen('${safeId(c.id)}')">
+  <div class="sts-ring">${stsRing(c)}<div class="ph" aria-hidden="true">${esc((c.name || "?").trim().charAt(0).toUpperCase())}</div>${c.avatar ? `<img src="${stsMediaURL("avatars", c.avatar)}" alt="" loading="lazy" onerror="this.remove()">` : ""}</div>
+  <div class="sts-nm">${esc(c.name || "")}</div>
+</div>`;
+
+async function statusesSection() {
+  // Hidden entirely — not disabled — when off, in Kid Zone, or when videos are blocked.
+  if (!statusesOn() || kidZoneActive() || blockVideos()) return "";
+  const d = await fetch("/statuses/creators").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  // A creator with no recent statuses has nothing to open onto, so they never get a circle.
+  // Caught-up creators sink to the end; sort is stable, so upstream's recency order survives inside
+  // each group. Reassigned (never appended) so a failed reload can't leave the viewer walking a row
+  // that is no longer on screen.
+  stsCreators = ((d && d.creators) || [])
+    .filter((c) => c && c.id && Array.isArray(c.recent) && c.recent.length)
+    .map((c) => ({ id: c.id, name: c.name || "", avatar: c.avatar || null, recent: c.recent.slice(-20) }))
+    .sort((a, b) => (stsCaughtUp(a) ? 1 : 0) - (stsCaughtUp(b) ? 1 : 0));
+  if (!stsCreators.length) return "";
+  return section("Statuses", `<div class="sts-rail">${stsCreators.map(stsCircle).join("")}</div>`);
+}
+
+const STS_SPINNER = `<div class="sts-card"><div class="sts-stage"><div class="sk" style="width:46px;height:46px;border-radius:50%"></div></div></div>`;
+
+function stsOpen(id) {
+  const ci = stsCreators.findIndex((c) => c.id === id);
+  if (ci < 0) return;
+  // Two audio streams at once is nobody's idea of a feature — but only ever resume what we stopped.
+  const wasPlaying = !!state.queue.length && !PB.paused();
+  if (wasPlaying) PB.pause();
+  stsV = { ci, pi: 0, posts: null, wasPlaying, timer: 0, elapsed: 0, stalled: 0, last: -1, held: false };
+  const v = el("stsView");
+  v.innerHTML = STS_SPINNER;
+  v.classList.add("on"); v.setAttribute("aria-hidden", "false");
+  document.body.classList.add("sts-open");
+  track("status", { id });
+  stsLoad(ci);
+}
+
+// The story is the creator's RECENT set — the same ids the ring drew — so ring, progress bars and
+// playback can never disagree. Posts arrive oldest-first, which is the order they play in.
+async function stsLoad(ci) {
+  const c = stsCreators[ci];
+  if (!c) return stsClose();
+  const d = await fetch("/statuses/posts?creator=" + encodeURIComponent(c.id)).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  if (!stsV || stsV.ci !== ci) return; // the user moved on while this was in flight
+  const all = ((d && d.posts) || []).filter((p) => p && p.id);
+  const recent = new Set(c.recent);
+  const story = all.filter((p) => recent.has(p.id));
+  // Fallback: if the recent list and the timeline have drifted apart upstream, play the newest few
+  // rather than opening onto nothing.
+  stsV.posts = story.length ? story : all.slice(-c.recent.length);
+  if (!stsV.posts.length) return stsSkipCreator(1);
+  // Resume at the first unseen status. Once they're all seen the story replays from the top, which is
+  // what re-tapping a greyed circle is asking for.
+  const seen = stsSeenSet(), first = stsV.posts.findIndex((p) => !seen.has(p.id));
+  stsV.pi = first < 0 ? 0 : first;
+  stsRender();
+}
+
+function stsRender() {
+  const v = stsV;
+  if (!v || !v.posts) return;
+  const c = stsCreators[v.ci], p = v.posts[v.pi];
+  // A Home reload can rebuild stsCreators under an open viewer (a shorter row leaves ci dangling), so
+  // never render off a creator that no longer exists.
+  if (!c) return stsClose();
+  if (!p) return stsSkipCreator(1);
+  stsMarkSeen(p.id); // seen the moment it is on screen, not when it finishes
+  const bars = v.posts.map((_, i) => `<i><b style="width:${i < v.pi ? 100 : 0}%"></b></i>`).join("");
+  // Only a literal hex colour is ever let into the style attribute.
+  const bg = /^#[0-9a-fA-F]{3,8}$/.test(p.text_bg_color || "") ? p.text_bg_color : "";
+  const stage = p.kind === "video" && p.media_path
+    ? `<video id="stsVid" playsinline autoplay preload="auto"${p.thumb_path ? ` poster="${stsMediaURL("status-media", p.thumb_path)}"` : ""} src="${stsMediaURL("status-media", p.media_path)}"></video>`
+    : p.kind === "image" && p.media_path
+      ? `<img src="${stsMediaURL("status-media", p.media_path)}" alt="${esc(p.caption || "")}">`
+      : `<div class="sts-txt"${bg ? ` style="background:${bg}"` : ""}>${esc(p.text_body || p.caption || "")}</div>`;
+  el("stsView").innerHTML = `<div class="sts-card">
+    <div class="sts-stage">${stage}</div>
+    <button class="sts-tap p" onclick="stsBack()" aria-label="Previous status"></button>
+    <button class="sts-tap n" onclick="stsAdvance()" aria-label="Next status"></button>
+    <div class="sts-head">
+      <div class="sts-bars">${bars}</div>
+      <div class="sts-who">
+        ${c.avatar ? `<img src="${stsMediaURL("avatars", c.avatar)}" alt="" onerror="this.remove()">` : ""}
+        <div style="min-width:0"><div class="n">${esc(c.name)}</div><div class="t">${esc(stsWhen(p.posted_at))}</div></div>
+        <button class="sts-x" onclick="stsClose()" aria-label="Close statuses"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg></button>
+      </div>
+    </div>
+    ${p.kind !== "text" && p.caption ? `<div class="sts-cap">${esc(p.caption)}</div>` : ""}
+  </div>`;
+  stsPlay();
+}
+
+// One 80 ms tick drives both kinds: a video reports its own progress (and is watched for a stall,
+// since a broken object would otherwise hold the viewer open forever), everything else runs a fixed
+// hold. duration_seconds is upstream's, clamped — it is null on most images and text.
+function stsPlay() {
+  const v = stsV;
+  if (!v) return;
+  clearInterval(v.timer);
+  v.elapsed = 0; v.stalled = 0; v.last = -1;
+  const p = v.posts[v.pi], vid = el("stsVid");
+  const bar = document.querySelector(`.sts-bars i:nth-child(${v.pi + 1})>b`);
+  const hold = Math.min(120, Math.max(1, +p.duration_seconds || STS_HOLD_MS / 1000)) * 1000;
+  if (vid) {
+    // Autoplay WITH sound can be refused even off a tap; muted playback never is, and a silent status
+    // beats one that never starts.
+    vid.play().catch(() => { vid.muted = true; vid.play().catch(() => {}); });
+    vid.addEventListener("ended", stsAdvance, { once: true });
+    vid.addEventListener("error", stsAdvance, { once: true });
+  }
+  v.timer = setInterval(() => {
+    if (!stsV || v.held) return;
+    let frac = 0;
+    if (vid) {
+      const dur = vid.duration;
+      if (!isFinite(dur) || !dur) { if ((v.stalled += STS_TICK_MS) > STS_STALL_MS) stsAdvance(); return; }
+      if (vid.currentTime <= v.last && !vid.paused) { if ((v.stalled += STS_TICK_MS) > STS_STALL_MS) return stsAdvance(); }
+      else v.stalled = 0;
+      v.last = vid.currentTime;
+      frac = Math.min(1, vid.currentTime / dur);
+      if (frac >= 0.999) return stsAdvance();
+    } else {
+      v.elapsed += STS_TICK_MS;
+      frac = Math.min(1, v.elapsed / hold);
+      if (v.elapsed >= hold) return stsAdvance();
+    }
+    if (bar) bar.style.width = (frac * 100).toFixed(1) + "%";
+  }, STS_TICK_MS);
+}
+
+function stsAdvance() { const v = stsV; if (!v || !v.posts) return; v.pi < v.posts.length - 1 ? (v.pi++, stsRender()) : stsSkipCreator(1); }
+function stsBack() { const v = stsV; if (!v || !v.posts) return; v.pi > 0 ? (v.pi--, stsRender()) : stsSkipCreator(-1); }
+
+// Walking off either end of a creator moves to the neighbouring circle; off the end of the row closes.
+function stsSkipCreator(dir) {
+  const v = stsV;
+  if (!v) return;
+  const ci = v.ci + dir;
+  if (ci < 0 || ci >= stsCreators.length) return stsClose();
+  clearInterval(v.timer);
+  v.ci = ci; v.pi = 0; v.posts = null; v.held = false;
+  el("stsView").innerHTML = STS_SPINNER;
+  stsLoad(ci);
+}
+
+function stsClose() {
+  const v = stsV;
+  if (!v) return;
+  clearInterval(v.timer);
+  stsV = null;
+  const view = el("stsView");
+  view.classList.remove("on"); view.setAttribute("aria-hidden", "true");
+  view.innerHTML = ""; // drops the <video>, which is what actually stops its audio
+  document.body.classList.remove("sts-open");
+  if (v.wasPlaying) PB.play();
+  // Repaint in place so the rings we just greyed out are right without reloading Home.
+  const rail = document.querySelector(".sts-rail");
+  if (rail) rail.innerHTML = stsCreators.map(stsCircle).join("");
+}
+
+// Press-and-hold freezes the story — the universal stories gesture. Delegated once here rather than
+// per render, since stsRender replaces the viewer's DOM on every status.
+["pointerdown", "pointerup", "pointercancel"].forEach((ev) => addEventListener(ev, (e) => {
+  if (!stsV || !el("stsView").contains(e.target)) return;
+  stsV.held = ev === "pointerdown";
+  const vid = el("stsVid");
+  if (vid) stsV.held ? vid.pause() : vid.play().catch(() => {});
+}));
+
 // Arrow seek: a quick tap jumps ±15s; holding scrubs, starting at ~1s/sec and accelerating.
 let scrubTimer = null, scrubStart = 0, tapDir = 0;
 function stopScrub() { if (scrubTimer) { clearInterval(scrubTimer); scrubTimer = null; } }
@@ -3799,6 +4158,15 @@ function startScrub(dir) {
 }
 addEventListener("keydown", (e) => {
   if (/input|textarea/i.test(e.target.tagName)) return;
+  // The statuses viewer owns the keyboard while it's open — arrows walk the story, not the song.
+  if (stsV) {
+    if (e.key === "Escape") stsClose();
+    else if (e.key === "ArrowRight") stsAdvance();
+    else if (e.key === "ArrowLeft") stsBack();
+    else return;
+    e.preventDefault();
+    return;
+  }
   if (e.code === "Space") { e.preventDefault(); toggle(); }
   else if (e.key === "ArrowRight" && e.shiftKey) next();                                    // next track
   else if (e.key === "ArrowLeft" && e.shiftKey) prev();                                     // previous track
@@ -4209,6 +4577,10 @@ function renderParental() {
         row("Hide DJ sets", "Exclude DJ / remix artists", tog(noDJ(), "pcFilter('noDJ')")) +
         row("Israeli artists", "Show only, or hide, Israeli artists", `<div class="pc-seg-wrap" style="margin-top:0;width:220px"><button class="${israeliMode() === "" ? "on" : ""}" onclick="pcSetIsraeli('')">All</button><button class="${israeliMode() === "only" ? "on" : ""}" onclick="pcSetIsraeli('only')">Only</button><button class="${israeliMode() === "hide" ? "on" : ""}" onclick="pcSetIsraeli('hide')">Hide</button></div>`) +
         row("Always require Acapella", "Sefira / Three Weeks — Turn on to force Acapella Mode." + (mourningPeriod() ? " <span style='color:var(--primary)'>Active now</span>" : ""), tog(sefiraRequire(), "pcToggleSefira()")) +
+        row("Podcasts &amp; Shiurim", "Spoken word — <b>off by default</b>. Turn on to give this account the Podcasts tab.",
+          tog(pcPodcasts(), "pcTogglePodcasts()")) +
+        row("Statuses", "Artist story circles from JewishStatus — <b>off by default</b>. Third-party video, outside the whitelisted catalog.",
+          tog(pcStatuses(), "pcSetStatuses()")) +
         row("Zemer Radio", "Live broadcast stations on Home — block them, or allow only one",
           `<div class="pc-seg-wrap" style="margin-top:0;width:290px;flex-wrap:wrap">${
             [["", "All"], ["chasidish", STATION_TITLE.chasidish], ["israeli", STATION_TITLE.israeli], ["dj", "DJ"], ["off", "Off"]]
@@ -4244,6 +4616,24 @@ async function pcToggleSefira() {
 }
 // Zemer Radio policy — "" (no policy) / "off" (blocked) / a station id (only that one). Stored in
 // filters.zemerRadio alongside `sefira`; pc_update replaces `filters` wholesale, so merge, don't patch.
+// Podcasts opt-IN: absent means off, so this only ever writes "on" or clears the key.
+async function pcTogglePodcasts() {
+  if (!(await pcGuard())) return;
+  const cur = (acct.profile && acct.profile.filters) || {};
+  const next = pcPodcasts() ? "" : "on";
+  if (!(await pcSave({ filters: Object.assign({}, cur, { noFemale: noFemale(), noChasid: noChasid(), blockVideos: blockVideos(), podcasts: next }) }))) return;
+  if (next !== "on" && state.tab === "podcasts") go("home"); // don't strand them on a tab that just vanished
+  syncFilterUI(); state.loaded = {}; renderNav(); renderParental(); reloadCurrent();
+}
+// Statuses opt IN the same way, in filters.statuses — so this only ever writes "on" or clears the key.
+async function pcSetStatuses() {
+  if (!(await pcGuard())) return;
+  const cur = (acct.profile && acct.profile.filters) || {};
+  const next = pcStatuses() ? "" : "on";
+  if (!(await pcSave({ filters: Object.assign({}, cur, { noFemale: noFemale(), noChasid: noChasid(), blockVideos: blockVideos(), statuses: next }) }))) return;
+  if (next !== "on" && stsV) stsClose(); // a parent switching it off mid-story closes the story
+  syncFilterUI(); state.loaded = {}; renderParental(); reloadCurrent();
+}
 async function pcSetZemerRadio(v) {
   if (!(await pcGuard())) return;
   const cur = (acct.profile && acct.profile.filters) || {};
