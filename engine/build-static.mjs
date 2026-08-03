@@ -549,6 +549,21 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
       try { const r = await fetch(url, { signal: AbortSignal.timeout(45000) }); return r.ok ? await r.json() : null; }
       catch { return null; }
     };
+    // TWO speaker sources, merged. /speakers is the "house" directory — 573 non-guests, and the only
+    // place `lecture_languages` exists. /search/speakers/alphabet?include-guest=true is what
+    // TorahAnytime's own frontend paginates and is the COMPLETE one (1336 unique, 763 of them guests),
+    // so it is the base and /speakers only enriches it with languages.
+    // Paged at 500 (measured ~1.3 s a page) rather than in one 2 s call — this is someone else's API
+    // and we are a guest on it. `totalSpeakers` reports 1352 but only ~1336 are ever emitted (the
+    // response buckets by first letter of the LAST name, and a handful sort outside A–Z with no
+    // bucket to land in), so the loop terminates on offset, never on a count it can't reach.
+    const alphaPages = [];
+    for (let off = 0; off < 2000; off += 500) {
+      const p = await grab(`https://api.torahanytime.com/search/speakers/alphabet?include-guest=true&limit=500&offset=${off}`);
+      if (!p) break;
+      alphaPages.push(p);
+      if (off + 500 >= (p.totalSpeakers || 0)) break;
+    }
     const [topicsRaw, speakersRaw, seriesRaw] = await Promise.all([
       grab("https://api.torahanytime.com/topics"),
       grab("https://api.torahanytime.com/speakers"),
@@ -568,29 +583,112 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
     // `female` rides along so the kol-isha filter can drop a speaker CARD without first fetching her
     // lectures; `no_download` is carried for the same reason a lecture's own flag is (the app must
     // never offer a save for a speaker who forbids it).
-    const speakers = ((speakersRaw && speakersRaw.speakers) || [])
-      .filter((s) => s.display_active !== false && (s.lecture_count || 0) > 0)
-      .map((s) => ({
-        id: s.id, first: (s.name_first || "").trim(), last: (s.name_last || "").trim(),
-        title: (s.title_short || "").trim(), photo: s.photo || "", n: s.lecture_count || 0,
-        ...(s.female ? { female: 1 } : {}), ...(s.no_download ? { noDl: 1 } : {}),
-      }))
+    // `langs` are the language IDS this speaker actually teaches in (upstream `lecture_languages` is
+    // [{id,name}]). Same id the live lecture endpoints take as `?language=`, so the tab's language
+    // filter can narrow the BAKED speaker directory client-side and the live feeds server-side with
+    // one value. A speaker with no languages listed keeps no `langs` key and fails OPEN (shown under
+    // every language) — an absent list upstream means "unknown", not "none".
+    const langName = new Map(), langById = new Map();
+    for (const s of (speakersRaw && speakersRaw.speakers) || []) {
+      const raw = s.lecture_languages;
+      const langs = [...new Set((Array.isArray(raw) ? raw : raw && raw.id ? [raw] : [])
+        .filter((l) => l && l.id).map((l) => { langName.set(+l.id, (l.name || "").trim()); return +l.id; }))];
+      if (langs.length) langById.set(s.id, langs);
+    }
+    // The alphabet endpoint answers { speakers: { A: [...], Z: [] } } per page; /speakers answers a
+    // flat array. Prefer the alphabet pages and fall back to the flat list so one dead endpoint still
+    // leaves a usable directory. It already returns ONLY live speakers with >= 1 lecture (measured:
+    // zero deleted, zero inactive, zero with no lectures across all 1336), so there is nothing to
+    // re-filter here. Dedupe by ID, never by name — there are two distinct "Shlomo Bineth".
+    const alphaList = alphaPages.flatMap((p) => (p.speakers && typeof p.speakers === "object")
+      ? Object.keys(p.speakers).flatMap((k) => p.speakers[k] || []) : []);
+    const rawSpeakers = alphaList.length ? alphaList : ((speakersRaw && speakersRaw.speakers) || []);
+    const seenSpk = new Set();
+    // `name` is assembled once, here — several rows carry leading/trailing spaces in name_first, and
+    // not every row is even a person (id 1399 is "Audio Book", with a numeric title and no honorific).
+    const allSpeakers = rawSpeakers
+      .filter((s) => s && s.id && !seenSpk.has(s.id) && seenSpk.add(s.id))
+      .map((s) => {
+        const langs = langById.get(s.id) || [];
+        return {
+          id: s.id, name: [s.title_short, s.name_first, s.name_last].map((x) => String(x || "").trim()).filter(Boolean).join(" "),
+          photo: s.photo || "", n: s.lecture_count || 0,
+          ...(s.female ? { female: 1 } : {}), ...(s.no_download ? { noDl: 1 } : {}), ...(s.is_guest ? { g: 1 } : {}),
+          ...(langs.length ? { langs } : {}),
+        };
+      })
       .sort((a, b) => b.n - a.n);
+    // GUEST FLOOR. Guests are 57% of the directory but 6% of the catalog: 763 people, median 6
+    // lectures, 192 of them with exactly one. Padding a browse grid with 192 one-shot entries makes
+    // the directory worse, but 59 guests have 100+ lectures (the top one has 1427 — more than most
+    // house speakers), so excluding them wholesale loses real content. The floor keeps anyone who has
+    // actually built a body of work. Everyone else still resolves by search and by direct link,
+    // because the FULL list ships too — just in its own lazily-fetched file.
+    const GUEST_FLOOR = 10;
+    const speakers = allSpeakers.filter((s) => !s.g || s.n >= GUEST_FLOOR);
+    // The language chip row, ordered by how many speakers teach in each — so English leads and the
+    // long tail (Arabic, Sign Language) sorts to the end instead of needing a hardcoded order.
+    const langN = new Map();
+    for (const s of allSpeakers) for (const id of s.langs || []) langN.set(id, (langN.get(id) || 0) + 1);
+    const languages = [...langName].map(([id, name]) => ({ id, name, n: langN.get(id) || 0 }))
+      .filter((l) => l.name && l.n).sort((a, b) => b.n - a.n);
+    // Daily / recurring series. TorahAnytime exposes NO cadence field anywhere (confirmed against
+    // /series/basic and /series/{id}: the only related flag is `completed`), so this is a title
+    // heuristic and nothing more — "Daf Yomi", "Amud HaYomi", "Daily Mussar", "Two Minute Daily
+    // Halacha". It is deliberately conservative: a false negative just means a series doesn't appear
+    // in one extra rail, and it is computed HERE so the client spends nothing deciding it.
+    const DAILY_RX = /\b(daily|yomi|yomit|a day|per day|dose|minute|minutes)\b|\bdaf\b|\bamud\b/i;
+    // Speaker gender resolved at BAKE time, against the full directory: the client's kol-isha check on
+    // a series used to need the speaker map at runtime, which stops being safe the moment the full
+    // speaker list is a separate lazily-fetched file.
+    const femaleSpk = new Set(allSpeakers.filter((s) => s.female).map((s) => s.id));
     const series = ((seriesRaw && seriesRaw.series) || [])
       .filter((s) => (s.count || 0) > 0)
       .map((s) => ({
         id: s.id, title: s.title || "", n: s.count || 0,
         speaker: [(s.speaker_title_short || "").trim(), (s.speaker_name_first || "").trim(), (s.speaker_name_last || "").trim()].filter(Boolean).join(" "),
         speakerId: s.speaker_id || 0,
-        ...(s.female || s.female_only ? { female: 1 } : {}),
+        ...(s.female || s.female_only || femaleSpk.has(s.speaker_id) ? { female: 1 } : {}),
+        ...(DAILY_RX.test(s.title || "") ? { d: 1 } : {}),
       }))
       .sort((a, b) => b.n - a.n);
+    // Shorts — TorahAnytime "clips": a couple of minutes cut out of a full shiur, which the Shiurim
+    // tab shows as story circles. /clips is ordered OLDEST first, so the newest ones live at the far
+    // end of the range and the offset is computed from the reported total (6136 at time of writing).
+    // Only what the row actually renders is kept — the raw page is ~3.7 KB a record, almost all of it
+    // vimeo bookkeeping and download-size strings. The kol-isha flags collapse to one `female`, which
+    // is exactly what shFemaleRec() reads.
+    const SHORT_MAX_SEC = 300;   // above ~5 min it stops being a clip and belongs in a list, not a story
+    const SHORT_KEEP = 150;      // the row shows 24 speakers × up to 8 clips; 150 fills it with room to spare
+    const clipHead = await grab("https://api.torahanytime.com/clips?limit=1&offset=0");
+    const clipTotal = (clipHead && clipHead.clipAmount) || 0;
+    const clipsRaw = clipTotal ? await grab(`https://api.torahanytime.com/clips?limit=400&offset=${Math.max(0, clipTotal - 400)}`) : null;
+    const shorts = ((clipsRaw && clipsRaw.clips) || [])
+      .filter((c) => c && c.id && c.mp4_url && c.display_active !== false && !c.is_not_discoverable && !c.private
+        && (c.duration || 0) > 0 && c.duration <= SHORT_MAX_SEC && c.speaker)
+      .sort((a, b) => b.id - a.id)
+      .slice(0, SHORT_KEEP)
+      .map((c) => ({
+        id: c.id, title: c.clip_title || c.title || "", duration: c.duration || 0, date_recorded: c.date_recorded || "",
+        speaker: c.speaker || 0,
+        speaker_name_first: (c.speaker_name_first || "").trim(), speaker_name_last: (c.speaker_name_last || "").trim(),
+        speaker_title_short: (c.speaker_title_short || "").trim(),
+        language: c.language || 0, language_name: c.language_name || "",
+        mp4_url: c.mp4_url, thumbnail_url: c.thumbnail_url || "",
+        ...(c.female || c.is_only_listenable_by_female || c.is_only_watchable_by_female || c.is_only_discoverable_by_female ? { female: 1 } : {}),
+      }));
     if (!topics.length && !speakers.length && !series.length) {
       console.warn("  !! shiurim: TorahAnytime catalog fetch failed — browse rails will not render this build !!");
       return;
     }
-    emitJSON("shiurim.json", { topics, speakers, series });
-    console.log(`  shiurim: baked ${topics.length} topics · ${speakers.length} speakers · ${series.length} series (from api.torahanytime.com)`);
+    // TWO files on purpose. shiurim.json is fetched the moment the Shiurim tab opens, so it carries
+    // only what that page renders — the browse directory, the topic tree, the series index. The FULL
+    // speaker list (including every one-lecture guest) is its own asset, fetched only by the
+    // see-all-speakers route and by a deep link to a speaker the browse list doesn't hold.
+    emitJSON("speakers.json", { speakers: allSpeakers });
+    emitJSON("shiurim.json", { topics, speakers, series, languages, shorts });
+    const daily = series.filter((s) => s.d).length;
+    console.log(`  shiurim: baked ${topics.length} topics · ${speakers.length}/${allSpeakers.length} speakers (guest floor ${GUEST_FLOOR}) · ${series.length} series (${daily} daily/recurring) · ${shorts.length} shorts · ${languages.length} languages (from api.torahanytime.com)`);
   })();
 
   // ── sitemaps ───────────────────────────────────────────────────────────────
@@ -847,15 +945,38 @@ ensureWrite(path.join(DIST, "playback-block-test.html"), fs.readFileSync(path.jo
 
 // ── service worker ─────────────────────────────────────────────────────────────
 // Cache versioned per build: V changes → old caches evicted on activate.
-// Strategy: navigate = network-first, /lib = network-first, /data = cache-first.
+// Strategy: "/" = stale-while-revalidate, other navigations = network-first, /lib = network-first,
+// /data = cache-first.
 const SW = `const V = "skmusic-${BUILD}";
 const SHELL = ["/","/lib/engine.mjs?v=${BUILD}","/lib/engine-worker.mjs?v=${BUILD}","/lib/categories.mjs?v=${BUILD}","/lib/search.mjs?v=${BUILD}","/lib/normalize.mjs?v=${BUILD}","/lib/synonyms.mjs?v=${BUILD}","/data/meta.json","/data/home.json","/data/home.kidzone.json","/data/artists.json","/data/synonyms.json","/data/zemer-playlists.json","/data/blocked-ids.json"];
 self.addEventListener("install", (e) => { self.skipWaiting(); e.waitUntil(caches.open(V).then((c) => c.addAll(SHELL))); }); // no .catch: a mid-install failure must REJECT so the browser keeps the previous SW+cache and retries, instead of activating an empty cache
 self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== V).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
+const OFFLINE = () => new Response("<!doctype html><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Offline - SK Music</title><body style='margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;text-align:center'><div style='padding:24px'><h1 style='font-size:20px;margin:0 0 8px'>You are offline</h1><p style='margin:0;color:#94a3b8'>SK Music cannot reach the network right now. Reconnect and try again.</p></div></body>", { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } });
 self.addEventListener("fetch", (e) => {
   const u = new URL(e.request.url);
   if (e.request.method !== "GET" || u.origin !== location.origin || u.pathname === "/playlist") return;
-  if (e.request.mode === "navigate") { e.respondWith(fetch(e.request).then((r) => { if (r.ok && u.pathname === "/") { const cp = r.clone(); caches.open(V).then((c) => c.put("/", cp)); } return r; }).catch(() => caches.open(V).then((c) => c.match("/")).then((m) => m || new Response("<!doctype html><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Offline - SK Music</title><body style='margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;text-align:center'><div style='padding:24px'><h1 style='font-size:20px;margin:0 0 8px'>You are offline</h1><p style='margin:0;color:#94a3b8'>SK Music cannot reach the network right now. Reconnect and try again.</p></div></body>", { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } })))); return; } // network-first; offline fall back to cached "/" or a minimal inline offline page (never respondWith(undefined), which is a network error)
+  if (e.request.mode === "navigate") {
+    // "/" is the shell EVERY launch loads (the desktop app navigates straight to the origin root), and
+    // it is a build-stamped static asset with nothing per-user in it — so serve the precached copy and
+    // revalidate behind it. That takes the ~490 KB HTML off the critical path: a Cache API read instead
+    // of a round trip to the edge. A new deploy still lands inside the same session — the page's
+    // reg.update() installs the new SW, whose install precaches the new "/" under the new V, and
+    // controllerchange reloads the page onto it — so the cache can never pin anyone to an old build.
+    if (u.pathname === "/") {
+      e.respondWith(caches.open(V).then(async (c) => {
+        const hit = await c.match("/");
+        const net = fetch(e.request).then((r) => { if (r.ok) c.put("/", r.clone()); return r; });
+        if (!hit) return net.catch(() => OFFLINE());
+        e.waitUntil(net.catch(() => {})); // keep the SW alive for the background refresh
+        return hit;
+      }));
+      return;
+    }
+    // Deep links (/song/:id, /artists/:id …): network-first; offline fall back to the cached "/" shell,
+    // which routes client-side, or a minimal inline page (never respondWith(undefined) — a network error).
+    e.respondWith(fetch(e.request).catch(() => caches.open(V).then((c) => c.match("/")).then((m) => m || OFFLINE())));
+    return;
+  }
   if (u.pathname.startsWith("/lib/")) { // engine code: network-first so a freshly-served shell never runs against a stale engine (falls back to cache offline)
     e.respondWith(fetch(e.request).then((r) => { if (r.ok) { const cp = r.clone(); caches.open(V).then((c) => c.put(e.request, cp)); } return r; }).catch(() => caches.open(V).then((c) => c.match(e.request))));
   } else if (u.pathname.startsWith("/data/")) { // data: cache-first (large + stable; the versioned cache + post-deploy reload refresh it)
@@ -895,10 +1016,13 @@ const CSP = [
   // Rust; src/download.rs). It serves a downloaded song's local audio file to the html5 <audio> element
   // so a saved track plays from disk (and offline). Inert in a browser — no such origin exists there.
   // Windows/WebView2 serves custom schemes as http://<scheme>.localhost, macOS/Linux as <scheme>://localhost.
-  // TorahAnytime shiurim stream STRAIGHT from source to the <audio> element — no Worker proxy, which
-  // is what makes that feature cost zero Worker requests. That only works if the storage hosts are
-  // allowed here: dl. and proxier. are TA-branded, the S3/Spaces hosts carry the modern lectures.
-  "media-src 'self' blob: skdl: http://skdl.localhost https://skdl.localhost https://dl.torahanytime.com https://proxier.torahanytime.com https://ta-lectures.s3.us-east-005.backblazeb2.com https://ta-tusd.nyc3.digitaloceanspaces.com",
+  // TorahAnytime shiurim stream STRAIGHT from source to the <audio>/<video> elements — no Worker
+  // proxy, which is what makes that feature cost zero Worker requests. That only works if the storage
+  // hosts are allowed here: dl. and proxier. are TA-branded, the S3/Spaces hosts carry the modern
+  // lectures (both mp3 AND mp4 — video shiurim need no host this list didn't already have), and
+  // www.torahanytime.com serves the legacy /dl/mobileaudio/ URLs that a few older records still use
+  // as their only `audio_url`.
+  "media-src 'self' blob: skdl: http://skdl.localhost https://skdl.localhost https://dl.torahanytime.com https://proxier.torahanytime.com https://www.torahanytime.com https://ta-lectures.s3.us-east-005.backblazeb2.com https://ta-tusd.nyc3.digitaloceanspaces.com",
   "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
   // ipc: + ipc.localhost are the Tauri desktop app's IPC transport (invoke → now_playing/set_playback_state);
   // harmless for browsers, required so the desktop media bridge isn't blocked.

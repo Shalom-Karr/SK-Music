@@ -390,6 +390,9 @@ body.on-air .live-note{display:block}
 .row.playing .title{color:var(--primary)}
 .row .sub{font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
 .row .dur{color:var(--faint);font-size:12.5px;font-variant-numeric:tabular-nums;flex:none}
+/* Episode resume bar — spoken word is long enough that "how far in am I" is part of the row, not a detail page */
+.podbar{height:3px;border-radius:2px;background:var(--surface-3);margin-top:6px;overflow:hidden}
+.podbar>i{display:block;height:100%;background:var(--primary)}
 .row .rowbtn{opacity:0;transition:opacity .14s}
 .heart svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round}
 .heart.on svg{fill:currentColor;stroke:none}
@@ -567,6 +570,19 @@ body.on-air .live-note{display:block}
   grid-template-columns:1fr;grid-template-rows:minmax(0,1fr);max-width:560px;margin:0 auto;width:100%}
 .np-main{display:flex;flex-direction:column;justify-content:center;min-height:0;overflow:hidden}
 .np-art{width:min(74vw,44vh,440px);aspect-ratio:1;margin:0 auto 20px;border-radius:20px;box-shadow:0 40px 90px -20px rgba(0,0,0,.8);flex:0 0 auto}
+/* Watching a filmed shiur: the square cover becomes a 16:9 frame and the <video> takes over. object-fit
+   is contain, not cover — a shiur is a person talking to a camera, and cropping cuts their head off. */
+.np-art>video{display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.np-art.watching{aspect-ratio:16/9;width:min(92vw,58vh,760px)}
+.np-art.watching>video{display:block}
+.np-art.watching>img,.np-art.watching>.ph{display:none}
+#npWatch.on{color:var(--primary)}
+/* Shiur resume bar — a 45-minute lecture is nearly always resumed, so "how far in" belongs in the row */
+.shbar{height:3px;border-radius:2px;background:var(--surface-3);margin-top:6px;overflow:hidden}
+.shbar>i{display:block;height:100%;background:var(--primary)}
+/* Browse-all: the same cards a rail uses, wrapped into a grid instead of scrolling sideways */
+.cardgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:24px 18px;padding:4px}
+.cardgrid.round{grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}
 .np-info{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:8px}
 .np-title{font-family:Fraunces,serif;font-weight:600;font-size:clamp(24px,3.4vw,34px);line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .np-artist{color:var(--muted);font-size:15px;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -712,6 +728,7 @@ body.on-air .live-note{display:block}
   #now .np-main{justify-content:center}
   #now .np-upnext{display:flex}
   #now .np-art{width:auto;height:min(46vh,30vw,430px);margin:0 auto 20px}
+  #now .np-art.watching{width:min(100%,calc(52vh * 16 / 9));height:auto} /* out-specifies the square rule above — id+class beats class+class */
 }
 @media(max-width:899px){
   :root{--nav-w:0px}
@@ -1109,10 +1126,17 @@ fill="url(#royal)" stroke="none">
   </div>
   <div class="np-body">
     <div class="np-main">
-      <div class="art np-art"><img id="npArt" alt=""><div class="ph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg></div></div>
+      <!-- The <video> element lives HERE and never moves: re-parenting a media element restarts it, so
+           the one place it can be shown is the one place it is created. It sits behind the cover art
+           until a filmed shiur is being watched (.watching), and it plays on whether or not this
+           overlay is open — #now is translated off-screen when closed, never display:none. -->
+      <div class="art np-art" id="npArtBox"><video id="video" playsinline preload="metadata"></video><img id="npArt" alt=""><div class="ph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg></div></div>
       <div class="np-info">
         <div style="min-width:0"><div class="np-title" id="npTitle"></div><div class="np-artist" id="npArtist" role="button" tabindex="0" aria-label="Go to artist" onclick="npOpenArtist()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"></div></div>
         <button class="iconbtn heart" id="npLike" onclick="toggleLikeCurrent()" title="Like" aria-label="Like" aria-pressed="false" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg></button>
+        <!-- Watch / Listen — only shown for a track that actually has video (a filmed shiur), and only
+             while the account allows video shiurim. See shToggleWatch / paintWatchUI. -->
+        <button class="iconbtn" id="npWatch" onclick="shToggleWatch()" title="Watch the video" aria-label="Watch the video" aria-pressed="false" style="width:48px;height:48px;flex:none;display:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M4 5h11a2 2 0 0 1 2 2v2.4l4-2.6v10.4l-4-2.6V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/></svg></button>
         <button class="iconbtn" id="npShare" onclick="openShare(event)" title="Share" aria-label="Share" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0 0 6c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92z"/></svg></button>
         <!-- SK-OFFLINE: desktop-only "download for offline" toggle; hidden until the native shell shows it -->
         <button class="iconbtn" id="npDownload" onclick="skToggleDownloadCurrent()" title="Download for offline" aria-label="Download for offline" style="width:48px;height:48px;flex:none;display:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z"/></svg></button>
@@ -1592,6 +1616,9 @@ function go(k, fromRoute) {
   if (k === "shiurim" && !state.loaded.shiurim) loadShiurim();
   if (k === "kidzone" && !state.loaded.kidzone) loadKid();
   if (k === "library") loadLibrary();
+  // Coming back to a page of results that were rendered before a parent switched Podcasts/Shiurim/
+  // Statuses off: repaint the chips and the spoken-word pane so a now-forbidden surface can't linger.
+  if (k === "search" && el("schips")) { renderChips(); sxRender(); }
   if (k === "search") setTimeout(() => el("q") && el("q").focus(), 80);
 }
 const scrollTop = () => { el("content").scrollTo ? window.scrollTo(0, 0) : 0; document.querySelector("main")?.scrollTo(0, 0); window.scrollTo(0, 0); };
@@ -1629,6 +1656,8 @@ function applyRoute(url) {
   if ((m = p.match(/^\/shiurim\/speaker\/(\d+)$/))) return openShiurSpeaker(m[1], true);
   if ((m = p.match(/^\/shiurim\/topic\/(\d+)$/))) return openShiurTopic(m[1], true);
   if ((m = p.match(/^\/shiurim\/series\/(\d+)$/))) return openShiurSeries(m[1], true);
+  // Browse-all: plural paths, so they can never collide with the singular /shiurim/<thing>/:id family.
+  if ((m = p.match(/^\/shiurim\/(speakers|topics|series)$/))) return shBrowse(m[1], true);
   if ((m = p.match(/^\/songs?\/(.+)$/))) return openSong(decodeURIComponent(m[1]), true, parseInt(u.searchParams.get("t") || "0", 10) || 0);
   if ((m = p.match(/^\/search\/(.+)$/))) { go("search", true); const qv = decodeURIComponent(m[1]); setTimeout(() => { const b = el("q"); if (b) { b.value = qv; doSearch(); } }, 60); return; }
   if (p === "/search") { // /search?query=ss[&filter=nofemale,audioonly] — prefill + run.
@@ -2139,6 +2168,31 @@ function podSavePos(id, sec) {
   try { LS.set("zw_podpos", JSON.stringify(m)); } catch {}
 }
 const podFmt = (s) => { s = Math.max(0, Math.round(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h}h ${m}m` : `${m}m`; };
+// What you've played, with enough of the episode to re-render it later. podPos alone can't do this:
+// it's keyed by videoId and holds a number, so the moment an episode falls out of the newest-episodes
+// feed there is nothing left to say which show or host it belonged to — and re-fetching the show to
+// find out would cost a Worker request per row. Local-only, same as podPos, and every browse shelf
+// built from it (Continue listening, Your shows, Because you listened) therefore costs nothing.
+const POD_HIST_MAX = 80;
+const podHistRaw = () => { try { const a = JSON.parse(LS.get("zw_podhist", "[]")); return Array.isArray(a) ? a : []; } catch { return []; } };
+function podNote(e) {
+  if (!e || !e.videoId) return;
+  // channelId/thumbnail are missing on episodes that came from /podcast (a show page states its own
+  // host), so fall back to the baked show index rather than storing a half row we can't render.
+  const s = (_podShows || []).find((x) => x.id === e.podcastId) || {};
+  const h = podHistRaw().filter((x) => x.videoId !== e.videoId);
+  h.unshift({ videoId: e.videoId, title: e.title || "", artist: e.artist || s.name || "", podcastId: e.podcastId || "",
+    channelId: e.channelId || s.channelId || "", thumbnail: e.thumbnail || s.thumbnail || "",
+    durationSec: e.durationSec || 0, isVideo: !!e.isVideo, ts: Date.now() });
+  try { LS.set("zw_podhist", JSON.stringify(h.slice(0, POD_HIST_MAX))); } catch {}
+}
+// History re-gated on read, and FAIL CLOSED: an episode whose show isn't in the current index (or is
+// hidden by it) never comes back, even though it was playable when it was stored — filters and the
+// whitelist both move, and a stale local row must not reopen a door the whitelist has closed.
+function podHistory(byId, blocked) {
+  return podHistRaw().filter((h) => h.videoId && !blockedId(h.videoId) && (podcastVideosOn() || !h.isVideo)
+    && h.podcastId && byId.has(h.podcastId) && !blocked.has(h.podcastId));
+}
 
 function playEpisode(videoId, title, artist, durationSec, podcastId) {
   const at = podPos()[videoId] || 0;
@@ -2152,7 +2206,9 @@ function playEpisode(videoId, title, artist, durationSec, podcastId) {
 // Episodes reach playEpisode through the queue registry, exactly like songs reach playFrom — so no
 // title ever crosses into an inline handler. esc() alone would NOT be safe there: it emits &#39;,
 // which the HTML parser turns back into a real quote before the JS is parsed.
-function podPlay(qid, i) { const q = queues.get(qid), e = q && q[i]; if (e) playEpisode(e.videoId, e.title, e.artist, e.durationSec, e.podcastId); }
+// Every episode in the app reaches playback through here (browse rows AND the episode page's Play
+// button), so it's the one place that has to note what was played for the browse shelves.
+function podPlay(qid, i) { const q = queues.get(qid), e = q && q[i]; if (e) { podNote(e); playEpisode(e.videoId, e.title, e.artist, e.durationSec, e.podcastId); } }
 
 // The podcast show index, baked at build time into a static asset (engine/build-static.mjs). Static
 // assets never invoke the Worker, so the Podcasters rail and every show lookup are free; the live
@@ -2203,6 +2259,7 @@ const podQS = (extra) => { const p = new URLSearchParams(filterQS(extra)); if (!
 const podEp = (e, showName) => ({
   videoId: e.videoId, title: e.title || "", artist: e.podcastName || showName || "",
   durationSec: +e.durationSeconds || 0, thumbnail: e.thumbnail || "", podcastId: e.podcastId || "",
+  channelId: e.channelId || "",                          // only /podcasts/new-episodes carries it; the host-derived shelves fall back to the baked index
   publishedText: e.publishedText || "", isVideo: !!e.isVideo, isEpisode: true,
 });
 // Episodes are NOT run through gate(): songOK() applies the Acapella filter, which during Sefira and
@@ -2211,21 +2268,28 @@ const podEp = (e, showName) => ({
 const podEps = (list, showName, blocked) => (list || []).map((e) => podEp(e, showName))
   .filter((e) => e.videoId && !blockedId(e.videoId) && (podcastVideosOn() || !e.isVideo) && !(blocked && blocked.has(e.podcastId)));
 
-function podRows(eps) {
-  const qid = regQueue(eps), pos = podPos();
-  return `<div class="rows">${eps.map((e, i) => {
-    const at = pos[e.videoId] || 0, pct = (at && e.durationSec) ? Math.min(100, at / e.durationSec * 100) : 0;
-    return `<div class="row" role="button" tabindex="0" data-v="${safeId(e.videoId)}" onkeydown="${KDACT}" onclick="podPlay('${qid}',${i})">
-      <img class="thumb" alt="" loading="lazy" src="${esc(sizedArt(e.thumbnail, 128) || yt(e.videoId))}" onerror="this.style.visibility='hidden'">
-      <div class="text"><div class="title"><span style="overflow:hidden;text-overflow:ellipsis">${esc(e.title)}</span>${e.isVideo ? '<span class="tag">VIDEO</span>' : ""}</div>
-        <div class="sub">${[esc(e.artist), esc(e.publishedText), e.durationSec ? podFmt(e.durationSec) : "", at ? podFmt(at) + " in" : ""].filter(Boolean).join(" · ")}</div>
-        ${pct ? `<div style="height:3px;border-radius:2px;background:var(--surface-3);margin-top:6px;overflow:hidden"><i style="display:block;height:100%;width:${pct.toFixed(1)}%;background:var(--primary)"></i></div>` : ""}
-      </div></div>`;
-  }).join("")}</div>`;
+// One episode row, matching the music songRow's anatomy (playing state, duration column, hover play)
+// so a spoken-word list doesn't read as a poorer relation of a song list. `pos` is passed in rather
+// than read per row — podPos() parses localStorage, and a 100-row list would parse it 100 times.
+function podRow(e, qid, i, pos) {
+  const at = (pos && pos[e.videoId]) || 0, pct = (at && e.durationSec) ? Math.min(100, at / e.durationSec * 100) : 0;
+  const playing = state.playSource === "podcast" && state.queue[state.qi] && state.queue[state.qi].videoId === e.videoId;
+  return `<div class="row ${playing ? "playing" : ""}" role="button" tabindex="0" data-v="${safeId(e.videoId)}" onkeydown="${KDACT}" onclick="podPlay('${qid}',${i})">
+    <img class="thumb" alt="" loading="lazy" src="${esc(sizedArt(e.thumbnail, 128) || yt(e.videoId))}" onerror="this.style.visibility='hidden'">
+    <div class="text"><div class="title">${playing ? EQ : ""}<span style="overflow:hidden;text-overflow:ellipsis">${esc(e.title)}</span>${e.isVideo ? '<span class="tag">VIDEO</span>' : ""}</div>
+      <div class="sub">${[esc(e.artist), esc(e.publishedText), at ? podFmt(at) + " in" : ""].filter(Boolean).join(" · ")}</div>
+      ${pct ? `<div class="podbar"><i style="width:${pct.toFixed(1)}%"></i></div>` : ""}
+    </div>
+    ${e.durationSec ? `<div class="dur">${podFmt(e.durationSec)}</div>` : ""}
+    <button class="iconbtn rowbtn" style="width:40px;height:40px" aria-label="Play" onclick="event.stopPropagation();podPlay('${qid}',${i})">${ICON.play}</button></div>`;
 }
+function podRows(eps) { const qid = regQueue(eps), pos = podPos(); return `<div class="rows">${eps.map((e, i) => podRow(e, qid, i, pos)).join("")}</div>`; }
+// The Quick Picks treatment (Home's dense 4-row scrolling grid) applied to episodes — same rows, so
+// resume points and the playing state come along for free.
+function podPicks(eps) { const qid = regQueue(eps), pos = podPos(); return `<div class="qpgrid">${eps.map((e, i) => podRow(e, qid, i, pos)).join("")}</div>`; }
 // A podcaster is a HOST CHANNEL (UC…), a show is a series (MPSP…) — see zemer-search docs/podcasts.md.
 // Cards pass the SLUG, so the pushed URL is the readable one; openPodcastChannel resolves either form.
-const podcasterCard = (c) => `<div class="card round" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openPodcastChannel('${safeId((_podSlugs && _podSlugs.toSlug.get(c.id)) || c.id)}')">${artHTML(c.thumbnail, ICON.podcast, true)}<div class="t">${esc(c.name)}</div></div>`;
+const podcasterCard = (c) => `<div class="card round" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openPodcastChannel('${safeId((_podSlugs && _podSlugs.toSlug.get(c.id)) || c.id)}')">${artHTML(c.thumbnail, ICON.podcast, true)}<div class="t">${esc(c.name)}</div>${c.n ? `<div class="s">${num(c.n)} show${c.n === 1 ? "" : "s"}</div>` : ""}</div>`;
 const podShowCard = (s) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openPodcastSeries('${safeId(s.id)}')">${artHTML(s.thumbnail, ICON.podcast)}<div class="t">${esc(s.name || s.title || "")}</div><div class="s">${esc(s.author || "")}</div></div>`;
 // The podcaster line every podcast page carries, linked through to /podcasts/<slug>.
 const podHostLink = (channelId, author) => (channelId
@@ -2244,31 +2308,107 @@ function podcasters(shows) {
   return [...m.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
 }
 
+// The music surfaces load the artist-flag map, the per-id block list, the Acapella playlist and the
+// parental profile before they gate anything. Podcasts read exactly two of those: the block list
+// (1 KB) and the profile. The show gate is kol-isha + Kid Zone, both decided from the baked index and
+// local state — no artist name ever resolves here, and an episode is speech, so Acapella has nothing
+// to say about it. ensureFilters() would park this tab's first paint behind the 550 KB artist catalog
+// (and, during Sefira, the Acapella playlist) for a map nothing here reads. Boot warms that catalog in
+// the background anyway; the difference is that podcasts no longer WAIT on it.
+async function podEnsure() { await loadBlockedIds(); if (loggedIn() && !acct.profile) await onLogin(); }
+
+const POD_HERO = `<div class="hero" style="background:linear-gradient(120deg,#14202e,var(--surface) 70%)"><div class="eyebrow" style="color:#7db3e8">Spoken word</div><h1>Podcasts &amp; Shiurim</h1><p>Whitelisted shows and shiurim, filtered by the same rules as the music.<span id="podHeroStat"></span></p><div id="podHeroAct"></div><span class="heb">פודקאסט</span></div>`;
+
 async function loadPodcasts() {
-  state.loaded.podcasts = true;
+  state.loaded.podcasts = true; secN = 0;
   const v = el("v-podcasts");
   if (!podcastsOn()) { // routable even when off — say why rather than 404
     v.innerHTML = `<div class="hero" style="background:linear-gradient(120deg,#14202e,var(--surface) 70%)"><div class="eyebrow" style="color:#7db3e8">Off</div><h1>Podcasts &amp; Shiurim</h1><p>Podcasts are turned off for this account. ${pcPodcasts() ? "Turn them back on in Settings." : "A parent can enable them in Parental Controls."}</p></div>`;
     return;
   }
-  v.innerHTML = `<div class="hero" style="background:linear-gradient(120deg,#14202e,var(--surface) 70%)"><div class="eyebrow" style="color:#7db3e8">Spoken word</div><h1>Podcasts &amp; Shiurim</h1><p>Whitelisted shows and shiurim, filtered by the same rules as the music.</p></div>
-    <div id="podBody">${skRail(6, true)}</div>`;
-  await ensureFilters();
-  // One Worker request for the whole tab: the show index is a static asset and the rail is derived
-  // from it, so the Podcasters and Shows rails cost nothing on top of the episode feed.
-  const [d, shows] = await Promise.all([getJSON("/podcasts/new-episodes?k=60&" + podQS()), podShows()]);
+  v.innerHTML = POD_HERO + `<div id="podBody">${skRail(6, true)}</div>`;
+  await podEnsure();
+  // STILL one Worker request for the whole tab. Everything else is the baked show index (a static
+  // asset, so the Worker is never invoked) or local listening history — which is why the shelf count
+  // can triple without the request count moving. k is the upstream maximum: one feed has to feed
+  // Quick Picks, the personalised shelves, the short-listens shelf AND the full new-episodes list,
+  // and a second page would be a second request.
+  const [d, shows] = await Promise.all([getJSON("/podcasts/new-episodes?k=100&" + podQS()), podShows()]);
   podSlugMap(shows);                                        // cards render readable /podcasts/<slug> links
   const box = el("podBody"); if (!box) return;
-  const blocked = podBlockedShows(shows);
+  const blocked = podBlockedShows(shows), byId = new Map(shows.map((s) => [s.id, s]));
   const eps = podEps((d && d.episodes) || [], "", blocked);
   const hosts = podcasters(shows);
+  const open = shows.filter((s) => !blocked.has(s.id));      // every show the current filters allow
   if (!eps.length && !hosts.length) { box.innerHTML = emptyState("Nothing to play", "No episodes match your current filters."); return; }
-  const pos = podPos();
-  const cont = eps.filter((e) => pos[e.videoId]);
-  box.innerHTML = railOf("Podcasters", hosts.slice(0, 24), podcasterCard)
-    + (cont.length ? section("Continue listening", podRows(cont.slice(0, 8))) : "")
+  const pos = podPos(), hist = podHistory(byId, blocked);
+  const showOf = (e) => byId.get(e.podcastId) || {};
+  const chanOf = (e) => e.channelId || showOf(e).channelId || "";
+
+  // Continue listening — history first (newest played first), then anything in the feed carrying a
+  // resume point. The union matters: history reaches episodes the feed has long since dropped, while
+  // the feed still covers positions saved before this store existed. Finished episodes drop out.
+  const seen = new Set();
+  const cont = [...hist, ...eps].filter((e) => {
+    const at = pos[e.videoId] || 0;
+    if (!at || seen.has(e.videoId) || (e.durationSec && at > e.durationSec * 0.95)) return false;
+    seen.add(e.videoId); return true;
+  }).slice(0, 8);
+
+  // Quick Picks — the newest episode from each of the most recently active shows, so the densest
+  // block on the page is variety rather than four episodes of whichever show published today.
+  const qpSeen = new Set(), picks = [];
+  for (const e of eps) { if (qpSeen.has(e.podcastId) || seen.has(e.videoId)) continue; qpSeen.add(e.podcastId); picks.push(e); if (picks.length >= 24) break; }
+
+  // Personalised, all of it from local history × the one feed we already have. No history → these
+  // resolve empty and the sections below them simply aren't rendered.
+  const heard = new Set(hist.map((h) => h.videoId));
+  const myShows = new Set(hist.map((h) => h.podcastId).filter(Boolean));
+  const myHosts = new Set(hist.map((h) => h.channelId).filter(Boolean));
+  const forYou = eps.filter((e) => !heard.has(e.videoId) && !seen.has(e.videoId) && (myShows.has(e.podcastId) || myHosts.has(chanOf(e)))).slice(0, 6);
+  const anchor = hist.length ? (showOf(hist[0]).name || hist[0].artist || "") : "";
+  const mine = [...myShows].map((id) => byId.get(id)).filter(Boolean).slice(0, 20);
+  const myHostCards = hosts.filter((h) => myHosts.has(h.id)).slice(0, 20);
+
+  // Under 20 minutes — the shelf a spoken-word tab needs and a music tab doesn't: most episodes here
+  // run an hour, so "what can I finish on the way home" is a real way to browse. One per show, because
+  // the daily-shiur feeds are short by nature and would otherwise take the whole shelf.
+  const shortSeen = new Set(), shortEps = [];
+  for (const e of eps) {
+    if (!(e.durationSec > 0 && e.durationSec <= 1200) || seen.has(e.videoId) || shortSeen.has(e.podcastId)) continue;
+    shortSeen.add(e.podcastId); shortEps.push(e); if (shortEps.length >= 6) break;
+  }
+
+  // Most active shows — how many episodes a show put into the newest 100. It's the only popularity-ish
+  // signal that exists for free (nothing upstream returns play counts), and it's an honest one: these
+  // are the shows actually publishing right now.
+  const perShow = new Map();
+  for (const e of eps) if (e.podcastId) perShow.set(e.podcastId, (perShow.get(e.podcastId) || 0) + 1);
+  const active = [...perShow.entries()].filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1]).map(([id]) => byId.get(id)).filter(Boolean);
+
+  // Discovery — shows you haven't played, verified ones first, shuffled inside each group so the rail
+  // isn't the same 24 alphabetical names every visit. (sort is stable, so the shuffle survives it.)
+  const discover = open.filter((s) => !myShows.has(s.id)).sort(() => Math.random() - 0.5)
+    .sort((a, b) => (b.isVerified ? 1 : 0) - (a.isVerified ? 1 : 0)).slice(0, 24);
+
+  box.innerHTML = (cont.length ? section("Continue listening", podRows(cont)) : "")
+    + (picks.length ? section("Quick Picks", podPicks(picks)) : "")
+    + railOf("Podcasters", hosts.slice(0, 24), podcasterCard)
+    + (forYou.length ? section(anchor ? `Because you listened to ${esc(anchor)}` : "More from your shows", podRows(forYou)) : "")
+    + (shortEps.length >= 3 ? section("Under 20 minutes", podRows(shortEps)) : "")
+    + railOf("Your shows", mine, podShowCard)
+    + railOf("Your podcasters", myHostCards.length >= 2 ? myHostCards : [], podcasterCard)
     + (eps.length ? section(`New episodes · ${num(eps.length)}`, podRows(eps)) : "")
-    + railOf("All shows", shows.filter((s) => !blocked.has(s.id)).slice(0, 30), podShowCard);
+    + railOf("Most active shows", active.length >= 4 ? active.slice(0, 24) : [], podShowCard)
+    + railOf("Shows to discover", discover.length >= 6 ? discover : [], podShowCard)
+    + railOf(`All shows · ${num(open.length)}`, open.slice(0, 30), podShowCard);
+
+  // Hero, filled in once the counts are real — the shelves above it are what changed, so the hero is
+  // patched in place rather than re-rendered (which would restart its entrance animation).
+  const stat = el("podHeroStat");
+  if (stat && open.length) stat.innerHTML = ` <b>${num(open.length)}</b> show${open.length === 1 ? "" : "s"} from <b>${num(hosts.length)}</b> podcaster${hosts.length === 1 ? "" : "s"}.`;
+  const act = el("podHeroAct"), lead = cont[0] || eps[0];
+  if (act && lead) act.innerHTML = `<button class="btn-play" style="margin-top:16px" onclick="podPlay('${regQueue([lead])}',0)">${ICON.play} ${cont[0] ? "Resume listening" : "Play the newest"}</button>`;
 }
 
 // Shared loader for the three podcast detail pages: fetch the show, then apply the gates that /podcast
@@ -2278,7 +2418,7 @@ async function loadPodcasts() {
 async function podLoadShow(id) {
   const [d, shows] = await Promise.all([getJSON("/podcast?" + podQS("id=" + encodeURIComponent(id))), podShows()]);
   if (!d || d.error || !d.podcast) { notAvailable("podcast"); return null; }
-  await ensureFilters();
+  await podEnsure();                                       // block list + parental profile; see podEnsure — the artist map this page would otherwise fetch gates nothing here
   podSlugMap(shows);
   const meta = shows.find((s) => s.id === d.podcast.id);
   if (noFemale() && !meta) { notAvailable("podcast"); return null; }
@@ -2312,7 +2452,7 @@ async function openPodcastChannel(key, fromRoute) {
   if (!fromRoute) pushURL(podcasterPath(id));
   const d = await getJSON("/podcast-channel?" + podQS("id=" + encodeURIComponent(id)));
   if (!d || d.error || !d.channel) return notAvailable("podcaster");
-  await ensureFilters();
+  await podEnsure();
   const blocked = podBlockedShows(shows);
   const mine = shows.filter((s) => s.channelId === d.channel.id);
   if (mine.length && mine.every((s) => blocked.has(s.id))) return blockedByFilter("podcaster");
@@ -2402,6 +2542,20 @@ function shCat() {
     .then((d) => (_shCat = (d && Array.isArray(d.speakers)) ? d : SH_EMPTY))
     .catch(() => { _shLoad = null; return (_shCat = SH_EMPTY); }));
 }
+// The FULL speaker directory — every guest included, down to the 192 people with a single lecture.
+// It's a separate asset because the Shiurim tab renders ~24 speaker cards and has no business
+// pulling the whole 1300-row list to do it. Fetched once, only by the see-all page and by a deep
+// link to someone the browse list doesn't carry, then folded into the snapshot in place so
+// shSpeakerMap() and every gate that reads it see the complete picture from then on.
+let _shAllLoad = null;
+function shSpeakersAll() {
+  return _shAllLoad || (_shAllLoad = fetch("/data/speakers.json").then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      if (d && Array.isArray(d.speakers) && d.speakers.length && _shCat) { _shCat = { ..._shCat, speakers: d.speakers, all: 1 }; }
+      return _shCat || SH_EMPTY;
+    })
+    .catch(() => { _shAllLoad = null; return _shCat || SH_EMPTY; }));
+}
 // Rebuilt whenever the snapshot object itself changes — a first load that failed (and left SH_EMPTY
 // behind) must not permanently poison the lookup for the retry that succeeds.
 let _shById = null, _shByIdOf = null;
@@ -2416,23 +2570,64 @@ function shSpeakerMap() {
 const shFemaleRec = (r) => !!(r && (r.female || r.speaker_female || r.is_only_listenable_by_female || r.is_only_watchable_by_female || r.is_only_discoverable_by_female));
 const shRecOK = (r) => !!r && !(noFemale() && shFemaleRec(r));
 const shPhoto = (p) => (p ? "https://files.torahanytime.com/flash/speakers/" + encodeURIComponent(p) : "");
-const shName = (s) => [s.title, s.first, s.last].map((x) => (x || "").trim()).filter(Boolean).join(" ");
+// The bake assembles `name` once (several upstream rows carry stray whitespace); live search results
+// still arrive as separate title/first/last, so both shapes have to render.
+const shName = (s) => s.name || [s.title, s.first, s.last].map((x) => (x || "").trim()).filter(Boolean).join(" ");
 const shSpeakerOf = (r) => [r.speaker_title_short, r.speaker_name_first, r.speaker_name_last].map((x) => (x || "").trim()).filter(Boolean).join(" ");
+
+/* --- language: a TASTE preference, NOT a content restriction -----------------------------------
+   Deliberately kept OUT of the parental `filters` jsonb: a parent restricting content has nothing to
+   say about whether you want your shiurim in Yiddish. It lives in localStorage beside shuffle and
+   crossfade, is per-device, and DEFAULTS TO EVERY LANGUAGE ("") — so switching it on can only ever
+   narrow what the tab already showed, never silently hide content from someone who never asked.
+   `language=<id>` is a real upstream parameter (verified on /lectures/latest-list, /lectures/trending,
+   /speakers/{id}/lectures, /topics/{id}/lectures and /search/lectures), so the filtering happens
+   server-side wherever possible; shTracks() is the belt to that brace for feeds that ignore it. */
+// Fallback chip list for a snapshot baked before `languages` existed (or one that failed to load).
+// Same ids the API uses, ordered the way the live snapshot orders them: by speaker count.
+const SH_LANGS = [{ id: 1, name: "English" }, { id: 5, name: "Hebrew" }, { id: 13, name: "Yiddish" }, { id: 3, name: "Persian" }, { id: 4, name: "Russian" }, { id: 9, name: "Spanish" }, { id: 7, name: "Bucharian" }, { id: 12, name: "German" }, { id: 10, name: "French" }, { id: 8, name: "Sign Language" }, { id: 16, name: "Portuguese" }, { id: 17, name: "Arabic" }];
+const shLangList = () => ((_shCat && Array.isArray(_shCat.languages) && _shCat.languages.length) ? _shCat.languages : SH_LANGS);
+const shLangId = () => LS.get("zw_shlang", "");
+const shLangName = (id) => { const f = shLangList().find((l) => String(l.id) === String(id)); return f ? f.name : ""; };
+const shLangQS = () => (shLangId() ? "&language=" + encodeURIComponent(shLangId()) : "");
+// Fails OPEN on a record that carries no language at all — "unknown" is not "wrong language", and
+// dropping those would quietly empty older feeds.
+const shLangOK = (r) => { const w = shLangId(); if (!w) return true; const got = r && r.language != null ? +r.language : 0; return !got || got === +w; };
+// A speaker is kept when the snapshot doesn't know her languages, for the same reason.
+const shSpeakerLangOK = (s) => { const w = shLangId(); if (!w) return true; return !s || !Array.isArray(s.langs) || !s.langs.length || s.langs.indexOf(+w) >= 0; };
+// Which view repaints when the chip row is used. Set by whichever surface rendered the chips, so a
+// language change on the browse-all page re-renders THAT page instead of bouncing back to the tab.
+let _shRepaint = null;
+function setShLangId(id) {
+  LS.set("zw_shlang", String(id || ""));
+  track("filter", { f: "shiurimLang", on: String(id || "all") });
+  (_shRepaint || loadShiurim)();
+}
+const shLangChips = () => {
+  const cur = shLangId(), opts = [{ id: "", name: "All languages" }, ...shLangList().slice(0, 8)];
+  return `<div class="chips">${opts.map((l) => `<button class="chip ${String(l.id) === cur ? "sel" : ""}" onclick="setShLangId('${esc(String(l.id))}')">${esc(l.name)}</button>`).join("")}</div>`;
+};
 
 // A shiur as a queue track. `kind` is the source discriminator every YouTube-specific call site now
 // guards on; `videoId` stays the queue/row identity (safeId-clean by construction — "ta-466034" is
 // never 11 chars, so it can't collide with a real YouTube id) and `src` is what actually plays.
+// `vsrc` is the FILMED version when there is one — progressive mp4, not HLS: one lecture is ~437 HLS
+// segments, and mp4 is seekable off the same CDN with a plain Range request and no extra library.
+// The proxy_* variants are ignored on purpose (they route the stream through a third party for no
+// gain here). Gated on podcastVideosOn() so a parent who turned filmed content off gets audio only.
 const shTrack = (r) => ({
   videoId: "ta-" + r.id, kind: "shiur", shId: +r.id,
   src: r.mp3_url || r.audio_url || "",
+  vsrc: podcastVideosOn() ? (r.mp4_url || "") : "",
   title: r.title || "", artist: shSpeakerOf(r) || "TorahAnytime",
   durationSec: +r.duration || 0, thumbnail: r.thumbnail_url || "",
   shSpeakerId: +r.speaker || 0, shFemale: shFemaleRec(r),
-  shDate: r.date_recorded || "", shLang: r.language_name || "",
+  shDate: r.date_recorded || "", shLang: r.language_name || shLangName(r.language),
+  shShort: !!(r.is_short || r.is_clip),
 });
-// Audio only, on purpose: audio coverage is effectively universal on TorahAnytime, video is not, and
-// SK Music has no non-YouTube video surface to put a lecture in.
-const shTracks = (list) => (list || []).filter(shRecOK).map(shTrack).filter((t) => t.src && t.shId);
+// A lecture is listable if it has SOMETHING to play — audio normally, video for the handful that are
+// filmed only — and passes kol isha and the language preference.
+const shTracks = (list) => (list || []).filter((r) => shRecOK(r) && shLangOK(r)).map(shTrack).filter((t) => (t.src || t.vsrc) && t.shId);
 // Trending and series/{id}/lectures answer with an OBJECT MAP keyed by lecture id, not an array.
 const shValues = (o) => (o && typeof o === "object") ? Object.keys(o).map((k) => o[k]) : [];
 
@@ -2449,7 +2644,7 @@ function shWrite(m) {
 function shRemember(t, sec) {
   if (!t || !t.shId) return;
   const m = shPos();
-  m[t.shId] = { pos: Math.round(sec || 0), at: Date.now(), title: t.title, artist: t.artist, dur: t.durationSec, src: t.src, thumb: t.thumbnail, sp: t.shSpeakerId, f: t.shFemale ? 1 : 0 };
+  m[t.shId] = { pos: Math.round(sec || 0), at: Date.now(), title: t.title, artist: t.artist, dur: t.durationSec, src: t.src, thumb: t.thumbnail, sp: t.shSpeakerId, f: t.shFemale ? 1 : 0, ...(t.vsrc ? { v: t.vsrc } : {}), ...(t.shLang ? { lg: t.shLang } : {}) };
   shWrite(m);
 }
 // Called from tick(). Only updates an entry shRemember() already created, so a stale key can never be
@@ -2459,90 +2654,268 @@ function shSavePos(id, sec) {
   const m = shPos(), e = m[id]; if (!e) return;
   e.pos = Math.round(sec); e.at = Date.now(); shWrite(m);
 }
-const shFromPos = (id, e) => ({ videoId: "ta-" + id, kind: "shiur", shId: +id, src: e.src || "", title: e.title || "", artist: e.artist || "", durationSec: e.dur || 0, thumbnail: e.thumb || "", shSpeakerId: e.sp || 0, shFemale: !!e.f });
+const shFromPos = (id, e) => ({ videoId: "ta-" + id, kind: "shiur", shId: +id, src: e.src || "", vsrc: (podcastVideosOn() && e.v) || "", title: e.title || "", artist: e.artist || "", durationSec: e.dur || 0, thumbnail: e.thumb || "", shSpeakerId: e.sp || 0, shFemale: !!e.f, shLang: e.lg || "" });
 
-function playShiur(t) {
-  if (!t || !t.src) { showToast("This shiur has no audio.", 2600); return; }
-  const at = (shPos()[t.shId] || {}).pos || 0;
-  shRemember(t, at);                                     // create the entry BEFORE play — tick()'s shSavePos only updates existing ones
-  state.queue = [t]; state.radio = null; state.playSource = "shiur";
+// watch: start on the filmed version. A queue entry is a COPY — `watch` is per-play state and must not
+// stick to the shared track object a rendered list is still holding.
+function playShiur(t, watch) {
+  if (!t || (!t.src && !t.vsrc)) { showToast("This shiur has no audio.", 2600); return; }
+  if (watch && !t.vsrc) watch = false;
+  const q = { ...t, watch: !!watch || (!t.src && !!t.vsrc) }; // video-only lectures have nowhere else to go
+  const at = (shPos()[q.shId] || {}).pos || 0;
+  shRemember(q, at);                                     // create the entry BEFORE play — tick()'s shSavePos only updates existing ones
+  state.queue = [q]; state.radio = null; state.playSource = "shiur";
   if (typeof stStop === "function") stStop();
   PB.nextStart = at;                                     // consumed by PB.load — resumes where you left off
   playIndex(0);
+  if (q.watch) openNow();                                // watching only means anything with the video frame on screen
   if (at) showToast(`Resuming at ${podFmt(at)}.`, 2000);
 }
 // Same reason podPlay exists: shiurim reach playback through the queue registry so no title ever
 // crosses into an inline handler. esc() alone would NOT be safe there — it emits &#39;, which the HTML
 // parser turns back into a real quote before the JS is parsed.
-function shPlay(qid, i) { const q = queues.get(qid), t = q && q[i]; if (t) playShiur(t); }
+function shPlay(qid, i, watch) { const q = queues.get(qid), t = q && q[i]; if (t) playShiur(t, watch); }
 
-function shRows(list) {
-  const qid = regQueue(list), pos = shPos();
-  return `<div class="rows">${list.map((t, i) => {
-    const e = pos[t.shId] || {}, at = e.pos || 0, pct = (at && t.durationSec) ? Math.min(100, at / t.durationSec * 100) : 0;
-    return `<div class="row" role="button" tabindex="0" data-v="${safeId(t.videoId)}" onkeydown="${KDACT}" onclick="shPlay('${qid}',${i})">
-      ${t.thumbnail ? `<img class="thumb" alt="" loading="lazy" src="${esc(t.thumbnail)}" onerror="this.style.visibility='hidden'">` : `<div class="thumb"></div>`}
-      <div class="text"><div class="title"><span style="overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</span></div>
-        <div class="sub">${[esc(t.artist), esc(t.shDate || ""), t.durationSec ? podFmt(t.durationSec) : "", esc(t.shLang || ""), at ? podFmt(at) + " in" : ""].filter(Boolean).join(" · ")}</div>
-        ${pct ? `<div style="height:3px;border-radius:2px;background:var(--surface-3);margin-top:6px;overflow:hidden"><i style="display:block;height:100%;width:${pct.toFixed(1)}%;background:var(--primary)"></i></div>` : ""}
-      </div>
-      <div class="dur">${t.durationSec ? fmt(t.durationSec) : ""}</div></div>`;
-  }).join("")}</div>`;
+// One shiur row. Split from shRows so the SAME row can be laid out as a list or as Home's Quick Picks
+// grid — the resume bar, the playing state and the queue registration come along either way.
+function shRow(t, qid, i, pos) {
+  const e = (pos && pos[t.shId]) || {}, at = e.pos || 0, pct = (at && t.durationSec) ? Math.min(100, at / t.durationSec * 100) : 0;
+  const playing = state.playSource === "shiur" && state.queue[state.qi] && state.queue[state.qi].videoId === t.videoId;
+  return `<div class="row ${playing ? "playing" : ""}" role="button" tabindex="0" data-v="${safeId(t.videoId)}" onkeydown="${KDACT}" onclick="shPlay('${qid}',${i})">
+    ${t.thumbnail ? `<img class="thumb" alt="" loading="lazy" src="${esc(t.thumbnail)}" onerror="this.style.visibility='hidden'">` : `<div class="thumb"></div>`}
+    <div class="text"><div class="title">${playing ? EQ : ""}<span style="overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</span>${t.vsrc ? '<span class="tag">VIDEO</span>' : ""}</div>
+      <div class="sub">${[esc(t.artist), esc(t.shDate || ""), t.durationSec ? podFmt(t.durationSec) : "", esc(t.shLang || ""), at ? podFmt(at) + " in" : ""].filter(Boolean).join(" · ")}</div>
+      ${pct ? `<div class="shbar"><i style="width:${pct.toFixed(1)}%"></i></div>` : ""}
+    </div>
+    ${t.vsrc ? `<button class="iconbtn rowbtn" style="width:38px;height:40px" aria-label="Watch the video" title="Watch" onclick="event.stopPropagation();shPlay('${qid}',${i},1)"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M4 5h11a2 2 0 0 1 2 2v2.4l4-2.6v10.4l-4-2.6V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/></svg></button>` : ""}
+    <div class="dur">${t.durationSec ? fmt(t.durationSec) : ""}</div></div>`;
 }
+function shRows(list) { const qid = regQueue(list), pos = shPos(); return `<div class="rows">${list.map((t, i) => shRow(t, qid, i, pos)).join("")}</div>`; }
+// Home's Quick Picks treatment — the same dense 4-row horizontally paging grid, so Trending opens the
+// tab on something that reads as a feature rather than as the top of a list.
+function shQuick(list) { const qid = regQueue(list), pos = shPos(); return `<div class="qpgrid">${list.map((t, i) => shRow(t, qid, i, pos)).join("")}</div>`; }
 // Ids from TorahAnytime are integers; +id in the handler is the escaping (a non-numeric id becomes 0
 // and the page renders "not available" rather than executing anything).
 const shSpeakerCard = (s) => `<div class="card round" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openShiurSpeaker(${+s.id})">${artHTML(shPhoto(s.photo), ICON.artist, true)}<div class="t">${esc(shName(s))}</div><div class="s">${num(s.n)} shiurim</div></div>`;
-const shTopicCard = (t) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openShiurTopic(${+t.id})">${artHTML("", ICON.shiur)}<div class="t">${esc(t.name)}</div><div class="s">${num(t.n)} shiurim</div></div>`;
+// `parent` only exists on a flattened SUBtopic (the browse-all page) — "Vayeira" alone is ambiguous.
+const shTopicCard = (t) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openShiurTopic(${+t.id})">${artHTML("", ICON.shiur)}<div class="t">${esc(t.name)}</div><div class="s">${[esc(t.parent || ""), num(t.n) + " shiurim"].filter(Boolean).join(" · ")}</div></div>`;
 const shSeriesCard = (s) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openShiurSeries(${+s.id})">${artHTML("", ICON.shiur)}<div class="t">${esc(s.title)}</div><div class="s">${[esc(s.speaker), num(s.n) + " parts"].filter(Boolean).join(" · ")}</div></div>`;
 // Speaker/series cards can only be kol-isha-checked against the baked snapshot, so an unknown speaker
 // FAILS CLOSED under the filter rather than being shown on the hope that she isn't one.
 const shSpeakerOK = (s) => !!s && !(noFemale() && s.female);
-const shSeriesOK = (s) => { if (!s) return false; if (!noFemale()) return true; if (s.female) return false; const sp = shSpeakerMap().get(String(s.speakerId)); return !!sp && !sp.female; };
+// A series' `female` flag is resolved at BAKE time against the FULL speaker directory (the series
+// index's own flag misses a female speaker whose series isn't marked "women only"), so this no longer
+// consults the runtime speaker map — which is now only partly loaded until the see-all page pulls it.
+const shSeriesOK = (s) => !!s && !(noFemale() && s.female);
 const shSpeakerLink = (id, name) => (id
   ? `<a href="/shiurim/speaker/${+id}" onclick="event.preventDefault();openShiurSpeaker(${+id})"><b>${esc(name || "")}</b></a>`
   : `<b>${esc(name || "")}</b>`);
 const shOff = (title) => `<div class="hero" style="background:linear-gradient(120deg,#1a1a2e,var(--surface) 70%)"><div class="eyebrow" style="color:#9b8cf0">Off</div><h1>${title}</h1><p>${kidLocked() ? "Shiurim aren’t available while this account is locked to Kid Zone." : pcShiurim() ? "Turn them back on in Settings." : "A parent can enable them in Parental Controls."}</p></div>`;
 
+// "See all" link for a rail whose full list is already baked — costs a route change, not a request.
+const shMore = (kind) => `<span class="more" role="button" tabindex="0" onkeydown="${KDACT}" onclick="shBrowse('${kind}')">See all</span>`;
+// Resume points, newest first: the single highest-value shelf on a spoken-word tab, because an hour
+// of shiur is nearly always resumed rather than restarted. Built entirely from localStorage, so it
+// renders instantly and survives TorahAnytime being unreachable.
+function shResumeList(n) {
+  const pos = shPos();
+  return Object.keys(pos).map((id) => shFromPos(id, pos[id]))
+    .filter((t) => (t.src || t.vsrc) && (pos[t.shId].pos || 0) > 30 && !(noFemale() && t.shFemale))
+    .sort((a, b) => (pos[b.shId].at || 0) - (pos[a.shId].at || 0)).slice(0, n || 8);
+}
+// Trending SPEAKERS, tallied out of the trending LECTURES we already fetched — no second request. A
+// speaker the snapshot doesn't know is dropped rather than rendered nameless, which also keeps the
+// kol-isha check fail-closed (shSpeakerOK can only clear a speaker it can see).
+function shTrendingSpeakers(recs) {
+  const map = shSpeakerMap(), tally = new Map();
+  for (const r of recs) {
+    const id = +r.speaker; if (!id) continue;
+    const e = tally.get(id) || { id, score: 0 };
+    e.score += (+r.recentCount || 0) + 1; tally.set(id, e);
+  }
+  return [...tally.values()].sort((a, b) => b.score - a.score)
+    .map((e) => map.get(String(e.id))).filter((s) => shSpeakerOK(s) && shSpeakerLangOK(s)).slice(0, 18);
+}
+// For You, from what you have actually listened to. The signal is the resume store's speaker ids —
+// the only listening history this tab keeps. It is drawn FIRST from the newest/trending records
+// already in hand (free); only if that comes up short does it spend ONE request on your most recent
+// speaker. No history → returns nothing and the section doesn't render at all.
+async function shForYou(pool) {
+  const pos = shPos();
+  const hist = Object.keys(pos).map((id) => pos[id]).filter((e) => e && e.sp && (e.pos || 0) > 60)
+    .sort((a, b) => (b.at || 0) - (a.at || 0));
+  if (!hist.length) return [];
+  const heard = new Set(hist.map((e) => +e.sp)), already = new Set(Object.keys(pos).map(Number));
+  let out = pool.filter((t) => heard.has(t.shSpeakerId) && !already.has(t.shId));
+  if (out.length < 4) {
+    const d = await taGet("/speakers/" + (+hist[0].sp) + "/lectures?limit=12&offset=0" + shLangQS());
+    const have = new Set(out.map((t) => t.shId));
+    out = out.concat(shTracks((d && d.lecture) || []).filter((t) => !already.has(t.shId) && !have.has(t.shId)));
+  }
+  return out.slice(0, 12);
+}
+/* --- Shorts -------------------------------------------------------------------------------------
+   TorahAnytime's "clips" — a couple of minutes cut out of a full shiur — presented as story circles
+   rather than a list, because a 90-second clip is something you flick through, not something you
+   queue. They are BAKED (engine/build-static.mjs), so the row costs nothing at runtime, and they are
+   grouped by speaker, which is exactly the shape the statuses viewer already walks: a creator with a
+   handful of recent posts. The viewer itself is shared, not copied — see stsWalk().
+   Gated on podcastVideosOn(): a clip is a filmed thing, so an account set to audio only doesn't get
+   the row at all (rather than a row that opens onto nothing). */
+const SH_SHORTS_PER_SPEAKER = 8;
+function shShortsRow(cat) {
+  stsShorts = [];
+  if (!podcastVideosOn()) return "";
+  const by = new Map();
+  for (const r of (cat.shorts || [])) {
+    if (!r.mp4_url || !shRecOK(r) || !shLangOK(r)) continue;
+    const sp = +r.speaker || 0; if (!sp) continue;
+    const meta = shSpeakerMap().get(String(sp));
+    if (noFemale() && meta && meta.female) continue;      // the clip's own flags are checked by shRecOK; this catches the speaker
+    let c = by.get(sp);
+    if (!c) { c = { id: "sh-" + sp, name: shSpeakerOf(r) || (meta ? shName(meta) : "TorahAnytime"), avatar: (meta && shPhoto(meta.photo)) || "", recent: [], posts: [] }; by.set(sp, c); }
+    if (c.posts.length >= SH_SHORTS_PER_SPEAKER) continue;
+    const pid = "tac-" + r.id;                            // prefixed so clip ids can never collide with status ids in the shared seen-set
+    c.recent.push(pid);
+    c.posts.push({ id: pid, kind: "video", media_path: r.mp4_url, thumb_path: r.thumbnail_url || "", caption: r.title || "", posted_at: r.date_recorded || "", duration_seconds: +r.duration || 0 });
+  }
+  // Speakers you've already watched sink to the end, exactly like a caught-up statuses circle.
+  stsShorts = [...by.values()].filter((c) => c.posts.length)
+    .sort((a, b) => (stsCaughtUp(a) ? 1 : 0) - (stsCaughtUp(b) ? 1 : 0)).slice(0, 24);
+  if (!stsShorts.length) return "";
+  return section("Shorts", `<div class="sts-rail shorts">${stsShorts.map(stsShortCircle).join("")}</div>`);
+}
+
 async function loadShiurim() {
-  state.loaded.shiurim = true;
+  state.loaded.shiurim = true; _shRepaint = loadShiurim;
   const v = el("v-shiurim");
   if (!shiurimOn()) { v.innerHTML = shOff("Shiurim"); return; } // routable even when off — say why rather than 404
-  v.innerHTML = `<div class="hero" style="background:linear-gradient(120deg,#1a1a2e,var(--surface) 70%)"><div class="eyebrow" style="color:#9b8cf0">Torah</div><h1>Shiurim</h1><p>Lectures from TorahAnytime — audio, streamed straight from the source.</p></div>
-    <div class="searchbox" style="max-width:520px;margin:6px 0 18px">${ICON.search}<input id="shq" placeholder="Search shiurim &amp; speakers" autocomplete="off" aria-label="Search shiurim"></div>
+  const lang = shLangId() ? esc(shLangName(shLangId())) : "";
+  v.innerHTML = `<div class="hero" style="background:linear-gradient(120deg,#1a1a2e,var(--surface) 70%)"><div class="eyebrow" style="color:#9b8cf0">Torah</div><h1>Shiurim</h1><p>Thousands of lectures from TorahAnytime — ${lang ? "in " + lang + ", " : ""}streamed straight from the source, with your place kept in every one.</p>
+      <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:16px">
+        <button class="btn-ghost" onclick="shBrowse('speakers')"><svg viewBox="0 0 24 24"><path d="M15 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4m0 2c-3 0-9 1.5-9 4.5V21h18v-2.5c0-3-6-4.5-9-4.5"/></svg>All speakers</button>
+        <button class="btn-ghost" onclick="shBrowse('topics')">${ICON.shiur}All topics</button>
+        <button class="btn-ghost" onclick="shBrowse('series')">${ICON.shiur}All series</button>
+      </div><span class="heb">תורה</span></div>
+    ${shLangChips()}
+    <div class="searchbox" style="max-width:520px;margin:6px 0 18px">${ICON.search}<input id="shq" placeholder="Search shiurim, speakers, topics &amp; series" autocomplete="off" aria-label="Search shiurim"></div>
     <div id="shResults"></div>
     <div id="shBody">${skRail(6, true)}</div>`;
   const box0 = el("shq"); if (box0) box0.addEventListener("input", (e) => shSearchDebounced(e.target.value.trim()));
   await ensureFilters();
-  // All three in parallel, each failing on its own: a dead /trending must not cost us Newest.
+  // Three requests for the whole page, each failing on its own: a dead /trending must not cost us
+  // Newest, and the baked catalog carries browse whatever happens upstream. Every shelf below is
+  // derived from these three plus localStorage — no per-section fetching.
   const [latest, trend, cat] = await Promise.all([
-    taGet("/lectures/latest-list?limit=40&offset=0"),
-    taGet("/lectures/trending?limit=24"),
+    taGet("/lectures/latest-list?limit=60&offset=0" + shLangQS()),
+    taGet("/lectures/trending?limit=40" + shLangQS()),
     shCat(),
   ]);
   const box = el("shBody"); if (!box) return;
   secN = 0;
   const newest = shTracks(Array.isArray(latest) ? latest : (latest && latest.lecture) || []);
-  const trending = shTracks(shValues(trend && trend.lectures).sort((a, b) => (b.recentCount || 0) - (a.recentCount || 0)));
-  const speakers = (cat.speakers || []).filter(shSpeakerOK);
+  const trendRecs = shValues(trend && trend.lectures).sort((a, b) => (b.recentCount || 0) - (a.recentCount || 0));
+  const trending = shTracks(trendRecs);
+  const speakers = (cat.speakers || []).filter((s) => shSpeakerOK(s) && shSpeakerLangOK(s));
   const series = (cat.series || []).filter(shSeriesOK);
-  // Continue listening comes from local storage, so it survives TorahAnytime being unreachable.
-  const pos = shPos();
-  const cont = Object.keys(pos).map((id) => shFromPos(id, pos[id]))
-    .filter((t) => t.src && (pos[t.shId].pos || 0) > 30 && !(noFemale() && t.shFemale))
-    .sort((a, b) => (pos[b.shId].at || 0) - (pos[a.shId].at || 0)).slice(0, 6);
-  if (!newest.length && !trending.length && !speakers.length && !series.length && !cont.length) {
-    box.innerHTML = emptyState("Nothing to play", "TorahAnytime isn’t reachable right now, or everything is hidden by your filters.");
+  // Daily / recurring series (Daf Yomi, Amud HaYomi, the two-minute halacha ones). The `d` flag is a
+  // TITLE heuristic decided at bake time — TorahAnytime publishes no cadence field to read.
+  const daily = series.filter((s) => s.d).slice(0, 24);
+  const resume = shResumeList(8);
+  const trendPeople = shTrendingSpeakers(trendRecs);
+  const forYou = await shForYou([...trending, ...newest]);
+  if (!el("shBody")) return;                               // the language chips (or a tab change) re-rendered under us
+  if (!newest.length && !trending.length && !speakers.length && !series.length && !resume.length) {
+    box.innerHTML = emptyState("Nothing to play", shLangId()
+      ? `Nothing in ${shLangName(shLangId())} right now — pick another language above, or “All languages”.`
+      : "TorahAnytime isn’t reachable right now, or everything is hidden by your filters.");
     return;
   }
-  box.innerHTML = (cont.length ? section("Continue listening", shRows(cont)) : "")
-    + (trending.length ? section("Trending", shRows(trending.slice(0, 10))) : "")
-    + railOf("Speakers", speakers.slice(0, 24), shSpeakerCard)
-    + railOf("Browse by topic", (cat.topics || []).slice(0, 24), shTopicCard)
-    + (newest.length ? section(`Newest · ${num(newest.length)}`, shRows(newest)) : "")
-    + railOf("Series", series.slice(0, 24), shSeriesCard);
+  // History-fed shelves (Resume, For You) sit above the rest ONLY once they have something to say;
+  // every section below is an empty string when its data is missing, so a first-time visitor gets a
+  // coherent page rather than a column of empty headings.
+  box.innerHTML = (resume.length ? section("Resume listening", shRows(resume)) : "")
+    + (trending.length ? section("Trending", shQuick(trending.slice(0, 24))) : "")
+    + shShortsRow(cat)                                     // story circles of TorahAnytime clips — "" when there are none, or when video is off
+    + railOf("Trending speakers", trendPeople, shSpeakerCard)
+    + (forYou.length ? section("For You", shQuick(forYou)) : "")
+    + (speakers.length ? section("Speakers", `<div class="rail round">${speakers.slice(0, 24).map(shSpeakerCard).join("")}</div>`, shMore("speakers")) : "")
+    + ((cat.topics || []).length ? section("Browse by topic", `<div class="rail">${(cat.topics || []).slice(0, 24).map(shTopicCard).join("")}</div>`, shMore("topics")) : "")
+    + (newest.length ? section(`Newest · ${num(Math.min(40, newest.length))}`, shRows(newest.slice(0, 40))) : "")
+    + railOf("Daily &amp; ongoing", daily, shSeriesCard)
+    + (series.length ? section("Series", `<div class="rail">${series.slice(0, 24).map(shSeriesCard).join("")}</div>`, shMore("series")) : "")
+    + (!newest.length && !trending.length ? emptyState("Live feeds unavailable", "TorahAnytime's lecture feed isn't answering right now — browsing by speaker, topic and series still works.") : "");
 }
 
-// --- search: lectures + speakers, both live. subject=series 500s upstream, so it isn't asked for. ---
+/* --- browse-all: speakers / topics / series -------------------------------------------------------
+   Every one of these is filtered and searched ENTIRELY out of the baked snapshot — 577 speakers, the
+   topic tree and 1141 series are already on the device, so "See all" and typing in it cost zero
+   requests of any kind. (The upstream /search/series subject 500s, which is a second reason not to
+   ask it anything.) Rendered into the detail view so Back lands on the Shiurim tab. */
+const SH_BROWSE = {
+  speakers: { label: "Speakers", ph: "Search speakers by name", blurb: "Everyone who teaches on TorahAnytime.", round: true },
+  topics: { label: "Topics", ph: "Search topics", blurb: "The whole topic tree, parashah by parashah.", round: false },
+  series: { label: "Series", ph: "Search series", blurb: "Multi-part shiurim, start to finish.", round: false },
+};
+let _shbKind = "", _shbAll = [], _shbView = [], _shbShown = 0, _shbObs = null;
+const SHB_PAGE = 60;
+async function shBrowse(kind, fromRoute) {
+  const meta = SH_BROWSE[kind]; if (!meta) return go("shiurim", fromRoute);
+  const path = "/shiurim/" + kind;
+  if (!(await shGate(meta.label, path, fromRoute))) return;
+  // "See all speakers" means ALL of them — the one-lecture guests the tab's rails leave out too.
+  const cat = kind === "speakers" ? await shCat().then(shSpeakersAll) : await shCat();
+  _shbKind = kind; _shRepaint = () => shBrowse(kind, true);
+  _shbAll = kind === "speakers" ? (cat.speakers || []).filter((s) => shSpeakerOK(s) && shSpeakerLangOK(s))
+    : kind === "series" ? (cat.series || []).filter(shSeriesOK)
+    // The tree is two levels deep; flatten it so one search box reaches every parashah, and keep the
+    // parent name for the card's subtitle so "Vayeira" isn't ambiguous on its own.
+    : (cat.topics || []).flatMap((t) => [{ ...t, top: 1 }, ...(t.sub || []).filter((s) => s.n > 0).map((s) => ({ ...s, parent: t.name }))]);
+  state.detailKind = "shiurim"; state.detailPath = path; state.detailTitle = meta.label;
+  el("tbTitle").textContent = meta.label; el("tbTitle").style.display = ""; el("tbSearch").style.display = "none";
+  el("v-detail").innerHTML = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
+    <div class="hero" style="background:linear-gradient(120deg,#1a1a2e,var(--surface) 70%)"><div class="eyebrow" style="color:#9b8cf0">Shiurim</div><h1>${esc(meta.label)}</h1><p>${esc(meta.blurb)}</p></div>
+    ${kind === "speakers" ? shLangChips() : ""}
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:6px 0 20px">
+      <div class="searchbox" style="max-width:420px;margin:0;flex:1;min-width:220px">${ICON.search}<input id="shbq" placeholder="${esc(meta.ph)}" autocomplete="off" aria-label="${esc(meta.ph)}"></div>
+      <div id="shbCount" class="art-count"></div>
+    </div>
+    <div class="cardgrid${meta.round ? " round" : ""}" id="shbGrid"></div>
+    <div id="shbSentinel" style="height:1px"></div>`;
+  showDetail();
+  const q = el("shbq"); if (q) q.addEventListener("input", (e) => shbRender(e.target.value.trim().toLowerCase()));
+  shbRender("");
+  if (_shbObs) _shbObs.disconnect();
+  _shbObs = new IntersectionObserver((es) => { if (es.some((x) => x.isIntersecting)) shbMore(); }, { rootMargin: "700px" });
+  const st = el("shbSentinel"); if (st) _shbObs.observe(st);
+}
+const shbText = (x) => (_shbKind === "speakers" ? shName(x) : _shbKind === "series" ? x.title + " " + (x.speaker || "") : x.name + " " + (x.parent || "")).toLowerCase();
+const shbCard = (x) => (_shbKind === "speakers" ? shSpeakerCard(x) : _shbKind === "series" ? shSeriesCard(x) : shTopicCard(x));
+function shbRender(q) {
+  _shbView = q ? _shbAll.filter((x) => shbText(x).indexOf(q) >= 0) : _shbAll;
+  _shbShown = 0;
+  const g = el("shbGrid"); if (!g) return;
+  g.innerHTML = _shbView.length ? "" : emptyState("Nothing found", q ? "Try a different word." : "This list is empty right now.");
+  shbMore();
+  const c = el("shbCount");
+  if (c) c.innerHTML = q ? `<b>${num(_shbView.length)}</b> of ${num(_shbAll.length)}` : `<b>${num(_shbAll.length)}</b> ${esc((SH_BROWSE[_shbKind] || {}).label || "").toLowerCase()}`;
+}
+// Windowed render — 1141 series cards at once is a visible hitch. Keeps appending (rAF) while the
+// sentinel is still on screen, then the IntersectionObserver takes over for scroll.
+function shbMore() {
+  const g = el("shbGrid"); if (!g || _shbShown >= _shbView.length) return;
+  g.insertAdjacentHTML("beforeend", _shbView.slice(_shbShown, _shbShown + SHB_PAGE).map(shbCard).join(""));
+  _shbShown = Math.min(_shbShown + SHB_PAGE, _shbView.length);
+  const st = el("shbSentinel");
+  if (st && _shbShown < _shbView.length && st.getBoundingClientRect().top < innerHeight + 500) requestAnimationFrame(shbMore);
+}
+
+/* --- search ---------------------------------------------------------------------------------------
+   Lectures and speakers are searched LIVE (only the lecture index knows about a shiur uploaded an hour
+   ago). Topics and series are matched against the BAKED snapshot instead, for two reasons: it costs
+   nothing and answers instantly, and the upstream `subject=series` endpoint currently returns 500 —
+   taGet() would swallow that into a null and the section would just silently never appear. Matching
+   locally means a broken upstream subject can't take a working feature down with it. */
 let _shqT = 0, _shqSeq = 0;
 function shSearchDebounced(q) {
   clearTimeout(_shqT);
@@ -2556,17 +2929,24 @@ async function shSearch(q) {
   if (body) body.style.display = "none";
   out.innerHTML = `<div class="rows">${Array.from({ length: 5 }, () => `<div class="row"><div class="sk" style="width:46px;height:46px;border-radius:9px"></div><div class="text"><div class="sk" style="height:13px;width:45%;border-radius:5px"></div></div></div>`).join("")}</div>`;
   const qs = "?filter=" + encodeURIComponent(q) + "&limit=30&offset=0";
-  const [lec, spk] = await Promise.all([taGet("/search/lectures" + qs), taGet("/search/speakers" + qs)]);
+  const [lec, spk, cat] = await Promise.all([taGet("/search/lectures" + qs + shLangQS()), taGet("/search/speakers" + qs), shCat()]);
   if (seq !== _shqSeq || !el("shResults")) return;        // a newer keystroke already owns the pane
   const items = (d) => (d && Array.isArray(d.items)) ? d.items : [];
   const tracks = shTracks(items(lec).map((it) => it.data).filter(Boolean));
   const people = items(spk).map((it) => it.data).filter(Boolean)
     .filter((s) => !(noFemale() && s.female))
     .map((s) => ({ id: s.id, first: s.name_first, last: s.name_last, title: (s.title_short || "").trim(), photo: s.photo || "", n: s.lecture_count || 0 }));
+  const lq = q.toLowerCase();
+  const topics = (cat.topics || []).flatMap((t) => [t, ...(t.sub || []).filter((s) => s.n > 0).map((s) => ({ ...s, parent: t.name }))])
+    .filter((t) => (t.name || "").toLowerCase().indexOf(lq) >= 0).slice(0, 12);
+  const ser = (cat.series || []).filter(shSeriesOK)
+    .filter((s) => ((s.title || "") + " " + (s.speaker || "")).toLowerCase().indexOf(lq) >= 0).slice(0, 12);
   secN = 0;
   el("shResults").innerHTML = (people.length ? railOf("Speakers", people.slice(0, 12), shSpeakerCard) : "")
     + (tracks.length ? section("Shiurim", shRows(tracks)) : "")
-    + (!people.length && !tracks.length ? emptyState("No results", "Nothing matched “" + q + "”.") : "");
+    + railOf("Topics", topics, shTopicCard)
+    + railOf("Series", ser, shSeriesCard)
+    + (!people.length && !tracks.length && !topics.length && !ser.length ? emptyState("No results", `Nothing matched “${q}”${shLangId() ? " in " + shLangName(shLangId()) : ""}.`) : "");
 }
 
 // --- detail pages ---------------------------------------------------------------------------------
@@ -2586,15 +2966,20 @@ async function openShiur(id, fromRoute) {
   if (!r || !r.id) return notAvailable("shiur");
   if (!shRecOK(r)) return blockedByFilter("shiur");
   const t = shTrack(r);
-  if (!t.src) return notAvailable("shiur");              // video-only lecture — this app ships audio
+  // A deep-linked lecture is NEVER language-filtered (shTrack, not shTracks): asking for this shiur by
+  // its own URL is a stronger statement than a browse preference.
+  if (!t.src && !t.vsrc) return notAvailable("shiur");    // neither audio nor video we can play
   const qid = regQueue([t]);
   const meta = [t.shDate, t.durationSec ? podFmt(t.durationSec) : "", t.shLang, (r.categories || []).map((c) => c.english_name || c.name).filter(Boolean)[0]].filter(Boolean).map(esc).join(" · ");
   pushDetail({ path, kind: "Shiur", title: t.title, thumb: t.thumbnail,
     sub: `${shSpeakerLink(t.shSpeakerId, t.artist)}${meta ? " · " + meta : ""}`,
     sections: [], aside: `<div id="shAside"></div>` }, fromRoute);
   // pushDetail only builds a Play button for a song queue; a shiur has to go through playShiur to keep
-  // its resume point.
-  el("v-detail").querySelector(".actions").insertAdjacentHTML("afterbegin", `<button class="btn-play" onclick="shPlay('${qid}',0)">${ICON.play} Play</button>`);
+  // its resume point. Watch is offered only when this lecture is actually filmed AND the account
+  // allows video shiurim — shTrack already dropped vsrc when it doesn't.
+  el("v-detail").querySelector(".actions").insertAdjacentHTML("afterbegin",
+    (t.src ? `<button class="btn-play" onclick="shPlay('${qid}',0)">${ICON.play} Play</button>` : "")
+    + (t.vsrc ? `<button class="${t.src ? "btn-ghost" : "btn-play"}" onclick="shPlay('${qid}',0,1)"><svg viewBox="0 0 24 24"><path d="M4 5h11a2 2 0 0 1 2 2v2.4l4-2.6v10.4l-4-2.6V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/></svg>Watch</button>` : ""));
   shAside(r);
 }
 // Side column: more from the same speaker (and the series this belongs to). Appended after render and
@@ -2609,29 +2994,54 @@ async function shAside(r) {
     if (more.length) { secN = 0; box.innerHTML = section("More from " + esc(shSpeakerOf(r)), shRows(more.slice(0, 6))); }
   } catch { /* the shiur page stands on its own */ }
 }
+// A speaker's page is the one place someone browses DEEP, so it pages: 60 at a time, on demand, with
+// the offset kept here rather than in the URL (a half-scrolled speaker page isn't a shareable thing).
+const SH_SPK_PAGE = 60;
+let _shSpkId = 0, _shSpkOff = 0;
 async function openShiurSpeaker(id, fromRoute) {
   const path = "/shiurim/speaker/" + (+id);
   if (!(await shGate("Speaker", path, fromRoute))) return;
-  const [d, cat] = await Promise.all([taGet("/speakers/" + (+id) + "/lectures?limit=60&offset=0"), shCat()]);
+  const [d, cat0] = await Promise.all([taGet("/speakers/" + (+id) + "/lectures?limit=" + SH_SPK_PAGE + "&offset=0" + shLangQS()), shCat()]);
+  // A guest below the browse floor isn't in shiurim.json — pull the full directory before deciding,
+  // rather than failing them closed for the crime of not being on the short list.
+  const cat = shSpeakerMap().has(String(+id)) ? cat0 : await shSpeakersAll();
   const meta = shSpeakerMap().get(String(+id));
-  // Fail CLOSED under kol isha: a speaker the snapshot doesn't know can't be cleared, and the lecture
-  // records alone would only tell us about the ones that happen to carry the flag.
+  // Fail CLOSED under kol isha: a speaker even the full directory doesn't know can't be cleared, and
+  // the lecture records alone would only tell us about the ones that happen to carry the flag.
   if (noFemale() && !shSpeakerOK(meta)) return blockedByFilter("speaker");
   const list = shTracks((d && d.lecture) || []);
   const mySeries = (cat.series || []).filter((s) => s.speakerId === +id).filter(shSeriesOK);
   const name = meta ? shName(meta) : (list[0] ? list[0].artist : "Speaker");
+  const langs = (meta && Array.isArray(meta.langs) ? meta.langs.map(shLangName).filter(Boolean) : []);
+  _shSpkId = +id; _shSpkOff = ((d && d.lecture) || []).length; // raw count, not the filtered one — it's an upstream offset
   pushDetail({ path, kind: "Speaker", title: name, thumb: meta ? shPhoto(meta.photo) : "", round: true,
-    sub: `<b>${num((meta && meta.n) || list.length)}</b> shiurim`,
+    sub: [`<b>${num((meta && meta.n) || list.length)}</b> shiurim`, langs.length ? esc(langs.join(", ")) : ""].filter(Boolean).join(" · "),
     sections: [
       mySeries.length ? { label: "Series", items: mySeries.slice(0, 12), render: shSeriesCard } : null,
-      list.length ? { label: "Shiurim", html: shRows(list) } : null,
+      list.length ? { label: "Shiurim", html: `<div id="shSpkList">${shRows(list)}</div>` } : null,
     ].filter(Boolean) }, fromRoute);
-  if (!list.length && !mySeries.length) el("v-detail").innerHTML += emptyState("Nothing to play", "No shiurim from this speaker are available right now.");
+  // Only offer "load more" when this page was actually full — a short first page IS the whole catalogue.
+  if (list.length && _shSpkOff >= SH_SPK_PAGE) el("v-detail").insertAdjacentHTML("beforeend", `<button class="btn-ghost" id="shSpkMore" style="margin:12px 6px 0" onclick="shSpeakerMore()">Load more shiurim</button>`);
+  if (!list.length && !mySeries.length) el("v-detail").innerHTML += emptyState("Nothing to play", shLangId()
+    ? `No ${shLangName(shLangId())} shiurim from this speaker — try “All languages” on the Shiurim tab.`
+    : "No shiurim from this speaker are available right now.");
+}
+async function shSpeakerMore() {
+  const btn = el("shSpkMore"); if (!btn || !_shSpkId) return;
+  btn.disabled = true; btn.textContent = "Loading…";
+  const d = await taGet("/speakers/" + _shSpkId + "/lectures?limit=" + SH_SPK_PAGE + "&offset=" + _shSpkOff + shLangQS());
+  const raw = (d && d.lecture) || [], list = shTracks(raw);
+  const box = el("shSpkList");
+  if (!box || state.detailKind !== "shiurim") return;     // navigated away mid-flight
+  _shSpkOff += raw.length;
+  if (list.length) box.insertAdjacentHTML("beforeend", shRows(list));
+  if (raw.length < SH_SPK_PAGE) btn.remove();             // a short page is the end of the catalogue
+  else { btn.disabled = false; btn.textContent = "Load more shiurim"; }
 }
 async function openShiurTopic(id, fromRoute) {
   const path = "/shiurim/topic/" + (+id);
   if (!(await shGate("Topic", path, fromRoute))) return;
-  const [d, cat] = await Promise.all([taGet("/topics/" + (+id) + "/lectures?limit=60&offset=0"), shCat()]);
+  const [d, cat] = await Promise.all([taGet("/topics/" + (+id) + "/lectures?limit=60&offset=0" + shLangQS()), shCat()]);
   const list = shTracks((d && d.lecture) || []);
   // The snapshot only holds top-level topics with their children, so look the id up either way.
   let meta = (cat.topics || []).find((t) => t.id === +id), subs = meta ? (meta.sub || []) : [];
@@ -2856,7 +3266,15 @@ function loadDownload() {
 }
 
 /* ============================ SEARCH ============================ */
-const SCATS = [["all", "All"], ["songs", "Songs"], ["artists", "Artists"], ["albums", "Albums"], ["singles", "Singles & EPs"], ["videos", "Videos"], ["playlists", "Playlists"]];
+const SCATS = [["all", "All"], ["songs", "Songs"], ["artists", "Artists"], ["albums", "Albums"], ["singles", "Singles & EPs"], ["videos", "Videos"], ["playlists", "Playlists"], ["podcasts", "Podcasts"], ["shiurim", "Shiurim"], ["statuses", "Statuses"]];
+// The spoken-word/statuses half of the results: sourced and painted separately from the music engine.
+const SX_CATS = ["podcasts", "shiurim", "statuses"];
+// A search result is a way INTO content, so each of these is gated exactly as hard as its own tab is —
+// off (or not permitted by a parent) means no chip, no query and no row, not a greyed-out one.
+const sCatOn = (k) => k === "podcasts" ? podcastsOn()
+  : k === "shiurim" ? shiurimOn()
+  : k === "statuses" ? (statusesOn() && !kidZoneActive() && !blockVideos()) // the same three tests statusesSection() applies on Home
+  : true;
 let sSel = "all", sData = null, sTimer, sInflight;
 let searchExtra = { noFemale: false, noChasid: false, blockVideos: false }; // temp additive filters from a /search?filter= link (never persisted)
 function initSearch() {
@@ -2865,11 +3283,13 @@ function initSearch() {
   renderChips();
   el("q").addEventListener("input", () => { clearTimeout(sTimer); sTimer = setTimeout(doSearch, 160); });
 }
-const renderChips = () => el("schips").innerHTML = SCATS.map(([k, l]) => `<div class="chip ${k === sSel ? "sel" : ""}" onclick="pickCat('${k}')">${l}</div>`).join("");
-function pickCat(k) { sSel = k; renderChips(); if (sData) renderResults(); else if (el("q").value.trim().length >= 3) doSearch(); }
+const renderChips = () => el("schips").innerHTML = SCATS.filter(([k]) => sCatOn(k)).map(([k, l]) => `<div class="chip ${k === sSel ? "sel" : ""}" onclick="pickCat('${k}')">${l}</div>`).join("");
+function pickCat(k) { if (!sCatOn(k)) return; sSel = k; renderChips(); if (sData || sxData) renderResults(); else if (el("q").value.trim().length >= 3) doSearch(); }
 async function doSearch() {
   const raw = el("q").value; const q = raw.trim();
-  if (q.length < 3) { sData = null; el("sresults").innerHTML = q ? emptyHint("Keep typing — at least 3 characters") : searchLanding(); el("smeta").textContent = ""; return; }
+  if (!sCatOn(sSel)) sSel = "all";        // the selected surface was switched off since the last search
+  renderChips();                          // …and its chip goes with it
+  if (q.length < 3) { sData = null; sxData = SX_NONE; sxSeq++; if (sxAbort) { sxAbort.abort(); sxAbort = null; } el("sresults").innerHTML = q ? emptyHint("Keep typing — at least 3 characters") : searchLanding(); el("smeta").textContent = ""; return; }
   await ensureFilters(); // the parental gate in renderResults needs the artist map + profile loaded
   const p = new URLSearchParams(); p.set("q", raw.replace(/^\s+/, "")); // union of your saved filters + any temporary /search?filter= overlay (overlay can only add)
   if (noFemale() || searchExtra.noFemale) p.set("allowFemale", "0");
@@ -2878,6 +3298,9 @@ async function doSearch() {
   // NOTE: a kid-locked account does NOT send kidZone=1 to search — the client gate (renderResults) enforces
   // kid_only AND lets kid_add artists through; a server kidZone=1 would pre-exclude kid_add before we see it.
   p.set("k", sSel === "all" ? "16" : "100");
+  // Spoken word + statuses run alongside, never awaited by the music half: the two panes paint
+  // independently so one dead source can't blank the other.
+  sxLoad(q, ++sxSeq);
   if (sInflight) sInflight.abort(); sInflight = new AbortController(); const t0 = performance.now();
   const d = await apiGet("/search?" + p, { signal: sInflight.signal });
   if (d === null) return;
@@ -2889,7 +3312,10 @@ async function doSearch() {
 // Search-result click with its 0-based rank within the category (search-relevance signal).
 function sClick(kind, rank, id) { const q = (el("q") && el("q").value || "").trim(); if (q) track("click", { q, kind, rank, id }); }
 function renderResults() {
-  const c = sData && sData.categories; if (!c) return;
+  if (!sCatOn(sSel)) { sSel = "all"; renderChips(); }
+  // The music half can be absent (a failed engine read) while the spoken-word half has results, so this
+  // no longer bails on a missing sData — it just renders an empty music pane.
+  const c = (sData && sData.categories) || {};
   const artistRow = (x, i) => `<div class="row" role="button" tabindex="0" onkeydown="${KDACT}" onclick="sClick('artists',${i},'${x.id}');openArtist('${x.id}')">${artHTML(x.thumbnail, ICON.artist, true).replace('class="art round"', 'class="art round" style="width:46px;height:46px;flex:none"')}<div class="text"><div class="title">${esc(x.name)}</div><div class="sub">Artist</div></div></div>`;
   const albumRow = (x, i) => `<div class="row" role="button" tabindex="0" onkeydown="${KDACT}" onclick="sClick('albums',${i},'${x.id}');openAlbum('${x.id}')"><img class="thumb" alt="" src="${sizedArt(x.thumbnail, 128) || ""}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${esc(x.title)}</div><div class="sub">${esc(x.artist || "")}${x.year ? " · " + x.year : ""}</div></div></div>`;
   const plRow = (x, i) => `<div class="row" role="button" tabindex="0" onkeydown="${KDACT}" onclick="sClick('playlists',${i},'${x.id}');openPlaylist('${x.id}')"><img class="thumb" alt="" src="${sizedArt(x.thumbnail, 128) || ""}" onerror="this.style.visibility='hidden'"><div class="text"><div class="title">${esc(x.title)}</div><div class="sub">${esc(x.artist || "Playlist")}</div></div></div>`;
@@ -2899,11 +3325,151 @@ function renderResults() {
     const fn = k === "artists" ? artistRow : k === "playlists" ? plRow : albumRow;
     return `<div class="rows">${arr.map(fn).join("")}</div>`;
   };
-  const acOnly = acapella() ? ["songs", "artists"] : null; // Acapella mode: albums/singles/playlists/videos don't map to the playlist — show only songs (in the set) + artists (with an Acapella song)
+  // Acapella mode: albums/singles/playlists/videos don't map to the playlist — show only songs (in the
+  // set) + artists (with an Acapella song). Spoken word and statuses stay: a shiur is speech, not the
+  // instrumental music Sefira and the Three Weeks set aside, which is why podEps/shRows skip gate() too.
+  const acOnly = acapella() ? ["songs", "artists", ...SX_CATS] : null;
+  let h = "";
   if (sSel === "all") {
-    let h = ""; for (const [k, l] of SCATS) { if (k === "all" || !(c[k] || []).length) continue; if (acOnly && !acOnly.includes(k)) continue; h += section(l, render(k)); }
-    el("sresults").innerHTML = h || emptyState("No results", acapella() ? "No Acapella songs match — turn off Acapella mode to search everything." : "Try another spelling — search is Hebrew-aware and fuzzy.");
-  } else el("sresults").innerHTML = (acOnly && !acOnly.includes(sSel)) ? emptyHint("Acapella mode shows songs &amp; artists only.") : (render(sSel) || emptyHint("No " + sSel + " match."));
+    for (const [k, l] of SCATS) { if (k === "all" || SX_CATS.includes(k) || !(c[k] || []).length) continue; if (acOnly && !acOnly.includes(k)) continue; h += section(l, render(k)); }
+  } else if (!SX_CATS.includes(sSel)) {
+    h = (acOnly && !acOnly.includes(sSel)) ? emptyHint("Acapella mode shows songs &amp; artists only.") : render(sSel);
+  }
+  sPanes(); el("sresMain").innerHTML = h;
+  sxRender(); // the spoken-word pane owns the "no results" line, because it is always the last to settle
+}
+
+/* ---- spoken word + statuses in global search ------------------------------------------------------
+   Worker budget: this half costs ZERO Worker requests per search in the steady state. Podcast SHOWS and
+   the whole shiur catalog (speakers / topics / series) are BAKED static assets — the same files the tabs
+   already load — so they're matched right here in the browser; shiur LECTURES search TorahAnytime
+   browser-direct (api.torahanytime.com is already in the CSP connect-src). Episode-level podcast search
+   is the one thing that would cost a Worker call per keystroke, so it isn't done: matching the show and
+   drilling into it is the free path, and the episode list is one click away. The status CREATOR row is
+   the only list no static asset carries — it's fetched at most once per session, and reused from Home
+   when Home already paid for it.
+   Every source has its own failure boundary: a dead TorahAnytime must never blank the search page.   */
+const SX_NONE = { shows: [], speakers: [], topics: [], series: [], lectures: [], creators: [] };
+let sxData = SX_NONE, sxSeq = 0, sxAbort = null;
+// Match key for the baked indexes: lowercase, drop Latin diacritics, and treat anything that isn't a
+// Latin/Hebrew letter or digit as a separator — so "R' Label Lam" is found by typing "label lam".
+const sxNorm = (s) => String(s || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9֐-׿]+/g, " ").trim();
+const sxTerms = (q) => sxNorm(q).split(" ").filter(Boolean);
+const sxHit = (terms, ...fields) => { const h = sxNorm(fields.join(" ")); return terms.every((t) => h.indexOf(t) >= 0); };
+// Best match first: an exact name beats a prefix beats a word-start beats a bare substring, and inside
+// each band the bigger catalog wins — every baked index carries an `n` that says which one that is.
+function sxRank(list, terms, nameOf) {
+  const q = terms.join(" ");
+  const score = (x) => { const n = sxNorm(nameOf(x)); return n === q ? 0 : n.indexOf(q) === 0 ? 1 : n.split(" ").some((w) => w.indexOf(terms[0]) === 0) ? 2 : 3; };
+  return list.slice().sort((a, b) => score(a) - score(b) || (+b.n || 0) - (+a.n || 0) || String(nameOf(a)).localeCompare(String(nameOf(b))));
+}
+// Browser-direct to TorahAnytime — no Worker request, and its own controller so the next keystroke
+// supersedes this one. NOT taGet(): that takes no signal. Only `lectures` is asked for — subject=series
+// 500s upstream, and speakers/topics/series come out of the baked snapshot for free.
+async function sxLectures(q, ac) {
+  const t = setTimeout(() => ac.abort(), 8000);
+  try {
+    const r = await fetch(TA_API + "/search/lectures?filter=" + encodeURIComponent(q) + "&limit=30&offset=0" + shLangQS(), { signal: ac.signal, credentials: "omit", cache: "no-store" });
+    const d = r.ok ? await r.json() : null;
+    return (d && Array.isArray(d.items) ? d.items : []).map((it) => it && it.data).filter(Boolean);
+  } catch { return []; } finally { clearTimeout(t); }
+}
+// stsCreators is the array stsOpen() and the viewer walk, so it gets the FULL row rather than the
+// matches — a circle opened from a search result still pages through to the next creator.
+let _sxSts = null;
+function sxCreators() {
+  if (stsCreators.length) return Promise.resolve(stsCreators); // Home already paid for this list
+  return _sxSts || (_sxSts = fetch("/statuses/creators").then((r) => (r.ok ? r.json() : null)).catch(() => null).then((d) => {
+    const list = ((d && d.creators) || []).filter((c) => c && c.id && Array.isArray(c.recent) && c.recent.length)
+      .map((c) => ({ id: c.id, name: c.name || "", avatar: c.avatar || null, recent: c.recent.slice(-20) }));
+    if (!list.length) _sxSts = null;                  // never memoise a failed (or empty) answer
+    else if (!stsCreators.length) stsCreators = list;
+    return list;
+  }));
+}
+// Nothing is even REQUESTED for a surface that is off — that check comes before the fetch, not after it.
+function sxLoad(q, seq) {
+  if (sxAbort) { sxAbort.abort(); sxAbort = null; }
+  const terms = sxTerms(q);
+  const wantP = sCatOn("podcasts"), wantS = sCatOn("shiurim"), wantT = sCatOn("statuses");
+  if (!terms.length || !(wantP || wantS || wantT)) { sxData = SX_NONE; return; }
+  sxData = null;                                      // pending: sxRender holds its empty state until this settles
+  const ac = wantS ? (sxAbort = new AbortController()) : null;
+  Promise.all([
+    wantP ? podShows() : [],                          // static asset, already cached after the first read
+    wantS ? shCat() : SH_EMPTY,                       // ditto
+    wantS ? sxLectures(q, ac) : [],
+    wantT ? sxCreators() : [],
+  ]).then(([shows, cat, lectures, creators]) => {
+    if (seq !== sxSeq) return;                        // a newer keystroke already owns the pane
+    sxData = {
+      shows: sxRank((shows || []).filter((s) => s && s.id && sxHit(terms, s.name, s.author)), terms, (s) => s.name || ""),
+      speakers: sxRank(((cat && cat.speakers) || []).filter((s) => sxHit(terms, shName(s))), terms, shName),
+      topics: sxTopics(cat, terms),
+      series: sxRank(((cat && cat.series) || []).filter((s) => sxHit(terms, s.title, s.speaker)), terms, (s) => s.title || ""),
+      lectures: lectures || [],
+      creators: (creators || []).filter((c) => sxHit(terms, c.name)),
+    };
+    sxPaint();
+  }).catch(() => { if (seq === sxSeq) { sxData = SX_NONE; sxPaint(); } });
+}
+function sxTopics(cat, terms) {
+  const out = [];
+  for (const t of (cat && cat.topics) || []) {        // the snapshot nests one level: a top-level topic carries its sub-topics
+    if (sxHit(terms, t.name)) out.push(t);
+    for (const s of t.sub || []) if (s.n > 0 && sxHit(terms, s.name)) out.push(s);
+  }
+  return sxRank(out, terms, (t) => t.name || "");
+}
+// Two panes inside #sresults. The music half is instant (the engine is local) and this half lands after
+// it, so they're painted separately — one combined re-render would replay the whole list's entrance
+// animation every time a late source arrived.
+function sPanes() { if (!el("sresMain")) el("sresults").innerHTML = `<div id="sresMain"></div><div id="sresX"></div>`; }
+function sxPaint() { sPanes(); sxRender(); }
+function sxRender() {
+  const box = el("sresX"); if (!box) return;
+  const d = sxData, body = { podcasts: sxPodHTML, shiurim: sxShHTML, statuses: sxStsHTML };
+  let h = "";
+  // Gated again HERE, not only before the query: a parent can switch a surface off between the fetch
+  // and the paint, and a result already in hand must never become the way back in.
+  if (d) {
+    if (sSel === "all") { for (const [k, l] of SCATS) if (SX_CATS.includes(k) && sCatOn(k)) h += section(l, body[k](d)); }
+    else if (SX_CATS.includes(sSel)) h = sCatOn(sSel) ? body[sSel](d) : "";
+  }
+  const main = el("sresMain"), bare = !(main && main.innerHTML);
+  // Nothing on screen at all and this half still in flight (a slow TorahAnytime): a skeleton, not a
+  // blank page — and never a premature "No results" that a landing source would have to take back.
+  if (!h && !d && bare) h = skRail(4);
+  else if (!h && d && bare) {                         // both halves settled and both empty
+    h = sSel === "all"
+      ? emptyState("No results", acapella() ? "No Acapella songs match — turn off Acapella mode to search everything." : "Try another spelling — search is Hebrew-aware and fuzzy.")
+      : emptyHint("No " + esc(sSel) + " match.");
+  }
+  box.innerHTML = h;
+}
+// In "All" a category is a taste, so its cards ride a sideways rail; picking its chip is a request to
+// browse, so the same cards wrap into the grid the browse-all pages use.
+const sxBox = (k, html, round) => html ? `<div class="${sSel === k ? "cardgrid" : "rail"}${round ? " round" : ""}">${html}</div>` : "";
+function sxPodHTML(d) {
+  // Kol isha and Kid Zone, per SHOW, out of the baked index — the same test the Podcasts tab applies.
+  const shows = d.shows.filter(podShowOK).slice(0, sSel === "podcasts" ? 60 : 12);
+  return sxBox("podcasts", shows.map(podShowCard).join(""));
+}
+function sxShHTML(d) {
+  const wide = sSel === "shiurim";
+  // Same pair the Shiurim tab's own speaker shelves apply: kol isha (an unknown speaker fails closed)
+  // plus the device's language preference.
+  const speakers = d.speakers.filter((s) => shSpeakerOK(s) && shSpeakerLangOK(s)).slice(0, wide ? 30 : 8);
+  const topics = d.topics.slice(0, wide ? 16 : 4);
+  const series = d.series.filter(shSeriesOK).slice(0, wide ? 30 : 8);
+  const tracks = shTracks(d.lectures).slice(0, wide ? 40 : 8);               // shTracks applies the per-record kol-isha test itself
+  return sxBox("shiurim", speakers.map(shSpeakerCard).join(""), true)
+    + sxBox("shiurim", topics.map(shTopicCard).join("") + series.map(shSeriesCard).join(""))
+    + (tracks.length ? shRows(tracks) : "");
+}
+function sxStsHTML(d) {
+  const cs = d.creators.slice(0, sSel === "statuses" ? 40 : 12);
+  return cs.length ? `<div class="sts-rail">${cs.map(stsCircle).join("")}</div>` : "";
 }
 // --- search history & saved searches ---
 const readSearchHist = () => { try { return JSON.parse(localStorage.getItem("zw_searches") || "[]"); } catch { return []; } };
@@ -3402,7 +3968,7 @@ function blockedByFilter(kind) { blockedPage("Access denied", `This ${kind} is b
 // network content filter to intercept, and playback works wherever the embed is allowed. Only whitelisted
 // corpus videoIds are ever loaded, and the iframe is off-screen with no controls, so no YouTube UI shows.
 // If the IFrame API itself can't load, we fall back to the server-proxied /stream path (the <audio> tag).
-const audio = el("audio");
+const audio = el("audio"), video = el("video");
 const PB = {
   mode: "yt", yt: null, ready: false, pending: null, nextStart: 0, vol: 1, muted: false, rate: 1,
   // SK-OFFLINE: `local` is a per-track override — when a downloaded copy exists (desktop only) the html5
@@ -3415,12 +3981,28 @@ const PB = {
   // what happens when the user goes back to a song. The <audio> element deliberately has no
   // crossorigin attribute, so cross-origin media needs no CORS grant from the media host.
   direct: false,
+  // `vid` is the THIRD per-track override, on the same terms: a filmed shiur the user chose to WATCH
+  // plays out of the <video> element instead of the <audio> one. Every html5 method below goes through
+  // med() rather than naming an element, so switching is one flag and nothing else in the player
+  // (position save/resume, the 300ms tick, Media Session, the desktop SMTC bridge) knows or cares.
+  vid: false,
+  med() { return this.vid ? video : audio; },
   useYt() { return this.mode === "yt" && !this.local && !this.direct; },
+  // Move between the two html5 elements. The one going off air is fully RELEASED, not paused: a
+  // <video> left holding a src keeps decoding (and keeps its audio) underneath whatever plays next.
+  setMedia(on) {
+    if (this.vid === !!on) return;
+    try { const off = this.med(); off.pause(); off.removeAttribute("src"); off.load(); } catch {}
+    this.vid = !!on;
+    const m = this.med(); m.volume = this.vol; m.muted = this.muted; m.playbackRate = this.rate; // carry the session's transport settings across the swap
+    paintWatchUI();
+  },
   // src: a caller-supplied media URL. When present it wins outright — neither engine is consulted.
-  load(id, startSec, src) {
+  // asVideo: play it through the <video> element (a filmed shiur), rather than <audio>.
+  load(id, startSec, src, asVideo) {
     startSec = startSec || this.nextStart || 0; this.nextStart = 0;
-    if (src) { this.direct = true; this.local = false; cancelSwap(); clearTimeout(_loadNudge); try { if (this.mode === "yt" && this.ready) this.yt.stopVideo(); } catch {} audio.src = src; if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); return; }
-    this.direct = false;
+    if (src) { this.direct = true; this.local = false; this.setMedia(!!asVideo); cancelSwap(); clearTimeout(_loadNudge); try { if (this.mode === "yt" && this.ready) this.yt.stopVideo(); } catch {} const m = this.med(); m.src = src; if (startSec) m.addEventListener("loadedmetadata", () => { m.currentTime = startSec; }, { once: true }); m.play().catch(() => {}); return; }
+    this.direct = false; this.setMedia(false); // anything that isn't a direct URL is audio — release the video element before it can play under the next track
     const localSrc = (typeof skLocalSrc === "function") ? skLocalSrc(id) : null; // SK-OFFLINE: prefer a downloaded copy
     if (localSrc) { this.local = true; cancelSwap(); clearTimeout(_loadNudge); try { if (this.mode === "yt" && this.ready) this.yt.stopVideo(); } catch {} audio.src = localSrc; if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); return; }
     this.local = false;
@@ -3428,16 +4010,16 @@ const PB = {
     // still hold a shiur's media URL, and a stale src there makes the element look "in use" to
     // fallbackToStream() (whose `!audio.src` guard would then skip re-loading the song).
     if (this.mode === "yt") { try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {} const a = startSec ? { videoId: id, startSeconds: startSec } : id; if (this.ready) { this.yt.loadVideoById(a); nudgePlay(); } else this.pending = a; } else { audio.src = "/stream?v=" + encodeURIComponent(id); if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); } },
-  play() { this.useYt() ? this.ready && this.yt.playVideo() : audio.play().catch(() => {}); cueNext(); }, // re-arm the gapless cue (cleared if a pause/seek cancelled a handoff)
-  pause() { clearTimeout(_loadNudge); if (xf) finishCrossfade(); if (gapless && gapless.phase === "start") cancelSwap(); this.useYt() ? this.ready && this.yt.pauseVideo() : audio.pause(); }, // a primed standby survives a pause; a firing one is cancelled; a fade is finished (snap to the new track) then paused
-  stop() { clearTimeout(_loadNudge); cancelSwap(); this.pending = null; if (this.useYt()) { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
-  paused() { return this.useYt() ? (!this.ready || this.yt.getPlayerState() !== 1) : audio.paused; }, // methods exist only after onReady
-  seek(sec) { if (xf) abortCrossfade(); if (gapless && gapless.phase === "start") cancelSwap(); this.useYt() ? this.ready && this.yt.seekTo(sec, true) : (audio.currentTime = sec); cueNext(); },
-  cur() { return this.useYt() ? (this.ready ? this.yt.getCurrentTime() || 0 : 0) : audio.currentTime; },
-  dur() { return this.useYt() ? (this.ready ? this.yt.getDuration() || 0 : 0) : (audio.duration || 0); },
-  setVol(v) { this.vol = v; this.muted = false; if (this.useYt()) { if (this.ready) { this.yt.unMute(); this.yt.setVolume(Math.round(v * 100)); } } else { audio.muted = false; audio.volume = v; } },
-  setMuted(m) { this.muted = m; if (this.useYt()) { if (this.ready) m ? this.yt.mute() : this.yt.unMute(); } else audio.muted = m; },
-  setRate(r) { this.rate = r; if (this.useYt()) { if (this.ready) this.yt.setPlaybackRate(r); } else audio.playbackRate = r; },
+  play() { this.useYt() ? this.ready && this.yt.playVideo() : this.med().play().catch(() => {}); cueNext(); }, // re-arm the gapless cue (cleared if a pause/seek cancelled a handoff)
+  pause() { clearTimeout(_loadNudge); if (xf) finishCrossfade(); if (gapless && gapless.phase === "start") cancelSwap(); this.useYt() ? this.ready && this.yt.pauseVideo() : this.med().pause(); }, // a primed standby survives a pause; a firing one is cancelled; a fade is finished (snap to the new track) then paused
+  stop() { clearTimeout(_loadNudge); cancelSwap(); this.pending = null; if (this.useYt()) { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { const m = this.med(); m.pause(); m.removeAttribute("src"); m.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
+  paused() { return this.useYt() ? (!this.ready || this.yt.getPlayerState() !== 1) : this.med().paused; }, // methods exist only after onReady
+  seek(sec) { if (xf) abortCrossfade(); if (gapless && gapless.phase === "start") cancelSwap(); this.useYt() ? this.ready && this.yt.seekTo(sec, true) : (this.med().currentTime = sec); cueNext(); },
+  cur() { return this.useYt() ? (this.ready ? this.yt.getCurrentTime() || 0 : 0) : this.med().currentTime; },
+  dur() { return this.useYt() ? (this.ready ? this.yt.getDuration() || 0 : 0) : (this.med().duration || 0); },
+  setVol(v) { this.vol = v; this.muted = false; if (this.useYt()) { if (this.ready) { this.yt.unMute(); this.yt.setVolume(Math.round(v * 100)); } } else { const m = this.med(); m.muted = false; m.volume = v; } },
+  setMuted(m) { this.muted = m; if (this.useYt()) { if (this.ready) m ? this.yt.mute() : this.yt.unMute(); } else this.med().muted = m; },
+  setRate(r) { this.rate = r; if (this.useYt()) { if (this.ready) this.yt.setPlaybackRate(r); } else this.med().playbackRate = r; },
 };
 // loadVideoById occasionally lands CUED/paused instead of autoplaying (a skip that "pauses").
 // Verify playback engaged shortly after every load and nudge it; an intentional pause/stop
@@ -3674,7 +4256,11 @@ function playIndex(i, dir) {
   state.qi = i; const t = state.queue[i];
   cancelSwap(); // a manual jump always wins over an in-flight gapless handoff
   trackStarted(t);
-  PB.load(t.videoId, 0, t.src); setPlayIcons(); // t.src: a non-YouTube source (shiurim) plays straight off the <audio> element
+  // t.src: a non-YouTube source (shiurim) plays straight off the html5 element. t.watch is the
+  // per-track "the user asked to WATCH this one" flag — a filmed shiur then plays its mp4 through
+  // <video> instead (shToggleWatch flips it live).
+  const watch = !!(t.watch && t.vsrc);
+  PB.load(t.videoId, 0, watch ? t.vsrc : t.src, watch); setPlayIcons();
   radioPrefetch(); // on the queue's last track: pull the next radio page now so the advance is gapless
   cueNext();
 }
@@ -3701,7 +4287,35 @@ function trackStarted(t) {
   pushURL(trackPath(t), true); // shareable per-track URL reflecting what's playing (no history spam)
   playBegin(t); // start a play-duration session — the `play` event fires on end/skip with real listen time
   if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: t.title || "", artist: t.artist || "", album: "SK Music", artwork: art ? [{ src: art, sizes: "480x360", type: "image/jpeg" }] : [] });
+  paintWatchUI();       // show/hide the Watch toggle and swap the cover for the video frame
   skNowPlaying(t, art); // desktop app: drive the native OS media session (Windows SMTC / Linux MPRIS) with real SK Music metadata
+}
+// The Watch/Listen toggle and the video frame. Defined here (not with the shiurim code) because
+// trackStarted and PB.setMedia both call it for EVERY track — a song has to be able to turn it off.
+function paintWatchUI() {
+  const t = state.queue[state.qi], can = !!(t && t.vsrc && podcastVideosOn());
+  const b = el("npWatch");
+  if (b) {
+    b.style.display = can ? "" : "none";
+    b.classList.toggle("on", can && !!PB.vid);
+    const lbl = PB.vid ? "Listen to the audio" : "Watch the video";
+    b.title = lbl; b.setAttribute("aria-label", lbl); b.setAttribute("aria-pressed", String(can && !!PB.vid));
+  }
+  const box = el("npArtBox"); if (box) box.classList.toggle("watching", !!PB.vid);
+}
+// Flip the CURRENT track between its video and its audio, in place and at the same position — the
+// resume point, the queue entry and the play-duration session all survive, because only the media
+// element changes. Video-only lectures can't flip back (there is no audio to flip to).
+function shToggleWatch() {
+  const t = state.queue[state.qi]; if (!t || !t.vsrc) return;
+  if (!podcastVideosOn()) { showToast("<b>Video shiurim are turned off</b> for this account — a parent can enable them in Parental Controls.", 4600); return; }
+  const to = !t.watch;
+  if (!to && !t.src) { showToast("This shiur is video only.", 2600); return; }
+  const at = PB.cur() || 0;
+  t.watch = to;
+  PB.load(t.videoId, at, to ? t.vsrc : t.src, to);
+  paintWatchUI(); setPlayIcons();
+  showToast(to ? "Watching the video." : "Back to audio only.", 1800);
 }
 // Move the "now playing" indicator (EQ bars + highlight) to the current song across any visible list,
 // without re-rendering — the row keeps its rank number when it stops playing.
@@ -3749,7 +4363,7 @@ function saveLastPlay(c) { // called from tick() ~every 5 s while something play
   _lastPlaySavedAt = nowT;
   // A shiur needs its source URL and flags carried across the reload too — the saved shape is replayed
   // verbatim by resumeOrRadio(), and without `src` PB.load() would fall through to the YouTube engine.
-  try { localStorage.setItem("zw_lastPlay", JSON.stringify({ t: { videoId: t.videoId, title: t.title, artist: t.artist, isVideo: t.isVideo, durationSec: t.durationSec, explicit: t.explicit, ...(t.kind ? { kind: t.kind, src: t.src, shId: t.shId, thumbnail: t.thumbnail, shFemale: t.shFemale } : {}) }, pos: Math.floor(c), at: nowT })); } catch {}
+  try { localStorage.setItem("zw_lastPlay", JSON.stringify({ t: { videoId: t.videoId, title: t.title, artist: t.artist, isVideo: t.isVideo, durationSec: t.durationSec, explicit: t.explicit, ...(t.kind ? { kind: t.kind, src: t.src, shId: t.shId, thumbnail: t.thumbnail, shFemale: t.shFemale, vsrc: t.vsrc || "", watch: !!t.watch } : {}) }, pos: Math.floor(c), at: nowT })); } catch {}
 }
 function next() { if (state.qi < state.queue.length - 1) playIndex(state.qi + 1, 1); else radioContinue(); }
 function prev() { if (PB.cur() > 3 || state.qi <= 0) PB.seek(0); else playIndex(state.qi - 1, -1); }
@@ -4298,11 +4912,16 @@ function onPlaybackError() {
   showToast(`Couldn't play “${esc(t.title || "track")}” — skipping…`);
   if (state.qi < state.queue.length - 1) setTimeout(next, 500);
 }
-// html5 fallback wiring — only fires when PB.mode === "html5"
-audio.addEventListener("play", () => { streamFails = 0; startTick(); audio.playbackRate = PB.rate; setPlayIcons(); playResume(); });
-audio.addEventListener("pause", () => { stopTick(); setPlayIcons(); playAccrue(); });
-audio.addEventListener("ended", () => { stopTick(); playFinalize(); repeatOrNext(); });
-audio.addEventListener("error", () => { if (PB.local) { const t = state.queue[state.qi]; if (t && t.videoId) skDL.bad.add(t.videoId); PB.local = false; onPlaybackError(); } else if (PB.direct || PB.mode === "html5") onPlaybackError(); }); // SK-OFFLINE: a bad local file → blacklist it for the session and skip. PB.direct: a dead upstream media URL must surface as a playback error, not silence
+// html5 wiring — the /stream fallback, downloaded files, and direct sources (shiurim). Both elements
+// are wired identically; which one is on air is PB.med()'s business. Events from the OFF-AIR element
+// are ignored outright: releasing it (removeAttribute + load) is a normal part of every swap, and in
+// some browsers that alone raises `error` — which would otherwise skip the track that just started.
+[audio, video].forEach((m) => {
+  m.addEventListener("play", () => { if (m !== PB.med()) return; streamFails = 0; startTick(); m.playbackRate = PB.rate; setPlayIcons(); playResume(); });
+  m.addEventListener("pause", () => { if (m !== PB.med()) return; stopTick(); setPlayIcons(); playAccrue(); });
+  m.addEventListener("ended", () => { if (m !== PB.med()) return; stopTick(); playFinalize(); repeatOrNext(); });
+  m.addEventListener("error", () => { if (m !== PB.med() || !m.getAttribute("src")) return; if (PB.local) { const t = state.queue[state.qi]; if (t && t.videoId) skDL.bad.add(t.videoId); PB.local = false; onPlaybackError(); } else if (PB.direct || PB.mode === "html5") onPlaybackError(); }); // SK-OFFLINE: a bad local file → blacklist it for the session and skip. PB.direct: a dead upstream media URL must surface as a playback error, not silence
+});
 ["nbSeek", "npSeek"].forEach((id) => {
   const s = el(id);
   // CSS already makes the bar non-interactive on a station; this is the belt to that braces, since
@@ -4643,7 +5262,8 @@ function skResumeCheck() {
     const t = state.queue[state.qi];
     if (!t || PB.paused() || Math.abs(PB.cur() - at) > 0.5) return; // advanced (or user paused) → healthy
     console.warn("[sk] playback wedged after resume — reloading at", Math.round(at));
-    PB.nextStart = at; cancelSwap(); PB.load(t.videoId, 0, t.src);
+    const w = !!(t.watch && t.vsrc);
+    PB.nextStart = at; cancelSwap(); PB.load(t.videoId, 0, w ? t.vsrc : t.src, w);
   }, 2500);
 }
 /* ======================= STATUSES — JewishStatus story circles =======================
@@ -4663,7 +5283,14 @@ const STS_HOLD_MS = 7000;   // an image/text status with no stated duration — 
 const STS_STALL_MS = 12000; // a video that gains no ground for this long is broken, not buffering
 const STS_TICK_MS = 80;
 const STS_CIRC = 2 * Math.PI * 34; // ring circumference, for the segment dash maths (r=34 in a 72px box)
-let stsCreators = [];       // the row as rendered — the viewer walks this array, so order matters
+let stsCreators = [];       // the Statuses row as rendered — the viewer walks this array, so order matters
+// The SAME viewer also drives the Shiurim tab's Shorts row: a TorahAnytime clip is a short video with
+// a speaker attached, which is exactly the shape a status has. A "creator" there is a speaker and the
+// "posts" are their clips, carried on the row itself so stsLoad() has nothing to fetch. Everything
+// else — the cube turn, the slide, hold-to-pause, seen-state, reduced motion — is shared, not copied.
+let stsShorts = [];
+let stsRow = null;          // the row the OPEN viewer is walking; null when closed (→ Statuses)
+const stsWalk = () => stsRow || stsCreators;
 let stsV = null;            // live viewer state; null whenever the viewer is closed
 let _stsSeen = null;
 
@@ -4686,7 +5313,10 @@ function stsMarkSeen(id) {
 // "Caught up" is about the NEWEST status only — that's what decides whether the circle still calls for
 // attention. recent is oldest-first upstream, so the last id is the newest one.
 const stsCaughtUp = (c) => !!c.recent.length && stsSeenSet().has(c.recent[c.recent.length - 1]);
-const stsMediaURL = (dir, path) => "/statuses/media?d=" + dir + "&p=" + encodeURIComponent(path);
+// Statuses media is a path inside the Worker's R2 proxy. The Shorts row reuses this same viewer with
+// TorahAnytime media, which is already an absolute URL on a media-src-allowed host — pass those
+// through untouched rather than trying to proxy someone else's CDN through ours.
+const stsMediaURL = (dir, path) => (/^https?:\/\//.test(path || "") ? path : "/statuses/media?d=" + dir + "&p=" + encodeURIComponent(path));
 const stsWhen = (iso) => {
   const t = Date.parse(iso || "");
   if (!t) return "";
@@ -4710,10 +5340,14 @@ function stsRing(c) {
 
 // The initial sits UNDER the avatar rather than instead of it, so a dead CDN object degrades to a
 // letter on one img error instead of leaving a hole in the ring.
-const stsCircle = (c) => `<div class="sts-c" role="button" tabindex="0" aria-label="Statuses from ${esc(c.name || "this creator")}" onkeydown="${KDACT}" onclick="stsOpen('${safeId(c.id)}')">
-  <div class="sts-ring">${stsRing(c)}<div class="ph" aria-hidden="true">${esc((c.name || "?").trim().charAt(0).toUpperCase())}</div>${c.avatar ? `<img src="${stsMediaURL("avatars", c.avatar)}" alt="" loading="lazy" onerror="this.remove()">` : ""}</div>
+// Two thin wrappers rather than one optional argument: these are used as `.map(fn)` callbacks, which
+// would hand the array INDEX to a second parameter.
+const stsCircleHTML = (c, row, lbl) => `<div class="sts-c" data-c="${safeId(c.id)}" role="button" tabindex="0" aria-label="${lbl} from ${esc(c.name || "this speaker")}" onkeydown="${KDACT}" onclick="stsOpen('${safeId(c.id)}'${row ? `,'${row}'` : ""})">
+  <div class="sts-ring">${stsRing(c)}<div class="ph" aria-hidden="true">${esc((c.name || "?").trim().charAt(0).toUpperCase())}</div>${c.avatar ? `<img src="${esc(stsMediaURL("avatars", c.avatar))}" alt="" loading="lazy" onerror="this.remove()">` : ""}</div>
   <div class="sts-nm">${esc(c.name || "")}</div>
 </div>`;
+const stsCircle = (c) => stsCircleHTML(c, "", "Statuses");
+const stsShortCircle = (c) => stsCircleHTML(c, "shorts", "Short shiurim");
 
 async function statusesSection() {
   // Hidden entirely — not disabled — when off, in Kid Zone, or when videos are blocked.
@@ -4781,7 +5415,12 @@ function stsFlyEnd() {
 // on screen (row scrolled away, or Home isn't the current page) — the caller falls back to a centred pop.
 function stsAnchor(ci) {
   const scene = el("stsView").querySelector(".sts-scene");
-  const c = document.querySelectorAll(".sts-rail .sts-c")[ci];
+  // By creator id, not row position: the same creator can have a circle on Home AND in search results,
+  // and stsCreators holds the FULL row while a search rail shows only the matches — an index would
+  // anchor to the wrong face. A hidden view measures 0x0, so the visible circle is the one picked.
+  const id = (stsWalk()[ci] || {}).id;
+  const all = id ? [...document.querySelectorAll('.sts-rail .sts-c[data-c="' + CSS.escape(id) + '"]')] : [];
+  const c = all.find((n) => n.getBoundingClientRect().width);
   const ring = c && c.querySelector(".sts-ring");
   if (!scene || !ring) return "";
   const a = ring.getBoundingClientRect(), b = scene.getBoundingClientRect();
@@ -4854,7 +5493,7 @@ function stsSlide(p, dir) {
   const v = stsV;
   stsSettle();
   const media = v.card.querySelector(".sts-media"), old = v.slide;
-  if (!media) return stsFill(stsCreators[v.ci], p);
+  if (!media) return stsFill(stsWalk()[v.ci], p);
   const slide = document.createElement("div");
   slide.className = "sts-slide";
   slide.innerHTML = stsSlideInner(p);
@@ -4913,9 +5552,11 @@ const stsCardInner = (c, p, v) => `<div class="sts-media"><div class="sts-slide"
       </div>
     </div>`;
 
-function stsOpen(id) {
-  const ci = stsCreators.findIndex((c) => c.id === id);
-  if (ci < 0) return;
+// row: "shorts" opens the Shiurim tab's clip row; anything else (the default) opens Statuses.
+function stsOpen(id, row) {
+  stsRow = row === "shorts" ? stsShorts : null;
+  const ci = stsWalk().findIndex((c) => c.id === id);
+  if (ci < 0) { stsRow = null; return; }
   stsFlyEnd(); clearTimeout(stsWaitT); // re-tapping during the close flight: land it before rebuilding
   // Two audio streams at once is nobody's idea of a feature — but only ever resume what we stopped.
   const wasPlaying = !!state.queue.length && !PB.paused();
@@ -4934,9 +5575,12 @@ function stsOpen(id) {
 // The story is the creator's RECENT set — the same ids the ring drew — so ring, progress bars and
 // playback can never disagree. Posts arrive oldest-first, which is the order they play in.
 async function stsLoad(ci) {
-  const c = stsCreators[ci];
+  const c = stsWalk()[ci];
   if (!c) return stsClose();
-  const d = await fetch("/statuses/posts?creator=" + encodeURIComponent(c.id)).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  // A row that carries its own posts (Shorts — the clips are already on the device) skips the fetch
+  // entirely; nothing else about the viewer changes.
+  const d = Array.isArray(c.posts) ? { posts: c.posts }
+    : await fetch("/statuses/posts?creator=" + encodeURIComponent(c.id)).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   if (!stsV || stsV.ci !== ci) return; // the user moved on while this was in flight
   const all = ((d && d.posts) || []).filter((p) => p && p.id);
   const recent = new Set(c.recent);
@@ -4956,7 +5600,7 @@ async function stsLoad(ci) {
 function stsRender(dir) {
   const v = stsV;
   if (!v || !v.posts || !v.card) return;
-  const c = stsCreators[v.ci], p = v.posts[v.pi];
+  const c = stsWalk()[v.ci], p = v.posts[v.pi];
   // A Home reload can rebuild stsCreators under an open viewer (a shorter row leaves ci dangling), so
   // never render off a creator that no longer exists.
   if (!c) return stsClose();
@@ -5020,7 +5664,7 @@ function stsSkipCreator(dir) {
   const v = stsV;
   if (!v) return;
   const ci = v.ci + dir;
-  if (ci < 0 || ci >= stsCreators.length) return stsClose();
+  if (ci < 0 || ci >= stsWalk().length) return stsClose();
   clearInterval(v.timer); clearTimeout(stsWaitT);
   v.ci = ci; v.pi = 0; v.posts = null; v.held = false; v.turn = dir;
   // Hold the outgoing creator on screen for a beat so stsRender can turn straight onto real content.
@@ -5037,17 +5681,19 @@ function stsClose() {
   stsFlyEnd();
   const vd = stsVideo(); if (vd) vd.pause(); // audio stops now, not when the flight lands
   stsSettle();
-  const ci = v.ci;
+  const ci = v.ci, row = stsRow;
   stsV = null;
   const view = el("stsView");
   view.setAttribute("aria-hidden", "true");
   document.body.classList.remove("sts-open");
   if (v.wasPlaying) PB.play();
-  // Repaint in place so the rings we just greyed out are right without reloading Home — and so the
-  // viewer shrinks back into a circle that is already up to date.
-  const rail = document.querySelector(".sts-rail");
-  if (rail) rail.innerHTML = stsCreators.map(stsCircle).join("");
+  // Repaint in place so the rings we just greyed out are right without reloading the page — and so
+  // the viewer shrinks back into a circle that is already up to date. Repaint the row we were
+  // walking, and only that one: the two rails can be on screen at the same time.
+  const rail = document.querySelector(row === stsShorts ? ".sts-rail.shorts" : ".sts-rail:not(.shorts)");
+  if (rail) rail.innerHTML = stsWalk().map(row === stsShorts ? stsShortCircle : stsCircle).join("");
   stsFly(ci, true); // clears .on and the DOM (and with it the <video>) when it lands
+  stsRow = null;    // AFTER stsAnchor's last read (stsFly measures the circle it flies back into)
 }
 
 // Press-and-hold freezes the story — the universal stories gesture. Delegated once here rather than

@@ -8,6 +8,7 @@
 // Hide the extra console window on Windows in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod connectivity;
 mod deeplink;
 mod download;
 #[cfg(target_os = "windows")]
@@ -37,7 +38,7 @@ fn forward_control_when_ready(app: tauri::AppHandle, action: String) {
                try{{window.dispatchEvent(new CustomEvent('sk-media-control',{{detail:{{action:a}}}}));}}catch(e){{}}\
              }})({a});"
         );
-        // ~20s budget: covers index.html's connectivity probe (up to 9s) plus the remote SPA booting.
+        // ~20s budget: covers index.html's handoff (bounded by connectivity::WAIT) plus the remote SPA booting.
         for _ in 0..40 {
             std::thread::sleep(std::time::Duration::from_millis(500));
             if let Some(win) = app.get_webview_window("main") {
@@ -48,6 +49,11 @@ fn forward_control_when_ready(app: tauri::AppHandle, action: String) {
 }
 
 fn main() {
+    // FIRST: start the connectivity probe, so it overlaps WebView2 environment creation (0.5–4s)
+    // instead of running after it. index.html asks for the verdict on its first script tick and
+    // hands off immediately; see src/connectivity.rs.
+    connectivity::start();
+
     // Keep playing while hidden to the tray. WebView2/Chromium otherwise throttles background timers and
     // suspends occluded/hidden renderers, which freezes the YouTube-IFrame audio. These flags disable that
     // — they MUST be set before the webview is created.
@@ -105,6 +111,8 @@ fn main() {
             download::serve_protocol(ctx.app_handle(), &req)
         })
         .invoke_handler(tauri::generate_handler![
+            connectivity::origin_status,
+            connectivity::origin_recheck,
             media::now_playing,
             media::set_playback_state,
             updater::updater_check,

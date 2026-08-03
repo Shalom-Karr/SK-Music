@@ -1,5 +1,58 @@
 # Changelog
 
+## 1.5.0 — 2026-08-02 (web)
+
+**Why the bump:** the Shiurim surface grew a real home page, video playback and a language filter; the
+Podcasts tab was rebuilt to match; search now reaches every surface; and the desktop shell stopped
+waiting on a network probe before it would paint. Web-only — the desktop version is unchanged, so this
+does not ship a new installer.
+
+**Shiurim**
+- The tab now reads like Home: hero, language chips, and self-hiding sections — Resume listening,
+  Trending, Shorts, Trending speakers, For You, Speakers, Browse by topic, Newest, Daily & ongoing,
+  Series. The whole page costs **three** TorahAnytime calls and **zero** Worker requests.
+- **Watch a shiur as video.** Lectures that were filmed now offer a Watch toggle. Switching between
+  audio and video keeps your position, and Media Session / taskbar controls follow whichever is playing.
+- **Filter by language.** Twelve languages, defaulting to **All** — turning it on can only narrow what
+  you already saw. A lecture or speaker whose language we don't know stays visible: "unknown" is not
+  "wrong language," and hiding those would quietly empty the older feeds.
+- **Browse everything.** `/shiurim/speakers`, `/shiurim/topics` and `/shiurim/series` list the full
+  catalog with instant search, all matched client-side against baked data.
+- **The speaker directory more than doubled** — 1,341 speakers, up from 577, now including guest
+  speakers. Browse shows non-guests plus guests with a real body of work; search reaches all 1,341.
+  The full list is a separate lazily-fetched asset, so the Shiurim page doesn't pay for it up front.
+- **Shorts** (TorahAnytime clips) play through the existing Statuses viewer, grouped by speaker.
+
+**Podcasts**
+- Rebuilt with the same shelf treatment: Continue listening, Quick Picks, Podcasters, Because you
+  listened to…, Under 20 minutes, Your shows, New episodes, Most active shows, Shows to discover, and
+  All shows. Every section hides itself when empty. Still **one** request for the whole tab.
+- Episode rows gained the music player's anatomy — playing state, duration column, hover play, and a
+  resume bar.
+- A new local history means Continue listening survives an episode falling out of the live feed. It is
+  re-checked against your filters on every read and **fails closed**: a show that is now blocked never
+  comes back through history.
+
+**Search**
+- Search now covers **podcasts, shiurim and statuses** alongside music, with chips to narrow to one.
+  Everything but shiur lectures is matched client-side against baked data, so a search still costs
+  **zero** Worker requests. A surface that is switched off is never queried at all.
+- Podcast *episodes* are deliberately not searched — that is the one thing that would cost a request
+  per keystroke. Matching the show and letting you open it is one click and free.
+
+**Desktop**
+- **Faster launch.** The connectivity check used to run *after* the window had already booted, adding a
+  full round trip to every start. It now runs in Rust alongside WebView2 startup and finishes in
+  20–60 ms instead of 250–370 ms, with a 3-second ceiling instead of 9. Shell-to-interactive dropped
+  about 30%.
+- The app shell is now served from cache first and refreshed in the background, so a launch no longer
+  re-downloads a page it already had. A new build still takes over automatically.
+
+**Fixed**
+- Playing a shiur or podcast episode could route through media hosts the Content-Security-Policy did
+  not allow, which silently killed playback for a handful of older lectures. The allowed list now
+  matches what the code actually contacts.
+
 ## 1.4.0 — 2026-08-02 (web + desktop)
 
 **Why the bump:** two new listening surfaces, a filter leak closed, and four bugs found in the podcasts
