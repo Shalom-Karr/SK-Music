@@ -4,6 +4,18 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>SK Music</title>
+<script>
+  // Ask for the connectivity verdict during HEAD parse — before the stylesheet, the DOM and the logo
+  // cost anything — so the answer is in flight while the rest of this page is built. Rust has been
+  // probing the origin since process start (src/connectivity.rs) concurrently with WebView2 startup,
+  // so this is one IPC round trip to a verdict that has almost always already landed. Guarded on the
+  // main window: the asset protocol falls back to this page for unknown paths, and only "main" may
+  // ever hand off to the remote app (see the body script).
+  try {
+    var _t = window.__TAURI__;
+    if (_t && _t.core && _t.window.getCurrentWindow().label === "main") window.__skProbe = _t.core.invoke("origin_status");
+  } catch (e) {}
+</script>
 <style>
   :root { color-scheme: dark; --bg:#0e0a0b; --g1:#17100f; --g2:#0b0809; --text:#f6ece8; --muted:#b09a93; --primary:#ff5d6b; --primary-2:#ff8189; --line:rgba(255,240,235,.10); }
   * { box-sizing: border-box; }
@@ -42,9 +54,15 @@
     <div class="retry"><button id="retry" type="button">Try again</button></div>
   </div>
 <script>
-  // Thin native shell: probe that the SK Music origin is reachable (cross-origin <img> load fires
-  // onload if reachable, onerror if a network filter blocks it), then hand the same webview over to
+  // Thin native shell: confirm the SK Music origin is reachable, then hand the same webview over to
   // the live app. If it's blocked, show a retry instead of a raw WebView2 error page.
+  //
+  // The check itself is Rust's (src/connectivity.rs) — it has been running since process start, in
+  // parallel with WebView2 coming up, so `origin_status` normally resolves within a couple of ms and
+  // this page never paints. The in-page <img> probe below is only the fallback for when the IPC
+  // bridge isn't there (a stray non-Tauri load); its ceiling is 3s, not the old 9s, because nothing
+  // about a reachable Cloudflare edge takes longer than that.
+  //
   // Guard: ONLY the main window may hand off to the remote app. The asset protocol falls back to
   // this page for unknown paths, so a mis-resolved mini/updater window would otherwise silently
   // become a shrunken copy of the full app.
@@ -57,6 +75,7 @@
   } catch (e) { if (e && e.message === "halt bootstrap") throw e; }
   var SITE = "https://skmusic.shalomkarr.workers.dev";
   var statusEl = document.getElementById("status");
+  var invoke = (window.__TAURI__ && window.__TAURI__.core) ? window.__TAURI__.core.invoke : null;
   var done = false, timer = null;
   function enter() { if (done) return; done = true; location.replace(SITE); }
   function fail() {
@@ -64,19 +83,30 @@
     document.body.classList.add("fail");
     statusEl.textContent = "Couldn't reach SK Music. Check your internet or network filter, then try again.";
   }
-  function attempt() {
+  function settle(reachable) { reachable ? enter() : fail(); }
+  // Fallback path: cross-origin <img> load — onload if reachable, onerror if a filter blocks it.
+  function imgProbe() {
     if (done) return;
     clearTimeout(timer);
-    document.body.classList.remove("fail");
-    statusEl.textContent = "Connecting…";
     var img = new Image();
-    timer = setTimeout(fail, 9000);
+    timer = setTimeout(fail, 3000);
     img.onload = function () { clearTimeout(timer); enter(); };
     img.onerror = function () { clearTimeout(timer); fail(); };
     img.src = SITE + "/favicon.ico?_=" + Date.now();
   }
-  document.getElementById("retry").addEventListener("click", attempt);
-  attempt();
+  function attempt(promise) {
+    if (done) return;
+    clearTimeout(timer);
+    document.body.classList.remove("fail");
+    statusEl.textContent = "Connecting…";
+    if (promise) promise.then(settle, imgProbe);
+    else imgProbe();
+  }
+  // The retry button re-probes natively (origin_recheck) rather than reusing the boot verdict.
+  document.getElementById("retry").addEventListener("click", function () {
+    attempt(invoke ? invoke("origin_recheck") : null);
+  });
+  attempt(window.__skProbe || (invoke ? invoke("origin_status") : null));
 </script>
 </body>
 </html>
