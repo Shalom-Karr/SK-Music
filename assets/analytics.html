@@ -325,6 +325,21 @@ async function loadSummary() {
   const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'UTC';
   const S = await sbRpc('dashboard_summary', { p_hours: RANGE_H, p_tz: tz, p_top: 30 });
   if (!S || typeof S !== 'object' || S.events == null || !Array.isArray(S.by_song) || !Array.isArray(S.by_artist)) throw new Error('Unexpected dashboard_summary shape');
+  // dashboard_summary grew the signed-in/anonymous split after the rest of it. Against an older
+  // deployed copy those keys are absent, which is what left the card reading "0 accounts · NaN%".
+  // identity_split() answers the same question and is already deployed — it only speaks in whole
+  // days, so round the window UP rather than under-report, and label it as approximate below.
+  if (S.users_account == null) {
+    try {
+      const days = RANGE_H > 0 ? Math.max(1, Math.ceil(RANGE_H / 24)) : 3650;
+      const idn = await sbRpc('identity_split', { days });
+      if (idn && typeof idn === 'object') {
+        S.users_account = idn.users_account; S.users_anon = idn.users_anon;
+        S.events_account = idn.events_account; S.events_anon = idn.events_anon;
+        S.identity_days = idn.days;   // set only on this path → the card knows to say "approx"
+      }
+    } catch (e) { console.warn('[analytics] identity_split unavailable:', e && e.message); }
+  }
   // RPC only returns aggregates — pull a small raw slice for the Recent events table.
   const range = RANGE_H > 0 ? '&created_at=gte.' + new Date(Date.now() - RANGE_H * 3600e3).toISOString() : '';
   const rawRows = await sbSelect(`select=${COLS}&order=created_at.desc&limit=80${range}`) || [];
@@ -534,6 +549,10 @@ function modelFromSummary(S) {
     events: +S.events || 0, eventsToday: +S.events_today || 0,
     visitors, visitorsReturning: returning, returningPct: visitors ? returning / visitors * 100 : 0,
     sessions: +S.sessions || 0, plays: +S.plays || 0, likes: +S.likes || 0, playsTotal: +S.plays_total || 0,
+    // Omitting these is what produced the NaN — contentHTML divides by them.
+    acctUsers: +S.users_account || 0, anonUsers: +S.users_anon || 0,
+    acctEvents: +S.events_account || 0, anonEvents: +S.events_anon || 0,
+    identityDays: +S.identity_days || 0, // >0 means the split came from the day-granular fallback
     avg: avgMin < 1 ? (avgMin * 60).toFixed(0) + 's' : avgMin.toFixed(1) + 'm',
     bouncePct: +S.bounce_pct || 0, eventsPerSession: (+S.sessions) ? (+S.events_per_session).toFixed(1) : '0',
     visitorsIp: +S.visitors_ip || 0,
@@ -558,17 +577,26 @@ function paint(m, tableRows) {
 }
 
 function contentHTML(m) {
-  const totalPeople = m.acctUsers + m.anonUsers;
-  const acctPct = totalPeople ? (m.acctUsers / totalPeople) * 100 : 0;
-  const acctEvPct = m.events ? (m.acctEvents / m.events) * 100 : 0;
+  // pct() rather than bare division: any missing field used to render literally as "NaN%" on the
+  // dashboard. A stat we can't compute should read as nothing, never as a broken number.
+  const fin = (n) => (Number.isFinite(+n) ? +n : 0);
+  const pct = (a, b) => { const t = fin(b); return t > 0 ? (fin(a) / t) * 100 : null; };
+  const acctUsers = fin(m.acctUsers), anonUsers = fin(m.anonUsers);
+  const acctPct = pct(acctUsers, acctUsers + anonUsers);
+  // Prefer the account+anon total; fall back to the overall event count when the split is absent.
+  const evTotal = (fin(m.acctEvents) + fin(m.anonEvents)) || fin(m.events);
+  const acctEvPct = pct(m.acctEvents, evTotal);
+  const known = acctUsers + anonUsers > 0;
+  const evPart = acctEvPct === null ? '' : ` — ${acctEvPct.toFixed(0)}% of events from accounts`;
+  const approx = m.identityDays ? ` · over the last ${m.identityDays} day${m.identityDays === 1 ? '' : 's'}, not this range` : '';
   return `
     <div class="grid stats">
       <div class="stat c" style="grid-column:1/-1">
         <div class="k">Signed in vs anonymous</div>
-        <div class="v mono">${acctPct.toFixed(1)}%<span style="font-size:14px;color:var(--muted);font-weight:400"> of people signed in</span></div>
-        <div class="s">${num(m.acctUsers)} account${m.acctUsers === 1 ? '' : 's'} · ${num(m.anonUsers)} anonymous — ${acctEvPct.toFixed(0)}% of events from accounts</div>
+        <div class="v mono">${known ? acctPct.toFixed(1) + '%' : '—'}<span style="font-size:14px;color:var(--muted);font-weight:400"> ${known ? 'of people signed in' : 'no identified activity in this range'}</span></div>
+        <div class="s">${known ? `${num(acctUsers)} account${acctUsers === 1 ? '' : 's'} · ${num(anonUsers)} anonymous${evPart}${approx}` : 'Play events only carry an account id from SK Music 1.2.3 onward.'}</div>
         <div style="margin-top:10px;height:8px;border-radius:999px;background:var(--card2);overflow:hidden;display:flex">
-          <div style="width:${acctPct.toFixed(2)}%;background:var(--good)"></div>
+          <div style="width:${known ? acctPct.toFixed(2) : '0'}%;background:var(--good)"></div>
           <div style="flex:1;background:var(--dim);opacity:.45"></div>
         </div>
       </div>
