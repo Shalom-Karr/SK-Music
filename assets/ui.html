@@ -576,7 +576,17 @@ body.on-air .live-note{display:block}
 .np-art.watching{aspect-ratio:16/9;width:min(92vw,58vh,760px)}
 .np-art.watching>video{display:block}
 .np-art.watching>img,.np-art.watching>.ph{display:none}
-#npWatch.on{color:var(--primary)}
+#npWatch.on,#npVidCtl.on{color:var(--primary)}
+/* Fullscreen targets the FRAME, not the <video>, so the element never re-parents and playback can't
+   restart. The square/16:9 sizing rules above have to be undone or the frame keeps its small box. */
+.np-art:fullscreen,.np-art:-webkit-full-screen{width:100vw;height:100vh;max-width:none;aspect-ratio:auto;border-radius:0;margin:0;box-shadow:none;background:#000}
+/* Sits above the <video>, hidden unless something is actually being watched. Top-right keeps it clear
+   of the browser's own control bar, which draws along the bottom. */
+#npFull{position:absolute;top:10px;right:10px;z-index:2;display:none;width:40px;height:40px;border:0;border-radius:11px;
+  background:rgba(0,0,0,.55);color:#fff;cursor:pointer;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+#npFull:hover{background:rgba(0,0,0,.78)}
+#npFull svg{width:22px;height:22px;fill:currentColor}
+.np-art.watching>#npFull{display:flex}
 /* Shiur resume bar — a 45-minute lecture is nearly always resumed, so "how far in" belongs in the row */
 .shbar{height:3px;border-radius:2px;background:var(--surface-3);margin-top:6px;overflow:hidden}
 .shbar>i{display:block;height:100%;background:var(--primary)}
@@ -1130,13 +1140,20 @@ fill="url(#royal)" stroke="none">
            the one place it can be shown is the one place it is created. It sits behind the cover art
            until a filmed shiur is being watched (.watching), and it plays on whether or not this
            overlay is open — #now is translated off-screen when closed, never display:none. -->
-      <div class="art np-art" id="npArtBox"><video id="video" playsinline preload="metadata"></video><img id="npArt" alt=""><div class="ph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg></div></div>
+      <div class="art np-art" id="npArtBox"><video id="video" playsinline preload="metadata"></video><!--
+        Full screen lives INSIDE the frame on purpose. Fullscreen renders only the fullscreen element's
+        own subtree, so a button anywhere else stops existing the moment you enter — leaving Esc as the
+        only way out, which is not discoverable. Here it stays on screen and toggles both ways. -->
+        <button id="npFull" onclick="toggleVidFullscreen()" title="Full screen" aria-label="Full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zM6 15v3h3v2H4v-5zm12 3v-3h2v5h-5v-2z"/></svg></button><img id="npArt" alt=""><div class="ph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg></div></div>
       <div class="np-info">
         <div style="min-width:0"><div class="np-title" id="npTitle"></div><div class="np-artist" id="npArtist" role="button" tabindex="0" aria-label="Go to artist" onclick="npOpenArtist()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"></div></div>
         <button class="iconbtn heart" id="npLike" onclick="toggleLikeCurrent()" title="Like" aria-label="Like" aria-pressed="false" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg></button>
         <!-- Watch / Listen — only shown for a track that actually has video (a filmed shiur), and only
              while the account allows video shiurim. See shToggleWatch / paintWatchUI. -->
         <button class="iconbtn" id="npWatch" onclick="shToggleWatch()" title="Watch the video" aria-label="Watch the video" aria-pressed="false" style="width:48px;height:48px;flex:none;display:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M4 5h11a2 2 0 0 1 2 2v2.4l4-2.6v10.4l-4-2.6V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/></svg></button>
+        <!-- Video-only, shown while watching. Controls = the browser's own scrubber, the thing you'd
+             otherwise reach by right-clicking the frame — which the desktop shell has no menu for. -->
+        <button class="iconbtn" id="npVidCtl" onclick="toggleVidControls()" title="Show video controls" aria-label="Show video controls" aria-pressed="false" style="width:48px;height:48px;flex:none;display:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M3 17h6v2H3zm0-6h12v2H3zm0-6h18v2H3zm14 6h4v2h-4zm-6 6h10v2H11z"/></svg></button>
         <button class="iconbtn" id="npShare" onclick="openShare(event)" title="Share" aria-label="Share" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0 0 6c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92z"/></svg></button>
         <!-- SK-OFFLINE: desktop-only "download for offline" toggle; hidden until the native shell shows it -->
         <button class="iconbtn" id="npDownload" onclick="skToggleDownloadCurrent()" title="Download for offline" aria-label="Download for offline" style="width:48px;height:48px;flex:none;display:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z"/></svg></button>
@@ -4349,8 +4366,31 @@ function trackStarted(t) {
 }
 // The Watch/Listen toggle and the video frame. Defined here (not with the shiurim code) because
 // trackStarted and PB.setMedia both call it for EVERY track — a song has to be able to turn it off.
+/* Native <video> controls, remembered across tracks and sessions. This is the same thing as the
+   browser's right-click "Show controls" — which is undiscoverable, and absent entirely in the desktop
+   shell, where there is no context menu. Kept OUT of the parental filters on purpose: it changes
+   nothing about what plays, only whether the scrubber is drawn. */
+const vidControlsOn = () => LS.get("zw_vidctl", "") === "1";
+function toggleVidControls() {
+  const on = !vidControlsOn();
+  LS.set("zw_vidctl", on ? "1" : "");
+  paintWatchUI();
+  showToast(on ? "Video controls shown." : "Video controls hidden.", 1600);
+}
+const fsNow = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+function toggleVidFullscreen() {
+  if (fsNow()) { const x = document.exitFullscreen || document.webkitExitFullscreen; if (x) try { x.call(document); } catch {} return; }
+  const box = el("npArtBox"); if (!box) return;
+  const req = box.requestFullscreen || box.webkitRequestFullscreen;
+  // iOS Safari has no element fullscreen — the <video>'s own native presentation is the only option.
+  if (req) { try { req.call(box); } catch {} }
+  else if (video.webkitEnterFullscreen) { try { video.webkitEnterFullscreen(); } catch {} }
+}
+// Fullscreen with no controls leaves no visible way to seek or get out (Esc is not discoverable), so
+// force them on while fullscreen and hand it back to the saved preference on exit.
+for (const ev of ["fullscreenchange", "webkitfullscreenchange"]) addEventListener(ev, () => { try { video.controls = !!fsNow() || vidControlsOn(); } catch {} paintWatchUI(); });
 function paintWatchUI() {
-  const t = state.queue[state.qi], can = !!(t && t.vsrc && podcastVideosOn());
+  const t = state.queue[state.qi], can = !!(t && (t.vsrc || t.hsrc) && podcastVideosOn());
   const b = el("npWatch");
   if (b) {
     b.style.display = can ? "" : "none";
@@ -4358,13 +4398,26 @@ function paintWatchUI() {
     const lbl = PB.vid ? "Listen to the audio" : "Watch the video";
     b.title = lbl; b.setAttribute("aria-label", lbl); b.setAttribute("aria-pressed", String(can && !!PB.vid));
   }
+  // The two video-only buttons appear only once something is actually on screen — offering "full
+  // screen" next to an audio track would be a dead control.
+  const watching = !!PB.vid, ctl = el("npVidCtl"), fs = el("npFull");
+  if (ctl) {
+    ctl.style.display = watching ? "" : "none";
+    ctl.classList.toggle("on", vidControlsOn());
+    const l = vidControlsOn() ? "Hide video controls" : "Show video controls";
+    ctl.title = l; ctl.setAttribute("aria-label", l); ctl.setAttribute("aria-pressed", String(vidControlsOn()));
+  }
+  // #npFull's visibility is CSS's job (.np-art.watching > #npFull) — it lives inside the frame so it
+  // survives fullscreen, and an inline display here would fight that rule. Only the label is ours.
+  if (fs) { const l = fsNow() ? "Exit full screen" : "Full screen"; fs.title = l; fs.setAttribute("aria-label", l); }
+  try { video.controls = watching && (!!fsNow() || vidControlsOn()); } catch {}
   const box = el("npArtBox"); if (box) box.classList.toggle("watching", !!PB.vid);
 }
 // Flip the CURRENT track between its video and its audio, in place and at the same position — the
 // resume point, the queue entry and the play-duration session all survive, because only the media
 // element changes. Video-only lectures can't flip back (there is no audio to flip to).
 function shToggleWatch() {
-  const t = state.queue[state.qi]; if (!t || !t.vsrc) return;
+  const t = state.queue[state.qi]; if (!t || (!t.vsrc && !t.hsrc)) return;
   if (!podcastVideosOn()) { showToast("<b>Video shiurim are turned off</b> for this account — a parent can enable them in Parental Controls.", 4600); return; }
   const to = !t.watch;
   if (to && !t.vsrc && !t.hsrc) { showToast("This shiur has no video.", 2600); return; }
