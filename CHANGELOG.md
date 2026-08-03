@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.5.3 — 2026-08-03 (web)
+
+**Why the bump:** a latency pass over every tab, after the Home fix in 1.5.2.
+
+**Faster**
+- Home no longer waits for the Zemer rows at the bottom of the page either. They come from an outside
+  server (~480ms) and sit below everything else, so waiting on them delayed the whole page for
+  content nothing had scrolled to. Home now paints and fills them in.
+- Large artwork decodes off the main thread. This matters most on Shiurim: TorahAnytime serves one
+  fixed image size and ignores resize requests, so a single lecture thumbnail can be **1 MB** for a
+  picture drawn at thumbnail size. Nothing looks different; the page just stops hitching while they
+  decode.
+
+**Measured, for the record** (production, warm): Shiurim 2.3s to content, Artists 2.4s, Home 1.8s
+before this change. The remaining cost on Shiurim is image weight from TorahAnytime, which can't be
+resized at the source — noted as a known limitation rather than fixed.
+
 ## 1.5.2 — 2026-08-03 (web)
 
 **Why the bump:** Home was waiting on other people's servers before it would draw anything, the share

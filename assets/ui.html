@@ -1738,7 +1738,11 @@ function sizedArt(src, px) {
   const cut = src.lastIndexOf("=");
   return (cut > src.lastIndexOf("/") ? src.slice(0, cut) : src) + `=s${px || 320}-c-k-c0x00ffffff-no-rj`;
 }
-const artHTML = (src, ph, round, px) => `<div class="art${round ? " round" : ""}"><img loading="lazy" alt="" src="${esc(sizedArt(src, px) || "")}" onerror="this.classList.add('hide')"${src ? "" : ' class="hide"'}><div class="ph" aria-hidden="true">${ph || NOTE}</div></div>`;
+// decoding="async" keeps a big JPEG off the main thread while it decodes. It matters most for the
+// TorahAnytime hosts, which sizedArt cannot touch: they serve one fixed size (a single lecture
+// thumbnail measured 1,048,711 bytes, drawn at ~56px) and ignore ?width= entirely, so a shiurim rail
+// decodes several megabytes of image it will only ever draw small.
+const artHTML = (src, ph, round, px) => `<div class="art${round ? " round" : ""}"><img loading="lazy" decoding="async" alt="" src="${esc(sizedArt(src, px) || "")}" onerror="this.classList.add('hide')"${src ? "" : ' class="hide"'}><div class="ph" aria-hidden="true">${ph || NOTE}</div></div>`;
 
 /* ============================ likes ============================ */
 let _liked = null;
@@ -1989,9 +1993,13 @@ async function loadHome() {
   // jewishstatus.com respectively. Awaiting them here meant Home could not paint until the SLOWEST of
   // them answered, so one flaky upstream held the whole page hostage. Start them now (still parallel,
   // nothing is serialised) but render without them and slot each in when it lands.
+  // zemerRowsSections() is the same shape of problem and gets the same treatment: it is upstream-backed
+  // (/zemer-home-rows, measured ~480ms) and its output is appended at the very BOTTOM of the page, so
+  // waiting for it delayed everything above it for content nobody has scrolled to yet. Deferring a
+  // bottom-of-page rail costs no layout shift.
   const gen = ++_homeGen;
-  const pStations = stationsSection(), pStatuses = statusesSection();
-  const [d, trend, zpl, zemerRows, nf] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections(), getJSON("/zemer-playlists"), zemerRowsSections(), newFeed()]);
+  const pStations = stationsSection(), pStatuses = statusesSection(), pZemerRows = zemerRowsSections();
+  const [d, trend, zpl, nf] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections(), getJSON("/zemer-playlists"), newFeed()]);
   await artistByName(); // load artist flags so the parental gate (artist allow/blocklist + kid-only) applies below
   const quick = gate(d.quickPicks), recent = gate(readRecent()), vids = gate(d.featuredVideos);
   const fAlbums = feedAlbums(nf), fSongs = gateFeed(((nf && nf.categories) || {}).songs || []).filter((t) => t.videoId);
@@ -2008,14 +2016,14 @@ async function loadHome() {
   h += railOf("Artists You'll Like", gate(d.featuredArtists), artistCard);
   h += railOf("Albums", gate(d.featuredAlbums), albumCard);
   if (!blockVideos() && vids.length) h += section("Music Videos", songCards(vids));
-  h += zemerRows || "";
+  h += `<div id="homeZemerRows"></div>`; // filled by pZemerRows below — bottom of the page, so a late fill shifts nothing
   v.innerHTML = h || emptyState("No content yet", "The catalog is still being built.");
   window.__appReady && window.__appReady(); // "ready" is a painted page, not one waiting on a third party
   // Late arrivals fill their reserved slot, so nothing reflows into the wrong place. An empty answer
   // (switched off, filtered out, upstream down) just drops the placeholder. The `gen` guard matters:
   // a filter change calls loadHome again, and without it a slow response from the PREVIOUS run could
   // paint stale — possibly now-filtered — content into the new page.
-  for (const [id, p] of [["homeStations", pStations], ["homeStatuses", pStatuses]]) {
+  for (const [id, p] of [["homeStations", pStations], ["homeStatuses", pStatuses], ["homeZemerRows", pZemerRows]]) {
     p.then((html) => {
       if (gen !== _homeGen) return;
       const n = el(id); if (!n) return;
@@ -2731,7 +2739,7 @@ function shRow(t, qid, i, pos) {
   const e = (pos && pos[t.shId]) || {}, at = e.pos || 0, pct = (at && t.durationSec) ? Math.min(100, at / t.durationSec * 100) : 0;
   const playing = state.playSource === "shiur" && state.queue[state.qi] && state.queue[state.qi].videoId === t.videoId;
   return `<div class="row ${playing ? "playing" : ""}" role="button" tabindex="0" data-v="${safeId(t.videoId)}" onkeydown="${KDACT}" onclick="shPlay('${qid}',${i})">
-    ${t.thumbnail ? `<img class="thumb" alt="" loading="lazy" src="${esc(t.thumbnail)}" onerror="this.style.visibility='hidden'">` : `<div class="thumb"></div>`}
+    ${t.thumbnail ? `<img class="thumb" alt="" loading="lazy" decoding="async" src="${esc(t.thumbnail)}" onerror="this.style.visibility='hidden'">` : `<div class="thumb"></div>`}
     <div class="text"><div class="title">${playing ? EQ : ""}<span style="overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</span>${(t.vsrc || t.hsrc) ? '<span class="tag">VIDEO</span>' : ""}</div>
       <div class="sub">${[esc(t.artist), esc(t.shDate || ""), t.durationSec ? podFmt(t.durationSec) : "", esc(t.shLang || ""), at ? podFmt(at) + " in" : ""].filter(Boolean).join(" · ")}</div>
       ${pct ? `<div class="shbar"><i style="width:${pct.toFixed(1)}%"></i></div>` : ""}
