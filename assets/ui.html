@@ -1058,7 +1058,7 @@ fill="url(#royal)" stroke="none">
     <div class="isr-row" id="chasidRow"><div><span>Chasidish</span><small>Filter by Chasidic / non-Chasidic</small></div><div class="isr-seg" id="chasidSeg"><button data-v="" onclick="setChasid('')">All</button><button data-v="only" onclick="setChasid('only')">Only</button><button data-v="hide" onclick="setChasid('hide')">Hide</button></div></div>
     <div class="isr-row" id="isrRow"><div><span>Israeli artists</span><small>Filter by Israeli / non-Israeli</small></div><div class="isr-seg" id="isrSeg"><button data-v="" onclick="setIsraeli('')">All</button><button data-v="only" onclick="setIsraeli('only')">Only</button><button data-v="hide" onclick="setIsraeli('hide')">Hide</button></div></div>
     <div class="isr-row" id="acapRow"><div><span>Acapella</span><small>Only, or hide, Acapella songs</small></div><div class="isr-seg" id="acapSeg"><button data-v="" onclick="setAcapella('')">All</button><button data-v="only" onclick="setAcapella('only')">Only</button><button data-v="hide" onclick="setAcapella('hide')">Hide</button></div></div>
-    <div class="toggle" id="tgPodcasts" role="button" tabindex="0" onclick="setPodcasts(!podcastsOn())" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Podcasts &amp; Shiurim</span><small>Show the Podcasts tab &mdash; enabled for this account by a parent</small></div><div class="sw"></div></div>
+    <div class="toggle" id="tgPodcasts" role="button" tabindex="0" onclick="setPodcasts(!podcastsOn())" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Podcasts</span><small>Show the Podcasts tab &mdash; enabled for this account by a parent</small></div><div class="sw"></div></div>
     <div class="toggle" id="tgPodcastVideos" role="button" tabindex="0" onclick="setPodcastVideos(!podcastVideosOn())" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Video shiurim</span><small>Allow filmed podcasts &amp; shiurim &mdash; enabled for this account by a parent</small></div><div class="sw"></div></div>
     <div class="toggle" id="tgShiurim" role="button" tabindex="0" onclick="setShiurim(!shiurimOn())" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Shiurim</span><small>Show the Shiurim tab (TorahAnytime) &mdash; enabled for this account by a parent</small></div><div class="sw"></div></div>
     <div class="toggle" id="tgZemerRadio" role="button" tabindex="0" onclick="setZemerRadio(!zemerRadioOn())" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Zemer Radio</span><small>Live broadcast stations on Home &mdash; your filters still apply</small></div><div class="sw"></div></div>
@@ -2317,13 +2317,13 @@ function podcasters(shows) {
 // the background anyway; the difference is that podcasts no longer WAIT on it.
 async function podEnsure() { await loadBlockedIds(); if (loggedIn() && !acct.profile) await onLogin(); }
 
-const POD_HERO = `<div class="hero" style="background:linear-gradient(120deg,#14202e,var(--surface) 70%)"><div class="eyebrow" style="color:#7db3e8">Spoken word</div><h1>Podcasts &amp; Shiurim</h1><p>Whitelisted shows and shiurim, filtered by the same rules as the music.<span id="podHeroStat"></span></p><div id="podHeroAct"></div><span class="heb">פודקאסט</span></div>`;
+const POD_HERO = `<div class="hero" style="background:linear-gradient(120deg,#14202e,var(--surface) 70%)"><div class="eyebrow" style="color:#7db3e8">Spoken word</div><h1>Podcasts</h1><p>Whitelisted shows, filtered by the same rules as the music.<span id="podHeroStat"></span></p><div id="podHeroAct"></div><span class="heb">פודקאסט</span></div>`;
 
 async function loadPodcasts() {
   state.loaded.podcasts = true; secN = 0;
   const v = el("v-podcasts");
   if (!podcastsOn()) { // routable even when off — say why rather than 404
-    v.innerHTML = `<div class="hero" style="background:linear-gradient(120deg,#14202e,var(--surface) 70%)"><div class="eyebrow" style="color:#7db3e8">Off</div><h1>Podcasts &amp; Shiurim</h1><p>Podcasts are turned off for this account. ${pcPodcasts() ? "Turn them back on in Settings." : "A parent can enable them in Parental Controls."}</p></div>`;
+    v.innerHTML = `<div class="hero" style="background:linear-gradient(120deg,#14202e,var(--surface) 70%)"><div class="eyebrow" style="color:#7db3e8">Off</div><h1>Podcasts</h1><p>Podcasts are turned off for this account. ${pcPodcasts() ? "Turn them back on in Settings." : "A parent can enable them in Parental Controls."}</p></div>`;
     return;
   }
   v.innerHTML = POD_HERO + `<div id="podBody">${skRail(6, true)}</div>`;
@@ -6192,12 +6192,12 @@ function renderParental() {
         row("Hide DJ sets", "Exclude DJ / remix artists", tog(noDJ(), "pcFilter('noDJ')")) +
         row("Israeli artists", "Show only, or hide, Israeli artists", `<div class="pc-seg-wrap" style="margin-top:0;width:220px"><button class="${israeliMode() === "" ? "on" : ""}" onclick="pcSetIsraeli('')">All</button><button class="${israeliMode() === "only" ? "on" : ""}" onclick="pcSetIsraeli('only')">Only</button><button class="${israeliMode() === "hide" ? "on" : ""}" onclick="pcSetIsraeli('hide')">Hide</button></div>`) +
         row("Always require Acapella", "Sefira / Three Weeks — Turn on to force Acapella Mode." + (mourningPeriod() ? " <span style='color:var(--primary)'>Active now</span>" : ""), tog(sefiraRequire(), "pcToggleSefira()")) +
-        row("Podcasts &amp; Shiurim", "Spoken word — <b>off by default</b>. Turn on to give this account the Podcasts tab.",
+        row("Podcasts", "Spoken word — <b>off by default</b>. Turn on to give this account the Podcasts tab.",
           tog(pcPodcasts(), "pcTogglePodcasts()")) +
         // Only offered once podcasts are allowed — it's a narrowing switch on a surface that isn't there yet otherwise.
-        (pcPodcasts() ? row("Video shiurim", "Filmed podcasts &amp; shiurim — <b>off by default</b>. Audio-only episodes are unaffected.",
+        (pcPodcasts() ? row("Video shiurim", "Filmed podcasts &amp; shiurim — <b>on by default</b>. Audio-only episodes are unaffected.",
           tog(pcPodcastVideos(), "pcTogglePodcastVideos()")) : "") +
-        row("Shiurim", "Torah lectures from TorahAnytime — <b>off by default</b>. Third-party audio, outside the whitelisted catalog. Not available under a Kid Zone lock.",
+        row("Shiurim", "Torah lectures from TorahAnytime — <b>on by default</b>. Third-party audio, outside the whitelisted catalog. Not available under a Kid Zone lock.",
           tog(pcShiurim(), "pcToggleShiurim()")) +
         row("Statuses", "Artist story circles from JewishStatus — <b>off by default</b>. Third-party video, outside the whitelisted catalog.",
           tog(pcStatuses(), "pcSetStatuses()")) +
