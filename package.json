@@ -18,7 +18,8 @@
     "dev": "wrangler dev"
   },
   "dependencies": {
-    "better-sqlite3": "^12.11.1"
+    "better-sqlite3": "^12.11.1",
+    "hls.js": "^1.6.16"
   },
   "devDependencies": {
     "wrangler": "^4.107.0"

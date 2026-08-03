@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.5.1 — 2026-08-03 (web)
+
+**Why the bump:** filmed shiurim stuttered and froze for some people. The cause was the video file
+format, not the connection, and the fix is to stream a different rendition of the same lecture.
+
+**Fixed — video shiurim froze and stuttered**
+- TorahAnytime's downloadable MP4 is not "faststart": the 330 KB index a player needs *before* it can
+  show anything sits at the **end** of the file, after ~26 MB of video. On a fast connection the
+  browser grabs just that tail and it plays. On a slow one — or behind a filter that inspects traffic
+  and interferes with partial downloads — the browser ends up pulling the whole 26 MB before the first
+  frame, which is what the freezing was.
+- Watching now uses the **streaming version** of the same lecture: 77 short segments with the index at
+  the front, in three qualities. A weak connection steps down to a lower quality instead of stalling,
+  and playback starts after roughly 300 KB rather than 26 MB.
+- The old file is still the fallback. If streaming can't start for any reason, the video plays the way
+  it did before — slower to begin, but never broken.
+- Lectures that are only available as video are now offered too; they were previously skipped.
+
+**Under the hood**
+- The streaming player is downloaded **only the first time you watch something**, and never for music,
+  audio shiurim, podcasts or statuses.
+
 ## 1.5.0 — 2026-08-02 (web)
 
 **Why the bump:** the Shiurim surface grew a real home page, video playback and a language filter; the

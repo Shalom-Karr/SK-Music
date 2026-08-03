@@ -2611,14 +2611,22 @@ const shLangChips = () => {
 // A shiur as a queue track. `kind` is the source discriminator every YouTube-specific call site now
 // guards on; `videoId` stays the queue/row identity (safeId-clean by construction — "ta-466034" is
 // never 11 chars, so it can't collide with a real YouTube id) and `src` is what actually plays.
-// `vsrc` is the FILMED version when there is one — progressive mp4, not HLS: one lecture is ~437 HLS
-// segments, and mp4 is seekable off the same CDN with a plain Range request and no extra library.
+// `vsrc` is the FILMED version when there is one, `hsrc` the same lecture as HLS. HLS is PREFERRED
+// for watching and vsrc is the fallback, which reverses an earlier call — the evidence: TorahAnytime's
+// progressive mp4 is not faststart. On lecture 466034 the 330 KB `moov` index sits at byte 26,914,876,
+// after 25.7 MB of `mdat`, so the player can render nothing until it has range-fetched the tail of the
+// file. That is fine on a fast link and awful behind a filtering proxy that degrades Range — it turns
+// into "download 26 MB, then start", which is what the reported freezing was. The HLS rendition is 77
+// four-second segments with the index up front, in three bitrates, so a slow link steps down instead
+// of stalling. It also isn't ~437 segments; that figure was wrong.
 // The proxy_* variants are ignored on purpose (they route the stream through a third party for no
-// gain here). Gated on podcastVideosOn() so a parent who turned filmed content off gets audio only.
+// gain here, and proxier 403s without a referer). Gated on podcastVideosOn() so a parent who turned
+// filmed content off gets audio only.
 const shTrack = (r) => ({
   videoId: "ta-" + r.id, kind: "shiur", shId: +r.id,
   src: r.mp3_url || r.audio_url || "",
   vsrc: podcastVideosOn() ? (r.mp4_url || "") : "",
+  hsrc: podcastVideosOn() ? (r.m3u8_url || "") : "",
   title: r.title || "", artist: shSpeakerOf(r) || "TorahAnytime",
   durationSec: +r.duration || 0, thumbnail: r.thumbnail_url || "",
   shSpeakerId: +r.speaker || 0, shFemale: shFemaleRec(r),
@@ -2627,7 +2635,7 @@ const shTrack = (r) => ({
 });
 // A lecture is listable if it has SOMETHING to play — audio normally, video for the handful that are
 // filmed only — and passes kol isha and the language preference.
-const shTracks = (list) => (list || []).filter((r) => shRecOK(r) && shLangOK(r)).map(shTrack).filter((t) => (t.src || t.vsrc) && t.shId);
+const shTracks = (list) => (list || []).filter((r) => shRecOK(r) && shLangOK(r)).map(shTrack).filter((t) => (t.src || t.vsrc || t.hsrc) && t.shId);
 // Trending and series/{id}/lectures answer with an OBJECT MAP keyed by lecture id, not an array.
 const shValues = (o) => (o && typeof o === "object") ? Object.keys(o).map((k) => o[k]) : [];
 
@@ -2644,7 +2652,7 @@ function shWrite(m) {
 function shRemember(t, sec) {
   if (!t || !t.shId) return;
   const m = shPos();
-  m[t.shId] = { pos: Math.round(sec || 0), at: Date.now(), title: t.title, artist: t.artist, dur: t.durationSec, src: t.src, thumb: t.thumbnail, sp: t.shSpeakerId, f: t.shFemale ? 1 : 0, ...(t.vsrc ? { v: t.vsrc } : {}), ...(t.shLang ? { lg: t.shLang } : {}) };
+  m[t.shId] = { pos: Math.round(sec || 0), at: Date.now(), title: t.title, artist: t.artist, dur: t.durationSec, src: t.src, thumb: t.thumbnail, sp: t.shSpeakerId, f: t.shFemale ? 1 : 0, ...(t.vsrc ? { v: t.vsrc } : {}), ...(t.hsrc ? { hl: t.hsrc } : {}), ...(t.shLang ? { lg: t.shLang } : {}) };
   shWrite(m);
 }
 // Called from tick(). Only updates an entry shRemember() already created, so a stale key can never be
@@ -2654,14 +2662,14 @@ function shSavePos(id, sec) {
   const m = shPos(), e = m[id]; if (!e) return;
   e.pos = Math.round(sec); e.at = Date.now(); shWrite(m);
 }
-const shFromPos = (id, e) => ({ videoId: "ta-" + id, kind: "shiur", shId: +id, src: e.src || "", vsrc: (podcastVideosOn() && e.v) || "", title: e.title || "", artist: e.artist || "", durationSec: e.dur || 0, thumbnail: e.thumb || "", shSpeakerId: e.sp || 0, shFemale: !!e.f, shLang: e.lg || "" });
+const shFromPos = (id, e) => ({ videoId: "ta-" + id, kind: "shiur", shId: +id, src: e.src || "", vsrc: (podcastVideosOn() && e.v) || "", hsrc: (podcastVideosOn() && e.hl) || "", title: e.title || "", artist: e.artist || "", durationSec: e.dur || 0, thumbnail: e.thumb || "", shSpeakerId: e.sp || 0, shFemale: !!e.f, shLang: e.lg || "" });
 
 // watch: start on the filmed version. A queue entry is a COPY — `watch` is per-play state and must not
 // stick to the shared track object a rendered list is still holding.
 function playShiur(t, watch) {
-  if (!t || (!t.src && !t.vsrc)) { showToast("This shiur has no audio.", 2600); return; }
-  if (watch && !t.vsrc) watch = false;
-  const q = { ...t, watch: !!watch || (!t.src && !!t.vsrc) }; // video-only lectures have nowhere else to go
+  if (!t || (!t.src && !t.vsrc && !t.hsrc)) { showToast("This shiur has no audio.", 2600); return; }
+  if (watch && !t.vsrc && !t.hsrc) watch = false;
+  const q = { ...t, watch: !!watch || (!t.src && !!(t.vsrc || t.hsrc)) }; // video-only lectures have nowhere else to go
   const at = (shPos()[q.shId] || {}).pos || 0;
   shRemember(q, at);                                     // create the entry BEFORE play — tick()'s shSavePos only updates existing ones
   state.queue = [q]; state.radio = null; state.playSource = "shiur";
@@ -2683,11 +2691,11 @@ function shRow(t, qid, i, pos) {
   const playing = state.playSource === "shiur" && state.queue[state.qi] && state.queue[state.qi].videoId === t.videoId;
   return `<div class="row ${playing ? "playing" : ""}" role="button" tabindex="0" data-v="${safeId(t.videoId)}" onkeydown="${KDACT}" onclick="shPlay('${qid}',${i})">
     ${t.thumbnail ? `<img class="thumb" alt="" loading="lazy" src="${esc(t.thumbnail)}" onerror="this.style.visibility='hidden'">` : `<div class="thumb"></div>`}
-    <div class="text"><div class="title">${playing ? EQ : ""}<span style="overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</span>${t.vsrc ? '<span class="tag">VIDEO</span>' : ""}</div>
+    <div class="text"><div class="title">${playing ? EQ : ""}<span style="overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</span>${(t.vsrc || t.hsrc) ? '<span class="tag">VIDEO</span>' : ""}</div>
       <div class="sub">${[esc(t.artist), esc(t.shDate || ""), t.durationSec ? podFmt(t.durationSec) : "", esc(t.shLang || ""), at ? podFmt(at) + " in" : ""].filter(Boolean).join(" · ")}</div>
       ${pct ? `<div class="shbar"><i style="width:${pct.toFixed(1)}%"></i></div>` : ""}
     </div>
-    ${t.vsrc ? `<button class="iconbtn rowbtn" style="width:38px;height:40px" aria-label="Watch the video" title="Watch" onclick="event.stopPropagation();shPlay('${qid}',${i},1)"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M4 5h11a2 2 0 0 1 2 2v2.4l4-2.6v10.4l-4-2.6V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/></svg></button>` : ""}
+    ${(t.vsrc || t.hsrc) ? `<button class="iconbtn rowbtn" style="width:38px;height:40px" aria-label="Watch the video" title="Watch" onclick="event.stopPropagation();shPlay('${qid}',${i},1)"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M4 5h11a2 2 0 0 1 2 2v2.4l4-2.6v10.4l-4-2.6V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/></svg></button>` : ""}
     <div class="dur">${t.durationSec ? fmt(t.durationSec) : ""}</div></div>`;
 }
 function shRows(list) { const qid = regQueue(list), pos = shPos(); return `<div class="rows">${list.map((t, i) => shRow(t, qid, i, pos)).join("")}</div>`; }
@@ -2968,7 +2976,7 @@ async function openShiur(id, fromRoute) {
   const t = shTrack(r);
   // A deep-linked lecture is NEVER language-filtered (shTrack, not shTracks): asking for this shiur by
   // its own URL is a stronger statement than a browse preference.
-  if (!t.src && !t.vsrc) return notAvailable("shiur");    // neither audio nor video we can play
+  if (!t.src && !t.vsrc && !t.hsrc) return notAvailable("shiur");    // neither audio nor video we can play
   const qid = regQueue([t]);
   const meta = [t.shDate, t.durationSec ? podFmt(t.durationSec) : "", t.shLang, (r.categories || []).map((c) => c.english_name || c.name).filter(Boolean)[0]].filter(Boolean).map(esc).join(" · ");
   pushDetail({ path, kind: "Shiur", title: t.title, thumb: t.thumbnail,
@@ -2979,7 +2987,7 @@ async function openShiur(id, fromRoute) {
   // allows video shiurim — shTrack already dropped vsrc when it doesn't.
   el("v-detail").querySelector(".actions").insertAdjacentHTML("afterbegin",
     (t.src ? `<button class="btn-play" onclick="shPlay('${qid}',0)">${ICON.play} Play</button>` : "")
-    + (t.vsrc ? `<button class="${t.src ? "btn-ghost" : "btn-play"}" onclick="shPlay('${qid}',0,1)"><svg viewBox="0 0 24 24"><path d="M4 5h11a2 2 0 0 1 2 2v2.4l4-2.6v10.4l-4-2.6V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/></svg>Watch</button>` : ""));
+    + ((t.vsrc || t.hsrc) ? `<button class="${t.src ? "btn-ghost" : "btn-play"}" onclick="shPlay('${qid}',0,1)"><svg viewBox="0 0 24 24"><path d="M4 5h11a2 2 0 0 1 2 2v2.4l4-2.6v10.4l-4-2.6V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/></svg>Watch</button>` : ""));
   shAside(r);
 }
 // Side column: more from the same speaker (and the series this belongs to). Appended after render and
@@ -3969,6 +3977,49 @@ function blockedByFilter(kind) { blockedPage("Access denied", `This ${kind} is b
 // corpus videoIds are ever loaded, and the iframe is off-screen with no controls, so no YouTube UI shows.
 // If the IFrame API itself can't load, we fall back to the server-proxied /stream path (the <audio> tag).
 const audio = el("audio"), video = el("video");
+/* ---- HLS, for filmed shiurim only (see shTrack for WHY the mp4 alone isn't good enough) ----
+   hls.js is fetched on FIRST WATCH and never otherwise: music, audio shiurim, podcasts and statuses
+   never pay for it. It is ~354 KB raw / ~100 KB gzipped, which is why it must not sit in the bundle.
+   Loaded as a plain same-origin <script> (the UMD build sets window.Hls) rather than import() — the
+   minified build ships UMD only, and 'self' already covers it under script-src.
+   Every failure path falls back to the progressive mp4, so a blocked/absent hls.js is a slower video,
+   never a broken one. Segments are fetched browser-direct from the TA CDN, so this costs zero Worker
+   requests — but hls.js reads them with XHR, so the CDN host needs connect-src (not just media-src)
+   in engine/build-static.mjs. */
+let _hls = null, _hlsLoad = null;
+const hlsUsable = () => { try { return !!(window.MediaSource && typeof window.MediaSource.isTypeSupported === "function"); } catch { return false; } };
+function hlsLib() {
+  if (window.Hls) return Promise.resolve(window.Hls);
+  return (_hlsLoad = _hlsLoad || new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "/lib/hls.js"; s.async = true;
+    s.onload = () => res(window.Hls);
+    s.onerror = () => { _hlsLoad = null; rej(new Error("hls.js failed to load")); };
+    document.head.appendChild(s);
+  }));
+}
+// Always safe to call. Detaching is what stops a destroyed stream from buffering under the next track.
+function hlsDetach() { if (_hls) { try { _hls.destroy(); } catch {} _hls = null; } }
+function hlsFallback(m, mp4, startSec) {
+  if (!mp4) return;
+  try { m.src = mp4; if (startSec) m.addEventListener("loadedmetadata", () => { m.currentTime = startSec; }, { once: true }); m.play().catch(() => {}); } catch {}
+}
+async function hlsAttach(m, url, startSec, mp4) {
+  try {
+    const Hls = await hlsLib();
+    if (!Hls || !Hls.isSupported()) return hlsFallback(m, mp4, startSec);
+    hlsDetach();
+    // capLevelToPlayerSize: never fetch 1080p into a small frame. startPosition resumes without a seek.
+    const inst = _hls = new Hls({ capLevelToPlayerSize: true, maxBufferLength: 30, startPosition: startSec || -1 });
+    inst.on(Hls.Events.ERROR, (_e, d) => {
+      if (!d || !d.fatal) return;                    // non-fatal errors are hls.js's own retries — leave them alone
+      if (_hls !== inst) return;                     // a newer track already took over; this is a dead instance
+      hlsDetach(); hlsFallback(m, mp4, startSec);    // fatal → hand the element back to the progressive mp4
+    });
+    inst.loadSource(url); inst.attachMedia(m);
+    m.play().catch(() => {});
+  } catch { hlsFallback(m, mp4, startSec); }
+}
 const PB = {
   mode: "yt", yt: null, ready: false, pending: null, nextStart: 0, vol: 1, muted: false, rate: 1,
   // SK-OFFLINE: `local` is a per-track override — when a downloaded copy exists (desktop only) the html5
@@ -3992,6 +4043,7 @@ const PB = {
   // <video> left holding a src keeps decoding (and keeps its audio) underneath whatever plays next.
   setMedia(on) {
     if (this.vid === !!on) return;
+    hlsDetach(); // the outgoing element may be MSE-attached; destroying the instance is what releases it
     try { const off = this.med(); off.pause(); off.removeAttribute("src"); off.load(); } catch {}
     this.vid = !!on;
     const m = this.med(); m.volume = this.vol; m.muted = this.muted; m.playbackRate = this.rate; // carry the session's transport settings across the swap
@@ -3999,9 +4051,14 @@ const PB = {
   },
   // src: a caller-supplied media URL. When present it wins outright — neither engine is consulted.
   // asVideo: play it through the <video> element (a filmed shiur), rather than <audio>.
-  load(id, startSec, src, asVideo) {
+  // hlsSrc: an HLS rendition of the SAME media as `src`. Preferred when we can play it, because the
+  // progressive mp4 is not faststart (see shTrack); `src` stays the fallback for both a missing
+  // MediaSource and a fatal hls.js error mid-stream.
+  load(id, startSec, src, asVideo, hlsSrc) {
     startSec = startSec || this.nextStart || 0; this.nextStart = 0;
-    if (src) { this.direct = true; this.local = false; this.setMedia(!!asVideo); cancelSwap(); clearTimeout(_loadNudge); try { if (this.mode === "yt" && this.ready) this.yt.stopVideo(); } catch {} const m = this.med(); m.src = src; if (startSec) m.addEventListener("loadedmetadata", () => { m.currentTime = startSec; }, { once: true }); m.play().catch(() => {}); return; }
+    if (src || hlsSrc) { this.direct = true; this.local = false; this.setMedia(!!asVideo); cancelSwap(); clearTimeout(_loadNudge); try { if (this.mode === "yt" && this.ready) this.yt.stopVideo(); } catch {} const m = this.med(); hlsDetach();
+      if (asVideo && hlsSrc && hlsUsable()) { hlsAttach(m, hlsSrc, startSec, src); return; }
+      m.src = src; if (startSec) m.addEventListener("loadedmetadata", () => { m.currentTime = startSec; }, { once: true }); m.play().catch(() => {}); return; }
     this.direct = false; this.setMedia(false); // anything that isn't a direct URL is audio — release the video element before it can play under the next track
     const localSrc = (typeof skLocalSrc === "function") ? skLocalSrc(id) : null; // SK-OFFLINE: prefer a downloaded copy
     if (localSrc) { this.local = true; cancelSwap(); clearTimeout(_loadNudge); try { if (this.mode === "yt" && this.ready) this.yt.stopVideo(); } catch {} audio.src = localSrc; if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); return; }
@@ -4012,7 +4069,7 @@ const PB = {
     if (this.mode === "yt") { try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {} const a = startSec ? { videoId: id, startSeconds: startSec } : id; if (this.ready) { this.yt.loadVideoById(a); nudgePlay(); } else this.pending = a; } else { audio.src = "/stream?v=" + encodeURIComponent(id); if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); } },
   play() { this.useYt() ? this.ready && this.yt.playVideo() : this.med().play().catch(() => {}); cueNext(); }, // re-arm the gapless cue (cleared if a pause/seek cancelled a handoff)
   pause() { clearTimeout(_loadNudge); if (xf) finishCrossfade(); if (gapless && gapless.phase === "start") cancelSwap(); this.useYt() ? this.ready && this.yt.pauseVideo() : this.med().pause(); }, // a primed standby survives a pause; a firing one is cancelled; a fade is finished (snap to the new track) then paused
-  stop() { clearTimeout(_loadNudge); cancelSwap(); this.pending = null; if (this.useYt()) { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { const m = this.med(); m.pause(); m.removeAttribute("src"); m.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
+  stop() { clearTimeout(_loadNudge); cancelSwap(); this.pending = null; hlsDetach(); if (this.useYt()) { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { const m = this.med(); m.pause(); m.removeAttribute("src"); m.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
   paused() { return this.useYt() ? (!this.ready || this.yt.getPlayerState() !== 1) : this.med().paused; }, // methods exist only after onReady
   seek(sec) { if (xf) abortCrossfade(); if (gapless && gapless.phase === "start") cancelSwap(); this.useYt() ? this.ready && this.yt.seekTo(sec, true) : (this.med().currentTime = sec); cueNext(); },
   cur() { return this.useYt() ? (this.ready ? this.yt.getCurrentTime() || 0 : 0) : this.med().currentTime; },
@@ -4259,8 +4316,8 @@ function playIndex(i, dir) {
   // t.src: a non-YouTube source (shiurim) plays straight off the html5 element. t.watch is the
   // per-track "the user asked to WATCH this one" flag — a filmed shiur then plays its mp4 through
   // <video> instead (shToggleWatch flips it live).
-  const watch = !!(t.watch && t.vsrc);
-  PB.load(t.videoId, 0, watch ? t.vsrc : t.src, watch); setPlayIcons();
+  const watch = !!(t.watch && (t.vsrc || t.hsrc));
+  PB.load(t.videoId, 0, watch ? t.vsrc : t.src, watch, watch ? t.hsrc : ""); setPlayIcons();
   radioPrefetch(); // on the queue's last track: pull the next radio page now so the advance is gapless
   cueNext();
 }
@@ -4310,10 +4367,11 @@ function shToggleWatch() {
   const t = state.queue[state.qi]; if (!t || !t.vsrc) return;
   if (!podcastVideosOn()) { showToast("<b>Video shiurim are turned off</b> for this account — a parent can enable them in Parental Controls.", 4600); return; }
   const to = !t.watch;
+  if (to && !t.vsrc && !t.hsrc) { showToast("This shiur has no video.", 2600); return; }
   if (!to && !t.src) { showToast("This shiur is video only.", 2600); return; }
   const at = PB.cur() || 0;
   t.watch = to;
-  PB.load(t.videoId, at, to ? t.vsrc : t.src, to);
+  PB.load(t.videoId, at, to ? t.vsrc : t.src, to, to ? t.hsrc : "");
   paintWatchUI(); setPlayIcons();
   showToast(to ? "Watching the video." : "Back to audio only.", 1800);
 }
@@ -5262,8 +5320,8 @@ function skResumeCheck() {
     const t = state.queue[state.qi];
     if (!t || PB.paused() || Math.abs(PB.cur() - at) > 0.5) return; // advanced (or user paused) → healthy
     console.warn("[sk] playback wedged after resume — reloading at", Math.round(at));
-    const w = !!(t.watch && t.vsrc);
-    PB.nextStart = at; cancelSwap(); PB.load(t.videoId, 0, w ? t.vsrc : t.src, w);
+    const w = !!(t.watch && (t.vsrc || t.hsrc));
+    PB.nextStart = at; cancelSwap(); PB.load(t.videoId, 0, w ? t.vsrc : t.src, w, w ? t.hsrc : "");
   }, 2500);
 }
 /* ======================= STATUSES — JewishStatus story circles =======================
