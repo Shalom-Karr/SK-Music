@@ -882,6 +882,22 @@ ensureWrite(path.join(LIB, "synonyms.mjs"),     verLib(synBrowser));
 ensureWrite(path.join(LIB, "engine.mjs"),        verLib(fs.readFileSync(path.join(ROOT, "engine/engine.mjs"), "utf8")));
 ensureWrite(path.join(LIB, "engine-worker.mjs"), verLib(fs.readFileSync(path.join(ROOT, "engine/engine-worker.mjs"), "utf8")));
 
+// hls.js — used ONLY when a filmed shiur is watched, and loaded lazily by ui.html at that moment, so
+// it never costs a byte on a normal visit. It is here rather than in a CDN tag because script-src is
+// 'self'. The LIGHT build drops alt-audio/subtitle handling, which TorahAnytime renditions don't use.
+// If the dependency is ever missing, ship without it: hlsAttach() falls back to the progressive mp4,
+// so the only consequence is the slower start this was added to avoid.
+{
+  const hlsSrc = path.join(ROOT, "node_modules/hls.js/dist/hls.light.min.js");
+  if (fs.existsSync(hlsSrc)) {
+    const b = fs.readFileSync(hlsSrc);
+    ensureWrite(path.join(LIB, "hls.js"), b);
+    console.log(`  lib/hls.js  ${Math.round(b.length / 1024)} KB (lazy — only on watch)`);
+  } else {
+    console.warn("  lib/hls.js  MISSING (npm i hls.js) — filmed shiurim fall back to progressive mp4");
+  }
+}
+
 // ── index.html ─────────────────────────────────────────────────────────────────
 // Start from assets/ui.html and inject: static-build marker, optional analytics
 // beacon, default OG block, and versioned engine import paths.
@@ -1034,7 +1050,11 @@ const CSP = [
   // page's own CSP blocks the fetch before it leaves. That gap shipped once; the browse rails and the
   // media resolver were both dead in production while every local test passed, because a plain static
   // server doesn't apply _headers.
-  "connect-src 'self' https://search.zemer.io https://content.zemer.io https://api.torahanytime.com https://*.supabase.co https://api.github.com https://cloudflareinsights.com https://filter.techloq.com https://www.youtube.com ipc: http://ipc.localhost https://ipc.localhost",
+  // ta-lectures.s3… appears in BOTH media-src and connect-src on purpose, and the two are not
+  // interchangeable: <video src=mp4> is media-src, but hls.js reads playlists and segments with XHR,
+  // which is connect-src. Allowing only media-src would break watching with no console clue beyond a
+  // CSP report. The CDN reflects our Origin, so CORS itself is satisfied.
+  "connect-src 'self' https://search.zemer.io https://content.zemer.io https://api.torahanytime.com https://ta-lectures.s3.us-east-005.backblazeb2.com https://*.supabase.co https://api.github.com https://cloudflareinsights.com https://filter.techloq.com https://www.youtube.com ipc: http://ipc.localhost https://ipc.localhost",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "object-src 'none'",
