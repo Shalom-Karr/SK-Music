@@ -116,6 +116,17 @@ begin
     'visitors_returning',  (select count(*) from vis where sessions_cnt >= 2),
     'visitors_ip',         (select count(distinct ip) from e where coalesce(ip, '') <> ''),
 
+    -- ---- signed-in vs anonymous ----
+    -- identity_split() answers the same question but only in whole DAYS, so it can't line up with a
+    -- 6h or 24h view. Computing it here over `e` means the card is measured on the SAME window as
+    -- every other tile. People, not events: an account is one person however much they play; an
+    -- anonymous visitor is their per-visitor id, falling back to session for rows predating vid.
+    'users_account',       (select count(distinct user_id) from e where user_id is not null),
+    'users_anon',          (select count(distinct coalesce(meta->>'vid', session)) from e
+                              where user_id is null and coalesce(meta->>'vid', session, '') <> ''),
+    'events_account',      (select count(*) from e where user_id is not null),
+    'events_anon',         (select count(*) from e where user_id is null),
+
     -- ---- categorical breakdowns: [[label, count], ...] desc (feed barList/shareBar) ----
     -- plays_total / likes_total let the client compute shareBar "Other" correctly even though
     -- each list is capped to p_top.

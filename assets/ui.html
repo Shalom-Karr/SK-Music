@@ -1084,8 +1084,11 @@ fill="url(#royal)" stroke="none">
 </div>
 <div class="menu" id="shareMenu" style="z-index:200">
   <h4>Share song</h4>
-  <div class="toggle" role="button" tabindex="0" onclick="shareNowPlaying(false)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Copy / share link</span><small>From the start</small></div></div>
-  <div class="toggle" role="button" tabindex="0" onclick="shareNowPlaying(true)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Start at a time</span><small>Begins at <b id="shareAt">0:00</b></small></div></div>
+  <div class="toggle" role="button" tabindex="0" onclick="shareNowPlaying('copy',false)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Copy link</span><small>From the start</small></div></div>
+  <div class="toggle" role="button" tabindex="0" onclick="shareNowPlaying('copy',true)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Copy link at <b id="shareAt">0:00</b></span><small>Starts where you are</small></div></div>
+  <!-- Both system-share rows are hidden unless navigator.share exists — see openShare(). -->
+  <div class="toggle" id="shareSys" role="button" tabindex="0" onclick="shareNowPlaying('share',false)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Share…</span><small>Your device’s share sheet</small></div></div>
+  <div class="toggle" id="shareSysAt" role="button" tabindex="0" onclick="shareNowPlaying('share',true)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Share from the current time…</span><small>Your device’s share sheet</small></div></div>
 </div>
 
 <!-- now-playing bar -->
@@ -1759,8 +1762,10 @@ function toggleLikeCurrent() { const t = state.queue[state.qi]; if (t) doToggleL
 function openShare(e) {
   e && e.stopPropagation(); const t = state.queue[state.qi]; if (!t || !t.videoId) return;
   const m = el("shareMenu"), at = el("shareAt"); if (at) at.textContent = fmt(PB.cur());
+  // No share sheet (most desktop browsers) → copy-only menu, which is what this used to fall back to.
+  for (const id of ["shareSys", "shareSysAt"]) { const r = el(id); if (r) r.style.display = navigator.share ? "" : "none"; }
   const on = m.classList.toggle("on");
-  if (on) { const r = el("npShare").getBoundingClientRect(); m.style.top = Math.max(12, r.top - 132) + "px"; m.style.left = Math.max(12, Math.min(innerWidth - 250, r.left - 100)) + "px"; m.style.right = "auto"; }
+  if (on) { const r = el("npShare").getBoundingClientRect(); const h = m.offsetHeight || 132; m.style.top = Math.max(12, r.top - h - 10) + "px"; m.style.left = Math.max(12, Math.min(innerWidth - 250, r.left - 100)) + "px"; m.style.right = "auto"; }
 }
 // The shareable path for whatever is playing. Spoken word routes through its show (/shows/:show/:episode)
 // so the link resolves against the podcast corpus — /song/:id only knows music, and would deny every episode.
@@ -1769,21 +1774,21 @@ function openShare(e) {
 function trackPath(t) { return (t.kind === "shiur" ? "/shiurim/lecture/" + encodeURIComponent(t.shId) : t.isEpisode ? (t.podcastId ? "/shows/" + encodeURIComponent(t.podcastId) + "/" + t.videoId : location.pathname) : "/song/" + t.videoId); }
 // Named apart from the row-menu shareSong(track) below — two top-level `function shareSong` declarations
 // meant the later one won, so the now-playing menu was calling it with a boolean and sharing a bare "/song/".
-function shareNowPlaying(withTime) {
+function shareNowPlaying(mode, withTime) {
   el("shareMenu").classList.remove("on");
   const t = state.queue[state.qi]; if (!t || !t.videoId) return;
   const sec = withTime ? Math.floor(PB.cur()) : 0;
   const url = location.origin + trackPath(t) + (sec > 1 ? "?t=" + sec : "");
   const title = (t.title || "SK Music") + (t.artist ? " · " + t.artist : "");
-  if (navigator.share) navigator.share({ title, url }).catch(() => {});
-  else navigator.clipboard.writeText(url).then(() => showToast(`Link copied${sec > 1 ? ` — starts at ${fmt(sec)}` : ""}`, 2600)).catch(() => showToast("Couldn't copy the link", 2600));
+  if (mode === "share") systemShare({ title, url });
+  else copyLink(url, `Link copied${sec > 1 ? ` — starts at ${fmt(sec)}` : ""}`);
 }
-function shareDetail() {
+function shareDetail(ev) {
   if (!state.detailPath) return;
   const url = location.origin + state.detailPath;
   const title = (state.detailTitle || "SK Music") + " · SK Music";
-  if (navigator.share) navigator.share({ title, url }).catch(() => {});
-  else navigator.clipboard.writeText(url).then(() => showToast("Link copied", 2600)).catch(() => showToast("Couldn't copy the link", 2600));
+  const anchor = (ev && ev.currentTarget) || el("v-detail");
+  shareMenuFor(anchor, [{ url, title }]);
 }
 // Now-playing artist → artist page. Tracks carry only the artist NAME, so resolve the id through the
 // catalog map; multi-artist strings ("A & B", "A feat. B") fall back to the first name.
@@ -1832,6 +1837,8 @@ const zpCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="$
 const artistCard = (a) => `<div class="card round" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${safeId(a.id)}')" onmouseenter="pf('artist','${safeId(a.id)}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="t">${esc(a.name || "")}</div></div>`;
 const artistCell = (a) => `<div class="gcell" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${safeId(a.id)}')" onmouseenter="pf('artist','${safeId(a.id)}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="n">${esc(a.name || "")}</div></div>`;
 let secN = 0, expSeq = 0;
+// Bumped on every loadHome so a slow section from a superseded run can't paint into the current page.
+let _homeGen = 0;
 function section(title, body, more) { if (!body) return ""; const d = (secN++ % 8) * 0.05; return `<div class="section" style="animation-delay:${d}s"><div class="sechead"><h2>${title}</h2>${more || ""}</div>${body}</div>`; }
 
 // Trending rails from real play analytics (top played songs + artists over N days). Aggregates come from the
@@ -1978,15 +1985,21 @@ async function loadHome() {
     window.__appReady && window.__appReady();
     return;
   }
-  const [d, trend, zpl, zemerRows, nf, stations, statuses] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections(), getJSON("/zemer-playlists"), zemerRowsSections(), newFeed(), stationsSection(), statusesSection()]);
+  // Zemer Radio and Statuses are THIRD-PARTY round trips — the Worker fetches the stations index and
+  // jewishstatus.com respectively. Awaiting them here meant Home could not paint until the SLOWEST of
+  // them answered, so one flaky upstream held the whole page hostage. Start them now (still parallel,
+  // nothing is serialised) but render without them and slot each in when it lands.
+  const gen = ++_homeGen;
+  const pStations = stationsSection(), pStatuses = statusesSection();
+  const [d, trend, zpl, zemerRows, nf] = await Promise.all([getJSON("/home?" + filterQS()).then((x) => x || {}), trendingSections(), getJSON("/zemer-playlists"), zemerRowsSections(), newFeed()]);
   await artistByName(); // load artist flags so the parental gate (artist allow/blocklist + kid-only) applies below
   const quick = gate(d.quickPicks), recent = gate(readRecent()), vids = gate(d.featuredVideos);
   const fAlbums = feedAlbums(nf), fSongs = gateFeed(((nf && nf.categories) || {}).songs || []).filter((t) => t.videoId);
   const newS = fSongs.length ? fSongs : gate(d.newSongs); // real release dates when the feed has them, corpus otherwise
   let h = `<div class="hero"><div class="eyebrow">Kosher music, by construction</div><h1>Only the music you trust.</h1><p>Every song here comes from a whitelisted artist's full catalog — searched, not filtered. Nothing outside it.</p>${acapellaMode() === "only" ? "" : `<button class="btn-play" style="margin-top:16px" onclick="startRadio('shuffle','')">${ICON.radio} Radio mode</button>`}<span class="heb">מוזיקה</span></div>` + (trend || "");
-  h += stations || ""; // Zemer Radio — live broadcast stations (off / filtered out → empty string)
+  h += `<div id="homeStations"></div>`; // filled by pStations below — keeps Zemer Radio's slot above Quick Picks
   if (quick.length) h += section("Quick Picks", quickPicks(quick));
-  h += statuses || ""; // JewishStatus story circles (off / Kid Zone / upstream down → empty string)
+  h += `<div id="homeStatuses"></div>`; // filled by pStatuses below — story circles sit under Quick Picks
   h += railOf("Curated Playlists", ((zpl && zpl.playlists) || []).filter((p) => p.id !== "auto-trending" && p.id !== "auto-top-50"), zpCard); // Trending/Top 50 fold into the Trending Songs section
   h += railOf("Latest Releases", fAlbums.length ? fAlbums.slice(0, 24) : gate(d.latestReleases), albumCard);
   if (newS.length) h += section("New Songs", songCards(newS));
@@ -1997,7 +2010,18 @@ async function loadHome() {
   if (!blockVideos() && vids.length) h += section("Music Videos", songCards(vids));
   h += zemerRows || "";
   v.innerHTML = h || emptyState("No content yet", "The catalog is still being built.");
-  window.__appReady && window.__appReady();
+  window.__appReady && window.__appReady(); // "ready" is a painted page, not one waiting on a third party
+  // Late arrivals fill their reserved slot, so nothing reflows into the wrong place. An empty answer
+  // (switched off, filtered out, upstream down) just drops the placeholder. The `gen` guard matters:
+  // a filter change calls loadHome again, and without it a slow response from the PREVIOUS run could
+  // paint stale — possibly now-filtered — content into the new page.
+  for (const [id, p] of [["homeStations", pStations], ["homeStatuses", pStatuses]]) {
+    p.then((html) => {
+      if (gen !== _homeGen) return;
+      const n = el(id); if (!n) return;
+      if (html) n.outerHTML = html; else n.remove();
+    }).catch(() => { if (gen === _homeGen) { const n = el(id); if (n) n.remove(); } });
+  }
 }
 
 /* ============================ ARTISTS ============================ */
@@ -3745,10 +3769,13 @@ async function openPublicPlaylist(pid, fromRoute) {
   if (!fromRoute) pushURL("/p/" + pid);
 }
 /* ---- consolidated song-actions menu (⋯) ---- */
-let _menuTrack = null;
+let _menuTrack = null, _menuRect = null;
 function songMenuAt(qid, i, e) { e && e.stopPropagation(); const q = queues.get(qid); const t = q && q[i]; if (t) openSongMenu(e.currentTarget, t); }
 function openSongMenu(anchor, t) {
   _menuTrack = t;
+  // Kept for the share submenu: by the time smShare runs, closeMenus() has emptied #popmenu, so the
+  // row button it was anchored to no longer has a usable rect.
+  _menuRect = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : null;
   const acaOnly = acapellaMode() === "only";
   const ico = { pl: '<svg viewBox="0 0 24 24"><path d="M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v6l5-3z"/></svg>', radio: ICON.radio, artist: ICON.artist, share: ICON.share, flag: '<svg viewBox="0 0 24 24"><path d="M14.4 6 14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>' };
   let html = `<div class="mihead">${esc(t.title || "Song")}</div>`;
@@ -3761,7 +3788,7 @@ function openSongMenu(anchor, t) {
 }
 function smRadio() { const t = _menuTrack; if (t && t.videoId && acapellaMode() !== "only") startRadio("song", t.videoId); }
 function smArtist() { const t = _menuTrack; if (t && t.artist) gotoArtistByName(t.artist); }
-function smShare() { const t = _menuTrack; if (t) shareSong(t); }
+function smShare() { const t = _menuTrack; if (t) shareSong(t, _menuRect ? rectAnchor(_menuRect) : null); }
 function smReport() { const t = _menuTrack; if (t) reportSong(t); }
 async function openAddToPlaylistMenu() {
   if (!requirePlaylistLogin()) { closeMenus(); return; }
@@ -3778,12 +3805,11 @@ async function openAddToPlaylistMenu() {
   m.innerHTML = `<div class="mihead">Add to playlist</div><button class="mi" role="menuitem" onclick="newPlaylistPrompt((id)=>id&&addTrackToPlaylist(id,window._menuTrack))"><span>＋ New playlist…</span></button><div class="misep"></div>${items || '<div class="qempty">No playlists yet.</div>'}`;
   window._menuTrack = t; // keep the track for the submenu handlers
 }
-// Share: native share sheet when available, else copy the deep link.
-function shareSong(t) {
+// Share: offer copy AND the system sheet, rather than letting the sheet pre-empt copying.
+function shareSong(t, anchor) {
   const url = location.origin + trackPath(t);
-  const data = { title: t.title || "SK Music", text: `${t.title || ""}${t.artist ? " — " + t.artist : ""}`, url };
-  if (navigator.share) { navigator.share(data).catch(() => {}); return; }
-  try { navigator.clipboard.writeText(url); showToast("Link copied to clipboard.", 2000); } catch { showToast(url, 4000); }
+  shareMenuFor(anchor || el("nowbar") || document.body,
+    [{ url, title: t.title || "SK Music", text: `${t.title || ""}${t.artist ? " — " + t.artist : ""}` }]);
 }
 // Report a problem → content_report RPC (needs an account).
 async function reportSong(t) {
@@ -3842,7 +3868,7 @@ function renderDetailView(v) {
   let h = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>
     <div class="detail-hero"><div class="cover ${v.round ? "round" : ""}">${artHTML(v.thumb, v.round ? ICON.artist : NOTE, v.round, 640)}</div>
     <div class="dh-meta"><div class="dh-kind">${v.kind}</div><div class="dh-title">${esc(v.title)}</div><div class="dh-sub">${v.sub}</div></div></div>`;
-  h += `<div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button>` : ""}${qid ? `<button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}${v.radio ? `<button class="btn-ghost" onclick="startRadio('${v.radio.kind}','${v.radio.seed}')">${ICON.radio}Radio</button>` : ""}${v.follow ? `<button class="btn-ghost follow-btn ${isFollowing(v.follow.channelId) ? "on" : ""}" onclick="toggleFollow('${esc(v.follow.channelId)}','${esc(v.follow.name).replace(/'/g, "\\'")}',this)"><svg viewBox="0 0 24 24"><path d="M15 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4m0 2c-3 0-9 1.5-9 4.5V21h18v-2.5c0-3-6-4.5-9-4.5"/></svg><span class="follow-lbl">${isFollowing(v.follow.channelId) ? "Following" : "Follow"}</span></button>` : ""}${v.path ? `<button class="btn-ghost" onclick="shareDetail()">${ICON.share}Share</button>` : ""}</div>`;
+  h += `<div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button>` : ""}${qid ? `<button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}${v.radio ? `<button class="btn-ghost" onclick="startRadio('${v.radio.kind}','${v.radio.seed}')">${ICON.radio}Radio</button>` : ""}${v.follow ? `<button class="btn-ghost follow-btn ${isFollowing(v.follow.channelId) ? "on" : ""}" onclick="toggleFollow('${esc(v.follow.channelId)}','${esc(v.follow.name).replace(/'/g, "\\'")}',this)"><svg viewBox="0 0 24 24"><path d="M15 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4m0 2c-3 0-9 1.5-9 4.5V21h18v-2.5c0-3-6-4.5-9-4.5"/></svg><span class="follow-lbl">${isFollowing(v.follow.channelId) ? "Following" : "Follow"}</span></button>` : ""}${v.path ? `<button class="btn-ghost" onclick="shareDetail(event)">${ICON.share}Share</button>` : ""}</div>`;
   let main = "";
   for (const s of v.sections) {
     if (s.tracks && s.tracks.length) {
@@ -5003,6 +5029,38 @@ function showToast(msg, ms) { const t = el("toast"); t.innerHTML = msg; t.classL
 /* ---- shared popup menu ---- */
 // Open a floating menu of pre-built .mi buttons near an anchor element. Callers build the inner HTML
 // (esc() anything dynamic). One menu at a time; any outside click / Escape / scroll closes it.
+/* ---- share: copy, or hand off to the OS ----
+   navigator.share used to WIN outright wherever it existed, so any device WITH a share sheet had no
+   way to just copy the link — which is the thing people ask for most. Both are offered now. Where
+   there is no share sheet the menu is copy-only, i.e. exactly the old behaviour, so nothing regresses
+   on desktop browsers. */
+function copyLink(url, note) {
+  const done = () => showToast(note || "Link copied. 🔗", 2200);
+  if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(url).then(done, () => showToast(esc(url), 6000)); return; }
+  // execCommand path for the http:// desktop origins where the async clipboard API is unavailable.
+  try { const t = document.createElement("textarea"); t.value = url; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); done(); }
+  catch { showToast(esc(url), 6000); }
+}
+function systemShare(data) { if (navigator.share) navigator.share(data).catch(() => {}); else copyLink(data.url); }
+// `entries` = [{url, title, text, label, sub}] — one normally, two when the caller also offers a
+// start-at-a-time variant. Anchored menus read the anchor's rect AFTER the menu's html is swapped in,
+// so a caller whose anchor lives inside #popmenu must pass a captured rect (see smShare).
+function shareMenuFor(anchor, entries) {
+  window._shareOpts = entries;
+  let h = `<div class="mihead">Share</div>`;
+  entries.forEach((e, i) => {
+    h += `<button class="mi" role="menuitem" onclick="closeMenus();copyLink(window._shareOpts[${i}].url)"><span>Copy link${e.label ? " " + esc(e.label) : ""}</span>${e.sub ? `<span class="sub">${esc(e.sub)}</span>` : ""}</button>`;
+  });
+  if (navigator.share) {
+    h += `<div class="misep"></div>`;
+    entries.forEach((e, i) => {
+      h += `<button class="mi" role="menuitem" onclick="closeMenus();systemShare(window._shareOpts[${i}])"><span>Share${e.label ? " " + esc(e.label) : ""}…</span><span class="sub">Your device’s share sheet</span></button>`;
+    });
+  }
+  popMenu(anchor, h);
+}
+// popMenu only ever calls getBoundingClientRect(), so a captured rect stands in for a live element.
+const rectAnchor = (r) => ({ getBoundingClientRect: () => r });
 function popMenu(anchor, html) {
   const m = el("popmenu"); m.innerHTML = html; m.classList.add("on"); m.setAttribute("aria-hidden", "false");
   const r = anchor.getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;

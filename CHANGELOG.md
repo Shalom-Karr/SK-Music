@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.5.2 — 2026-08-03 (web)
+
+**Why the bump:** Home was waiting on other people's servers before it would draw anything, the share
+button wouldn't let you just copy a link, and the analytics dashboard was showing "NaN%".
+
+**Faster — Home no longer waits on Zemer Radio or Statuses**
+- Both of those come from outside SK Music, and Home was holding its entire first paint until the
+  slower of them answered — so one sluggish upstream delayed everything, including the music.
+- They now load alongside the page and drop into their reserved places when they arrive. Measured
+  with those two calls artificially slowed to 5 seconds, Home painted in **0.5s** — previously it
+  would have sat empty for the full 5. Nothing else got slower; they still start at the same moment.
+- The Statuses row itself also gives up on a stalled category after 6 seconds instead of 15. A
+  category that times out was already skipped, so this only ever trades a few extra faces for a row
+  that shows up.
+
+**Share — copy the link, or use your device's share sheet**
+- The share button used to jump straight to the system share sheet wherever one existed, so on a
+  phone or the desktop app there was no way to simply copy a link. It now offers both.
+- The now-playing share menu keeps "start at the current time" and offers it for either destination.
+- On a browser with no share sheet, it's a copy-only menu — exactly what it did before.
+
+**Fixed — analytics "Signed in vs anonymous" read 0 accounts and NaN%**
+- The card was only ever populated on the slow fallback path. On the fast path the numbers were
+  simply absent, so the percentages divided by nothing.
+- It now reads the split from the dashboard summary, measured over the same range as every other tile
+  on the page. Where that hasn't been redeployed yet it falls back to the older whole-day figure and
+  says so, rather than showing zeroes.
+- A stat that can't be computed now shows "—" instead of "NaN%".
+- **Requires re-running `supabase/dashboard-summary.sql`** for the exact per-range numbers.
+
 ## 1.5.1 — 2026-08-03 (web)
 
 **Why the bump:** filmed shiurim stuttered and froze for some people. The cause was the video file

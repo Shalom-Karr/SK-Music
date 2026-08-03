@@ -1511,7 +1511,11 @@ async function jsCreators(ctx) {
           p_section: "all", p_search: null, p_limit: 100, p_offset: 0,
           p_category: cat, p_location: null, p_sort: "recent",
         }),
-        signal: AbortSignal.timeout(15000),
+        // 6s, not 15s. These run under Promise.all, so the SLOWEST category sets the latency of the
+        // whole row on a cache miss — and a category that times out is already dropped rather than
+        // failing the row, so waiting 15s for one buys a few extra creators at the cost of everyone
+        // else's first paint. Partial-and-quick beats complete-and-late here.
+        signal: AbortSignal.timeout(6000),
       });
       if (!res.ok) return null;
       const rows = await res.json();
