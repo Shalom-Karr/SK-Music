@@ -78,11 +78,49 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
   // Catalog API base — curated playlists list + acapella detection both call it.
   const CATALOG_BASE = (process.env.CATALOG_API || "https://search.zemer.io").replace(/\/$/, "");
 
+  // Public anon key — the same one that ships in the client. Declared here rather than further down
+  // because the artist-merge read below has to happen BEFORE the artist index is built.
+  const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4dHRxY291YWJkcHRmdGx2Zm5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTc2OTAsImV4cCI6MjA5ODc5MzY5MH0.DiTcbcKTqXZTJfOqEXfvckiObinN0g15BDbLmAmmdsY";
+  const supabaseBase = "https://jxttqcouabdptftlvfnd.supabase.co/rest/v1/";
+
   // ── corpus rows ────────────────────────────────────────────────────────────
   const tracks    = allTracks(db);
   const artists   = allArtists(db);
   const albums    = allAlbums(db);
   const playlists = allPlaylists(db);
+
+  // ── duplicate artists (supabase/v1.2.8-artist-merge.sql) ──────────────────
+  // One person can hold several YouTube channels, and the catalog is keyed on channel id, so they
+  // show up as separate artists. An admin marks the duplicate; here we re-point its CONTENT and drop
+  // the artist row. Re-pointing rather than deleting matters: a track whose artistId no longer
+  // resolves would vanish from the catalog, which is a far worse bug than the duplicate we set out
+  // to fix. Best-effort — a Supabase outage bakes the catalog exactly as it is today.
+  const mergeAlias = new Map(); // alias channel id → canonical channel id
+  try {
+    // Timed: a build that hangs forever because a third party stopped answering is worse than a
+    // build that ships today's catalogue without a merge that was added an hour ago.
+    const res = await fetch(`${supabaseBase}zemer_artist_merge?select=alias_id,canonical_id&limit=5000`,
+      { headers: { apikey: SB_ANON, Authorization: "Bearer " + SB_ANON }, signal: AbortSignal.timeout(15000) });
+    if (res.ok) {
+      const known = new Set(artists.map((a) => a.id));
+      for (const r of await res.json()) {
+        // Both ends must exist in THIS corpus. A merge naming a channel we no longer carry would
+        // otherwise strand content on an id nothing emits.
+        if (r && r.alias_id && r.canonical_id && r.alias_id !== r.canonical_id
+            && known.has(r.alias_id) && known.has(r.canonical_id)) mergeAlias.set(r.alias_id, r.canonical_id);
+      }
+    }
+  } catch (e) {
+    console.warn("  artist merges: skipped —", e.message);
+  }
+  if (mergeAlias.size) {
+    const canon = (id) => mergeAlias.get(id) || id;
+    for (const t of tracks)    t.artistId = canon(t.artistId);
+    for (const x of albums)    x.artistId = canon(x.artistId);
+    for (const p of playlists) p.artistId = canon(p.artistId);
+    for (let i = artists.length - 1; i >= 0; i--) if (mergeAlias.has(artists[i].id)) artists.splice(i, 1);
+    console.log(`  artist merges: ${mergeAlias.size} duplicate${mergeAlias.size === 1 ? "" : "s"} folded in → ${artists.length} artists`);
+  }
 
   // Positional index: artist channel ID → row index in the artists array.
   // The interned dataset stores this integer instead of the full string ID
@@ -102,9 +140,6 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
   // (isDJ, isAmerican, isFamous, isIsraeli, isChasidish from Supabase).
   // All fetches are best-effort: a network failure means flags default false
   // and the tagger falls back to its committed bake.
-  const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4dHRxY291YWJkcHRmdGx2Zm5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTc2OTAsImV4cCI6MjA5ODc5MzY5MH0.DiTcbcKTqXZTJfOqEXfvckiObinN0g15BDbLmAmmdsY";
-  const supabaseBase = "https://jxttqcouabdptftlvfnd.supabase.co/rest/v1/";
-
   let whitelistArtists = [];
   const whitelistMeta  = new Map(); // channel_id → { isDJ, isAmerican, isFamous, isChasid }
 
@@ -290,14 +325,53 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
   // Each artist and album gets a small JSON identical to the live /artist and /album
   // API responses — so entity pages open instantly without fetching the full dataset.
   {
-    let artistCount = 0, albumCount = 0;
+    let artistCount = 0, albumCount = 0, aliasCount = 0;
+    // artistDetail() reads the corpus, which still holds the PRE-merge artistIds — the re-point above
+    // only touched the in-memory rows. So a merged artist's page has to be assembled from every id
+    // that folds into it, or the merge would silently drop the duplicate's whole catalogue.
+    const aliasesOf = new Map();
+    for (const [alias, canonical] of mergeAlias) {
+      if (!aliasesOf.has(canonical)) aliasesOf.set(canonical, []);
+      aliasesOf.get(canonical).push(alias);
+    }
+    const absorb = (into, from, key) => {
+      if (!from || !from.length) return;
+      const seen = new Set(into.map((x) => x[key]));
+      for (const x of from) if (x && !seen.has(x[key])) { into.push(x); seen.add(x[key]); }
+    };
     for (const a of artists) {
       const detail = artistDetail(db, a.id);
       if (detail) {
+        const aliases = aliasesOf.get(a.id) || [];
+        for (const alias of aliases) {
+          const extra = artistDetail(db, alias);
+          if (!extra) continue;
+          absorb(detail.songs, extra.songs, "videoId");
+          absorb(detail.videos, extra.videos, "videoId");
+          absorb(detail.albums, extra.albums, "id");
+          absorb(detail.singles, extra.singles, "id");
+          absorb(detail.playlists, extra.playlists, "id");
+        }
+        if (aliases.length) {
+          // The union broke the play-count ordering, and the absorbed releases still carry the
+          // DUPLICATE's name — which is the very thing the merge exists to stop showing.
+          detail.songs.sort((x, y) => (y.playCount || 0) - (x.playCount || 0));
+          for (const r of detail.albums) r.artist = detail.artist.name;
+          for (const r of detail.singles) r.artist = detail.artist.name;
+          for (const r of detail.playlists) r.artist = detail.artist.name;
+        }
         ensureWrite(path.join(DATA, "artist", a.id + ".json"), JSON.stringify(detail));
         artistCount++;
+        // Links to the duplicate are already out there — shared, bookmarked, indexed. Serve the
+        // merged page at the old id too, tagged so the client can quietly correct the URL, rather
+        // than 404ing someone who followed a link that worked yesterday.
+        for (const alias of aliases) {
+          ensureWrite(path.join(DATA, "artist", alias + ".json"), JSON.stringify({ ...detail, mergedInto: a.id }));
+          aliasCount++;
+        }
       }
     }
+    if (aliasCount) console.log(`  merged-artist aliases: ${aliasCount} old id${aliasCount === 1 ? "" : "s"} still resolve`);
     for (const al of albums) {
       const detail = albumDetail(db, al.id);
       if (detail) {
