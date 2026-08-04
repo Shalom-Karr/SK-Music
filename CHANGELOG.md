@@ -1,6 +1,24 @@
 # Changelog
 
-## 1.6.1 — 2026-08-04 (web; desktop feature awaiting a release)
+## Desktop 1.2.0 — 2026-08-04
+
+**Why the bump:** the first desktop release since 1.1.3, carrying two things that only the native app
+can do.
+
+**New — the music dips instead of you pausing it**
+- See 1.6.1 below. When something else on the computer makes sound — a voice note, a call, a video —
+  the music turns itself down and comes back afterwards, including while you're talking into the mic.
+
+**Faster launch**
+- The connectivity check used to run *after* the window had already come up, adding a full round trip
+  to every start. It now runs alongside the window opening and finishes in 20–60 ms instead of
+  250–370 ms, with a 3-second ceiling instead of 9. Shell-to-interactive dropped about 30%.
+- The app shell is served from cache first and refreshed in the background, so launching no longer
+  re-downloads a page it already had.
+
+*(Both were written earlier — 1.5.2 — but a desktop release is what actually delivers them.)*
+
+## 1.6.1 — 2026-08-04 (web; desktop feature ships in Desktop 1.2.0)
 
 **New — the music dips instead of you pausing it (desktop app)**
 - When something else on your computer starts making sound — a WhatsApp voice note, a call, a video —
@@ -14,7 +32,6 @@
 - Muting still means muted — a dip can't un-mute you.
 - **Desktop only.** A browser tab can't see other applications' audio at all, so the control is hidden
   in the web app rather than shown doing nothing.
-- Needs a new desktop release to reach installed apps; the version hasn't been bumped yet.
 
 ## 1.6.0 — 2026-08-03 (web)
 
