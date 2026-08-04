@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.6.1 — 2026-08-04 (web; desktop feature awaiting a release)
+
+**New — the music dips instead of you pausing it (desktop app)**
+- When something else on your computer starts making sound — a WhatsApp voice note, a call, a video —
+  SK Music turns itself down, and turns back up when it stops. No more pausing and un-pausing all day.
+- It also dips while you're **talking into the microphone**, so recording a voice note doesn't mean
+  reaching for the volume first.
+- On by default, with a switch and a "how much" slider in the filters menu (Playback). Default is 75%
+  quieter.
+- Your volume slider never moves. The dip is applied on top of wherever you left it, so if you change
+  the volume mid-dip it goes back to the level *you* chose, not the one from before.
+- Muting still means muted — a dip can't un-mute you.
+- **Desktop only.** A browser tab can't see other applications' audio at all, so the control is hidden
+  in the web app rather than shown doing nothing.
+- Needs a new desktop release to reach installed apps; the version hasn't been bumped yet.
+
 ## 1.6.0 — 2026-08-03 (web)
 
 **Why the bump:** the same artist could appear two or three times, because one person can hold several
