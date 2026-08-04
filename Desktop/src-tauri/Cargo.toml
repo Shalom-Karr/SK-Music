@@ -53,6 +53,8 @@ reqwest = "0.13"
 tokio = { version = "1", features = ["time", "sync"] }
 
 # Taskbar jump list (src/jumplist.rs): ICustomDestinationList + IShellLinkW COM.
+# Audio ducking (src/ducking.rs): WASAPI session enumeration + per-session peak meters, plus
+# ToolHelp to work out which sessions belong to US (the webview runs in child processes).
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.61", features = [
   "Win32_Foundation",
@@ -62,6 +64,9 @@ windows = { version = "0.61", features = [
   "Win32_UI_Shell",
   "Win32_UI_Shell_PropertiesSystem",
   "Win32_UI_Shell_Common",
+  "Win32_Media_Audio",
+  "Win32_Media_Audio_Endpoints",
+  "Win32_System_Diagnostics_ToolHelp",
 ] }
 
 [profile.release]

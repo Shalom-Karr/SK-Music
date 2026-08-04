@@ -11,6 +11,7 @@
 mod connectivity;
 mod deeplink;
 mod download;
+mod ducking;
 #[cfg(target_os = "windows")]
 mod jumplist;
 mod media;
@@ -148,6 +149,9 @@ fn main() {
             updater::hook_spa_events(handle);
             // Offline downloads: event listeners + the single download worker (src/download.rs).
             download::init(handle)?;
+            // Auto-duck: watch other apps' audio sessions and tell the SPA to drop its volume
+            // while a voice note / call / video is playing (src/ducking.rs).
+            ducking::init(handle);
             // Autostart launched us with "--minimized": come up hidden to the tray.
             if std::env::args().any(|a| a == "--minimized") {
                 if let Some(window) = app.get_webview_window("main") {

@@ -1080,6 +1080,13 @@ fill="url(#royal)" stroke="none">
     <div class="toggle locked" id="tgFemale" role="button" tabindex="0" onclick="gotoParental()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Hide female singers</span><small>Kol isha — change in Parental Controls</small></div><div class="sw"></div></div>
     <div class="toggle locked" id="tgAcapLocked" role="button" tabindex="0" onclick="flipFilter('acapella')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" style="display:none"><div><span>Acapella</span><small id="acapLockSub">Required for Sefira / the Three Weeks</small></div><div class="sw"></div></div>
   </div>
+  <!-- Desktop only — revealed by the SK_NATIVE block. A browser tab cannot observe other
+       applications' audio at all, so in the web app this control would be a switch wired to nothing. -->
+  <div id="duckRow" style="display:none;border-top:1px solid var(--line);margin-top:8px;padding-top:4px">
+    <h4 style="margin-top:0">Playback</h4>
+    <div class="toggle" id="tgDuck" role="button" tabindex="0" onclick="setDuck(!duckOn())" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Dip for other audio</span><small>Turn the music down while a voice note, call or video plays &mdash; instead of pausing it</small></div><div class="sw"></div></div>
+    <div class="isr-row" id="duckAmtRow"><div><span>How much</span><small>Quieter by <b id="duckAmtLbl">75%</b></small></div><input id="duckAmt" type="range" min="30" max="90" step="5" value="75" aria-label="How much to dip the music" style="width:120px" oninput="setDuckAmount(+this.value)"></div>
+  </div>
   <div id="filterReset" style="padding:8px 12px 2px"><button class="btn-ghost" style="height:36px;width:100%;justify-content:center;font-size:13px" onclick="resetFilters()">Reset filters</button></div>
 </div>
 <div class="menu" id="shareMenu" style="z-index:200">
@@ -4078,6 +4085,22 @@ async function hlsAttach(m, url, startSec, mp4) {
 }
 const PB = {
   mode: "yt", yt: null, ready: false, pending: null, nextStart: 0, vol: 1, muted: false, rate: 1,
+  // Auto-duck multiplier, 0–1, driven by the desktop shell (src/ducking.rs) while another app is
+  // making noise. Deliberately NOT folded into `vol`: vol is the user's slider, and overwriting it
+  // would lose their level when the duck releases and make the slider jump under their hand. Every
+  // path that pushes volume outward uses out(); everything that reads "what did the user choose"
+  // keeps reading vol.
+  duck: 1,
+  out() { return this.vol * this.duck; },
+  // Re-push the current effective volume to whichever engine is on air. Used when only the duck
+  // changed — the user's vol is untouched, so setVol() would be the wrong call (it clears mute).
+  applyVol() {
+    if (this.muted) return;                       // muted wins; releasing a duck must not unmute
+    try {
+      if (this.useYt()) { if (this.ready) this.yt.setVolume(Math.round(this.out() * 100)); }
+      else this.med().volume = this.out();
+    } catch {}
+  },
   // SK-OFFLINE: `local` is a per-track override — when a downloaded copy exists (desktop only) the html5
   // <audio> element plays the local file instead of the YT iframe, WITHOUT flipping the persistent `mode`
   // (so YT stays the online engine). useYt() is the single "talk to the iframe?" predicate the methods share.
@@ -4130,7 +4153,7 @@ const PB = {
   seek(sec) { if (xf) abortCrossfade(); if (gapless && gapless.phase === "start") cancelSwap(); this.useYt() ? this.ready && this.yt.seekTo(sec, true) : (this.med().currentTime = sec); cueNext(); },
   cur() { return this.useYt() ? (this.ready ? this.yt.getCurrentTime() || 0 : 0) : this.med().currentTime; },
   dur() { return this.useYt() ? (this.ready ? this.yt.getDuration() || 0 : 0) : (this.med().duration || 0); },
-  setVol(v) { this.vol = v; this.muted = false; if (this.useYt()) { if (this.ready) { this.yt.unMute(); this.yt.setVolume(Math.round(v * 100)); } } else { const m = this.med(); m.muted = false; m.volume = v; } },
+  setVol(v) { this.vol = v; this.muted = false; if (this.useYt()) { if (this.ready) { this.yt.unMute(); this.yt.setVolume(Math.round(this.out() * 100)); } } else { const m = this.med(); m.muted = false; m.volume = this.out(); } },
   setMuted(m) { this.muted = m; if (this.useYt()) { if (this.ready) m ? this.yt.mute() : this.yt.unMute(); } else this.med().muted = m; },
   setRate(r) { this.rate = r; if (this.useYt()) { if (this.ready) this.yt.setPlaybackRate(r); } else this.med().playbackRate = r; },
 };
@@ -4204,7 +4227,7 @@ let _fireWatch = 0;
 function fireSwap() { // make the primed standby audible; the swap completes on its PLAYING event
   gapless.phase = "start";
   try {
-    PB.muted ? ytStandby.mute() : (ytStandby.unMute(), ytStandby.setVolume(Math.round(PB.vol * 100)));
+    PB.muted ? ytStandby.mute() : (ytStandby.unMute(), ytStandby.setVolume(Math.round(PB.out() * 100)));
     if (PB.rate !== 1) ytStandby.setPlaybackRate(PB.rate);
     ytStandby.playVideo();
   } catch { gapless = null; return; }
@@ -4257,7 +4280,7 @@ function startCrossfade() {
 function stepCrossfade() {
   if (!xf) return;
   let ended = false; try { ended = xf.oldP.getPlayerState() === 0; } catch {}
-  const p = Math.min(1, (performance.now() - xf.start) / (xf.secs * 1000)), v = Math.round(PB.vol * 100);
+  const p = Math.min(1, (performance.now() - xf.start) / (xf.secs * 1000)), v = Math.round(PB.out() * 100);
   try { xf.newP.setVolume(Math.round(v * p)); } catch {}
   try { xf.oldP.setVolume(Math.round(v * (1 - p))); } catch {}
   if (p >= 1 || ended) finishCrossfade();
@@ -4266,7 +4289,7 @@ function finishCrossfade() { // fade complete → the new player becomes active 
   if (!xf) return;
   const { idx, oldP, newP } = xf; clearInterval(_xfTimer); _xfTimer = 0; xf = null;
   try { oldP.stopVideo(); } catch {}
-  try { PB.muted ? newP.mute() : newP.setVolume(Math.round(PB.vol * 100)); } catch {}
+  try { PB.muted ? newP.mute() : newP.setVolume(Math.round(PB.out() * 100)); } catch {}
   PB.yt = newP; ytStandby = oldP;
   if (idx < 0 || idx >= state.queue.length) return;
   state.qi = idx; trackStarted(state.queue[idx]);
@@ -4278,7 +4301,7 @@ function abortCrossfade() { // manual transport interrupted the fade — drop th
   clearInterval(_xfTimer); _xfTimer = 0;
   const newP = xf.newP; xf = null;
   try { newP.stopVideo(); newP.unMute(); } catch {}
-  try { if (!PB.muted) PB.yt.setVolume(Math.round(PB.vol * 100)); } catch {}
+  try { if (!PB.muted) PB.yt.setVolume(Math.round(PB.out() * 100)); } catch {}
 }
 function paintCrossfadeUI() { const b = el("npXfade"); if (b) b.classList.toggle("on", state.crossfade > 0); }
 function setCrossfade(secs) {
@@ -4303,7 +4326,7 @@ window.onYouTubeIframeAPIReady = function () {
     playerVars: { autoplay: first ? 1 : 0, controls: 0, disablekb: 1, fs: 0, rel: 0, modestbranding: 1, iv_load_policy: 3, playsinline: 1, origin: location.origin },
     events: {
       onReady(e) {
-        if (first) { PB.ready = true; PB.yt.setVolume(Math.round(PB.vol * 100)); if (PB.pending) { PB.yt.loadVideoById(PB.pending); PB.pending = null; } }
+        if (first) { PB.ready = true; PB.yt.setVolume(Math.round(PB.out() * 100)); if (PB.pending) { PB.yt.loadVideoById(PB.pending); PB.pending = null; } }
         else { ytStandby = e.target; standbyReady = true; cueNext(); } // may never fire for a videoless player — tick() also polls ytStandbyBoot into readiness
       },
       onStateChange(e) { e.target === PB.yt ? onPlayback(e.data) : onStandbyState(e.data); },
@@ -5395,9 +5418,56 @@ function skRenderDlModal() {
   el("skDlModalHead").textContent = head;
   box.innerHTML = `<div class="sk-dl-card"><img src="${art}" alt=""><div class="sk-dl-meta"><div class="sk-dl-t">${title}</div>${artist ? `<div class="sk-dl-s">${artist}</div>` : ""}${body}</div></div>${foot}`;
 }
+/* ---- auto-duck (desktop only) ----
+   Rust (src/ducking.rs) watches every OTHER app's audio session and tells us when something starts
+   making noise — a voice note, a call, a video — and when it stops. No web API can see that, which is
+   why the detection lives out there and only the decision to turn down lives here.
+   The ramp is short but not instant: a hard step reads as a glitch, and a slow one lets you miss the
+   first word of the thing you actually want to hear. */
+const duckAmount = () => Math.max(0, Math.min(90, +LS.get("zw_duckAmt", "75") || 0)); // % to REDUCE by
+const duckOn = () => LS.get("zw_duck", "1") === "1";
+let _duckTimer = 0;
+function skRampDuck(target) {
+  clearInterval(_duckTimer);
+  const from = PB.duck, delta = target - from, t0 = performance.now(), MS = 160;
+  if (Math.abs(delta) < 0.001) return;
+  _duckTimer = setInterval(() => {
+    const p = Math.min(1, (performance.now() - t0) / MS);
+    PB.duck = from + delta * p;
+    PB.applyVol();
+    if (p >= 1) { clearInterval(_duckTimer); _duckTimer = 0; PB.duck = target; PB.applyVol(); }
+  }, 25);
+}
+function skPushDuckConfig() { skEmit("sk-duck-config", { enabled: duckOn(), amount: 100 - duckAmount() }); }
+function setDuck(on) {
+  LS.set("zw_duck", on ? "1" : "");
+  if (!on) skRampDuck(1);
+  skPushDuckConfig(); paintDuckUI();
+  showToast(on ? "Music will dip while something else is playing." : "Auto-dip off.", 2400);
+}
+function setDuckAmount(pct) {
+  LS.set("zw_duckAmt", String(Math.max(0, Math.min(90, pct | 0))));
+  skPushDuckConfig(); paintDuckUI();
+  if (PB.duck < 1) skRampDuck((100 - duckAmount()) / 100); // previewing while already ducked
+}
+function paintDuckUI() {
+  const t = el("tgDuck"); if (t) t.classList.toggle("on", duckOn());
+  const s = el("duckAmt"); if (s) { s.value = String(duckAmount()); }
+  const l = el("duckAmtLbl"); if (l) l.textContent = duckAmount() + "%";
+  const row = el("duckAmtRow"); if (row) row.style.display = duckOn() ? "" : "none";
+}
+
 if (SK_NATIVE) {
   const nd = el("npDownload"); if (nd) nd.style.display = "flex";
   const ev = window.__TAURI__.event;
+  // Auto-duck. `amount` from Rust is the TARGET percentage (what's left), not the reduction.
+  ev.listen("sk-duck", (e) => {
+    const p = e.payload || {};
+    if (!duckOn()) return skRampDuck(1);
+    skRampDuck(p.on ? Math.max(0, Math.min(100, +p.amount || 25)) / 100 : 1);
+  }).then(skPushDuckConfig); // push our saved settings once Rust can hear us
+  const dz = el("duckRow"); if (dz) dz.style.display = ""; // desktop-only control, hidden in a browser
+  paintDuckUI();
   ev.listen("sk-dl-list", (e) => {
     const items = (e.payload && e.payload.items) || [];
     const inflight = new Map([...skDL.map].filter(([, v]) => v.status === "downloading"));
