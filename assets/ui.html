@@ -3909,6 +3909,11 @@ function detailLoading(kind, round) {
 async function openArtist(id, fromRoute) {
   detailLoading("Artist", true);
   const d = await detailGet("/artist?id=" + encodeURIComponent(id)); if (!d || d.error) return notAvailable("artist");
+  // This artist was a duplicate channel that has since been merged (see supabase/v1.2.8). The bake
+  // serves the merged page at the OLD id so existing links keep working; correct the address bar so
+  // anything shared from here uses the surviving id. replaceState, not push — the duplicate URL
+  // should not become a back-button stop.
+  if (d.mergedInto && d.mergedInto !== id) { id = d.mergedInto; if (!fromRoute) pushURL("/artists/" + encodeURIComponent(id), true); }
   await ensureFilters(); await loadFollows(); // artist flags + parental profile + follow state BEFORE render (so the Follow button shows the right state)
   if ((noFemale() && d.artist.isFemale) || (noChasid() && d.artist.isChasid) || hiddenArtist(d.artist.name) || blockedId(d.artist.id)) return blockedByFilter("artist");
   // Acapella filter, per mode — "only" and "hide" are OPPOSITES here (a single any-mode branch used to

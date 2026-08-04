@@ -154,6 +154,21 @@
       <tbody id="rows"><tr><td colspan="10" class="em">Loading…</td></tr></tbody>
     </table>
   </div>
+
+  <!-- Duplicate artists. The candidate list comes from the PUBLIC /data/artists.json, which is a
+       static asset — no Worker request and no admin read needed to find them. Only the merge itself
+       is privileged. -->
+  <div class="top" style="margin-top:34px">
+    <span class="dot"></span><h1>Duplicate artists</h1><span class="who" id="dupCount"></span>
+    <span class="spacer"></span>
+    <button class="btn ghost" id="dupRefresh" style="width:auto;margin:0;padding:8px 14px">Rescan</button>
+  </div>
+  <div class="card" id="dupCard" style="padding:16px">
+    <div class="em">Loading the catalog…</div>
+  </div>
+  <div class="card" id="mergeCard" style="padding:16px;margin-top:16px">
+    <div class="em">Loading merges…</div>
+  </div>
 </main>
 
 <div class="modal" id="modal"><div class="mbox">
@@ -272,7 +287,116 @@ function enterApp() {
   $('app').style.display = 'block';
   $('who').textContent = SESSION?.user?.email || '';
   load();
+  loadDupes();
+  loadMerges();
 }
+
+/* ---------- duplicate artists (supabase/v1.2.8-artist-merge.sql) ----------
+   One person, several YouTube channels — the catalog is keyed on channel id, so they appear as
+   separate artists. Candidates are found in the public /data/artists.json (a static asset: no Worker
+   request, no admin read); only the merge itself is privileged.
+
+   A merge takes effect on the NEXT BUILD, because it is applied at bake time — that is what keeps it
+   free at runtime. Nothing changes on the live site until a deploy runs. */
+let DUPES = [], MERGED = new Set();
+
+function normName(s) { return String(s || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }
+
+async function loadDupes() {
+  const card = $('dupCard');
+  try {
+    const r = await fetch('/data/artists.json', { cache: 'no-store' });
+    const list = ((await r.json()) || {}).artists || [];
+    // Group on the normalised NAME, and separately on an identical avatar URL — the same person
+    // re-uploading a channel keeps the picture, and sometimes tweaks the spelling.
+    const byName = new Map(), byThumb = new Map();
+    for (const a of list) {
+      if (!a || !a.id) continue;
+      const n = normName(a.name); if (n) { if (!byName.has(n)) byName.set(n, []); byName.get(n).push(a); }
+      if (a.thumbnail) { if (!byThumb.has(a.thumbnail)) byThumb.set(a.thumbnail, []); byThumb.get(a.thumbnail).push(a); }
+    }
+    const groups = new Map(); // keyed on the sorted id set, so a pair found by BOTH signals appears once
+    for (const [, g] of [...byName, ...byThumb]) {
+      if (g.length < 2) continue;
+      const key = g.map((x) => x.id).sort().join('|');
+      if (!groups.has(key)) groups.set(key, g);
+    }
+    DUPES = [...groups.values()].sort((a, b) => (a[0].name || '').localeCompare(b[0].name || ''));
+    $('dupCount').textContent = `${DUPES.length} group${DUPES.length === 1 ? '' : 's'} · ${DUPES.reduce((n, g) => n + g.length, 0)} channels · of ${list.length} artists`;
+    renderDupes();
+  } catch (e) {
+    card.innerHTML = `<div class="msg">Couldn't read the catalog: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderDupes() {
+  const card = $('dupCard');
+  const open = DUPES.filter((g) => !g.every((a) => MERGED.has(a.id) || g.filter((x) => !MERGED.has(x.id)).length < 2));
+  if (!open.length) { card.innerHTML = `<div class="em">No unmerged duplicates. ${DUPES.length ? 'Everything found has been merged.' : 'Nothing looks duplicated.'}</div>`; return; }
+  card.innerHTML = open.map((g, gi) => {
+    const live = g.filter((a) => !MERGED.has(a.id));
+    const rows = live.map((a, i) => `
+      <label style="display:flex;align-items:center;gap:10px;padding:7px 0;cursor:pointer">
+        <input type="radio" name="dup${gi}" value="${esc(a.id)}"${i === 0 ? ' checked' : ''}>
+        ${a.thumbnail ? `<img src="${esc(a.thumbnail)}" alt="" width="34" height="34" style="border-radius:50%;object-fit:cover">` : '<span style="width:34px"></span>'}
+        <span><b>${esc(a.name)}</b><br><span class="who" style="font-family:ui-monospace,monospace;font-size:11px">${esc(a.id)}</span></span>
+      </label>`).join('');
+    return `<div style="padding:12px 0;border-top:${gi ? '1px solid var(--line,#1e293b)' : '0'}">
+      <div style="margin-bottom:6px"><b>${esc(live[0].name)}</b> <span class="who">— ${live.length} channels. Pick the one to KEEP:</span></div>
+      ${rows}
+      <button class="btn" style="width:auto;margin-top:8px;padding:8px 16px" onclick="mergeGroup(${gi})">Merge the rest into the selected one</button>
+      <span class="msg" id="dupMsg${gi}" style="margin-left:10px"></span>
+    </div>`;
+  }).join('');
+}
+
+window.mergeGroup = async (gi) => {
+  const open = DUPES.filter((g) => g.filter((x) => !MERGED.has(x.id)).length >= 2);
+  const g = (open[gi] || []).filter((a) => !MERGED.has(a.id));
+  const msg = $('dupMsg' + gi);
+  const picked = document.querySelector(`input[name="dup${gi}"]:checked`);
+  if (!g.length || !picked) return;
+  const canonical = g.find((a) => a.id === picked.value);
+  const aliases = g.filter((a) => a.id !== picked.value);
+  if (!canonical || !aliases.length) return;
+  if (!confirm(`Merge ${aliases.length} channel${aliases.length === 1 ? '' : 's'} into "${canonical.name}"?\n\nThey stop appearing separately, and their songs move onto ${canonical.name}'s page. This takes effect on the next build — the live site is unchanged until then. Reversible.`)) return;
+  msg.textContent = 'Merging…';
+  try {
+    for (const a of aliases) {
+      await rpc('admin_merge_artists', { p_alias: a.id, p_canonical: canonical.id, p_alias_name: a.name, p_canonical_name: canonical.name });
+      MERGED.add(a.id);
+    }
+    msg.textContent = 'Merged. Applies on the next build.';
+    renderDupes(); loadMerges();
+  } catch (e) { msg.textContent = e.message; }
+};
+
+async function loadMerges() {
+  const card = $('mergeCard');
+  try {
+    const d = await rpc('admin_list_merges');
+    const rows = (d && d.merges) || [];
+    MERGED = new Set(rows.map((m) => m.alias_id));
+    card.innerHTML = `<div style="margin-bottom:8px"><b>Merged</b> <span class="who">— ${rows.length} duplicate${rows.length === 1 ? '' : 's'} folded in. Applied when the site is next built.</span></div>`
+      + (rows.length ? rows.map((m) => `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line,#1e293b)">
+          <span style="flex:1"><b>${esc(m.alias_name || m.alias_id)}</b> <span class="who">→ ${esc(m.canonical_name || m.canonical_id)}</span><br>
+            <span class="who" style="font-family:ui-monospace,monospace;font-size:11px">${esc(m.alias_id)} → ${esc(m.canonical_id)}</span></span>
+          <span class="who">${dt(m.merged_at)} · ${esc(m.merged_by || '')}</span>
+          <button class="btn ghost" style="width:auto;margin:0;padding:6px 12px" onclick="unmergeArtist('${esc(m.alias_id)}')">Undo</button>
+        </div>`).join('') : '<div class="em">Nothing merged yet.</div>');
+    renderDupes();
+  } catch (e) {
+    card.innerHTML = `<div class="msg">Couldn't load merges: ${esc(e.message)}. If this says the function is missing, run supabase/v1.2.8-artist-merge.sql.</div>`;
+  }
+}
+
+window.unmergeArtist = async (alias) => {
+  if (!confirm('Undo this merge? The artist reappears separately on the next build.')) return;
+  try { await rpc('admin_unmerge_artist', { p_alias: alias }); MERGED.delete(alias); loadMerges(); }
+  catch (e) { alert(e.message); }
+};
+
+$('dupRefresh').addEventListener('click', () => { loadDupes(); loadMerges(); });
 
 /* ---------- list ---------- */
 let TIMER = null;

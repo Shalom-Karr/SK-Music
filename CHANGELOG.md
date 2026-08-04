@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.6.0 — 2026-08-03 (web)
+
+**Why the bump:** the same artist could appear two or three times, because one person can hold several
+YouTube channels and the catalog is keyed on the channel. There are **47 names spread across 95
+channels** — 5.8% of the artist list. Abie Rotenberg has three.
+
+**New — merge duplicate artists (admin)**
+- `/admin` now finds duplicates itself, by matching names and by spotting channels sharing an
+  identical profile picture (the same person re-uploading a channel keeps the photo, and sometimes
+  changes the spelling). Pick which one to keep and merge the rest into it.
+- The duplicate stops appearing separately in browse, search and every artist rail, **and its songs,
+  albums and playlists move onto the surviving artist's page.** Nothing is hidden and nothing is lost
+  — verified on a real pair: 43 songs + 20 songs became one page of 63, with all 5 albums.
+- Old links to the merged-away channel keep working and quietly correct themselves to the surviving
+  artist, so anything already shared or bookmarked doesn't break.
+- Reversible at any time from the same screen.
+- A merge is applied when the site is next built, so it costs nothing at all while people are using
+  the app. The live site is unchanged until the next deploy — the admin screen says so.
+- **Requires running `supabase/v1.2.8-artist-merge.sql`.** Until then the merge panel says so plainly
+  and everything else works as before.
+
 ## 1.5.3 — 2026-08-03 (web)
 
 **Why the bump:** a latency pass over every tab, after the Home fix in 1.5.2.
