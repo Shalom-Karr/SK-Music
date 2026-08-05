@@ -34,6 +34,21 @@ const CODE_ONLY = process.env.CODE_ONLY === "1" || process.argv.includes("--code
 // shells, the IndexNow key URL — has to name the host we actually want indexed, or we publish
 // thousands of URLs on the host the Worker now redirects away from.
 const SITE = (process.env.SITE_URL || "https://skmusic.shalomkarr.com").replace(/\/$/, "");
+const CANON_HOST = new URL(SITE).hostname;
+
+// The Worker's canonical redirect only fires for requests that REACH the Worker. run_worker_first is
+// deliberately absent (see wrangler.jsonc), so "/" and every pre-baked deep-link shell are served by
+// the asset layer and the Worker never runs — measured: /songs/:id 301s, "/" and /artists/:id do not.
+// This is the other half, in the page itself, for exactly those asset-served documents.
+//
+// It skips the DESKTOP shell on purpose. Builds up to 1.2.0 list only the workers.dev origin in their
+// Tauri remote capability, so moving them to another origin silently kills the entire event bridge —
+// media keys, downloads, the updates card, auto-duck — with no error anywhere. 1.2.1+ opens the
+// canonical host directly and trusts both, so it never reaches this code.
+const CANON_JS = `<script>(function(){try{var c=${JSON.stringify(CANON_HOST)},h=location.hostname;`
+  + `if(h===c||h==="localhost"||h==="127.0.0.1"||h==="::1"||h.slice(-10)===".localhost")return;`
+  + `if(window.__TAURI__||window.__TAURI_INTERNALS__)return;`
+  + `location.replace("https://"+c+location.pathname+location.search+location.hash);}catch(e){}})();</script>`;
 
 // ── file helpers ──────────────────────────────────────────────────────────────
 const rmrf = (p) => fs.rmSync(p, { recursive: true, force: true });
@@ -854,6 +869,7 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
       `<meta property="og:site_name" content="SK Music"><meta property="og:url" content="${SITE}${urlPath}"><meta name="twitter:card" content="summary_large_image">` +
       ogTags({ title, description, image, type }) +
       ldTag({ title, image, type, urlPath }) +
+      CANON_JS +
       `<style>html,body{margin:0;height:100%;background:#0e0a0b;color:#f5f5f5;font-family:system-ui,-apple-system,sans-serif}` +
       `#s{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;box-sizing:border-box}` +
       `#s img{width:84px;height:84px}#s h1{margin:0;font-size:17px;font-weight:600;opacity:.8;text-align:center}</style></head>` +
@@ -994,8 +1010,14 @@ const OG_DEF =
   `<meta property="og:image" content="${SITE}/assets/og.png"><meta name="twitter:image" content="${SITE}/assets/og.png">`;
 
 const indexHtml = fs.readFileSync(path.join(ROOT, "assets/ui.html"), "utf8")
+  // NOTE: <!--STATIC_BUILD--> is not present in assets/ui.html, so this replace has always been a
+  // no-op and `sk-static` appears zero times in the built output. Left as-is rather than silently
+  // dropped — but nothing may be hung off it, which is why the canonical redirect goes on the
+  // CF_ANALYTICS marker below, which does exist.
   .replace("<!--STATIC_BUILD-->",   '<meta name="sk-static" content="1">')
-  .replace("<!--CF_ANALYTICS-->",   analyticsBeacon)
+  // CANON_JS first: it must run before anything else on the page, and it fires whether or not an
+  // analytics token is configured (the beacon collapses to "" without one).
+  .replace("<!--CF_ANALYTICS-->",   CANON_JS + analyticsBeacon)
   .replace("<!--OGTAGS-->",         `<!--OG-->${OG_DEF}<!--/OG-->`)
   .replace('"/lib/engine.mjs"',        `"/lib/engine.mjs?v=${BUILD}"`)
   .replace('"/lib/engine-worker.mjs"', `"/lib/engine-worker.mjs?v=${BUILD}"`);
