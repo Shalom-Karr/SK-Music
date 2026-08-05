@@ -1,10 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Minimal grant for the remote SK Music SPA loaded in the main window. The SPA reports playback and requests the app menu purely by EMITTING events (sk-np-report / sk-state-report / sk-menu) and by LISTENING for pushes — a remote origin can't invoke app commands regardless (Tauri denies app commands to remote content), so it only needs core event emit/listen/unlisten. The prior core:default + autostart:default + notification:default handed the remote page tray/menu/window/autostart/notification power it never uses; the tray, autostart toggle and track toasts are all driven Rust-side, which bypasses the webview ACL.",
+  "description": "BOTH origins are listed on purpose: the site is canonically skmusic.shalomkarr.com and the Worker now 301s the workers.dev host to it, so a build that trusted only one of them would lose the whole event bridge the moment a redirect moved the page to the other. Minimal grant for the remote SK Music SPA loaded in the main window. The SPA reports playback and requests the app menu purely by EMITTING events (sk-np-report / sk-state-report / sk-menu) and by LISTENING for pushes — a remote origin can't invoke app commands regardless (Tauri denies app commands to remote content), so it only needs core event emit/listen/unlisten. The prior core:default + autostart:default + notification:default handed the remote page tray/menu/window/autostart/notification power it never uses; the tray, autostart toggle and track toasts are all driven Rust-side, which bypasses the webview ACL.",
   "windows": ["main"],
   "remote": {
-    "urls": ["https://skmusic.shalomkarr.workers.dev"]
+    "urls": [
+      "https://skmusic.shalomkarr.com",
+      "https://skmusic.shalomkarr.workers.dev"
+    ]
   },
   "permissions": [
     "core:event:allow-emit",

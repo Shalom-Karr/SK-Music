@@ -1,6 +1,6 @@
 // SK Music — native desktop shell (Tauri 2).
 //
-// The window loads the already-deployed web app (https://skmusic.shalomkarr.workers.dev)
+// The window loads the already-deployed web app (https://skmusic.shalomkarr.com)
 // directly; the SPA + search engine + YouTube IFrame player all run unchanged inside the
 // system webview. Rust only adds what a browser can't: system tray + background play,
 // OS media keys / now-playing, skmusic:// deep links, and a signed auto-updater.

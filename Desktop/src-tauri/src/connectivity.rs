@@ -26,7 +26,7 @@ use tokio::sync::watch;
 /// Cheap, always-present object on the origin. A real GET (not a HEAD/TCP connect) is what proves a
 /// network filter isn't intercepting us: a filter's proxy completes the handshake happily and then
 /// serves its own block page, which fails the status check below.
-const PROBE_URL: &str = "https://skmusic.shalomkarr.workers.dev/favicon.ico";
+const PROBE_URL: &str = "https://skmusic.shalomkarr.com/favicon.ico";
 /// Failure ceiling for one probe. index.html used to wait 9s before offering "Try again"; nothing
 /// about a reachable Cloudflare edge takes that long, and a blocked launch shouldn't sit on a spinner.
 const TIMEOUT: Duration = Duration::from_secs(3);

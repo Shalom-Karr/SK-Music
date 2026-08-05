@@ -30,7 +30,10 @@ const BUILD = Date.now();
 const CODE_ONLY = process.env.CODE_ONLY === "1" || process.argv.includes("--code");
 
 // Canonical site origin — used in sitemaps, OG tags, and IndexNow.
-const SITE = (process.env.SITE_URL || "https://skmusic.shalomkarr.workers.dev").replace(/\/$/, "");
+// Canonical origin. Everything derived from it — sitemaps, the OG/canonical tags in the deep-link
+// shells, the IndexNow key URL — has to name the host we actually want indexed, or we publish
+// thousands of URLs on the host the Worker now redirects away from.
+const SITE = (process.env.SITE_URL || "https://skmusic.shalomkarr.com").replace(/\/$/, "");
 
 // ── file helpers ──────────────────────────────────────────────────────────────
 const rmrf = (p) => fs.rmSync(p, { recursive: true, force: true });

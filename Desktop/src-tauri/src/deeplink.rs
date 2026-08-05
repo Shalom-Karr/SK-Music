@@ -17,8 +17,14 @@
 
 use tauri::{Emitter, Manager, Url};
 
-const WORKER_ORIGIN: &str = "https://skmusic.shalomkarr.workers.dev";
-const WORKER_HOST: &str = "skmusic.shalomkarr.workers.dev";
+/// Where a deep link is resolved to. Canonical host — the Worker 301s the other one here anyway.
+const WORKER_ORIGIN: &str = "https://skmusic.shalomkarr.com";
+const WORKER_HOST: &str = "skmusic.shalomkarr.com";
+/// Still accepted on the way IN. Links to the old host are already out there — shared, bookmarked,
+/// sitting in chat history — and refusing them would break the exact case deep links exist for.
+/// Accepting it is not a widening of trust: both names are the same Worker, and `resolve()` still
+/// pins the result to the canonical origin, so an old-host link can only ever land on a real route.
+const LEGACY_HOST: &str = "skmusic.shalomkarr.workers.dev";
 const MAIN_WINDOW: &str = "main";
 
 pub fn init(app: &tauri::AppHandle) -> tauri::Result<()> {
@@ -147,8 +153,9 @@ fn map_to_relative(url: &Url) -> Option<String> {
             Some(rel)
         }
         "http" | "https" => {
-            // Only the whitelisted worker host passes through.
-            if url.host_str() == Some(WORKER_HOST) {
+            // Only the whitelisted worker hosts pass through — canonical, or the legacy name that
+            // older shares still carry.
+            if matches!(url.host_str(), Some(h) if h == WORKER_HOST || h == LEGACY_HOST) {
                 let mut rel = url.path().to_string();
                 append_query_fragment(&mut rel, url);
                 Some(rel)
@@ -227,8 +234,24 @@ mod tests {
     #[test]
     fn https_worker_passthrough() {
         assert_eq!(
+            rel("https://skmusic.shalomkarr.com/song/abc").as_deref(),
+            Some("/song/abc")
+        );
+    }
+
+    /// Links to the old host predate the canonical domain and are still in circulation.
+    #[test]
+    fn legacy_host_still_accepted() {
+        assert_eq!(
             rel("https://skmusic.shalomkarr.workers.dev/song/abc").as_deref(),
             Some("/song/abc")
+        );
+        // …and it must still land on the canonical origin, not reopen the old one.
+        assert_eq!(
+            resolve(&rel("https://skmusic.shalomkarr.workers.dev/song/abc").unwrap())
+                .map(|u| u.to_string())
+                .as_deref(),
+            Some("https://skmusic.shalomkarr.com/song/abc")
         );
     }
 
@@ -249,7 +272,7 @@ mod tests {
         // Even if a relative-ish string tried to jump host, join keeps it on-origin.
         assert_eq!(
             resolve("/song/abc").map(|u| u.to_string()).as_deref(),
-            Some("https://skmusic.shalomkarr.workers.dev/song/abc")
+            Some("https://skmusic.shalomkarr.com/song/abc")
         );
         // A protocol-relative // path would change host — must be rejected.
         assert_eq!(resolve("//evil.example.com/x"), None);
