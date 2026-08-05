@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.7.0 — 2026-08-05 (web + desktop 1.2.1)
+
+**Why the bump:** SK Music now has one address — **https://skmusic.shalomkarr.com** — and everything
+else points at it.
+
+**The site has a proper domain**
+- `skmusic.shalomkarr.com` is the canonical address. The old `…workers.dev` address still works and
+  now forwards to it, keeping the rest of the link intact: a link to `/songs/abc` on the old address
+  lands on `/songs/abc` on the new one.
+- Everything that names the site — every sitemap entry, every shareable link preview, the search-engine
+  canonical tags on all 1,625 artist and 1,855 playlist pages — now says the new address.
+
+**Desktop 1.2.1**
+- The app opens the new address directly and accepts links to either address, so anything shared
+  before today still opens the right page.
+- **If you installed 1.2.0, please update.** 1.2.0 only trusts the old address, so when it gets
+  forwarded to the new one it loses media keys, downloads, the update check and the new auto-dip
+  until it's updated. Checking for updates still works, which is how it repairs itself.
+
 ## Desktop 1.2.0 — 2026-08-04
 
 **Why the bump:** the first desktop release since 1.1.3, carrying two things that only the native app

@@ -73,7 +73,9 @@
       throw new Error("halt bootstrap");
     }
   } catch (e) { if (e && e.message === "halt bootstrap") throw e; }
-  var SITE = "https://skmusic.shalomkarr.workers.dev";
+  // Go straight to the canonical host. Navigating to workers.dev would now cost an extra 301 on
+  // every single launch, and land the app on an origin it reached only by redirect.
+  var SITE = "https://skmusic.shalomkarr.com";
   var statusEl = document.getElementById("status");
   var invoke = (window.__TAURI__ && window.__TAURI__.core) ? window.__TAURI__.core.invoke : null;
   var done = false, timer = null;

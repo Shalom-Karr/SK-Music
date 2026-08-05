@@ -1608,12 +1608,43 @@ async function jsMedia(request, url) {
   }
 }
 
+// ─── Canonical host ───────────────────────────────────────────────────────────
+// The site lives at skmusic.shalomkarr.com. skmusic.shalomkarr.workers.dev still answers — it is the
+// deploy target, and the custom domain sits in front of the same Worker — so anything still pointing
+// there (old shares, bookmarks, search results, the desktop shell) is forwarded with its path and
+// query intact rather than serving the same page under two names.
+const CANONICAL_HOST = "skmusic.shalomkarr.com";
+
+// /updates/ is DELIBERATELY exempt. Installed desktop apps ask that route whether a newer build
+// exists, and it is the mechanism by which an app pinned to the old origin gets fixed. Putting a
+// cross-host redirect in front of the repair path is how you strand the thing you're trying to
+// repair — so it answers directly on whichever host asked.
+const CANONICAL_EXEMPT = (p) => p.startsWith("/updates/");
+
+function canonicalRedirect(url) {
+  const h = url.hostname;
+  // Local development and the CDP harnesses have no custom domain to be sent to.
+  if (h === CANONICAL_HOST || h === "localhost" || h === "127.0.0.1" || h === "::1" || h.endsWith(".localhost")) return null;
+  if (CANONICAL_EXEMPT(url.pathname)) return null;
+  const to = new URL(url);
+  to.protocol = "https:";
+  to.hostname = CANONICAL_HOST;
+  to.port = "";
+  // 301: this is a permanent canonicalisation, which is what tells crawlers to fold the two hosts
+  // into one. Browsers cache it aggressively — undoing it later means users carry the old redirect
+  // until their cache expires.
+  return Response.redirect(to.toString(), 301);
+}
+
 // ─── Entry points ─────────────────────────────────────────────────────────────
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const pathname = url.pathname;
+
+    const moved = canonicalRedirect(url);
+    if (moved) return moved;
 
     // Sitemaps + robots.txt: large, static SEO files hit by crawlers. Serve them straight from assets,
     // edge-cached via the Cache API with a real TTL, and skip the KV-override lookup below. Without this
