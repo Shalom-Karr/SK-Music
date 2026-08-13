@@ -4142,10 +4142,14 @@ const PB = {
     const localSrc = (typeof skLocalSrc === "function") ? skLocalSrc(id) : null; // SK-OFFLINE: prefer a downloaded copy
     if (localSrc) { this.local = true; cancelSwap(); clearTimeout(_loadNudge); try { if (this.mode === "yt" && this.ready) this.yt.stopVideo(); } catch {} audio.src = localSrc; if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); return; }
     this.local = false;
-    // Hand the track to YouTube: the <audio> element must be fully released, not just paused. It may
-    // still hold a shiur's media URL, and a stale src there makes the element look "in use" to
-    // fallbackToStream() (whose `!audio.src` guard would then skip re-loading the song).
-    if (this.mode === "yt") { try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {} const a = startSec ? { videoId: id, startSeconds: startSec } : id; if (this.ready) { this.yt.loadVideoById(a); nudgePlay(); } else this.pending = a; } else { audio.src = "/stream?v=" + encodeURIComponent(id); if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); } },
+    // Hand the track to YouTube: the <audio> element must be fully released, not just paused, since it may
+    // still hold a shiur's media URL and a stale src there would keep playing under the song.
+    try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {}
+    const a = startSec ? { videoId: id, startSeconds: startSec } : id;
+    // Not ready yet → hold it in `pending` for onReady to replay. If the API has already been declared
+    // unreachable, re-surface that instead of queueing into silence: this deploy has no /stream backend to
+    // fall back to, and the old fallback pointed the <audio> element at the SPA shell.
+    if (this.ready) { this.yt.loadVideoById(a); nudgePlay(); } else { this.pending = a; if (ytWarnedAt) ytUnavailable(); } },
   play() { this.useYt() ? this.ready && this.yt.playVideo() : this.med().play().catch(() => {}); cueNext(); }, // re-arm the gapless cue (cleared if a pause/seek cancelled a handoff)
   pause() { clearTimeout(_loadNudge); if (xf) finishCrossfade(); if (gapless && gapless.phase === "start") cancelSwap(); this.useYt() ? this.ready && this.yt.pauseVideo() : this.med().pause(); }, // a primed standby survives a pause; a firing one is cancelled; a fade is finished (snap to the new track) then paused
   stop() { clearTimeout(_loadNudge); cancelSwap(); this.pending = null; hlsDetach(); if (this.useYt()) { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { const m = this.med(); m.pause(); m.removeAttribute("src"); m.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
@@ -4337,14 +4341,24 @@ window.onYouTubeIframeAPIReady = function () {
   ytStandbyBoot = mk("ytplayer2", false); // promoted to ytStandby by its onReady OR by tick()'s readiness poll
 };
 (function loadYT() {
-  const s = document.createElement("script"); s.src = "https://www.youtube.com/iframe_api"; s.onerror = fallbackToStream;
+  const s = document.createElement("script"); s.src = "https://www.youtube.com/iframe_api"; s.onerror = ytUnavailable;
   document.head.appendChild(s);
-  setTimeout(() => { if (!PB.ready && PB.mode === "yt") fallbackToStream(); }, 9000); // API blocked → server proxy
+  // A SLOW load is not a blocked one. This used to flip PB.mode to "html5" after 9s — a ONE-WAY trapdoor onto
+  // /stream, which only ever had a backend on the old Node server. On this static deploy nothing serves it, so
+  // the <audio> element was handed the SPA shell as "audio": the track failed, and because the flag was never
+  // cleared EVERY later track in the session failed too, even when the API turned up a second later.
+  // Report it instead and leave the engine alone — onYouTubeIframeAPIReady still wins whenever it lands, and
+  // PB.load()'s `pending` slot replays whatever was queued while we waited.
+  setTimeout(ytUnavailable, 9000);
 })();
-function fallbackToStream() {
-  if (PB.mode !== "yt" || PB.ready) return;
-  PB.mode = "html5"; console.warn("YT IFrame API unavailable → /stream fallback");
-  const t = state.queue[state.qi]; if (t && !audio.src) PB.load(t.videoId, 0, t.src);
+// The embed host is unreachable — a filtered network, nearly always. There is no server-side stream to fall
+// back to, so say so plainly and point at the diagnostic that identifies WHICH layer is blocked.
+let ytWarnedAt = 0;
+function ytUnavailable() {
+  if (PB.ready || Date.now() - ytWarnedAt < 30000) return;
+  ytWarnedAt = Date.now();
+  console.warn("YT IFrame API unavailable — playback needs an unfiltered connection");
+  showToast('<b>Playback is blocked on this network.</b> Search &amp; browse still work — <a href="/playback-block-test" style="color:var(--primary);font-weight:700">run the connection test</a> to see what\'s blocking it.', 8000);
 }
 
 function playFrom(qid, i, source) { const q = queues.get(qid); if (!q) return; stStop(); state.queue = q; state.radio = null; state.playSource = source || (state.detailOpen ? (state.detailKind || "detail") : (state.tab || "home")); state.qi = i; if (state.shuffle) shuffleTail(); playIndex(state.qi); }

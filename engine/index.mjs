@@ -1679,6 +1679,22 @@ export default {
       if (override) return override;
     }
 
+    // /stream — the html5 engine's audio endpoint, which only ever existed on the old Node server. This
+    // deploy is static-assets-only, so there is no media backend behind it. Unanswered, it fell through to
+    // the SPA fallback below: the <audio> element was handed the ~500 KB app shell as "audio", burned a
+    // Worker call per attempt, and only failed once the decoder rejected the HTML. Answer honestly instead —
+    // no-store so neither the edge nor the service worker can pin the failure.
+    if (pathname === "/stream") {
+      return new Response("no stream backend on this deployment — playback runs client-side\n", {
+        status: 501,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-store",
+          "X-Robots-Tag": "noindex",
+        },
+      });
+    }
+
     // Live data routes.
     if (pathname === "/playlist")
       return request.method === "GET"
