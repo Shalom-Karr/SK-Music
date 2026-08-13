@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.7.1 — 2026-08-13 (web)
+
+**Why the bump:** on a filtered network, playback didn't just fail — it got stuck. One track failing
+poisoned the whole session, and the app never said why.
+
+**Playback on a filtered network**
+- If the YouTube player was slow to load, the app gave up after 9 seconds and switched to an old
+  `/stream` address that this site has never had a server for. That switch was permanent: even when
+  the player turned up a second later, every song for the rest of the session was sent to the dead
+  address, and nothing played until the page was reloaded. The player now stays in place and simply
+  starts playing whenever it's ready.
+- That dead address answered with the app's own home page, so the audio player was handed a web page
+  and told to play it. It sat there loading, then failed with no explanation. It now answers
+  immediately and honestly, so a blocked track fails in milliseconds instead of hanging.
+- When playback really is blocked, the app now says so once — *"Playback is blocked on this network"* —
+  and links to the connection test that identifies exactly which part is being blocked, instead of
+  silently retrying and giving up.
+- Search, browse and everything else keep working throughout, as before.
+
 ## 1.7.0 — 2026-08-05 (web + desktop 1.2.1)
 
 **Why the bump:** SK Music now has one address — **https://skmusic.shalomkarr.com** — and everything
