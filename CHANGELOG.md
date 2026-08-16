@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.7.4 — 2026-08-15 (web; affects the desktop app)
+
+**Why the bump:** the download dialog was opening behind the screen you started it from, so it — and
+every message it carries — was invisible.
+
+**The download dialog now appears in front**
+- The download button only exists on the full-screen Now Playing view, but the dialog was stacked
+  *below* it. Tapping Download therefore looked like it did nothing at all.
+- Everything the dialog carries was hidden with it: the progress bar, the "Saved for offline"
+  confirmation, **the reason a download failed**, and the Retry button. If a download has been
+  failing for you, the explanation was there the whole time — behind the player.
+- The dialog and the Downloads list now sit above the player, the statuses viewer, toasts and menus.
+
 ## 1.7.3 — 2026-08-15 (web)
 
 **Why the bump:** when someone's internet filter blocked playback, they saw nothing play and left —
