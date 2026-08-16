@@ -4,7 +4,7 @@ A fast, kosher, **filtered YouTube music web client** — search and stream a wh
 music, filtered by construction. It ships as a **static site on Cloudflare Workers**: the browser does the
 searching over a prebuilt index, and playback runs through the official YouTube IFrame player.
 
-Live: **https://skmusic.shalomkarr.workers.dev**
+Live: **https://skmusic.shalomkarr.com**
 
 ---
 
