@@ -20,9 +20,11 @@
 //! never app commands.
 //!
 //! ## Download + playback
-//! Rust fetches the signed URL with `reqwest` in ~1 MiB ranged chunks (which also
-//! sidesteps YouTube's slow-path throttling of an untransformed `n`), streams it to
-//! `app_data_dir/downloads/<id>.<ext>`, and records it in `downloads/index.json`.
+//! Rust fetches the signed URL with `reqwest` using a small number of concurrent ranged requests
+//! (currently 3 × 2 MiB). The concurrency is kept low to stay under YouTube's multi-connection
+//! throttle heuristic while still saturating typical home links; each request is small enough to
+//! sidestep the per-request slow-path throttling of an untransformed `n`. The file is streamed to
+//! `app_data_dir/downloads/<id>.<ext>`, and recorded in `downloads/index.json`.
 //! Playback: a custom `skdl://` URI scheme serves the local file (with HTTP Range
 //! support so the `<audio>` scrubber works). The SPA points its dormant html5
 //! `<audio>` element at that URL when a download exists — allowed by the site CSP's
@@ -58,11 +60,14 @@ use tokio::sync::{mpsc, oneshot};
 
 /// Label of the reused hidden extractor window.
 const EXTRACTOR_LABEL: &str = "sk-yt-extractor";
-/// Ranged download chunk size — large enough for throughput, small enough for progress updates.
+/// Ranged download chunk size — keeps each request small enough to stay under YouTube's
+/// per-request throttle window while still being large enough to amortise round-trip latency.
 const CHUNK: u64 = 2 << 20; // 2 MiB
-/// How many range requests to keep in flight at once. YouTube's CDN (googlevideo) serves each
-/// connection at a capped rate; parallelizing saturates the user's link instead.
-const PARALLEL: usize = 6;
+/// Concurrent range requests in flight. Kept conservative (3) to avoid triggering YouTube's
+/// multi-connection throttling / 403 responses while still being meaningfully faster than serial.
+const PARALLEL: usize = 3;
+/// Per-chunk retry limit before aborting the whole download.
+const CHUNK_RETRIES: u32 = 2;
 /// How long to wait for the extractor webview to hand back a stream URL.
 const EXTRACT_TIMEOUT: Duration = Duration::from_secs(30);
 /// Browser-ish UA — googlevideo can 403 an obviously-headless client.
@@ -297,12 +302,11 @@ async fn process(app: &AppHandle, job: Job) {
     emit_list(app);
 }
 
-/// Download `url` to `path` using parallel ranged requests. Returns bytes written.
+/// Download `url` to `path` using a pool of concurrent ranged requests. Returns bytes written.
 ///
-/// Strategy: first issue a HEAD (or single small GET) to learn the total size, then dispatch up to
-/// `PARALLEL` concurrent range GETs each fetching `CHUNK` bytes. Chunks are written to the file at
-/// their correct offset as they complete. If the server doesn't support ranges (returns 200), we
-/// fall back to a simple sequential download.
+/// Strategy: probe to learn the total size, then keep up to `PARALLEL` range GETs in flight via
+/// `FuturesUnordered`. Each completed chunk is written at its correct offset from a blocking
+/// thread. If the server doesn't support ranges, falls back to a simple sequential download.
 async fn download_ranged(
     app: &AppHandle,
     url: &str,
@@ -310,16 +314,17 @@ async fn download_ranged(
     total_hint: Option<u64>,
     id: &str,
 ) -> Result<u64, String> {
+    use futures::stream::{FuturesUnordered, StreamExt};
+
     let client = reqwest::Client::builder()
         .user_agent(UA)
         .build()
         .map_err(|e| e.to_string())?;
 
-    // --- Determine total length (prefer hint, else HEAD, else probe GET) ---
+    // --- Determine total length (prefer hint, else probe) ---
     let total: u64 = if let Some(t) = total_hint.filter(|&t| t > 0) {
         t
     } else {
-        // Probe with a tiny range request to discover Content-Range total.
         let probe = client
             .get(url)
             .header(header::RANGE, "bytes=0-0")
@@ -343,7 +348,6 @@ async fn download_ranged(
     };
 
     if total == 0 {
-        // Can't parallelize without knowing the size; single GET fallback.
         let resp = client.get(url).send().await.map_err(|e| e.to_string())?;
         if !resp.status().is_success() {
             return Err(format!("HTTP {}", resp.status()));
@@ -352,72 +356,133 @@ async fn download_ranged(
     }
 
     // --- Parallel chunked download ---
-    let file = File::create(path).map_err(|e| e.to_string())?;
-    // Pre-allocate the file so concurrent writes at offsets don't race on extending.
-    file.set_len(total).map_err(|e| e.to_string())?;
-    drop(file);
+    // Pre-allocate file from a blocking context.
+    let path_c = path.clone();
+    tokio::task::spawn_blocking(move || -> Result<(), String> {
+        let file = File::create(&path_c).map_err(|e| e.to_string())?;
+        file.set_len(total).map_err(|e| e.to_string())?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
 
     let num_chunks = (total + CHUNK - 1) / CHUNK;
     let received = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+
+    // Use FuturesUnordered to keep exactly PARALLEL requests in flight at all times.
+    let mut futures = FuturesUnordered::new();
     let mut next_chunk: u64 = 0;
 
-    // Process in waves of PARALLEL chunks.
-    while next_chunk < num_chunks {
-        let batch_end = (next_chunk + PARALLEL as u64).min(num_chunks);
-        let mut handles = Vec::with_capacity((batch_end - next_chunk) as usize);
+    // Seed the initial batch.
+    while next_chunk < num_chunks && futures.len() < PARALLEL {
+        futures.push(fetch_chunk(client.clone(), url.to_string(), path.clone(), next_chunk, total));
+        next_chunk += 1;
+    }
 
-        for i in next_chunk..batch_end {
-            let start = i * CHUNK;
-            let end = ((i + 1) * CHUNK - 1).min(total - 1);
-            let client = client.clone();
-            let url = url.to_string();
-            let path = path.clone();
-            let received = received.clone();
-            handles.push(tokio::spawn(async move {
-                let range = format!("bytes={start}-{end}");
-                let resp = client
-                    .get(&url)
-                    .header(header::RANGE, range)
-                    .send()
-                    .await
-                    .map_err(|e| e.to_string())?;
-                if !resp.status().is_success() {
-                    return Err(format!("HTTP {}", resp.status()));
-                }
-                let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
-                let n = bytes.len() as u64;
-                // Write at the correct offset.
-                let mut f = std::fs::OpenOptions::new()
-                    .write(true)
-                    .open(&path)
-                    .map_err(|e| e.to_string())?;
-                f.seek(SeekFrom::Start(start)).map_err(|e| e.to_string())?;
-                f.write_all(&bytes).map_err(|e| e.to_string())?;
-                received.fetch_add(n, std::sync::atomic::Ordering::Relaxed);
-                Ok::<u64, String>(n)
-            }));
-        }
-
-        for h in handles {
-            match h.await {
-                Ok(Ok(_)) => {}
-                Ok(Err(e)) => return Err(e),
-                Err(e) => return Err(e.to_string()),
-            }
-        }
-        next_chunk = batch_end;
+    while let Some(result) = futures.next().await {
+        let n = result?;
+        received.fetch_add(n, std::sync::atomic::Ordering::Relaxed);
         let done = received.load(std::sync::atomic::Ordering::Relaxed);
         emit_progress(app, id, "downloading", done, Some(total));
+
+        // Feed the next chunk into the pool.
+        if next_chunk < num_chunks {
+            futures.push(fetch_chunk(client.clone(), url.to_string(), path.clone(), next_chunk, total));
+            next_chunk += 1;
+        }
     }
 
-    // Truncate to actual total in case the pre-allocation was slightly off.
     let final_len = received.load(std::sync::atomic::Ordering::Relaxed);
+    // If we somehow got fewer bytes than expected, truncate the pre-allocated file.
     if final_len < total {
-        // Trim if we got fewer bytes than expected (shouldn't normally happen).
-        let f = std::fs::OpenOptions::new().write(true).open(path).map_err(|e| e.to_string())?;
-        f.set_len(final_len).map_err(|e| e.to_string())?;
+        let path_c = path.clone();
+        let _ = tokio::task::spawn_blocking(move || {
+            if let Ok(f) = std::fs::OpenOptions::new().write(true).open(&path_c) {
+                let _ = f.set_len(final_len);
+            }
+        })
+        .await;
     }
-    Ok(received.load(std::sync::atomic::Ordering::Relaxed))
+    Ok(final_len)
+}
+
+/// Fetch a single chunk with retry. Returns bytes written on success.
+/// Asserts the server returned 206 — a 200 (full body) would corrupt the file.
+async fn fetch_chunk(
+    client: reqwest::Client,
+    url: String,
+    path: PathBuf,
+    chunk_index: u64,
+    total: u64,
+) -> Result<u64, String> {
+    let start = chunk_index * CHUNK;
+    let end = ((chunk_index + 1) * CHUNK - 1).min(total - 1);
+    let expected = end - start + 1;
+
+    for attempt in 0..=CHUNK_RETRIES {
+        let range = format!("bytes={start}-{end}");
+        let resp = match client.get(&url).header(header::RANGE, range).send().await {
+            Ok(r) => r,
+            Err(e) if attempt < CHUNK_RETRIES => {
+                tokio::time::sleep(Duration::from_millis(500 * (attempt as u64 + 1))).await;
+                continue;
+            }
+            Err(e) => return Err(e.to_string()),
+        };
+
+        let status = resp.status().as_u16();
+
+        // We MUST get 206. A 200 means the server ignored Range and returned the full body;
+        // writing that at an offset would silently corrupt the file.
+        if status == 416 && start >= total {
+            // Past-end request on a file whose size we already know — nothing to write.
+            return Ok(0);
+        }
+        if status != 206 {
+            if attempt < CHUNK_RETRIES && (status == 429 || status == 403 || status >= 500) {
+                tokio::time::sleep(Duration::from_millis(500 * (attempt as u64 + 1))).await;
+                continue;
+            }
+            return Err(format!("expected HTTP 206, got {status} for chunk at offset {start}"));
+        }
+
+        let bytes = match resp.bytes().await {
+            Ok(b) => b,
+            Err(e) if attempt < CHUNK_RETRIES => {
+                tokio::time::sleep(Duration::from_millis(500 * (attempt as u64 + 1))).await;
+                continue;
+            }
+            Err(e) => return Err(e.to_string()),
+        };
+        let n = bytes.len() as u64;
+
+        // The final chunk may be shorter than CHUNK, but any other mismatch is suspect.
+        if n == 0 {
+            return Err(format!("empty response for chunk at offset {start}"));
+        }
+        if n > expected {
+            return Err(format!(
+                "chunk at offset {start}: got {n} bytes, expected at most {expected}"
+            ));
+        }
+
+        // Write at the correct offset from a blocking thread.
+        let path_c = path.clone();
+        let write_result = tokio::task::spawn_blocking(move || -> Result<u64, String> {
+            let mut f = std::fs::OpenOptions::new()
+                .write(true)
+                .open(&path_c)
+                .map_err(|e| e.to_string())?;
+            f.seek(SeekFrom::Start(start)).map_err(|e| e.to_string())?;
+            f.write_all(&bytes).map_err(|e| e.to_string())?;
+            Ok(n)
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+
+        return write_result;
+    }
+    Err(format!("chunk at offset {start} failed after {CHUNK_RETRIES} retries"))
 }
 
 /// Fallback: download the entire response body sequentially (server doesn't support Range).
@@ -430,9 +495,15 @@ async fn download_sequential(
     let total = resp.content_length();
     let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
     let n = bytes.len() as u64;
-    let mut file = File::create(path).map_err(|e| e.to_string())?;
-    file.write_all(&bytes).map_err(|e| e.to_string())?;
-    file.flush().map_err(|e| e.to_string())?;
+    let path_c = path.clone();
+    tokio::task::spawn_blocking(move || -> Result<(), String> {
+        let mut file = File::create(&path_c).map_err(|e| e.to_string())?;
+        file.write_all(&bytes).map_err(|e| e.to_string())?;
+        file.flush().map_err(|e| e.to_string())?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
     emit_progress(app, id, "downloading", n, total);
     Ok(n)
 }

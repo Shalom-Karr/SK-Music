@@ -4,11 +4,20 @@
 
 **Why the bump:** offline downloads were slow — the downloader fetched one chunk at a time.
 
-**Downloads are now significantly faster**
-- The audio downloader now uses 6 parallel range requests instead of sequential 1 MiB chunks,
-  saturating the user's connection rather than being bottlenecked by YouTube's per-connection rate.
-- Chunk size increased to 2 MiB for fewer round-trips overall.
+**Downloads are now faster (parallel range requests)**
+- The audio downloader now uses 3 concurrent range requests (2 MiB each) instead of a single
+  sequential stream, improving download speed while staying under YouTube's throttle heuristic.
+- Each chunk strictly asserts HTTP 206; a server that ignores Range is detected and handled via a
+  sequential fallback path — this prevents silent file corruption.
+- Per-chunk retries (up to 2) for transient failures (429, 403, 5xx, network errors).
+- File I/O moved to blocking threads to avoid stalling the async runtime.
 - Falls back gracefully to a single-stream download if the server doesn't support Range requests.
+
+## web — 2026-08-16
+
+**The /download page now has proper OG/social metadata**
+- Sharing or linking to `/download` now renders the correct title and description in social cards,
+  search results, and link previews (was previously falling through with generic site metadata).
 
 ## 1.7.4 — 2026-08-15 (web; affects the desktop app)
 
