@@ -356,7 +356,7 @@ async function loadSummary() {
 async function loadFilterBlocked(range, usersTotal) {
   try {
     const rows = await sbSelect(
-      `select=event,session,ip,meta,created_at&event=in.(filter_blocked,conntest)&order=created_at.desc&limit=5000${range}`
+      `select=event,session,ip,meta,created_at&event=in.(filter_blocked,conntest_run)&order=created_at.desc&limit=5000${range}`
     ) || [];
     const m = filterBlockedModel(rows);
     // filterBlockedModel's own denominator is only these rows, which would read as 100%.
@@ -546,7 +546,7 @@ function filterBlockedModel(rows) {
   const people = (rs) => new Set(rs.map(who).filter(Boolean)).size;
 
   const fb = rows.filter((r) => r.event === 'filter_blocked');
-  const ct = rows.filter((r) => r.event === 'conntest');
+  const ct = rows.filter((r) => r.event === 'conntest_run');
   const ctBlocked = ct.filter((r) => r.meta && r.meta.verdict === 'playback_blocked');
   const ctPartial = ct.filter((r) => r.meta && r.meta.verdict === 'partial');
   const ctClear = ct.filter((r) => r.meta && r.meta.verdict === 'all_clear');
