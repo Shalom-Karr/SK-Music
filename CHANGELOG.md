@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.7.3 — 2026-08-15 (web)
+
+**Why the bump:** when someone's internet filter blocked playback, they saw nothing play and left —
+and there was no way to know how often that happened or what exactly was being blocked.
+
+**When playback is blocked, the app now points at the connection test**
+- Both "playback isn't working" paths — the player never loading, and three tracks failing in a row —
+  now link straight to **/test**, instead of only saying that something is wrong.
+
+**The connection test reports what it found**
+- After a run, /test sends its verdict and the pass/fail of each individual check back to the site's
+  own analytics. Nobody has to copy the log and send it in for the problem to be visible.
+- Only the per-check verdicts travel — never the log text or any page contents.
+
+**New: Filter-blocked users on the analytics page**
+- A headline figure for how many **people** (not attempts) couldn't play music because their filter
+  blocks it, as a share of visitors, including how many are on Techloq.
+- Alongside it, counts of connection-test runs by verdict, and a panel showing **which checks fail
+  most often** — the thumbnails host, the catalog API, and so on. That is the list to hand to whoever
+  manages the filter.
+
 ## 1.7.2 — 2026-08-15 (web)
 
 **Why the bump:** AI training crawlers were **89% of all traffic** — 38,721 of 43,675 requests

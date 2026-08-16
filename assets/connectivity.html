@@ -278,9 +278,50 @@ async function run() {
   } else {
     v.className = "verdict bad"; v.innerHTML = "<b>⚠️ Playback works, but some things are blocked:</b> " + esc(blocked.join(", ")) + " — thumbnails or search may be degraded. Send the log below.";
   }
+  const verdict = pb.s === "ok" && !blocked.length ? "all_clear" : (pb.s !== "ok" ? "playback_blocked" : "partial");
   LINES.push("".padEnd(46, "-"), "VERDICT: " + (pb.s === "ok" && !blocked.length ? "all clear" : (pb.s !== "ok" ? "PLAYBACK BLOCKED" : "partial — " + blocked.join(", "))));
   $("log").value = LINES.join("\n");
   $("run").disabled = false;
+  reportResults(verdict, results, pb, techloq, blocked);
+}
+
+// Send the result of this run back to the site's own analytics (/a → Supabase), so the
+// Filter-Blocked panel on /analytics can show how many people are stuck behind a filter
+// and WHICH targets are being blocked for them — rather than relying on someone copying
+// the log and sending it in.
+//
+// Deliberately compact: `meta` is dropped server-side above 2 KB (engine/index.mjs
+// clampMeta), so only the per-target verdicts travel, never URLs or the whole log text.
+// Fire-and-forget; a failed beacon must never affect the page.
+function reportResults(verdict, results, pb, techloq, blocked) {
+  try {
+    // { "App page loads": "ok", "Catalog data": "bad", ... } — which pages loaded and which didn't.
+    const targets = {};
+    for (const [label, r] of Object.entries(results || {})) targets[label] = r && r.s === "ok" ? "ok" : "bad";
+    const body = [{
+      event: "conntest",
+      path: location.pathname,
+      url: location.href,
+      ref: document.referrer || "",
+      screen: (() => { try { return screen.width + "x" + screen.height; } catch { return ""; } })(),
+      // Reuse the app's own visitor/session ids when the user has them, so a test run
+      // ties to the same person the rest of the dashboard counts.
+      sid: (() => { try { return sessionStorage.getItem("zw_sid") || ""; } catch { return ""; } })(),
+      meta: {
+        vid: (() => { try { return localStorage.getItem("zw_vid") || ""; } catch { return ""; } })(),
+        verdict,                                   // all_clear | playback_blocked | partial
+        playback: pb && pb.s === "ok" ? "ok" : "bad",
+        playbackReason: (pb && pb.reason) || "",   // script | timeout | embed error code
+        techloq: !!techloq,
+        blockedCount: (blocked || []).length,
+        blocked: (blocked || []).slice(0, 8),
+        targets,
+      },
+    }];
+    const json = JSON.stringify(body);
+    if (navigator.sendBeacon) navigator.sendBeacon("/a", json);
+    else fetch("/a", { method: "POST", body: json, keepalive: true }).catch(() => {});
+  } catch { /* analytics must never break the diagnostic */ }
 }
 
 const logText = () => $("log").value || "(run the test first)";

@@ -343,7 +343,31 @@ async function loadSummary() {
   // RPC only returns aggregates — pull a small raw slice for the Recent events table.
   const range = RANGE_H > 0 ? '&created_at=gte.' + new Date(Date.now() - RANGE_H * 3600e3).toISOString() : '';
   const rawRows = await sbSelect(`select=${COLS}&order=created_at.desc&limit=80${range}`) || [];
-  paint(modelFromSummary(S), rawRows);
+  const model = modelFromSummary(S);
+  // dashboard_summary knows nothing about the filter-blocked panel, and the 80-row slice
+  // above is far too small to count it from. These two events are low-volume by nature, so
+  // fetch just them for the range — accurate on this path AND on the client-side fallback,
+  // rather than a panel that only works when the RPC happens to be missing.
+  Object.assign(model, await loadFilterBlocked(range, model.visitors));
+  paint(model, rawRows);
+}
+
+// Pull only filter_blocked + conntest rows, and fold them into the model.
+async function loadFilterBlocked(range, usersTotal) {
+  try {
+    const rows = await sbSelect(
+      `select=event,session,ip,meta,created_at&event=in.(filter_blocked,conntest)&order=created_at.desc&limit=5000${range}`
+    ) || [];
+    const m = filterBlockedModel(rows);
+    // filterBlockedModel's own denominator is only these rows, which would read as 100%.
+    // Use the range's real visitor count from the RPC when it gave us one.
+    const total = Number.isFinite(+usersTotal) ? +usersTotal : null;
+    m.fbPeoplePct = total && total > 0 ? (m.fbPeople / total) * 100 : null;
+    return m;
+  } catch (e) {
+    console.warn('[analytics] filter-blocked panel unavailable:', e && e.message);
+    return { fbPeople: 0, fbPeoplePct: null, fbEvents: 0, fbTechloq: 0, ctRuns: 0, ctBlocked: 0, ctPartial: 0, ctClear: 0, ctTargets: [] };
+  }
 }
 
 /* ---------- fallback: client-side fetch-all + JS aggregation (cached + incremental) ---------- */
@@ -501,6 +525,82 @@ function newRetChart(data) { // data: [{day, nw, rt}, ...] sorted asc
   return `<div class="nr-legend"><span><i style="background:var(--accent2)"></i>New</span><span><i style="background:var(--good)"></i>Returning</span></div><div class="nr-chart">${bars}</div>`;
 }
 
+/* --- Filter-blocked users -------------------------------------------------------------
+   How many people can't play music because their INTERNET filter blocks it — the single
+   most important failure mode for this audience, and previously invisible: a blocked user
+   just saw nothing play and left.
+
+   Two independent signals, deliberately counted as PEOPLE (visitor id, falling back to
+   session) rather than events, so one person retrying ten times is one blocked person:
+
+     filter_blocked  the app itself giving up — the YouTube player never loaded, or three
+                     tracks in a row failed. Emitted once per session by assets/ui.html.
+     conntest        a run of the /test connection test, which reports its own verdict plus
+                     which individual targets loaded (assets/connectivity.html).
+
+   `blockedPeople` counts anyone hit by either signal. The per-target tally answers the
+   follow-up question — WHAT is being blocked — which is what you hand to whoever runs the
+   filter. */
+function filterBlockedModel(rows) {
+  const who = (r) => (r.meta && r.meta.vid) || r.session || r.ip || null;
+  const people = (rs) => new Set(rs.map(who).filter(Boolean)).size;
+
+  const fb = rows.filter((r) => r.event === 'filter_blocked');
+  const ct = rows.filter((r) => r.event === 'conntest');
+  const ctBlocked = ct.filter((r) => r.meta && r.meta.verdict === 'playback_blocked');
+  const ctPartial = ct.filter((r) => r.meta && r.meta.verdict === 'partial');
+  const ctClear = ct.filter((r) => r.meta && r.meta.verdict === 'all_clear');
+
+  const blockedPeople = new Set([...fb, ...ctBlocked].map(who).filter(Boolean)).size;
+  const allPeople = new Set(rows.map(who).filter(Boolean)).size;
+
+  // Which individual checks failed, across every reported run. This is the "which pages
+  // loaded and which didn't" view.
+  const targetFail = new Map(), targetSeen = new Map();
+  for (const r of ct) {
+    const t = r.meta && r.meta.targets;
+    if (!t || typeof t !== 'object') continue;
+    for (const [label, status] of Object.entries(t)) {
+      targetSeen.set(label, (targetSeen.get(label) || 0) + 1);
+      if (status !== 'ok') targetFail.set(label, (targetFail.get(label) || 0) + 1);
+    }
+  }
+  const targets = [...targetSeen.entries()]
+    .map(([label, seen]) => ({ label, seen, fail: targetFail.get(label) || 0 }))
+    .sort((a, b) => (b.fail / b.seen) - (a.fail / a.seen) || b.fail - a.fail);
+
+  return {
+    fbPeople: blockedPeople,
+    fbPeoplePct: allPeople ? (blockedPeople / allPeople) * 100 : null,
+    fbEvents: fb.length,
+    fbTechloq: new Set(ct.filter((r) => r.meta && r.meta.techloq).map(who).filter(Boolean)).size,
+    ctRuns: ct.length,
+    ctBlocked: ctBlocked.length,
+    ctPartial: ctPartial.length,
+    ctClear: ctClear.length,
+    ctTargets: targets,
+  };
+}
+
+// Per-target pass/fail bars for the connection test.
+function targetBars(targets) {
+  if (!targets || !targets.length)
+    return '<div class="empty" style="padding:20px">No connection tests reported yet — they appear here once someone runs <b>/test</b>.</div>';
+  return targets.map((t) => {
+    const pct = t.seen ? (t.fail / t.seen) * 100 : 0;
+    const col = pct === 0 ? 'var(--good)' : (pct >= 50 ? 'var(--bad, #ff5d6b)' : 'var(--accent2, #f0b35a)');
+    return `<div style="margin:0 0 10px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+        <span>${esc(t.label)}</span>
+        <span class="mono" style="color:var(--muted)">${t.fail}/${t.seen} blocked</span>
+      </div>
+      <div style="height:7px;border-radius:999px;background:var(--card2);overflow:hidden">
+        <div style="width:${pct.toFixed(1)}%;height:100%;background:${col}"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 let LAST_ROWS = [], TABLE_FILTER = 'all';
 window.setTableFilter = (ev) => { TABLE_FILTER = ev; renderTable(); };
 
@@ -515,6 +615,7 @@ function modelFromRows(rows) {
   const likePairs = topSongs(likes).map((s) => [s.artist ? `${s.title} · ${s.artist}` : s.title, s.n]);
   const zeroSearch = tally(rows.filter((r) => r.event === 'search' && (r.meta?.count === 0 || r.meta?.count === '0')), null, (r) => r.meta?.q);
   return {
+    ...filterBlockedModel(rows),
     events: rows.length, eventsToday: todayN,
     visitors: vs.visitors, visitorsReturning: vs.returning, returningPct: vs.returningPct,
     sessions: ss.count, plays: plays.length, likes: likes.length, playsTotal: plays.length,
@@ -614,7 +715,26 @@ function contentHTML(m) {
       <div class="stat c"><div class="k">Visitors (IP)</div><div class="v mono">${num(m.visitorsIp)}</div><div class="s">unique IPs</div></div>
     </div>
 
+    <div class="grid stats">
+      <div class="stat a" style="grid-column:1/-1">
+        <div class="k">Filter-blocked users</div>
+        <div class="v mono">${num(m.fbPeople)}<span style="font-size:14px;color:var(--muted);font-weight:400"> ${m.fbPeoplePct == null ? 'people' : `people — ${m.fbPeoplePct.toFixed(1)}% of visitors in this range`}</span></div>
+        <div class="s">Couldn't play music because their internet filter blocks it. Counted as people, not attempts${m.fbTechloq ? ` · ${num(m.fbTechloq)} on Techloq` : ''}.</div>
+        <div style="margin-top:10px;height:8px;border-radius:999px;background:var(--card2);overflow:hidden;display:flex">
+          <div style="width:${m.fbPeoplePct == null ? '0' : Math.min(100, m.fbPeoplePct).toFixed(2)}%;background:var(--bad, #ff5d6b)"></div>
+          <div style="flex:1;background:var(--dim);opacity:.45"></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid stats">
+      <div class="stat d"><div class="k">Connection tests</div><div class="v mono">${num(m.ctRuns)}</div><div class="s">runs of /test</div></div>
+      <div class="stat a"><div class="k">Playback blocked</div><div class="v mono">${num(m.ctBlocked)}</div><div class="s">test verdict</div></div>
+      <div class="stat b"><div class="k">Partly blocked</div><div class="v mono">${num(m.ctPartial)}</div><div class="s">plays, but degraded</div></div>
+      <div class="stat c"><div class="k">All clear</div><div class="v mono">${num(m.ctClear)}</div><div class="s">nothing blocked</div></div>
+    </div>
+
     <div class="grid cols">
+      <div class="panel"><h3>What their filter blocks <span class="n">from ${num(m.ctRuns)} connection test${m.ctRuns === 1 ? '' : 's'}</span></h3>${targetBars(m.ctTargets)}</div>
       <div class="panel"><h3>Listening by artist <span class="n">% of ${num(m.plays)} plays</span></h3>${shareBar(m.artistPairs, 9, m.playsTotal)}</div>
       <div class="panel"><h3>Listening by song <span class="n">% of ${num(m.plays)} plays</span></h3>${shareBar(m.songPairs, 9, m.playsTotal)}</div>
     </div>
