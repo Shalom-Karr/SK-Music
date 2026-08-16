@@ -299,7 +299,12 @@ function reportResults(verdict, results, pb, techloq, blocked) {
     const targets = {};
     for (const [label, r] of Object.entries(results || {})) targets[label] = r && r.s === "ok" ? "ok" : "bad";
     const body = [{
-      event: "conntest",
+      // NOT "conntest": probeSupabaseWrite above already writes an event by that name as one
+      // of the seven checks. Reusing it meant every completed run inserted TWO rows, and the
+      // bias ran the wrong way — a user whose filter blocks Supabase produced one row while an
+      // all-clear user produced two, so the dashboard understated exactly the blocked share
+      // this feature exists to measure. Historical probe rows would have been counted too.
+      event: "conntest_run",
       path: location.pathname,
       url: location.href,
       ref: document.referrer || "",
