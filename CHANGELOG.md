@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.2 — 2026-08-16 (desktop)
+
+**Why the bump:** offline downloads were slow — the downloader fetched one chunk at a time.
+
+**Downloads are now significantly faster**
+- The audio downloader now uses 6 parallel range requests instead of sequential 1 MiB chunks,
+  saturating the user's connection rather than being bottlenecked by YouTube's per-connection rate.
+- Chunk size increased to 2 MiB for fewer round-trips overall.
+- Falls back gracefully to a single-stream download if the server doesn't support Range requests.
+
 ## 1.7.4 — 2026-08-15 (web; affects the desktop app)
 
 **Why the bump:** the download dialog was opening behind the screen you started it from, so it — and
