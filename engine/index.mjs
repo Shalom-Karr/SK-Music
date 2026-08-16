@@ -1486,7 +1486,7 @@ async function dlFetchWatchPage(videoId) {
     });
     if (!resp.ok) return null;
     const html = await resp.text();
-    const m = html.match(/var ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/);
+    const m = html.match(/var ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/s);
     if (!m) return null;
     const j = JSON.parse(m[1]);
     return j && j.streamingData ? j : null;
