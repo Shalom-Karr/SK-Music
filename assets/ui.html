@@ -648,6 +648,12 @@ body.on-air .live-note{display:block}
   color:var(--text);font-size:13.5px;line-height:1.4;box-shadow:var(--shadow);opacity:0;pointer-events:none;
   transition:opacity .25s var(--ease),transform .25s var(--ease)}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+/* The toast is click-through by design (pointer-events:none above) so it never swallows a tap
+   meant for the page beneath it. A LINK inside it still has to be clickable: the "playback is
+   blocked" toast offers /test, and without this that anchor could not be clicked at all.
+   pointer-events re-enables per descendant, so scope it to links and leave the rest of the
+   toast transparent to input. */
+#toast a{pointer-events:auto;text-decoration:underline;text-underline-offset:2px}
 #toast b{color:var(--primary);font-weight:600}
 @media(max-width:899px){#toast{bottom:calc(var(--mini-h) + var(--tab-h) + 18px)}}
 /* shared floating popup menu (sleep timer, queue/song actions, add-to-playlist, report) */
@@ -1080,6 +1086,19 @@ fill="url(#royal)" stroke="none">
     <div class="toggle locked" id="tgFemale" role="button" tabindex="0" onclick="gotoParental()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Hide female singers</span><small>Kol isha — change in Parental Controls</small></div><div class="sw"></div></div>
     <div class="toggle locked" id="tgAcapLocked" role="button" tabindex="0" onclick="flipFilter('acapella')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" style="display:none"><div><span>Acapella</span><small id="acapLockSub">Required for Sefira / the Three Weeks</small></div><div class="sw"></div></div>
   </div>
+  <!-- Shown to everyone: this is the switch for people whose filter blocks the normal player. It
+       turns itself on automatically when that is detected, but it has to be reachable by hand too —
+       both to turn back off, and for someone who was told to enable it. -->
+  <div id="relayRow" style="border-top:1px solid var(--line);margin-top:8px;padding-top:4px">
+    <h4 style="margin-top:0">Playback</h4>
+    <div class="toggle" id="tgRelay" role="button" tabindex="0" onclick="setRelay(!relayOn())" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+      <div>
+        <span>Stream through Zemer</span>
+        <small>Turn on if your filter blocks playback &mdash; the music comes through Zemer's relay instead of YouTube</small>
+      </div>
+      <div class="sw"></div>
+    </div>
+  </div>
   <!-- Desktop only — revealed by the SK_NATIVE block. A browser tab cannot observe other
        applications' audio at all, so in the web app this control would be a switch wired to nothing. -->
   <div id="duckRow" style="display:none;border-top:1px solid var(--line);margin-top:8px;padding-top:4px">
@@ -1166,7 +1185,7 @@ fill="url(#royal)" stroke="none">
         <button class="iconbtn" id="npVidCtl" onclick="toggleVidControls()" title="Show video controls" aria-label="Show video controls" aria-pressed="false" style="width:48px;height:48px;flex:none;display:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M3 17h6v2H3zm0-6h12v2H3zm0-6h18v2H3zm14 6h4v2h-4zm-6 6h10v2H11z"/></svg></button>
         <button class="iconbtn" id="npShare" onclick="openShare(event)" title="Share" aria-label="Share" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0 0 6c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92z"/></svg></button>
         <!-- SK-OFFLINE: desktop-only "download for offline" toggle; hidden until the native shell shows it -->
-        <button class="iconbtn" id="npDownload" onclick="skToggleDownloadCurrent()" title="Download" aria-label="Download" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z"/></svg></button>
+        <button class="iconbtn" id="npDownload" onclick="downloadCurrent()" title="Download" aria-label="Download" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z"/></svg></button>
         <button class="iconbtn" id="npMenu" onclick="if(state.queue[state.qi])openSongMenu(this,state.queue[state.qi])" title="More" aria-label="More actions" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4m0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/></svg></button>
       </div>
       <div class="np-seek"><input type="range" class="seek" id="npSeek" min="0" max="1000" value="0" aria-label="Seek">
@@ -1537,6 +1556,7 @@ function syncFilterUI() {
   if (el("chasidSeg")) el("chasidSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", (b.dataset.v || "") === chasidMode()));
   if (el("tgDJ")) el("tgDJ").classList.toggle("on", noDJ());
   if (el("tgZemerRadio")) el("tgZemerRadio").classList.toggle("on", zemerRadioOn());
+  if (el("tgRelay")) el("tgRelay").classList.toggle("on", relayOn());
   // The account switch only exists once a parent has allowed podcasts at all — otherwise it's a
   // control with nothing behind it.
   if (el("tgPodcasts")) { el("tgPodcasts").style.display = pcPodcasts() ? "" : "none"; el("tgPodcasts").classList.toggle("on", podcastsOn()); }
@@ -4041,6 +4061,58 @@ function blockedByFilter(kind) { blockedPage("Access denied", `This ${kind} is b
 // network content filter to intercept, and playback works wherever the embed is allowed. Only whitelisted
 // corpus videoIds are ever loaded, and the iframe is off-screen with no controls, so no YouTube UI shows.
 // If the IFrame API itself can't load, we fall back to the server-proxied /stream path (the <audio> tag).
+/* ---- Zemer relay ------------------------------------------------------------------------------
+   A large part of this audience sits behind a kosher filter that blocks youtube.com and
+   googlevideo.com outright, so the embedded player simply never loads and nothing plays. The Zemer
+   project (whose catalog this app already uses) runs a relay for exactly that case — see
+   ZemerTeam/zemer-app#399, "so playback works on devices whose kosher filter blocks
+   music.youtube.com and googlevideo.com". We use the same two endpoints their Android client does:
+
+     GET /stream?v=<id>    audio, Accept-Ranges (so the scrubber works)
+     GET /download?v=<id>  one clean full file, Content-Disposition: attachment
+
+   Playback goes through the <audio> element with NO `crossorigin` attribute, so it needs no CORS
+   grant — the same reason the shiurim path works. `media-src` in the CSP has to allow the host
+   (engine/build-static.mjs).
+
+   OFF by default: the YouTube player is better when it is reachable (gapless hand-off, no third
+   party in the audio path, no load on someone else's bandwidth). It turns itself on only when
+   playback is actually found to be blocked, and can be toggled by hand in the filter menu. */
+const RELAY_BASE = "https://stream.zemer.io";
+const relayStreamUrl = (id) => RELAY_BASE + "/stream?v=" + encodeURIComponent(id);
+const relayDownloadUrl = (id) => RELAY_BASE + "/download?v=" + encodeURIComponent(id);
+const relayOn = () => LS.get("zw_relay", "") === "1";
+function setRelay(on, quiet) {
+  LS.set("zw_relay", on ? "1" : "");
+  track("relay", { on: !!on });
+  syncFilterUI();
+  const t = state.queue[state.qi];
+  // Re-load the current track through the other engine, keeping the position.
+  if (t && !t.kind) { const at = PB.cur() || 0; PB.nextStart = at; cancelSwap(); PB.load(t.videoId, at, on ? relayStreamUrl(t.videoId) : undefined); }
+  if (!quiet) showToast(on
+    ? "<b>Streaming through Zemer.</b> Playback goes through Zemer's relay instead of YouTube, so it works behind a filter."
+    : "<b>Back to the normal player.</b>", 4200);
+}
+
+// Download the current track. Desktop keeps its own offline library (skdl:// + an index); the web
+// app has nowhere to put a library, so it just hands the file to the browser — the relay sends
+// `Content-Disposition: attachment` with a real "Artist - Title.m4a" name, so a plain link download
+// is all that is needed and no CORS grant is involved.
+function downloadCurrent() {
+  const t = state.queue[state.qi];
+  if (!t || !t.videoId) return;
+  if (t.kind) { showToast("This can't be downloaded.", 2400); return; } // shiurim/podcasts aren't YouTube-backed
+  if (typeof SK_NATIVE !== "undefined" && SK_NATIVE) return skToggleDownloadCurrent();
+  const a = document.createElement("a");
+  a.href = relayDownloadUrl(t.videoId);
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  track("download", { v: t.videoId, title: t.title || "", artist: t.artist || "", via: "relay" });
+  showToast("<b>Downloading…</b> Check your browser's downloads.", 3200);
+}
+
 const audio = el("audio"), video = el("video");
 /* ---- HLS, for filmed shiurim only (see shTrack for WHY the mp4 alone isn't good enough) ----
    hls.js is fetched on FIRST WATCH and never otherwise: music, audio shiurim, podcasts and statuses
@@ -4144,6 +4216,14 @@ const PB = {
     const localSrc = (typeof skLocalSrc === "function") ? skLocalSrc(id) : null; // SK-OFFLINE: prefer a downloaded copy
     if (localSrc) { this.local = true; cancelSwap(); clearTimeout(_loadNudge); try { if (this.mode === "yt" && this.ready) this.yt.stopVideo(); } catch {} audio.src = localSrc; if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); return; }
     this.local = false;
+    // RELAY: play through Zemer's relay instead of the YouTube iframe. Reuses the `direct` path that
+    // already exists for shiurim — the <audio> element with a plain cross-origin URL, no `crossorigin`
+    // attribute, so no CORS grant is needed, and the relay serves Accept-Ranges so the scrubber works.
+    // Checked AFTER localSrc so a downloaded copy still wins, and only for YouTube-backed tracks: a
+    // shiur passes its own `src` (so `src` is set and we never reach here) and a local file returned above.
+    if (!src && relayOn() && id) {
+      return this.load(id, startSec, relayStreamUrl(id));
+    }
     // Hand the track to YouTube: the <audio> element must be fully released, not just paused, since it may
     // still hold a shiur's media URL and a stale src there would keep playing under the song.
     try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {}
@@ -4367,6 +4447,15 @@ function ytUnavailable() {
     ytBlockReported = true;
     track("filter_blocked", { stage: "yt_api", desktop: !!SK_NATIVE });
   }
+  // The player is unreachable, but the music does not have to be: switch to the Zemer relay, which
+  // exists for exactly this network, and resume whatever was queued. Only self-enables — never
+  // self-disables — so a user who turns it back off is not overridden on the next hiccup.
+  if (!relayOn()) {
+    setRelay(true, true); // quiet: the toast below explains it in one message rather than two
+    showToast('<b>Your filter blocks the normal player — switched to Zemer streaming.</b> Music should play now. '
+      + '<a href="/test" style="color:var(--primary);font-weight:700">Run the connection test</a> if anything is still wrong.', 10000);
+    return;
+  }
   showToast('<b>Playback is blocked on this network.</b> Search &amp; browse still work — <a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a> to see what\'s blocking it.', 9000);
 }
 
@@ -4379,7 +4468,7 @@ function playAccrue() { if (playSes && playSes.since) { playSes.played += Date.n
 function playFinalize() {
   if (!playSes) return; playAccrue();
   const secs = Math.round(playSes.played / 1000), dur = playSes.dur || 0;
-  if (secs >= 1) track("play", { v: playSes.v, title: playSes.title, artist: playSes.artist, seconds: secs, qualified: secs >= 30 || (dur > 0 && secs >= dur * 0.5), source: playSes.source, client: PB.mode === "yt" ? "web_iframe" : "web_stream" });
+  if (secs >= 1) track("play", { v: playSes.v, title: playSes.title, artist: playSes.artist, seconds: secs, qualified: secs >= 30 || (dur > 0 && secs >= dur * 0.5), source: playSes.source, client: PB.local ? "web_local" : (relayOn() ? "web_relay" : (PB.mode === "yt" ? "web_iframe" : "web_stream")) });
   playSes = null;
 }
 function playBegin(t) { playFinalize(); playSes = { v: t.videoId, title: t.title || "", artist: t.artist || "", dur: t.durationSec || 0, source: state.playSource || "other", played: 0, since: 0 }; }
