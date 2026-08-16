@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.7.5 — 2026-08-16 (web)
+
+**Why the bump:** a large part of this audience sits behind a filter that blocks YouTube outright, so
+the player never loaded and nothing played. There is now a way for them to listen.
+
+**Playback for people whose filter blocks YouTube**
+- Zemer runs a relay built for exactly this (`stream.zemer.io`), used by their own Android app. When
+  the normal player is found to be blocked, SK Music now switches to it automatically and the music
+  plays — instead of only reporting that something is wrong.
+- A **Stream via proxy** switch in the filter menu turns it on or off by hand. It stays off unless
+  needed: the normal player is better when it is reachable.
+- Switching keeps your place in the song rather than restarting it.
+
+**Download now works in the browser**
+- The Download button previously did nothing outside the desktop app. It now saves the track through
+  the same relay, with a proper "Artist - Title" filename.
+
+*(Thanks to the Zemer project — the proxy handles filtered playback.)*
+
 ## web + desktop — 2026-08-16
 
 **Security: remove unauthenticated `/dl` proxy endpoint**

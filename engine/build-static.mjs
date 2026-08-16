@@ -1163,7 +1163,7 @@ const CSP = [
   // lectures (both mp3 AND mp4 — video shiurim need no host this list didn't already have), and
   // www.torahanytime.com serves the legacy /dl/mobileaudio/ URLs that a few older records still use
   // as their only `audio_url`.
-  "media-src 'self' blob: skdl: http://skdl.localhost https://skdl.localhost https://dl.torahanytime.com https://proxier.torahanytime.com https://www.torahanytime.com https://ta-lectures.s3.us-east-005.backblazeb2.com https://ta-tusd.nyc3.digitaloceanspaces.com",
+  "media-src 'self' blob: skdl: https://stream.zemer.io http://skdl.localhost https://skdl.localhost https://dl.torahanytime.com https://proxier.torahanytime.com https://www.torahanytime.com https://ta-lectures.s3.us-east-005.backblazeb2.com https://ta-tusd.nyc3.digitaloceanspaces.com",
   "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
   // ipc: + ipc.localhost are the Tauri desktop app's IPC transport (invoke → now_playing/set_playback_state);
   // harmless for browsers, required so the desktop media bridge isn't blocked.
