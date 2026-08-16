@@ -109,6 +109,11 @@ const ROUTE_PREVIEWS = {
     description:
       "About SK Music — a fast, kosher, filtered YouTube music client built on the Zemer catalog.",
   },
+  "/download": {
+    title: "Download | SK Music",
+    description:
+      "Download SK Music for Desktop — a native app with a system-tray mini-player, media keys, background play, and offline downloads. Windows, macOS & Linux.",
+  },
 };
 
 // ─── App-shell OG injection ───────────────────────────────────────────────────
