@@ -109,6 +109,11 @@ const ROUTE_PREVIEWS = {
     description:
       "About SK Music — a fast, kosher, filtered YouTube music client built on the Zemer catalog.",
   },
+  "/download": {
+    title: "Download | SK Music",
+    description:
+      "Download SK Music for Desktop — a native app with a system-tray mini-player, media keys, background play, and offline downloads. Windows, macOS & Linux.",
+  },
 };
 
 // ─── App-shell OG injection ───────────────────────────────────────────────────
@@ -1393,11 +1398,8 @@ async function tryKvOverride(env, path) {
   });
 }
 
-// Desktop auto-updater manifest. Proxies the signed `latest.json` from the newest published
-// `desktop-*` GitHub release so the app checks updates against the trusted skmusic origin. The
-// manifest's URLs point at the GitHub release assets (installers), so github must be reachable to
-// apply an update — same as the manual /download path. The GitHub API subrequest is edge-cached
-// (cf.cacheTtl) and the built manifest is cached ~10min, keeping us well under the API rate limit.
+
+
 const UPDATE_REPO = "Shalom-Karr/SK-Music";
 async function handleUpdateManifest(ctx) {
   const cache = caches.default;
@@ -1428,6 +1430,41 @@ async function handleUpdateManifest(ctx) {
     return resp;
   } catch (e) {
     return noUpdate();
+  }
+}
+
+// Desktop installer page release data. Returns the latest desktop-* release's assets list so the
+// client-side /download page doesn't hit the unauthenticated GitHub API (60 req/hr). Edge-cached 10min.
+async function handleDesktopReleases(ctx) {
+  const cache = caches.default;
+  const cacheKey = new Request("https://sk-music.internal/__desktop_releases.json");
+  const hit = await cache.match(cacheKey);
+  if (hit) return hit;
+  try {
+    const gh = { "User-Agent": "sk-music-worker", Accept: "application/vnd.github+json" };
+    const rel = await fetch(`https://api.github.com/repos/${UPDATE_REPO}/releases?per_page=20`, {
+      headers: gh,
+      cf: { cacheTtl: 300, cacheEverything: true },
+    });
+    if (!rel.ok) return new Response("[]", { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=120" } });
+    const releases = await rel.json();
+    const desktop = Array.isArray(releases)
+      ? releases.find((r) => !r.draft && !r.prerelease && (r.tag_name || "").startsWith("desktop-v"))
+      : null;
+    if (!desktop) return new Response("[]", { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=120" } });
+    // Return only what the client needs: tag + assets (name + browser_download_url).
+    const payload = JSON.stringify([{
+      tag_name: desktop.tag_name,
+      assets: (desktop.assets || []).map((a) => ({ name: a.name, browser_download_url: a.browser_download_url })),
+    }]);
+    const resp = new Response(payload, {
+      status: 200,
+      headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=600", "Access-Control-Allow-Origin": "*" },
+    });
+    ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+    return resp;
+  } catch (e) {
+    return new Response("[]", { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60" } });
   }
 }
 
@@ -1721,6 +1758,7 @@ export default {
       });
     }
 
+
     // Live data routes.
     if (pathname === "/playlist")
       return request.method === "GET"
@@ -1754,6 +1792,9 @@ export default {
     // Desktop auto-updater: serve the newest signed desktop release manifest (edge-cached). 204 =
     // up-to-date/no manifest yet.
     if (pathname.startsWith("/updates/")) return handleUpdateManifest(ctx);
+    // Desktop installer page: proxied release lookup so the browser never hits the 60-req/hr
+    // unauthenticated GitHub API rate limit. Edge-cached for 10 minutes.
+    if (pathname === "/desktop-releases") return handleDesktopReleases(ctx);
     // CSP violation reports (policy ships report-only) — logged so the allowlist can be tuned.
     if (pathname === "/csp-report" && request.method === "POST") return handleCspReport(request);
 

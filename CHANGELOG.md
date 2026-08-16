@@ -1,5 +1,71 @@
 # Changelog
 
+## 1.7.5 — 2026-08-16 (web)
+
+**Why the bump:** a large part of this audience sits behind a filter that blocks YouTube outright, so
+the player never loaded and nothing played. There is now a way for them to listen.
+
+**Playback for people whose filter blocks YouTube**
+- Zemer runs a relay built for exactly this (`stream.zemer.io`), used by their own Android app. When
+  the normal player is found to be blocked, SK Music now switches to it automatically and the music
+  plays — instead of only reporting that something is wrong.
+- A **Stream via proxy** switch in the filter menu turns it on or off by hand. It stays off unless
+  needed: the normal player is better when it is reachable.
+- Switching keeps your place in the song rather than restarting it.
+
+**Download now works in the browser**
+- The Download button previously did nothing outside the desktop app. It now saves the track through
+  the same relay, with a proper "Artist - Title" filename.
+
+*(Thanks to the Zemer project — the proxy handles filtered playback.)*
+
+## web + desktop — 2026-08-16
+
+**Security: remove unauthenticated `/dl` proxy endpoint**
+- The `/dl?v=VIDEO_ID` Worker endpoint was an open proxy that could fetch audio for any YouTube
+  video — bypassing the curated whitelist, burning request budget, and changing the service's
+  exposure posture. The endpoint and all supporting code (`handleSongDownload`, `dlFetchInnertube`,
+  `dlFetchWatchPage`, `dlPickAudio`, `dlResolveCipher`, `dlGetDecipher`, `dlBuildCipher`) have been
+  removed. Web download buttons now show a "requires the desktop app" toast.
+
+**Fix: desktop build — replace `futures` crate with `futures-util`**
+- `Cargo.toml` declared `futures = "0.3"` but the lockfile never contained it, causing CI to fail.
+  Replaced with `futures-util` (already in the dependency tree) which re-exports
+  `FuturesUnordered` and `StreamExt`.
+
+**Fix: parallel downloader strict chunk-length check**
+- Changed the chunk size assertion from `n > expected` (allowed short reads silently) to
+  `n != expected` — a short middle chunk now correctly errors instead of leaving a zero-filled
+  hole in the pre-allocated file.
+
+## web — 2026-08-16
+
+**Fix: /download page now reliably loads installer buttons**
+- The desktop-installer page (`/download`) previously fetched GitHub release data directly from
+  `api.github.com` in the browser — subject to the 60 req/hr unauthenticated rate limit. When
+  the limit was hit the download buttons silently failed to appear.
+- Release data is now served through a new `/desktop-releases` Worker endpoint (edge-cached 10 min),
+  eliminating the client-side rate-limit issue entirely.
+
+## 1.2.2 — 2026-08-16 (desktop)
+
+**Why the bump:** offline downloads were slow — the downloader fetched one chunk at a time.
+
+**Downloads are now faster (parallel range requests)**
+- The audio downloader now uses 3 concurrent range requests (2 MiB each) instead of a single
+  sequential stream, improving download speed while staying under YouTube's throttle heuristic.
+- Each chunk strictly asserts HTTP 206; a server that ignores Range is detected and handled via a
+  sequential fallback path — this prevents silent file corruption.
+- Per-chunk retries (up to 2) for transient failures (429, 403, 5xx, network errors).
+- File I/O moved to blocking threads to avoid stalling the async runtime.
+- Falls back gracefully to a single-stream download if the server doesn't support Range requests.
+
+## web — 2026-08-16
+
+**The /download page now has proper OG/social metadata**
+- Sharing or linking to `/download` now renders the correct title and description in social cards,
+  search results, and link previews (was previously falling through with generic site metadata).
+
 ## 1.7.4 — 2026-08-15 (web; affects the desktop app)
 
 **Why the bump:** the download dialog was opening behind the screen you started it from, so it — and
