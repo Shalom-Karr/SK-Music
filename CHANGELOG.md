@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.7.2 — 2026-08-15 (web)
+
+**Why the bump:** AI training crawlers were **89% of all traffic** — 38,721 of 43,675 requests
+in a measured six-hour window, nearly all of it Meta's `meta-externalagent`. They were pushing the
+account past its daily request limit roughly every other day, and they aim at the most expensive
+pages on the site.
+
+**AI crawlers are turned away; search engines are not**
+- `robots.txt` now disallows the AI/LLM training crawlers by name (Meta, GPTBot, ClaudeBot,
+  CCBot, Bytespider, PerplexityBot and friends). This is the part that actually removes the
+  traffic — a crawler that obeys it stops asking.
+- The Worker refuses them directly too, for the ones that ignore `robots.txt`, before it does any
+  of the expensive page-building work.
+- **Google and Bing search are untouched and still index everything**, so nothing about how the
+  site is found changes. `Google-Extended` is disallowed, but that is Google's separate
+  AI-training crawler, not the search one.
+- `robots.txt` itself stays readable by everyone, including the blocked crawlers — otherwise they
+  could never learn to stop.
+
+*(This release also carries the playback fix written up under 1.7.1 below, which had not yet
+shipped.)*
+
 ## 1.7.1 — 2026-08-13 (web)
 
 **Why the bump:** on a filtered network, playback didn't just fail — it got stuck. One track failing
