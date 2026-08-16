@@ -89,6 +89,33 @@ console.log(CODE_ONLY
   ? "building dist/ (code only — reusing existing data) …"
   : "building dist/ …");
 
+// robots.txt — emitted by BOTH build modes. It depends on nothing in the corpus, and it is
+// site policy rather than data, so a `build:code` run must not leave a stale copy behind.
+//
+// AI/LLM training crawlers get a blanket Disallow. This is the polite half of the defence
+// and the only half that reduces traffic AT SOURCE: a crawler that obeys robots.txt stops
+// asking, so the request is never made and never billed. Meta documents that
+// meta-externalagent honours robots.txt; engine/index.mjs enforces it for those that don't.
+//
+// SEARCH ENGINES ARE DELIBERATELY ABSENT — Googlebot, Bingbot and friends still match
+// `User-agent: *` and keep full access, because being indexed is how people find the
+// catalog. `Google-Extended` IS listed, but that is Google's AI-training agent, NOT
+// Googlebot; disallowing it does not affect search indexing or ranking. Denylist by
+// design, so no future search crawler is locked out by omission.
+const AI_CRAWLERS = [
+  "meta-externalagent", "meta-externalfetcher", "FacebookBot",
+  "GPTBot", "OAI-SearchBot", "ChatGPT-User",
+  "ClaudeBot", "Claude-Web", "anthropic-ai",
+  "CCBot", "Bytespider", "Amazonbot", "Applebot-Extended",
+  "Google-Extended", "PerplexityBot", "cohere-ai", "Diffbot", "Omgilibot",
+];
+function writeRobots() {
+  ensureWrite(path.join(DIST, "robots.txt"),
+    AI_CRAWLERS.map((ua) => `User-agent: ${ua}\nDisallow: /\n`).join("\n") +
+    `\nUser-agent: *\nAllow: /\nDisallow: /analytics\nDisallow: /admin\n\nSitemap: ${SITE}/sitemap.xml\n`);
+}
+if (CODE_ONLY) writeRobots(); // full build calls it inline, alongside the sitemaps
+
 if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + feeds + sitemaps + taggers =====
   rmrf(DIST);
   const db = openCorpus();
@@ -825,8 +852,7 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
     registeredSitemaps.map((f) => `<sitemap><loc>${SITE}/${f}</loc></sitemap>`).join("\n") +
     `\n</sitemapindex>\n`,
   );
-  ensureWrite(path.join(DIST, "robots.txt"),
-    `User-agent: *\nAllow: /\nDisallow: /analytics\nDisallow: /admin\n\nSitemap: ${SITE}/sitemap.xml\n`);
+  writeRobots();
   console.log(`  sitemaps: ${registeredSitemaps.length} files + index (${tracks.length + artists.length + albums.length + playlists.length} entity URLs) → ${SITE}/sitemap.xml`);
 
   // IndexNow (Bing/Edge instant indexing) — the key file must sit at the site root and

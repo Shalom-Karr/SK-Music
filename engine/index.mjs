@@ -1638,10 +1638,36 @@ function canonicalRedirect(url) {
 
 // ─── Entry points ─────────────────────────────────────────────────────────────
 
+// AI/LLM training crawlers. These are refused cheaply, before any of the routes below —
+// they were 89% of all traffic in a measured 6-hour window (38,721 of 43,675 requests, all
+// meta-externalagent wearing assorted Chrome UA prefixes), and they hit /song/:id and
+// /albums/:id, which are the most expensive path this Worker has: renderDeepLinkShell does
+// an assets fetch + a data fetch + OG injection for every one.
+//
+// SEARCH ENGINES ARE DELIBERATELY ABSENT. Googlebot and Bingbot are not in this list and
+// keep full access — being indexed is how people find the catalog. `Google-Extended` IS
+// listed, but that is Google's AI-TRAINING agent, a different crawler from Googlebot;
+// blocking it has no effect on search ranking or indexing. Denylist by design, so no
+// future search crawler can be locked out by omission.
+//
+// robots.txt (built by engine/build-static.mjs) asks the same crawlers to stop, which is
+// the half that actually reduces cost — an obeyed Disallow means the request is never made
+// and never billed. This regex is the enforcement for the ones that ignore it.
+const AI_CRAWLER_RX = /meta-externalagent|meta-externalfetcher|facebookbot|gptbot|oai-searchbot|chatgpt-user|claudebot|claude-web|anthropic-ai|ccbot|bytespider|amazonbot|applebot-extended|google-extended|perplexitybot|cohere-ai|diffbot|omgilibot/i;
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const pathname = url.pathname;
+
+    // /robots.txt stays reachable for everyone — a crawler has to be able to READ the
+    // Disallow that applies to it, or it can never learn to stop asking.
+    if (pathname !== "/robots.txt" && AI_CRAWLER_RX.test(request.headers.get("user-agent") || "")) {
+      return new Response("Disallowed by /robots.txt\n", {
+        status: 403,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+      });
+    }
 
     const moved = canonicalRedirect(url);
     if (moved) return moved;
