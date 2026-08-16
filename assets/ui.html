@@ -5328,7 +5328,13 @@ function skEnsurePanel() {
     #npDownload.on{color:#4ade80}
     #npDownload.busy{opacity:.55}
     .row.sk-dl-done .title::after{content:"";display:inline-block;width:12px;height:12px;margin-left:7px;vertical-align:-1px;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234ade80'%3E%3Cpath d='M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z'/%3E%3C/svg%3E")}
-    .sk-dl-overlay{position:fixed;inset:0;z-index:60;display:none;background:rgba(6,4,5,.6);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:24px}
+    /* z-index 200/201 — the same tier as .authmodal, and deliberately ABOVE #now (80).
+       The download button (#npDownload) lives INSIDE the fullscreen Now Playing panel,
+       which is the only place it is reachable, so at the old z-index 60/61 the modal
+       opened *behind* the very screen you tapped it from: invisible, and with it every
+       progress bar, failure reason and Retry button. It looked like nothing happened.
+       Must stay above #now (80), #stsView (85), #toast (90) and #popmenu (95). */
+    .sk-dl-overlay{position:fixed;inset:0;z-index:200;display:none;background:rgba(6,4,5,.6);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:24px}
     .sk-dl-overlay.on{display:flex}
     .sk-dl-sheet{width:min(560px,94vw);max-height:82vh;display:flex;flex-direction:column;background:#171012;border:1px solid rgba(255,240,235,.10);border-radius:16px;box-shadow:0 24px 70px -20px rgba(0,0,0,.8);overflow:hidden}
     .sk-dl-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid rgba(255,240,235,.08)}
@@ -5349,7 +5355,7 @@ function skEnsurePanel() {
     .sk-dl-act{flex:none;background:transparent;border:0;color:#b09a93;cursor:pointer;width:34px;height:34px;border-radius:8px}
     .sk-dl-act:hover{background:rgba(255,240,235,.08);color:#ff5d6b}
     .sk-dl-act svg{width:20px;height:20px;fill:currentColor}
-    #skDlModal{z-index:61}
+    #skDlModal{z-index:201} /* one above the library panel, same reasoning as above */
     .sk-dl-modal{width:min(430px,92vw)}
     .sk-dl-card{display:flex;gap:13px;align-items:center;padding:18px}
     .sk-dl-card .sk-dl-t{cursor:default;white-space:normal}
