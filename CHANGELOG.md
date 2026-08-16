@@ -9,6 +9,12 @@
 - Release data is now served through a new `/desktop-releases` Worker endpoint (edge-cached 10 min),
   eliminating the client-side rate-limit issue entirely.
 
+**New: Download any song as an audio file (web)**
+- A "Download" option now appears in the song context menu (⋯) and in the Now Playing panel.
+- Clicking it downloads the song's audio (m4a/weba) directly to your device — no desktop app required.
+- Powered by a new `/dl?v=VIDEO_ID` Worker endpoint that extracts and proxies YouTube audio
+  server-side, with full signature-decipher support.
+
 ## 1.2.2 — 2026-08-16 (desktop)
 
 **Why the bump:** offline downloads were slow — the downloader fetched one chunk at a time.
