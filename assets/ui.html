@@ -4353,12 +4353,19 @@ window.onYouTubeIframeAPIReady = function () {
 })();
 // The embed host is unreachable — a filtered network, nearly always. There is no server-side stream to fall
 // back to, so say so plainly and point at the diagnostic that identifies WHICH layer is blocked.
-let ytWarnedAt = 0;
+let ytWarnedAt = 0, ytBlockReported = false;
 function ytUnavailable() {
   if (PB.ready || Date.now() - ytWarnedAt < 30000) return;
   ytWarnedAt = Date.now();
   console.warn("YT IFrame API unavailable — playback needs an unfiltered connection");
-  showToast('<b>Playback is blocked on this network.</b> Search &amp; browse still work — <a href="/playback-block-test" style="color:var(--primary);font-weight:700">run the connection test</a> to see what\'s blocking it.', 8000);
+  // Report it ONCE per session. This is what makes "how many people are stuck behind
+  // their filter" a number on the analytics page rather than a guess — see the
+  // Filter-Blocked panel in assets/analytics.html.
+  if (!ytBlockReported) {
+    ytBlockReported = true;
+    track("filter_blocked", { stage: "yt_api", desktop: !!SK_NATIVE });
+  }
+  showToast('<b>Playback is blocked on this network.</b> Search &amp; browse still work — <a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a> to see what\'s blocking it.', 9000);
 }
 
 function playFrom(qid, i, source) { const q = queues.get(qid); if (!q) return; stStop(); state.queue = q; state.radio = null; state.playSource = source || (state.detailOpen ? (state.detailKind || "detail") : (state.tab || "home")); state.qi = i; if (state.shuffle) shuffleTail(); playIndex(state.qi); }
@@ -5127,7 +5134,14 @@ function onPlaybackError() {
   if (gapless) return; // a handoff is mid-flight — let it (or its watchdog) own the advance; a parallel next() would double-skip
   const t = state.queue[state.qi]; if (!t) return; streamFails++;
   el("nbArtist").textContent = (t.artist || "") + " · unavailable";
-  if (streamFails >= 3) { showToast(PB.mode === "yt" ? "<b>Couldn't play these tracks.</b> Some videos disable embedding, or playback is restricted on this network." : "<b>Streaming is blocked on this network.</b> Search &amp; browse still work — playback needs an unfiltered connection.", 6500); return; }
+  if (streamFails >= 3) {
+    // Three in a row is no longer "this track is a dud" — it's the network. Same
+    // one-per-session report as ytUnavailable so the Filter-Blocked panel counts
+    // people, not failures.
+    if (!ytBlockReported) { ytBlockReported = true; track("filter_blocked", { stage: "playback", desktop: !!SK_NATIVE }); }
+    showToast('<b>Couldn\'t play these tracks.</b> Playback looks restricted on this network — <a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a> to see what\'s blocking it.', 9000);
+    return;
+  }
   showToast(`Couldn't play “${esc(t.title || "track")}” — skipping…`);
   if (state.qi < state.queue.length - 1) setTimeout(next, 500);
 }
