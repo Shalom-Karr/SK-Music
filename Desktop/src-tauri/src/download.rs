@@ -423,7 +423,7 @@ async fn fetch_chunk(
         let range = format!("bytes={start}-{end}");
         let resp = match client.get(&url).header(header::RANGE, range).send().await {
             Ok(r) => r,
-            Err(e) if attempt < CHUNK_RETRIES => {
+            Err(_) if attempt < CHUNK_RETRIES => {
                 tokio::time::sleep(Duration::from_millis(500 * (attempt as u64 + 1))).await;
                 continue;
             }
@@ -448,7 +448,7 @@ async fn fetch_chunk(
 
         let bytes = match resp.bytes().await {
             Ok(b) => b,
-            Err(e) if attempt < CHUNK_RETRIES => {
+            Err(_) if attempt < CHUNK_RETRIES => {
                 tokio::time::sleep(Duration::from_millis(500 * (attempt as u64 + 1))).await;
                 continue;
             }
