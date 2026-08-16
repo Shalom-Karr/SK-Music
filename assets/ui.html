@@ -3314,7 +3314,7 @@ function loadDownload() {
     </div>`;
   const label = { win: "Download for Windows", mac: "Download for macOS", linux: "Download for Linux" };
   const btn = (href, text, primary) => `<a href="${href}" target="_blank" rel="noopener" onclick="track('dl_click')" style="display:inline-block;margin:6px 8px 0 0;padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:800;${primary ? "background:linear-gradient(180deg,var(--primary-2),var(--primary));color:#fff" : "background:var(--surface-2);border:1px solid var(--line);color:var(--text)"}">${text}</a>`;
-  fetch("https://api.github.com/repos/Shalom-Karr/SK-Music/releases?per_page=15")
+  fetch("/desktop-releases")
     .then((r) => (r.ok ? r.json() : []))
     .then((rels) => {
       const box = el("dlBtns"); if (!box) return;

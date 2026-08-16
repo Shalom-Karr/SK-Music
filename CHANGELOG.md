@@ -1,5 +1,14 @@
 # Changelog
 
+## web — 2026-08-16
+
+**Fix: /download page now reliably loads installer buttons**
+- The desktop-installer page (`/download`) previously fetched GitHub release data directly from
+  `api.github.com` in the browser — subject to the 60 req/hr unauthenticated rate limit. When
+  the limit was hit the download buttons silently failed to appear.
+- Release data is now served through a new `/desktop-releases` Worker endpoint (edge-cached 10 min),
+  eliminating the client-side rate-limit issue entirely.
+
 ## 1.2.2 — 2026-08-16 (desktop)
 
 **Why the bump:** offline downloads were slow — the downloader fetched one chunk at a time.
