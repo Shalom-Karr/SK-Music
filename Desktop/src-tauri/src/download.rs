@@ -314,7 +314,7 @@ async fn download_ranged(
     total_hint: Option<u64>,
     id: &str,
 ) -> Result<u64, String> {
-    use futures::stream::{FuturesUnordered, StreamExt};
+    use futures_util::stream::{FuturesUnordered, StreamExt};
 
     let client = reqwest::Client::builder()
         .user_agent(UA)
@@ -456,13 +456,14 @@ async fn fetch_chunk(
         };
         let n = bytes.len() as u64;
 
-        // The final chunk may be shorter than CHUNK, but any other mismatch is suspect.
+        // Every chunk (including the last) has a precise expected size since `end` is clamped
+        // to `total - 1`. A mismatch means a short/over read — either corrupts the file.
         if n == 0 {
             return Err(format!("empty response for chunk at offset {start}"));
         }
-        if n > expected {
+        if n != expected {
             return Err(format!(
-                "chunk at offset {start}: got {n} bytes, expected at most {expected}"
+                "chunk at offset {start}: got {n} bytes, expected {expected}"
             ));
         }
 

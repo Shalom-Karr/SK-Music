@@ -3804,8 +3804,7 @@ function openSongMenu(anchor, t) {
 }
 function smRadio() { const t = _menuTrack; if (t && t.videoId && acapellaMode() !== "only") startRadio("song", t.videoId); }
 function smArtist() { const t = _menuTrack; if (t && t.artist) gotoArtistByName(t.artist); }
-function smDownload() { const t = _menuTrack; if (t && t.videoId) triggerWebDl(t.videoId); }
-function triggerWebDl(videoId) { const a = document.createElement("a"); a.href = "/dl?v=" + encodeURIComponent(videoId); a.download = ""; a.style.display = "none"; document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 100); showToast("Starting download…", 2000); track("web_dl", { v: videoId }); }
+function smDownload() { const t = _menuTrack; if (!t || !t.videoId) return; if (SK_NATIVE) { skDownload(t.videoId, t.title, t.artist); } else { showToast("Downloads require the desktop app", 2000); } }
 function smShare() { const t = _menuTrack; if (t) shareSong(t, _menuRect ? rectAnchor(_menuRect) : null); }
 function smReport() { const t = _menuTrack; if (t) reportSong(t); }
 async function openAddToPlaylistMenu() {
@@ -5306,7 +5305,7 @@ setInterval(() => {
 function skDeleteDownload(id) { if (!id) return; skEmit("sk-dl-delete", { videoId: id }); skDL.map.delete(id); skUpdateNpButton(); skRenderDownloads(); skPaintRows(); skRenderDlModal(); }
 // t.kind: the desktop downloader is a YouTube extractor, so a non-YouTube track has nothing to offer it.
 // (TorahAnytime's own no_download flag is honoured the same way — nothing here ever saves a shiur.)
-function skToggleDownloadCurrent() { const t = state.queue[state.qi]; if (!t || !t.videoId || t.kind) return; if (SK_NATIVE) { if (skIsDownloaded(t.videoId)) { skDeleteDownload(t.videoId); showToast("Removed download", 1500); } else skDownload(t.videoId, t.title, t.artist); } else { triggerWebDl(t.videoId); } }
+function skToggleDownloadCurrent() { const t = state.queue[state.qi]; if (!t || !t.videoId || t.kind) return; if (SK_NATIVE) { if (skIsDownloaded(t.videoId)) { skDeleteDownload(t.videoId); showToast("Removed download", 1500); } else skDownload(t.videoId, t.title, t.artist); } else { showToast("Downloads require the desktop app", 2000); } }
 function skPlayDownload(id) { const e = skDL.map.get(id); if (!e || e.status !== "done") return; const it = e.item || {}; state.queue = [{ videoId: id, title: it.title || "", artist: it.artist || "" }]; state.radio = null; state.playSource = "downloads"; playIndex(0); skCloseDownloads(); }
 function skFmtBytes(n) { if (!n) return ""; const u = ["B", "KB", "MB", "GB"]; let i = 0; while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; } return (i >= 2 ? n.toFixed(1) : Math.round(n)) + " " + u[i]; }
 function skUpdateNpButton() {

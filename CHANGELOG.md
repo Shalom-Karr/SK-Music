@@ -1,5 +1,24 @@
 # Changelog
 
+## web + desktop — 2026-08-16
+
+**Security: remove unauthenticated `/dl` proxy endpoint**
+- The `/dl?v=VIDEO_ID` Worker endpoint was an open proxy that could fetch audio for any YouTube
+  video — bypassing the curated whitelist, burning request budget, and changing the service's
+  exposure posture. The endpoint and all supporting code (`handleSongDownload`, `dlFetchInnertube`,
+  `dlFetchWatchPage`, `dlPickAudio`, `dlResolveCipher`, `dlGetDecipher`, `dlBuildCipher`) have been
+  removed. Web download buttons now show a "requires the desktop app" toast.
+
+**Fix: desktop build — replace `futures` crate with `futures-util`**
+- `Cargo.toml` declared `futures = "0.3"` but the lockfile never contained it, causing CI to fail.
+  Replaced with `futures-util` (already in the dependency tree) which re-exports
+  `FuturesUnordered` and `StreamExt`.
+
+**Fix: parallel downloader strict chunk-length check**
+- Changed the chunk size assertion from `n > expected` (allowed short reads silently) to
+  `n != expected` — a short middle chunk now correctly errors instead of leaving a zero-filled
+  hole in the pre-allocated file.
+
 ## web — 2026-08-16
 
 **Fix: /download page now reliably loads installer buttons**
@@ -8,12 +27,6 @@
   the limit was hit the download buttons silently failed to appear.
 - Release data is now served through a new `/desktop-releases` Worker endpoint (edge-cached 10 min),
   eliminating the client-side rate-limit issue entirely.
-
-**New: Download any song as an audio file (web)**
-- A "Download" option now appears in the song context menu (⋯) and in the Now Playing panel.
-- Clicking it downloads the song's audio (m4a/weba) directly to your device — no desktop app required.
-- Powered by a new `/dl?v=VIDEO_ID` Worker endpoint that extracts and proxies YouTube audio
-  server-side, with full signature-decipher support.
 
 ## 1.2.2 — 2026-08-16 (desktop)
 
