@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.7.6 — 2026-08-17 (web)
+
+**Why the bump:** on an unfiltered connection that was merely slow to start, the app announced
+*"your filter blocks the normal player"* and switched itself to Zemer streaming — and then kept
+that choice across reloads, so a single slow start parked people on the relay for good.
+
+**A slow start is no longer mistaken for a filter**
+- The app used to decide the player was blocked after a fixed nine seconds. That timer cannot tell
+  "blocked" from "slow", so on a slow but perfectly open connection it fired anyway.
+- It now switches to Zemer streaming only when the network has actually **refused** the player —
+  never on a timeout. A slow start just says so, and offers the connection test and the manual
+  switch, while the normal player carries on loading.
+- When it does switch automatically, that lasts for the current visit only. It is never saved, so a
+  one-off hiccup can't leave you on the relay next time. Turning it on **yourself** in the filter
+  menu still sticks, exactly as before.
+- Turning it off by hand always wins over an automatic switch.
+
+## Desktop 1.2.3 — 2026-08-17
+
+**Why the bump:** offline downloads failed with *"could not read the audio stream: no audio format
+found"* for anyone whose filter blocks YouTube — which is much of this audience.
+
+**Downloads now work behind a filter**
+- The desktop downloader reads the audio stream by loading YouTube in a hidden window. When a
+  filter blocks `youtube.com`, that window gets a block page instead, every way of finding the
+  audio comes up empty, and the download failed with the message above.
+- The web app already streams and downloads through Zemer's relay in exactly this situation
+  (1.7.5 below). The desktop downloader now falls back to the same relay whenever YouTube can't be
+  read — a filter block, a timeout, or a YouTube-side change that breaks the reader — before it
+  gives up.
+- Nothing else about downloads changed: the file lands in the same library, in the same format
+  (`.m4a`), and plays offline the same way. If YouTube *is* reachable, it's used first, as before.
+- The fallback only accepts a real audio response. If a filter intercepts the relay too and hands
+  back a web page, that is refused rather than saved into the library as a broken song.
+
 ## 1.7.5 — 2026-08-16 (web)
 
 **Why the bump:** a large part of this audience sits behind a filter that blocks YouTube outright, so
