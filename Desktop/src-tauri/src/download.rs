@@ -73,6 +73,12 @@ const EXTRACT_TIMEOUT: Duration = Duration::from_secs(30);
 /// Browser-ish UA — googlevideo can 403 an obviously-headless client.
 const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36";
 
+/// the streaming proxy — the same service the web app plays and downloads through when a filter blocks
+/// YouTube (assets/ui.html RELAY_BASE; an upstream proxy service). `/download` returns one full
+/// `audio/mp4` file with a real Content-Length, which is exactly what the offline library wants.
+/// (`/stream` exists too, but serves `audio/webm` — the wrong container for the library.)
+const RELAY_DOWNLOAD: &str = "https://stream.zemer.io/download";
+
 // ---------------------------------------------------------------------------
 // Persistent index
 // ---------------------------------------------------------------------------
@@ -242,22 +248,47 @@ async fn process(app: &AppHandle, job: Job) {
     pending().lock().unwrap().insert(id.clone(), tx);
     open_extractor(app, &id);
 
+    // The hidden extractor loads youtube.com/watch and tries three ways to find an audio
+    // URL: the embedded player response, a sniffed googlevideo request from the hidden
+    // player, and the InnerTube API. All three need YouTube itself to be reachable, and
+    // for a large share of this audience it isn't: a kosher filter blocks youtube.com and
+    // googlevideo.com outright, the extractor gets a block page, and every strategy comes
+    // up empty — that is the "no audio format found" report.
+    //
+    // The web app already handles exactly this case by streaming and downloading through
+    // the streaming proxy (see RELAY_BASE in assets/ui.html and an upstream proxy service). This
+    // gives the desktop downloader the same fallback: when YouTube extraction fails for
+    // ANY reason — filter block, timeout, or a YouTube-side change that breaks the
+    // scraper — try the relay before giving up. Everything downstream (ranged download,
+    // index entry, done event) is unchanged: the relay simply yields an `Extracted`.
     let extracted = match tokio::time::timeout(EXTRACT_TIMEOUT, rx).await {
-        Ok(Ok(Ok(x))) => x,
+        Ok(Ok(Ok(x))) => {
+            park_extractor(app);
+            x
+        }
         Ok(Ok(Err(reason))) => {
             pending().lock().unwrap().remove(&id);
             park_extractor(app);
-            emit_error(app, &id, &format!("could not read the audio stream: {reason}"));
-            return;
+            match relay_extract(app, &id, &job).await {
+                Some(x) => x,
+                None => {
+                    emit_error(app, &id, &format!("could not read the audio stream: {reason}"));
+                    return;
+                }
+            }
         }
         _ => {
             pending().lock().unwrap().remove(&id);
             park_extractor(app);
-            emit_error(app, &id, "timed out reading the audio stream");
-            return;
+            match relay_extract(app, &id, &job).await {
+                Some(x) => x,
+                None => {
+                    emit_error(app, &id, "timed out reading the audio stream");
+                    return;
+                }
+            }
         }
     };
-    park_extractor(app);
 
     let ext = ext_for(&extracted.mime, extracted.itag);
     let mime = if extracted.mime.is_empty() {
@@ -788,6 +819,60 @@ fn upsert_index(app: &AppHandle, entry: Entry) {
 /// corpus ids; this is a cheap shape guard so the command can trust the SPA.
 fn valid_id(id: &str) -> bool {
     id.len() == 11 && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+}
+
+/// Fallback when YouTube extraction fails: resolve the track through the streaming proxy instead.
+///
+/// Probes the relay first (HEAD-equivalent GET, body discarded) so we only ever hand
+/// `download_ranged` a URL that actually answers, and so the size and mime it reports are the
+/// relay's real ones rather than guesses. Returns None — never an error — because the caller
+/// already holds the original YouTube failure and will report THAT if this doesn't pan out.
+async fn relay_extract(app: &AppHandle, id: &str, job: &Job) -> Option<Extracted> {
+    emit_progress(app, id, "extracting", 0, None);
+
+    // A YouTube id is always [A-Za-z0-9_-] (the SPA enforces this with safeId before it
+    // ever reaches us). Refusing anything else means the id can go into the URL verbatim —
+    // no encoding crate needed — and a malformed id can't smuggle extra query parameters.
+    if id.is_empty() || !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+        return None;
+    }
+    let url = format!("{RELAY_DOWNLOAD}?v={id}");
+    let client = reqwest::Client::builder()
+        .user_agent(UA)
+        .timeout(Duration::from_secs(20))
+        .build()
+        .ok()?;
+
+    let resp = client.get(&url).send().await.ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    // Only accept something that is genuinely audio: a filter that intercepts THIS host too
+    // would answer 200 with an HTML block page, and that must not land in the library as .m4a.
+    let mime = resp
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.split(';').next().unwrap_or("").trim().to_string())
+        .unwrap_or_default();
+    if !mime.starts_with("audio/") {
+        return None;
+    }
+    let content_length = resp.content_length().filter(|&n| n > 0);
+    // Discard the body of the probe; download_ranged will fetch it properly.
+    drop(resp);
+
+    Some(Extracted {
+        video_id: id.to_string(),
+        url,
+        mime,
+        itag: 0,
+        content_length,
+        // The relay knows nothing about the song; the queue entry carries the title/artist the
+        // SPA passed in, and process() prefers those anyway (see `pick`).
+        title: job.title.clone(),
+        author: job.artist.clone(),
+    })
 }
 
 fn ext_for(mime: &str, itag: u32) -> String {
