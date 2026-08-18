@@ -61,7 +61,10 @@ async function resolveDownloadAsset() {
   const apiUrl = `https://api.github.com/repos/${ghRepo}/releases?per_page=100`;
   const response = await fetch(apiUrl, { headers: buildApiHeaders() });
   if (!response.ok) {
-    throw new Error(`GitHub API returned ${response.status} — check network connectivity and repo name`);
+    const hint = response.status === 404
+      ? ` — ${ghRepo} is a PRIVATE repo: set GH_TOKEN (or GITHUB_TOKEN) to a PAT that can read it`
+      : " — check network connectivity and repo name";
+    throw new Error(`GitHub API returned ${response.status}${hint}`);
   }
 
   const releases = await response.json();
@@ -83,8 +86,18 @@ async function resolveDownloadAsset() {
  * Stream-download `url`, decompress it through gunzip, and write the result to `dest`.
  * Uses a `.download` staging file so a failed transfer never leaves a half-written database.
  */
-async function streamDecompress(url, dest) {
-  const response = await fetch(url, { headers: { "User-Agent": "sk-music" } });
+async function streamDecompress(asset, dest) {
+  // Private repo (zemer-search went private 2026-08): `browser_download_url` is a web-session
+  // URL and answers 404 to API tokens, so with a token we download through the API asset URL
+  // (`asset.url`) with Accept: application/octet-stream instead. GitHub answers 302 to a signed
+  // S3 URL; Node's fetch follows it and strips the Authorization header on the cross-origin hop,
+  // which is exactly what S3 requires. Without a token, fall back to the old public-repo path.
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  const url = token ? asset.url : asset.browser_download_url;
+  const headers = token
+    ? { "User-Agent": "sk-music", Accept: "application/octet-stream", Authorization: "Bearer " + token }
+    : { "User-Agent": "sk-music" };
+  const response = await fetch(url, { headers });
   if (!response.ok || !response.body) {
     throw new Error(`Download request failed with status ${response.status}`);
   }
@@ -123,7 +136,7 @@ async function run() {
   const { tag, asset } = await resolveDownloadAsset();
 
   console.log(`[fetch-corpus] ${tag}: downloading ${asset.name} (${toMB(asset.size)} gzipped) …`);
-  const staging = await streamDecompress(asset.browser_download_url, dbPath);
+  const staging = await streamDecompress(asset, dbPath);
 
   clearStaleSidecars(dbPath);
   fs.renameSync(staging, dbPath);

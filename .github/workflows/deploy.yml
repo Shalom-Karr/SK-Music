@@ -28,7 +28,11 @@ jobs:
       - run: npm ci
       - name: Fetch latest catalog snapshot
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # zemer-search went private (2026-08). The automatic GITHUB_TOKEN is scoped to THIS
+          # repo only and cannot read it, so a CORPUS_GH_TOKEN repo secret (a PAT from a
+          # collaborator on zemer-search, contents:read) takes priority; the automatic token
+          # remains the fallback so a fork/public setup still builds.
+          GITHUB_TOKEN: ${{ secrets.CORPUS_GH_TOKEN || secrets.GITHUB_TOKEN }}
         run: node engine/fetch-corpus.mjs
       - name: Build static bundle
         run: node engine/build-static.mjs
