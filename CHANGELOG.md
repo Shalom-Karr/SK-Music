@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.7.6 — 2026-08-17 (web)
+
+**Why the bump:** on an unfiltered connection that was merely slow to start, the app announced
+*"your filter blocks the normal player"* and switched itself to Zemer streaming — and then kept
+that choice across reloads, so a single slow start parked people on the relay for good.
+
+**A slow start is no longer mistaken for a filter**
+- The app used to decide the player was blocked after a fixed nine seconds. That timer cannot tell
+  "blocked" from "slow", so on a slow but perfectly open connection it fired anyway.
+- It now switches to Zemer streaming only when the network has actually **refused** the player —
+  never on a timeout. A slow start just says so, and offers the connection test and the manual
+  switch, while the normal player carries on loading.
+- When it does switch automatically, that lasts for the current visit only. It is never saved, so a
+  one-off hiccup can't leave you on the relay next time. Turning it on **yourself** in the filter
+  menu still sticks, exactly as before.
+- Turning it off by hand always wins over an automatic switch.
+
 ## Desktop 1.2.3 — 2026-08-17
 
 **Why the bump:** offline downloads failed with *"could not read the audio stream: no audio format

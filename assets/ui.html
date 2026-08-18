@@ -4081,10 +4081,21 @@ function blockedByFilter(kind) { blockedPage("Access denied", `This ${kind} is b
 const RELAY_BASE = "https://stream.zemer.io";
 const relayStreamUrl = (id) => RELAY_BASE + "/stream?v=" + encodeURIComponent(id);
 const relayDownloadUrl = (id) => RELAY_BASE + "/download?v=" + encodeURIComponent(id);
-const relayOn = () => LS.get("zw_relay", "") === "1";
-function setRelay(on, quiet) {
-  LS.set("zw_relay", on ? "1" : "");
-  track("relay", { on: !!on });
+// Two ways to be on the relay, deliberately kept apart:
+//   persisted (localStorage "zw_relay") — the user flipped the switch themselves; survives reloads.
+//   session   (in-memory)               — the app switched automatically on a CONFIRMED block;
+//                                          dies with the tab, so a one-off hiccup can never park
+//                                          an unfiltered user on the relay for good.
+// Every reader goes through relayOn(), which is true for either, so the engine choice, the
+// toggle UI and the analytics tag all just work.
+let relaySession = false;
+const relayOn = () => relaySession || LS.get("zw_relay", "") === "1";
+function setRelay(on, quiet, persist = true) {
+  if (persist) { LS.set("zw_relay", on ? "1" : ""); relaySession = false; }
+  else relaySession = !!on;
+  // Turning it OFF by hand must beat an automatic session switch, or the switch would look stuck on.
+  if (!on) relaySession = false;
+  track("relay", { on: !!on, auto: !persist });
   syncFilterUI();
   const t = state.queue[state.qi];
   // Re-load the current track through the other engine, keeping the position.
@@ -4423,7 +4434,7 @@ window.onYouTubeIframeAPIReady = function () {
   ytStandbyBoot = mk("ytplayer2", false); // promoted to ytStandby by its onReady OR by tick()'s readiness poll
 };
 (function loadYT() {
-  const s = document.createElement("script"); s.src = "https://www.youtube.com/iframe_api"; s.onerror = ytUnavailable;
+  const s = document.createElement("script"); s.src = "https://www.youtube.com/iframe_api"; s.onerror = () => ytUnavailable(true); // the script was REFUSED: a real block, not a slow load
   document.head.appendChild(s);
   // A SLOW load is not a blocked one. This used to flip PB.mode to "html5" after 9s — a ONE-WAY trapdoor onto
   // /stream, which only ever had a backend on the old Node server. On this static deploy nothing serves it, so
@@ -4431,12 +4442,18 @@ window.onYouTubeIframeAPIReady = function () {
   // cleared EVERY later track in the session failed too, even when the API turned up a second later.
   // Report it instead and leave the engine alone — onYouTubeIframeAPIReady still wins whenever it lands, and
   // PB.load()'s `pending` slot replays whatever was queued while we waited.
-  setTimeout(ytUnavailable, 9000);
+  // The timer is a WARNING only. It cannot tell "blocked" from "slow" — and it fired the
+  // relay auto-switch on unfiltered laptops that were merely slow to start, then persisted
+  // that choice across reloads. Only s.onerror (the script actually refused) may switch.
+  setTimeout(() => ytUnavailable(false), 9000);
 })();
 // The embed host is unreachable — a filtered network, nearly always. There is no server-side stream to fall
 // back to, so say so plainly and point at the diagnostic that identifies WHICH layer is blocked.
 let ytWarnedAt = 0, ytBlockReported = false;
-function ytUnavailable() {
+// confirmed=true only when the iframe_api <script> itself errored — the network REFUSED it. A
+// timeout is not confirmation: on an unfiltered but slow connection the API turns up a second
+// later and PB.load()'s `pending` slot replays whatever was queued, exactly as before.
+function ytUnavailable(confirmed) {
   if (PB.ready || Date.now() - ytWarnedAt < 30000) return;
   ytWarnedAt = Date.now();
   console.warn("YT IFrame API unavailable — playback needs an unfiltered connection");
@@ -4450,10 +4467,18 @@ function ytUnavailable() {
   // The player is unreachable, but the music does not have to be: switch to the Zemer relay, which
   // exists for exactly this network, and resume whatever was queued. Only self-enables — never
   // self-disables — so a user who turns it back off is not overridden on the next hiccup.
-  if (!relayOn()) {
-    setRelay(true, true); // quiet: the toast below explains it in one message rather than two
+  // Auto-switch to the relay ONLY on a confirmed block, and only for THIS session: an
+  // automatic switch is never written to localStorage, so a one-off hiccup can't leave an
+  // unfiltered user parked on the relay for good. A user's own toggle still persists.
+  if (confirmed && !relayOn()) {
+    setRelay(true, true, /*persist*/ false);
     showToast('<b>Your filter blocks the normal player — switched to Zemer streaming.</b> Music should play now. '
       + '<a href="/test" style="color:var(--primary);font-weight:700">Run the connection test</a> if anything is still wrong.', 10000);
+    return;
+  }
+  if (!confirmed) {
+    showToast('<b>The player is slow to load.</b> If music does not start in a moment, '
+      + '<a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a> — or turn on <b>Stream through Zemer</b> in the filter menu.', 9000);
     return;
   }
   showToast('<b>Playback is blocked on this network.</b> Search &amp; browse still work — <a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a> to see what\'s blocking it.', 9000);
