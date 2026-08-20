@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.8.1 — 2026-08-18 (web)
+
+**Streaming setting renamed**
+- The filter-bypass playback setting is now called **Stream via proxy** (was named after the upstream
+  service). The behaviour is unchanged — it just no longer names the provider in the UI.
+
+## 1.8.0 — 2026-08-18 (web)
+
+**Why the bump:** on iPhone/iPad the music stopped the moment the screen locked, and there was no way
+to control it from the lock screen. It now keeps playing in the background with full Now Playing controls.
+
+**Background playback on iOS**
+- Music keeps playing when you lock the screen or switch apps. iOS suspends the normal (YouTube) player
+  in the background, so on iPhone/iPad SK Music now streams through a proxy, which iOS treats as
+  real audio and keeps alive. This is automatic — there's nothing to turn on.
+- The lock screen and Control Center now show the song, artist, artwork, a **draggable progress bar**, and
+  skip / ±10s controls (this part also improves the Android media notification).
+
+**Install it to your home screen (iOS)**
+- iPhone/iPad Safari now shows a one-time tip: tap **Share** then **Add to Home Screen**. Installed, the
+  app runs full-screen and background audio works best. The tip is dismissable and never shows once installed.
+
+**Also**
+- A **spinner** now shows on the play button while a song is buffering, on every platform.
+- A **Clear** button in Up Next drops everything queued after the current song, and going *back* to the
+  song that's already playing no longer restarts it from the beginning. Up Next is now usable on phones.
+
 ## 1.7.6 — 2026-08-17 (web)
 
 **Why the bump:** on an unfiltered connection that was merely slow to start, the app announced
@@ -26,7 +53,7 @@ found"* for anyone whose filter blocks YouTube — which is much of this audienc
 - The desktop downloader reads the audio stream by loading YouTube in a hidden window. When a
   filter blocks `youtube.com`, that window gets a block page instead, every way of finding the
   audio comes up empty, and the download failed with the message above.
-- The web app already streams and downloads through the streaming proxy in exactly this situation
+- The web app already streams and downloads through a proxy in exactly this situation
   (1.7.5 below). The desktop downloader now falls back to the same relay whenever YouTube can't be
   read — a filter block, a timeout, or a YouTube-side change that breaks the reader — before it
   gives up.
@@ -41,9 +68,8 @@ found"* for anyone whose filter blocks YouTube — which is much of this audienc
 the player never loaded and nothing played. There is now a way for them to listen.
 
 **Playback for people whose filter blocks YouTube**
-- Zemer runs a relay built for exactly this (`stream.zemer.io`), used by their own Android app. When
-  the normal player is found to be blocked, SK Music now switches to it automatically and the music
-  plays — instead of only reporting that something is wrong.
+- When the normal player is found to be blocked, SK Music now switches to a streaming proxy
+  automatically and the music plays — instead of only reporting that something is wrong.
 - A **Stream via proxy** switch in the filter menu turns it on or off by hand. It stays off unless
   needed: the normal player is better when it is reachable.
 - Switching keeps your place in the song rather than restarting it.
@@ -51,8 +77,6 @@ the player never loaded and nothing played. There is now a way for them to liste
 **Download now works in the browser**
 - The Download button previously did nothing outside the desktop app. It now saves the track through
   the same relay, with a proper "Artist - Title" filename.
-
-*(Thanks to the Zemer project — the proxy handles filtered playback.)*
 
 ## web + desktop — 2026-08-16
 

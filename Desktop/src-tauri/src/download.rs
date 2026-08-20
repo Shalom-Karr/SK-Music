@@ -73,8 +73,8 @@ const EXTRACT_TIMEOUT: Duration = Duration::from_secs(30);
 /// Browser-ish UA — googlevideo can 403 an obviously-headless client.
 const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36";
 
-/// the streaming proxy — the same service the web app plays and downloads through when a filter blocks
-/// YouTube (assets/ui.html RELAY_BASE; an upstream proxy service). `/download` returns one full
+/// The streaming proxy — the same service the web app plays and downloads through when a filter
+/// blocks YouTube (see RELAY_BASE in assets/ui.html). `/download` returns one full
 /// `audio/mp4` file with a real Content-Length, which is exactly what the offline library wants.
 /// (`/stream` exists too, but serves `audio/webm` — the wrong container for the library.)
 const RELAY_DOWNLOAD: &str = "https://stream.zemer.io/download";
@@ -256,7 +256,7 @@ async fn process(app: &AppHandle, job: Job) {
     // up empty — that is the "no audio format found" report.
     //
     // The web app already handles exactly this case by streaming and downloading through
-    // the streaming proxy (see RELAY_BASE in assets/ui.html and an upstream proxy service). This
+    // the streaming proxy (see RELAY_BASE in assets/ui.html). This
     // gives the desktop downloader the same fallback: when YouTube extraction fails for
     // ANY reason — filter block, timeout, or a YouTube-side change that breaks the
     // scraper — try the relay before giving up. Everything downstream (ranged download,

@@ -8,6 +8,10 @@
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="manifest" href="/assets/manifest.json">
 <link rel="apple-touch-icon" href="/assets/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SK Music">
 <meta name="google-site-verification" content="JomKxioigLL4q8BlsKVvKrKZodnHHFU5vFXLdDjkSpw">
 <title>SK Music</title>
 <meta property="og:site_name" content="SK Music"><meta name="twitter:card" content="summary_large_image"><!--OGTAGS-->
@@ -621,6 +625,9 @@ body.on-air .live-note{display:block}
 .np-auto input:checked::after{left:15px}
 .np-upnext .rows{overflow-y:auto;min-height:0;padding-right:6px}
 .npx-head{display:flex;align-items:center;gap:14px;margin:0 0 10px;flex:0 0 auto}
+.npx-clear{margin-left:10px;background:transparent;border:1px solid var(--line-2);color:var(--muted);font:600 12px 'Hanken Grotesk',system-ui,sans-serif;border-radius:8px;padding:4px 10px;cursor:pointer}
+.npx-clear:hover{color:var(--text);border-color:var(--faint)}
+body.on-air .npx-clear{display:none}
 .npx-tab{appearance:none;background:none;border:0;padding:0 0 4px;font-family:Fraunces,serif;font-size:17px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
 .npx-tab.on{color:var(--text);border-bottom-color:var(--primary)}
 .npx-pane{display:none;min-height:0;flex:1 1 auto;overflow:hidden;flex-direction:column}
@@ -656,6 +663,7 @@ body.on-air .live-note{display:block}
 #toast a{pointer-events:auto;text-decoration:underline;text-underline-offset:2px}
 #toast b{color:var(--primary);font-weight:600}
 @media(max-width:899px){#toast{bottom:calc(var(--mini-h) + var(--tab-h) + 18px)}}
+@media(max-width:899px){#now .np-upnext{display:flex;flex:1 1 auto;min-height:140px;margin-top:10px}}
 /* shared floating popup menu (sleep timer, queue/song actions, add-to-playlist, report) */
 #popmenu{position:fixed;z-index:95;min-width:200px;max-width:min(88vw,320px);max-height:70vh;overflow:auto;padding:6px;
   border-radius:13px;background:var(--surface-3);border:1px solid var(--line-2);box-shadow:var(--shadow);
@@ -1094,7 +1102,7 @@ fill="url(#royal)" stroke="none">
     <div class="toggle" id="tgRelay" role="button" tabindex="0" onclick="setRelay(!relayOn())" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
       <div>
         <span>Stream via proxy</span>
-        <small>Turn on if your filter blocks playback &mdash; the music comes through the streaming proxy instead of YouTube</small>
+        <small>Turn on if your filter blocks playback &mdash; the music comes through a proxy instead of YouTube</small>
       </div>
       <div class="sw"></div>
     </div>
@@ -1200,7 +1208,7 @@ fill="url(#royal)" stroke="none">
       </div>
     </div>
     <div class="np-upnext">
-      <div class="npx-head"><button class="npx-tab on" data-p="queue" onclick="npxTab('queue')">Up Next</button><button class="npx-tab" data-p="lyrics" onclick="npxTab('lyrics')">Lyrics</button><label class="np-auto" title="Keep playing similar songs when the queue ends"><input type="checkbox" id="npAuto" onchange="setRadioAutoplay(this.checked)"><span>Autoplay</span></label></div>
+      <div class="npx-head"><button class="npx-tab on" data-p="queue" onclick="npxTab('queue')">Up Next</button><button class="npx-tab" data-p="lyrics" onclick="npxTab('lyrics')">Lyrics</button><label class="np-auto" title="Keep playing similar songs when the queue ends"><input type="checkbox" id="npAuto" onchange="setRadioAutoplay(this.checked)"><span>Autoplay</span></label><button class="npx-clear" onclick="clearQueue()" title="Clear the upcoming queue" aria-label="Clear the upcoming queue">Clear</button></div>
       <div class="npx-pane on" id="npPaneQueue"><div class="rows" id="npQueue"></div></div>
       <div class="npx-pane" id="npPaneLyrics"><div class="lyrics" id="npLyrics"></div></div>
     </div>
@@ -1315,6 +1323,7 @@ function flushEvents() {
 }
 
 const ICON = {
+  spinner: '<svg viewBox="0 0 24 24" style="animation:spin .8s linear infinite" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10h-2a8 8 0 1 1-8-8z"/></svg>',
   home: '<svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>',
   search: '<svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14"/></svg>',
   artist: '<svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8m0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4"/></svg>',
@@ -1556,6 +1565,7 @@ function syncFilterUI() {
   if (el("chasidSeg")) el("chasidSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", (b.dataset.v || "") === chasidMode()));
   if (el("tgDJ")) el("tgDJ").classList.toggle("on", noDJ());
   if (el("tgZemerRadio")) el("tgZemerRadio").classList.toggle("on", zemerRadioOn());
+  if (el("relayRow")) el("relayRow").style.display = IS_IOS ? "none" : ""; // on iOS the relay is not optional
   if (el("tgRelay")) el("tgRelay").classList.toggle("on", relayOn());
   // The account switch only exists once a parent has allowed podcasts at all — otherwise it's a
   // control with nothing behind it.
@@ -4027,6 +4037,10 @@ async function openCuratedPlaylist(id, fromRoute) {
   if (!tracks.length && !albums.length) el("v-detail").innerHTML += emptyState("Nothing to show", "Everything in this playlist is hidden by your current filters.");
 }
 async function openSong(id, fromRoute, startAt) {
+  // Back-nav to the song that is already playing: don't rebuild a one-song queue and restart at 0 —
+  // it already passed the filter when it started, so just open the player. A fresh deep link (no
+  // fromRoute, or a different id) still verifies + loads below.
+  { const curT = state.queue[state.qi]; if (fromRoute && curT && curT.videoId === id) { if (startAt > 1) PB.seek(startAt); openNow(); return; } }
   // Deep-link entry (/song/:id). VERIFY the track is whitelisted + allowed BEFORE any playback starts — a
   // kosher app must never play blocked content, not even for a moment. (In-app taps use playFrom() directly,
   // with already-filtered data.) Nothing is queued or loaded into the player until the checks pass.
@@ -4061,11 +4075,11 @@ function blockedByFilter(kind) { blockedPage("Access denied", `This ${kind} is b
 // network content filter to intercept, and playback works wherever the embed is allowed. Only whitelisted
 // corpus videoIds are ever loaded, and the iframe is off-screen with no controls, so no YouTube UI shows.
 // If the IFrame API itself can't load, we fall back to the server-proxied /stream path (the <audio> tag).
-/* ---- streaming proxy ------------------------------------------------------------------------------
+/* ---- streaming proxy --------------------------------------------------------------------------
    A large part of this audience sits behind a kosher filter that blocks youtube.com and
    googlevideo.com outright, so the embedded player simply never loads and nothing plays. The Zemer
    project (whose catalog this app already uses) runs a relay for exactly that case — see
-   an upstream proxy service, "so playback works on devices whose kosher filter blocks
+   a streaming proxy exists for exactly this, "so playback works on devices whose kosher filter blocks
    music.youtube.com and googlevideo.com". We use the same two endpoints their Android client does:
 
      GET /stream?v=<id>    audio, Accept-Ranges (so the scrubber works)
@@ -4078,6 +4092,83 @@ function blockedByFilter(kind) { blockedPage("Access denied", `This ${kind} is b
    OFF by default: the YouTube player is better when it is reachable (gapless hand-off, no third
    party in the audio path, no load on someone else's bandwidth). It turns itself on only when
    playback is actually found to be blocked, and can be toggled by hand in the filter menu. */
+/* ---- platform ---------------------------------------------------------------------------------
+   iPadOS reports itself as "Macintosh", so UA sniffing alone misses iPads — the MacIntel+touch test
+   catches them (same logic as detectPlatform() in connectivity.html). isStandalone() is true once the
+   PWA has been added to the home screen (navigator.standalone is the iOS-only signal). */
+const IS_IOS = /iPhone|iPod/.test(navigator.userAgent)
+  || (/iPad/.test(navigator.userAgent))
+  || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+// iOS Safari specifically (not Chrome/Firefox/Edge on iOS, which can't do Add-to-Home-Screen).
+const IS_IOS_SAFARI = IS_IOS && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(navigator.userAgent);
+const isStandalone = () => {
+  try { return matchMedia("(display-mode: standalone)").matches || navigator.standalone === true; }
+  catch { return navigator.standalone === true; }
+};
+
+/* ---- iOS background-audio keep-alive + progress clock -----------------------------------------
+   On iOS the app plays through the html5 <audio> element (via the relay, see relayOn below), because
+   the YouTube iframe is suspended the instant the screen locks. But iOS ALSO freezes setInterval/
+   setTimeout while locked, so the 300ms tick() and with it end-of-track advance and the progress bar
+   die exactly when background playback needs them. A ScriptProcessorNode on a running AudioContext
+   still receives audio callbacks while locked; we pump a synthetic "timeupdate" off it so the near-end
+   check keeps running, and derive progress time from the AudioContext clock when <audio>.currentTime
+   is throttled. Ported/re-based from the iOS fork (9e42bf1/381e154/1dad123/c48766f). */
+let iosAudioCtx = null, iosPumpAt = 0, iosAdvanceGuard = false;
+let iosBaseCur = 0, iosBaseCtx = 0, iosLastCur = 0, iosCurStableAt = 0;
+const IOS_STALL_S = 0.5;
+function iosCtxNow() { try { return iosAudioCtx ? iosAudioCtx.currentTime : performance.now() / 1000; } catch { return performance.now() / 1000; } }
+function resetIOSAudioBase() { if (!IS_IOS) return; try { iosBaseCur = iosLastCur = audio.currentTime; iosBaseCtx = iosCurStableAt = iosCtxNow(); } catch {} }
+function ensureIOSKeepAlive() {
+  if (!IS_IOS || iosAudioCtx) return;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    iosAudioCtx = new AC();
+    const sp = iosAudioCtx.createScriptProcessor(2048, 1, 1); // deprecated but the one primitive that survives the lock screen
+    sp.onaudioprocess = () => { const now = performance.now(); if (now - iosPumpAt < 100) return; iosPumpAt = now; try { audio.dispatchEvent(new Event("timeupdate")); } catch {} };
+    sp.connect(iosAudioCtx.destination); // unconnected input => silent output
+    resetIOSAudioBase();
+  } catch (e) { console.warn("[ios] keep-alive init failed", e); }
+}
+function resumeIOSKeepAlive() { if (iosAudioCtx && iosAudioCtx.state === "suspended") iosAudioCtx.resume().catch(() => {}); }
+// Advance the queue if the element reached the end but "ended" was swallowed while locked.
+function iosMaybeForceEnd() {
+  if (!IS_IOS || PB.useYt() || iosAdvanceGuard) return;
+  const m = PB.med(); if (m.paused || m.ended) return;
+  const dur = PB.dur(); if (!dur || !isFinite(dur)) return;
+  if ((m.currentTime || 0) >= dur - 0.15) {
+    iosAdvanceGuard = true;
+    try { m.currentTime = m.duration; } catch {}
+    setTimeout(() => { iosAdvanceGuard = false; }, 2000);
+  }
+}
+// Progress time on iOS: extrapolate from the AudioContext clock while <audio>.currentTime is throttled
+// in the background, but freeze after IOS_STALL_S if currentTime stops advancing (a real stall).
+function iosCur() {
+  const m = PB.med(), aCur = m.currentTime || 0;
+  if (aCur <= 0) return 0; // suppress pre-play creep
+  const ctx = iosCtxNow();
+  if (Math.abs(aCur - iosLastCur) > 0.02) { iosLastCur = iosBaseCur = aCur; iosBaseCtx = ctx; iosCurStableAt = ctx; }
+  if (iosAudioCtx && iosAudioCtx.state === "running" && !m.paused && !m.ended) {
+    if (ctx - iosCurStableAt > IOS_STALL_S) return aCur;
+    return iosBaseCur + (ctx - iosBaseCtx) * (m.playbackRate || 1);
+  }
+  return aCur;
+}
+// iOS can leave the element paused after backgrounding; resume it (and the ctx) on return to foreground.
+let iosWasPlayingHidden = false;
+function iosOnBackground() { if (IS_IOS && !PB.useYt()) iosWasPlayingHidden = !PB.med().paused; }
+function iosOnForeground() {
+  if (!IS_IOS || PB.useYt()) return;
+  resumeIOSKeepAlive();
+  const m = PB.med();
+  if (iosWasPlayingHidden && m.paused && !m.ended && m.currentTime > 0) {
+    if ("audioSession" in navigator) try { navigator.audioSession.type = "playback"; } catch {}
+    PB.play();
+  }
+  iosWasPlayingHidden = false;
+}
+
 const RELAY_BASE = "https://stream.zemer.io";
 const relayStreamUrl = (id) => RELAY_BASE + "/stream?v=" + encodeURIComponent(id);
 const relayDownloadUrl = (id) => RELAY_BASE + "/download?v=" + encodeURIComponent(id);
@@ -4089,7 +4180,9 @@ const relayDownloadUrl = (id) => RELAY_BASE + "/download?v=" + encodeURIComponen
 // Every reader goes through relayOn(), which is true for either, so the engine choice, the
 // toggle UI and the analytics tag all just work.
 let relaySession = false;
-const relayOn = () => relaySession || LS.get("zw_relay", "") === "1";
+// IS_IOS first: on iOS the iframe engine cannot play in the background at all, so the relay IS the
+// engine, not a fallback. The manual toggle is hidden there (syncFilterUI).
+const relayOn = () => IS_IOS || relaySession || LS.get("zw_relay", "") === "1";
 function setRelay(on, quiet, persist = true) {
   if (persist) { LS.set("zw_relay", on ? "1" : ""); relaySession = false; }
   else relaySession = !!on;
@@ -4101,7 +4194,7 @@ function setRelay(on, quiet, persist = true) {
   // Re-load the current track through the other engine, keeping the position.
   if (t && !t.kind) { const at = PB.cur() || 0; PB.nextStart = at; cancelSwap(); PB.load(t.videoId, at, on ? relayStreamUrl(t.videoId) : undefined); }
   if (!quiet) showToast(on
-    ? "<b>Streaming via proxy.</b> Playback goes through the streaming proxy instead of YouTube, so it works behind a filter."
+    ? "<b>Streaming via proxy.</b> Playback goes through a proxy instead of YouTube, so it works behind a filter."
     : "<b>Back to the normal player.</b>", 4200);
 }
 
@@ -4248,8 +4341,15 @@ const PB = {
   stop() { clearTimeout(_loadNudge); cancelSwap(); this.pending = null; hlsDetach(); if (this.useYt()) { if (this.ready) { try { this.yt.stopVideo(); } catch {} } } else { try { const m = this.med(); m.pause(); m.removeAttribute("src"); m.load(); } catch {} } }, // fully stop + clear (not just pause) — and drop any deferred autoplay
   paused() { return this.useYt() ? (!this.ready || this.yt.getPlayerState() !== 1) : this.med().paused; }, // methods exist only after onReady
   seek(sec) { if (xf) abortCrossfade(); if (gapless && gapless.phase === "start") cancelSwap(); this.useYt() ? this.ready && this.yt.seekTo(sec, true) : (this.med().currentTime = sec); cueNext(); },
-  cur() { return this.useYt() ? (this.ready ? this.yt.getCurrentTime() || 0 : 0) : this.med().currentTime; },
-  dur() { return this.useYt() ? (this.ready ? this.yt.getDuration() || 0 : 0) : (this.med().duration || 0); },
+  cur() { return this.useYt() ? (this.ready ? this.yt.getCurrentTime() || 0 : 0) : (IS_IOS ? iosCur() : this.med().currentTime); },
+  dur() {
+    if (this.useYt()) return this.ready ? this.yt.getDuration() || 0 : 0;
+    const d = this.med().duration || 0, fb = this.fallbackDur || 0;
+    // iOS Safari commonly reports some YouTube m4a durations at ~2x (or <0.65x) the real length; the
+    // catalog duration is authoritative, so trust it when the browser value is grossly off.
+    if (IS_IOS && isFinite(d) && d > 0 && fb > 0) { const r = d / fb; if (r > 1.5 || r < 0.65) return fb; }
+    return (isFinite(d) && d > 0) ? d : fb;
+  },
   setVol(v) { this.vol = v; this.muted = false; if (this.useYt()) { if (this.ready) { this.yt.unMute(); this.yt.setVolume(Math.round(this.out() * 100)); } } else { const m = this.med(); m.muted = false; m.volume = this.out(); } },
   setMuted(m) { this.muted = m; if (this.useYt()) { if (this.ready) m ? this.yt.mute() : this.yt.unMute(); } else this.med().muted = m; },
   setRate(r) { this.rate = r; if (this.useYt()) { if (this.ready) this.yt.setPlaybackRate(r); } else this.med().playbackRate = r; },
@@ -4434,6 +4534,7 @@ window.onYouTubeIframeAPIReady = function () {
   ytStandbyBoot = mk("ytplayer2", false); // promoted to ytStandby by its onReady OR by tick()'s readiness poll
 };
 (function loadYT() {
+  if (IS_IOS) return; // iOS never uses the iframe engine — do not load ~500 KB of YT script or arm the "slow player" warning
   const s = document.createElement("script"); s.src = "https://www.youtube.com/iframe_api"; s.onerror = () => ytUnavailable(true); // the script was REFUSED: a real block, not a slow load
   document.head.appendChild(s);
   // A SLOW load is not a blocked one. This used to flip PB.mode to "html5" after 9s — a ONE-WAY trapdoor onto
@@ -4504,9 +4605,10 @@ addEventListener("pagehide", flushEvents);
 // session alive — audio keeps playing in a hidden window (the whole point of the tray app) and a
 // destroyed session would stop counting the rest of the song. Real teardown is pagehide's job.
 addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") { playAccrue(); flushEvents(); }
-  else if (playSes && !PB.paused()) playResume();
+  if (document.visibilityState === "hidden") { iosOnBackground(); playAccrue(); flushEvents(); }
+  else { iosOnForeground(); if (playSes && !PB.paused()) playResume(); }
 });
+addEventListener("pageshow", iosOnForeground); // PWA restored from bfcache
 function playIndex(i, dir) {
   if (i < 0 || i >= state.queue.length) return;
   // Acapella sets INSTRUMENTAL MUSIC aside; a shiur is speech, so the filter has nothing to say about
@@ -4541,6 +4643,8 @@ function playIndex(i, dir) {
 // recents, the shareable /song URL, the play-duration session, and the browser/OS media sessions.
 function trackStarted(t) {
   el("nowbar").classList.add("on");
+  PB.fallbackDur = t.durationSec || 0; // catalog duration, used by PB.dur() iOS correction
+  if (IS_IOS) { ensureIOSKeepAlive(); resumeIOSKeepAlive(); resetIOSAudioBase(); }
   // yt() derives an i.ytimg.com URL from the id, which only means anything for a YouTube track. A
   // non-YouTube source (t.kind) carries its own artwork URL instead.
   const art = t.kind ? (t.thumbnail || "") : yt(t.videoId, "hq");
@@ -4795,6 +4899,14 @@ function paintLyricLine(c) {
   const rows = box.querySelectorAll(".ly-line");
   rows.forEach((r, i) => r.classList.toggle("cur", i === idx));
   if (idx >= 0 && rows[idx]) rows[idx].scrollIntoView({ block: "center", behavior: "smooth" });
+}
+// Drop the upcoming queue, keeping the track that's playing. cueNext() re-primes gapless off the new tail.
+function clearQueue() {
+  if (state.qi < 0 || state.queue.length <= state.qi + 1) return;
+  state.queue = state.queue.slice(0, state.qi + 1);
+  cancelSwap(); cueNext();
+  if (state.nowOpen) paintQueue();
+  showToast("Cleared what was coming up.", 1800);
 }
 function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); const au = el("npAuto"); if (au) au.checked = radioAutoplay(); paintShuffleUI(); paintSleepUI(); paintCrossfadeUI(); paintQueue(); if (lyricsOpen()) loadLyrics(); }
 function closeNow() { state.nowOpen = false; el("now").classList.remove("on"); }
@@ -5149,7 +5261,11 @@ function stPaintOnAir(root) {
 }
 
 /* progress + state — unified across both engines */
-function setPlayIcons() { const p = PB.paused() || !state.queue.length; const pl = p ? "Play" : "Pause"; el("nbPlay").innerHTML = p ? ICON.play : ICON.pause; el("npPlay").innerHTML = p ? ICON.play : ICON.pause; el("nbPlay").setAttribute("aria-label", pl); el("npPlay").setAttribute("aria-label", pl); if ("mediaSession" in navigator) try { navigator.mediaSession.playbackState = p ? "paused" : "playing"; } catch {} skPlaybackState(); }
+// Spinner on the play button while audio is buffering (all platforms). One integration point:
+// setBuffering just re-paints via setPlayIcons, which shows the spinner whenever isBuffering.
+let isBuffering = false;
+function setBuffering(on) { if (isBuffering === on) return; isBuffering = !!on; setPlayIcons(); }
+function setPlayIcons() { const p = PB.paused() || !state.queue.length; const pl = isBuffering ? "Loading" : (p ? "Play" : "Pause"); const ic = isBuffering ? ICON.spinner : (p ? ICON.play : ICON.pause); el("nbPlay").innerHTML = ic; el("npPlay").innerHTML = ic; el("nbPlay").setAttribute("aria-label", pl); el("npPlay").setAttribute("aria-label", pl); if ("mediaSession" in navigator) try { navigator.mediaSession.playbackState = p ? "paused" : "playing"; } catch {} skPlaybackState(); }
 function paintSeek(input) { const max = +input.max || 1000; input.style.setProperty("--p", (input.value / max * 100) + "%"); }
 let tickTimer = null, seeking = false, toastTimer, streamFails = 0;
 function startTick() { if (!tickTimer) tickTimer = setInterval(tick, 300); }
@@ -5178,9 +5294,19 @@ function tick() {
   if (!PB.paused() && state.playSource === "podcast") { const t = state.queue[state.qi]; if (t) podSavePos(t.videoId, c); } // an hour-long episode needs its own resume point
   if (!PB.paused() && state.playSource === "shiur") { const t = state.queue[state.qi]; if (t) shSavePos(t.shId, c); }      // ditto a 45-minute shiur
   if (_ly.synced && lyricsOpen()) paintLyricLine(c);
+  // Lock-screen / notification scrubber (iOS Now Playing, Android media notification). Skip live
+  // radio (no per-listener timeline — skSt), and clamp position <= duration or the browser throws.
+  if (!skSt && "mediaSession" in navigator && navigator.mediaSession.setPositionState) {
+    try {
+      if (d > 0 && isFinite(d)) {
+        navigator.mediaSession.setPositionState({ duration: d, position: Math.min(Math.max(0, c), d), playbackRate: PB.rate || 1 });
+      }
+    } catch {}
+  }
   skTick(c);
 }
 function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing · 2 paused · 3 buffering · 5 cued
+  if (code === 3) setBuffering(true); else if (code === 1 || code === 2 || code === 0) setBuffering(false);
   if (code === 1) {
     streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); // rate resets on each load
     // A broadcast doesn't wait for you: coming back from a real pause rejoins live rather than
@@ -5198,6 +5324,35 @@ function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing �
   }
   setPlayIcons();
 }
+/* iOS-only install tip. iOS Safari has no install button — the app must be added to the home
+   screen by hand (Share -> Add to Home Screen), which is also the only way iOS grants background
+   audio and a real app icon. Shown once, dismissable, never in standalone (already installed). */
+function maybeShowInstallTip() {
+  try {
+    if (!IS_IOS_SAFARI || isStandalone()) return;
+    if (LS.get("zw_a2hs", "") === "1") return;
+    if (el("a2hs")) return;
+    const b = document.createElement("div");
+    b.id = "a2hs";
+    b.setAttribute("role", "dialog");
+    b.setAttribute("aria-label", "Install SK Music");
+    b.style.cssText = "position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);"
+      + "z-index:9500;max-width:520px;margin:0 auto;background:var(--surface-3,#2c1f21);color:var(--text,#f6ece8);"
+      + "border:1px solid var(--line-2,rgba(255,240,235,.14));border-radius:16px;padding:14px 14px 14px 16px;"
+      + "box-shadow:0 18px 50px -12px rgba(0,0,0,.7);display:flex;align-items:center;gap:12px;"
+      + "font:500 14px/1.4 'Hanken Grotesk',system-ui,sans-serif;animation:fade .3s ease";
+    b.innerHTML =
+      '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" style="flex:none;fill:var(--primary,#ff5d6b)">'
+      + '<path d="M12 2 8 6h3v8h2V6h3zM5 10v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V10h-2v10H7V10z"/></svg>'
+      + '<div style="flex:1;min-width:0">Install SK Music: tap <b>Share</b> then <b>Add to Home Screen</b>'
+      + ' &mdash; for full-screen playback that keeps going in the background.</div>'
+      + '<button id="a2hsX" aria-label="Dismiss" style="flex:none;background:transparent;border:0;color:var(--muted,#b09a93);'
+      + 'font-size:20px;line-height:1;cursor:pointer;padding:4px 6px">&times;</button>';
+    document.body.appendChild(b);
+    el("a2hsX").addEventListener("click", () => { LS.set("zw_a2hs", "1"); b.remove(); });
+  } catch (e) { /* a failed tip must never affect the app */ }
+}
+
 function showToast(msg, ms) { const t = el("toast"); t.innerHTML = msg; t.classList.add("on"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), ms || 4200); }
 /* ---- shared popup menu ---- */
 // Open a floating menu of pre-built .mi buttons near an anchor element. Callers build the inner HTML
@@ -5267,10 +5422,17 @@ function onPlaybackError() {
 // some browsers that alone raises `error` — which would otherwise skip the track that just started.
 [audio, video].forEach((m) => {
   m.addEventListener("play", () => { if (m !== PB.med()) return; streamFails = 0; startTick(); m.playbackRate = PB.rate; setPlayIcons(); playResume(); });
+  m.addEventListener("waiting", () => { if (m === PB.med()) setBuffering(true); });
+  m.addEventListener("stalled", () => { if (m === PB.med()) setBuffering(true); });
+  m.addEventListener("playing", () => { if (m === PB.med()) setBuffering(false); });
+  m.addEventListener("canplay", () => { if (m === PB.med()) setBuffering(false); });
   m.addEventListener("pause", () => { if (m !== PB.med()) return; stopTick(); setPlayIcons(); playAccrue(); });
-  m.addEventListener("ended", () => { if (m !== PB.med()) return; stopTick(); playFinalize(); repeatOrNext(); });
+  m.addEventListener("ended", () => { if (m !== PB.med()) return; setBuffering(false); stopTick(); playFinalize(); repeatOrNext(); });
   m.addEventListener("error", () => { if (m !== PB.med() || !m.getAttribute("src")) return; if (PB.local) { const t = state.queue[state.qi]; if (t && t.videoId) skDL.bad.add(t.videoId); PB.local = false; onPlaybackError(); } else if (PB.direct || PB.mode === "html5") onPlaybackError(); }); // SK-OFFLINE: a bad local file → blacklist it for the session and skip. PB.direct: a dead upstream media URL must surface as a playback error, not silence
 });
+// On iOS the keep-alive pumps "timeupdate" every ~100ms while locked; that is the only heartbeat that
+// survives the background JS freeze, so hang the end-of-track advance off it.
+audio.addEventListener("timeupdate", () => { if (IS_IOS && !PB.useYt()) iosMaybeForceEnd(); });
 ["nbSeek", "npSeek"].forEach((id) => {
   const s = el(id);
   // CSS already makes the bar non-interactive on a station; this is the belt to that braces, since
@@ -5285,6 +5447,12 @@ if ("mediaSession" in navigator) {
   navigator.mediaSession.setActionHandler("pause", () => PB.pause());
   navigator.mediaSession.setActionHandler("nexttrack", next);
   navigator.mediaSession.setActionHandler("previoustrack", prev);
+  // Lock-screen ±skip and scrubber. seekBy() already guards live radio and clamps; PB.seek() is the
+  // absolute set. Each in its own try/catch — older browsers throw on an unsupported action name.
+  try { navigator.mediaSession.setActionHandler("seekforward",  (e) => seekBy((e && e.seekOffset) || 10)); } catch {}
+  try { navigator.mediaSession.setActionHandler("seekbackward", (e) => seekBy(-((e && e.seekOffset) || 10))); } catch {}
+  try { navigator.mediaSession.setActionHandler("seekto", (e) => { if (skSt || !e || e.seekTime == null) return; PB.seek(e.seekTime); }); } catch {}
+  try { navigator.mediaSession.setActionHandler("stop", () => PB.pause()); } catch {}
 }
 /* ---- Native desktop (Tauri) bridge -------------------------------------------------------------
    No-ops in a browser. In the SK Music desktop app the YouTube iframe's own media session would
@@ -6747,6 +6915,7 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   else if (path === "/" || PATH_TAB[path]) { go(PATH_TAB[path] || "home", true); }
   else { history.replaceState({}, "", "/"); go("home", true); history.pushState({}, "", path + qs); applyRoute(location.href); }
   track("load"); // first pageview
+  setTimeout(maybeShowInstallTip, 3500); // iOS-only Add-to-Home-Screen tip, after the app has settled
   setTimeout(function(){ window.__appReady && window.__appReady(); }, 4500); // safety: never let the splash stick
   // Warm the search/detail dataset in the background so the first artist/song click is instant.
   if (STATIC) artistByName().catch(() => {}); // preload gender flags for the content filter
