@@ -1,0 +1,104 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#maincontent"
+  - generic [ref=e3]: loading
+  - generic [ref=e15]:
+    - complementary [ref=e16]:
+      - img "SK Music" [ref=e18]
+      - navigation "Primary" [ref=e19]:
+        - generic [ref=e20]:
+          - generic [ref=e21]: Discover
+          - link "Home" [ref=e22] [cursor=pointer]
+          - link "For You" [ref=e26] [cursor=pointer]
+          - link "Search" [ref=e30] [cursor=pointer]
+        - generic [ref=e34]:
+          - generic [ref=e35]: Browse
+          - link "Artists" [ref=e36] [cursor=pointer]
+          - link "Playlists" [ref=e40] [cursor=pointer]
+          - link "Kid Zone" [ref=e44] [cursor=pointer]
+        - generic [ref=e48]:
+          - generic [ref=e49]: You
+          - link "Library" [ref=e50] [cursor=pointer]
+          - link "About" [ref=e54] [cursor=pointer]
+      - generic [ref=e58]:
+        - link "View source" [ref=e59] [cursor=pointer]:
+          - /url: https://github.com/Shalom-Karr/SK-Music
+        - link "Built by Shalom Karr" [ref=e63] [cursor=pointer]:
+          - /url: https://shalomkarr.pages.dev/
+          - generic [ref=e66]: Built by
+          - generic [ref=e67]: Shalom Karr
+    - generic [ref=e70]:
+      - banner [ref=e71]:
+        - generic [ref=e72]: Home
+        - generic "Live catalog" [ref=e73]:
+          - generic [ref=e75]: 71,720
+          - text: songs
+          - generic [ref=e76]: ·
+          - generic [ref=e77]: 1,625
+          - text: artists
+          - generic [ref=e78]: ·
+          - generic [ref=e79]: 3,572
+          - text: albums
+        - button "Content filters" [ref=e80] [cursor=pointer]
+        - button "Sign in / Sign up" [ref=e86] [cursor=pointer]:
+          - generic [ref=e87]: ＋
+      - main [ref=e89]:
+        - generic [ref=e90]:
+          - generic [ref=e91]:
+            - generic [ref=e92]: Kosher music, by construction
+            - heading "Only the music you trust." [level=1] [ref=e93]
+            - paragraph [ref=e94]: Every song here comes from a whitelisted artist's full catalog — searched, not filtered. Nothing outside it.
+            - generic: מוזיקה
+          - heading "Quick Picks" [level=2] [ref=e97]
+  - text: 🔒 🔒
+  - generic [ref=e123]:
+    - generic [ref=e125]:
+      - button "Collapse" [ref=e126] [cursor=pointer]
+      - generic [ref=e129]: Now Playing
+      - button "Playback speed" [ref=e130] [cursor=pointer]: 1×
+    - generic [ref=e131]:
+      - generic [ref=e132]:
+        - generic [ref=e137]:
+          - generic:
+            - button "Go to artist"
+          - button "Like" [ref=e138] [cursor=pointer]
+          - button "Share" [ref=e141] [cursor=pointer]
+        - generic [ref=e144]:
+          - slider "Seek" [ref=e145] [cursor=pointer]: "0"
+          - generic [ref=e146]:
+            - generic [ref=e147]: 0:00
+            - generic [ref=e148]: 0:00
+        - generic [ref=e149]:
+          - button "Back 15 seconds" [ref=e150] [cursor=pointer]:
+            - img [ref=e151]:
+              - generic [ref=e153]: "15"
+          - button "Previous" [ref=e154] [cursor=pointer]
+          - button "Play" [ref=e157] [cursor=pointer]
+          - button "Next" [ref=e160] [cursor=pointer]
+          - button "Forward 15 seconds" [ref=e163] [cursor=pointer]:
+            - img [ref=e164]:
+              - generic [ref=e166]: "15"
+          - button "Repeat this song" [ref=e167] [cursor=pointer]
+      - heading "Up Next Autoplay" [level=4] [ref=e171]:
+        - text: Up Next
+        - generic "Keep playing similar songs when the queue ends" [ref=e172] [cursor=pointer]:
+          - checkbox "Autoplay" [ref=e173]
+          - generic [ref=e174]: Autoplay
+  - generic:
+    - iframe [ref=e175]:
+      - generic [ref=f1e1]:
+        - generic "YouTube Video Player" [ref=f1e3]
+        - generic [ref=f1e5]:
+          - generic:
+            - generic:
+              - button "Play video" [ref=f1e10] [cursor=pointer]
+              - button "Hide player controls" [ref=f1e12] [cursor=pointer]
+    - iframe [ref=e176]:
+      - generic [ref=f2e1]:
+        - generic "YouTube Video Player" [ref=f2e3]
+        - generic [ref=f2e5]:
+          - generic:
+            - generic:
+              - button "Play video" [ref=f2e10] [cursor=pointer]
+              - button "Hide player controls" [ref=f2e12] [cursor=pointer]
+  - status

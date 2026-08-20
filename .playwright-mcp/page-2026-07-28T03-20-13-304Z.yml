@@ -1,0 +1,89 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#maincontent"
+  - generic [ref=e3]: loading
+  - generic [ref=e15]:
+    - complementary [ref=e16]:
+      - img "SK Music" [ref=e18]
+      - navigation "Primary" [ref=e19]:
+        - generic [ref=e20]:
+          - generic [ref=e21]: Discover
+          - link "Home" [ref=e22] [cursor=pointer]
+          - link "For You" [ref=e26] [cursor=pointer]
+          - link "Search" [ref=e30] [cursor=pointer]
+        - generic [ref=e34]:
+          - generic [ref=e35]: Browse
+          - link "Artists" [ref=e36] [cursor=pointer]
+          - link "Playlists" [ref=e40] [cursor=pointer]
+          - link "Kid Zone" [ref=e44] [cursor=pointer]
+        - generic [ref=e48]:
+          - generic [ref=e49]: You
+          - link "Library" [ref=e50] [cursor=pointer]
+          - link "About" [ref=e54] [cursor=pointer]
+      - generic [ref=e58]:
+        - link "View source" [ref=e59] [cursor=pointer]:
+          - /url: https://github.com/Shalom-Karr/SK-Music
+        - link "Built by Shalom Karr" [ref=e63] [cursor=pointer]:
+          - /url: https://shalomkarr.pages.dev/
+          - generic [ref=e66]: Built by
+          - generic [ref=e67]: Shalom Karr
+    - generic [ref=e70]:
+      - banner [ref=e71]:
+        - generic [ref=e72]: Artists
+        - generic "Live catalog" [ref=e73]:
+          - generic [ref=e75]: 71,720
+          - text: songs
+          - generic [ref=e76]: ·
+          - generic [ref=e77]: 1,625
+          - text: artists
+          - generic [ref=e78]: ·
+          - generic [ref=e79]: 3,572
+          - text: albums
+        - button "Content filters" [ref=e80] [cursor=pointer]
+        - button "Sign in / Sign up" [ref=e86] [cursor=pointer]:
+          - generic [ref=e87]: ＋
+      - main [ref=e89]:
+        - textbox "Filter artists" [ref=e95]
+  - text: 🔒 🔒
+  - generic [ref=e136]:
+    - generic [ref=e138]:
+      - button "Collapse" [ref=e139] [cursor=pointer]
+      - generic [ref=e142]: Now Playing
+      - button "Playback speed" [ref=e143] [cursor=pointer]: 1×
+    - generic [ref=e144]:
+      - generic [ref=e145]:
+        - generic [ref=e150]:
+          - generic:
+            - button "Go to artist"
+          - button "Like" [ref=e151] [cursor=pointer]
+          - button "Share" [ref=e154] [cursor=pointer]
+        - generic [ref=e157]:
+          - slider "Seek" [ref=e158] [cursor=pointer]: "0"
+          - generic [ref=e159]:
+            - generic [ref=e160]: 0:00
+            - generic [ref=e161]: 0:00
+        - generic [ref=e162]:
+          - button "Back 15 seconds" [ref=e163] [cursor=pointer]:
+            - img [ref=e164]:
+              - generic [ref=e166]: "15"
+          - button "Previous" [ref=e167] [cursor=pointer]
+          - button "Play" [ref=e170] [cursor=pointer]
+          - button "Next" [ref=e173] [cursor=pointer]
+          - button "Forward 15 seconds" [ref=e176] [cursor=pointer]:
+            - img [ref=e177]:
+              - generic [ref=e179]: "15"
+          - button "Repeat this song" [ref=e180] [cursor=pointer]
+      - heading "Up Next Autoplay" [level=4] [ref=e184]:
+        - text: Up Next
+        - generic "Keep playing similar songs when the queue ends" [ref=e185] [cursor=pointer]:
+          - checkbox "Autoplay" [ref=e186]
+          - generic [ref=e187]: Autoplay
+  - iframe [ref=e188]:
+    - generic [ref=f1e1]:
+      - generic "YouTube Video Player" [ref=f1e3]
+      - generic [ref=f1e5]:
+        - generic:
+          - generic:
+            - button "Play video" [ref=f1e10] [cursor=pointer]
+            - button "Hide player controls" [ref=f1e12] [cursor=pointer]
+  - status

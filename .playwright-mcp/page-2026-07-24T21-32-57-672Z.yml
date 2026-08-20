@@ -1,0 +1,722 @@
+- generic [ref=f9e1]:
+  - link "Skip to content" [ref=f9e2] [cursor=pointer]:
+    - /url: "#maincontent"
+  - generic [ref=f9e3]:
+    - complementary [ref=f9e4]:
+      - img "SK Music" [ref=f9e6]
+      - navigation "Primary" [ref=f9e7]:
+        - generic [ref=f9e8]:
+          - generic [ref=f9e9]: Discover
+          - link "Home" [ref=f9e10] [cursor=pointer]
+          - link "For You" [ref=f9e14] [cursor=pointer]
+          - link "Search" [ref=f9e18] [cursor=pointer]
+        - generic [ref=f9e22]:
+          - generic [ref=f9e23]: Browse
+          - link "Artists" [ref=f9e24] [cursor=pointer]
+          - link "Playlists" [ref=f9e28] [cursor=pointer]
+          - link "Kid Zone" [ref=f9e32] [cursor=pointer]
+        - generic [ref=f9e36]:
+          - generic [ref=f9e37]: You
+          - link "Library" [ref=f9e38] [cursor=pointer]
+          - link "About" [ref=f9e42] [cursor=pointer]
+      - generic [ref=f9e46]:
+        - link "View source" [ref=f9e47] [cursor=pointer]:
+          - /url: https://github.com/Shalom-Karr/SK-Music
+        - link "Built by Shalom Karr" [ref=f9e51] [cursor=pointer]:
+          - /url: https://shalomkarr.pages.dev/
+          - generic [ref=f9e54]: Built by
+          - generic [ref=f9e55]: Shalom Karr
+    - generic [ref=f9e58]:
+      - banner [ref=f9e59]:
+        - generic [ref=f9e60]: Home
+        - generic "Live catalog" [ref=f9e61]:
+          - generic [ref=f9e63]: 70,739
+          - text: songs
+          - generic [ref=f9e64]: ·
+          - generic [ref=f9e65]: 1,621
+          - text: artists
+          - generic [ref=f9e66]: ·
+          - generic [ref=f9e67]: 3,552
+          - text: albums
+        - button "Content filters" [expanded] [active] [ref=f9e68] [cursor=pointer]
+        - button "Sign in / Sign up" [ref=f9e74] [cursor=pointer]:
+          - generic [ref=f9e75]: ＋
+      - main [ref=f9e77]:
+        - generic [ref=f9e78]:
+          - generic [ref=f9e79]:
+            - generic [ref=f9e80]: Kosher music, by construction
+            - heading "Only the music you trust." [level=1] [ref=f9e81]
+            - paragraph [ref=f9e82]: Every song here comes from a whitelisted artist's full catalog — searched, not filtered. Nothing outside it.
+            - generic: מוזיקה
+          - generic [ref=f9e83]:
+            - heading "Trending Songs" [level=2] [ref=f9e85]
+            - generic [ref=f9e86]:
+              - button "Play Hashiveinu Benny Friedman" [ref=f9e87] [cursor=pointer]:
+                - button "Play" [ref=f9e92]
+                - generic [ref=f9e95]: Hashiveinu
+                - generic [ref=f9e96]: Benny Friedman
+              - button "Play Racheim Al Tzion Benny Friedman" [ref=f9e97] [cursor=pointer]:
+                - button "Play" [ref=f9e102]
+                - generic [ref=f9e105]: Racheim Al Tzion
+                - generic [ref=f9e106]: Benny Friedman
+              - button "Play We Want To Sing With You Benny Friedman" [ref=f9e107] [cursor=pointer]:
+                - button "Play" [ref=f9e112]
+                - generic [ref=f9e115]: We Want To Sing With You
+                - generic [ref=f9e116]: Benny Friedman
+              - button "Play קנא Sruli Broncher" [ref=f9e117] [cursor=pointer]:
+                - button "Play" [ref=f9e122]
+                - generic [ref=f9e125]: קנא
+                - generic [ref=f9e126]: Sruli Broncher
+              - button "Play Al Eileh Benny Friedman" [ref=f9e127] [cursor=pointer]:
+                - button "Play" [ref=f9e132]
+                - generic [ref=f9e135]: Al Eileh
+                - generic [ref=f9e136]: Benny Friedman
+              - button "Play Hasheivenu Sholom Jacobs" [ref=f9e137] [cursor=pointer]:
+                - button "Play" [ref=f9e142]
+                - generic [ref=f9e145]: Hasheivenu
+                - generic [ref=f9e146]: Sholom Jacobs
+              - button "Play Gut Shabbos (Intro) Yaakov Shwekey" [ref=f9e147] [cursor=pointer]:
+                - button "Play" [ref=f9e152]
+                - generic [ref=f9e155]: Gut Shabbos (Intro)
+                - generic [ref=f9e156]: Yaakov Shwekey
+              - button "Play Koily - קולי (feat. Motti Gantz) Shmueli Ungar" [ref=f9e157] [cursor=pointer]:
+                - button "Play" [ref=f9e162]
+                - generic [ref=f9e165]: Koily - קולי (feat. Motti Gantz)
+                - generic [ref=f9e166]: Shmueli Ungar
+              - button "Play Nachamu Yosef Fogel" [ref=f9e167] [cursor=pointer]:
+                - button "Play" [ref=f9e172]
+                - generic [ref=f9e175]: Nachamu
+                - generic [ref=f9e176]: Yosef Fogel
+              - button "Play We Want To Sing With You Benny Friedman" [ref=f9e177] [cursor=pointer]:
+                - button "Play" [ref=f9e182]
+                - generic [ref=f9e185]: We Want To Sing With You
+                - generic [ref=f9e186]: Benny Friedman
+              - button "Play Ki Malachov Baruch Levine" [ref=f9e187] [cursor=pointer]:
+                - button "Play" [ref=f9e192]
+                - generic [ref=f9e195]: Ki Malachov
+                - generic [ref=f9e196]: Baruch Levine
+              - button "Play אחים בנפש Avraham Fried" [ref=f9e197] [cursor=pointer]:
+                - button "Play" [ref=f9e202]
+                - generic [ref=f9e205]: אחים בנפש
+                - generic [ref=f9e206]: Avraham Fried
+              - button "Play Bayit Shel Shalom - בית של שלום Itzik Dadya" [ref=f9e207] [cursor=pointer]:
+                - button "Play" [ref=f9e212]
+                - generic [ref=f9e215]: Bayit Shel Shalom - בית של שלום
+                - generic [ref=f9e216]: Itzik Dadya
+              - button "Play Kol Dodi Dofeik Dovy Meisels" [ref=f9e217] [cursor=pointer]:
+                - button "Play" [ref=f9e222]
+                - generic [ref=f9e225]: Kol Dodi Dofeik
+                - generic [ref=f9e226]: Dovy Meisels
+              - button "Play לא לחינם Ishay Ribo" [ref=f9e227] [cursor=pointer]:
+                - button "Play" [ref=f9e232]
+                - generic [ref=f9e235]: לא לחינם
+                - generic [ref=f9e236]: Ishay Ribo
+              - button "Play Thank You Yaakov Shwekey" [ref=f9e237] [cursor=pointer]:
+                - button "Play" [ref=f9e242]
+                - generic [ref=f9e245]: Thank You
+                - generic [ref=f9e246]: Yaakov Shwekey
+              - button "Play October Rain Shulem Lemmer" [ref=f9e247] [cursor=pointer]:
+                - button "Play" [ref=f9e252]
+                - generic [ref=f9e255]: October Rain
+                - generic [ref=f9e256]: Shulem Lemmer
+              - button "Play אם אני כאן הכל כאן - Im Ani Kan Hakol Kan Shimmy Weiss" [ref=f9e257] [cursor=pointer]:
+                - button "Play" [ref=f9e262]
+                - generic [ref=f9e265]: אם אני כאן הכל כאן - Im Ani Kan Hakol Kan
+                - generic [ref=f9e266]: Shimmy Weiss
+              - button "Play Mizmor Letoda Thank You Hashem" [ref=f9e267] [cursor=pointer]:
+                - button "Play" [ref=f9e272]
+                - generic [ref=f9e275]: Mizmor Letoda
+                - generic [ref=f9e276]: Thank You Hashem
+              - button "Play Don’t Leave Me On My Own Zusha" [ref=f9e277] [cursor=pointer]:
+                - button "Play" [ref=f9e282]
+                - generic [ref=f9e285]: Don’t Leave Me On My Own
+                - generic [ref=f9e286]: Zusha
+              - button "Play בעקיטשע Sruly Green" [ref=f9e287] [cursor=pointer]:
+                - button "Play" [ref=f9e292]
+                - generic [ref=f9e295]: בעקיטשע
+                - generic [ref=f9e296]: Sruly Green
+              - button "Play Meloich - מלוך (Cover) Shmili Landau" [ref=f9e297] [cursor=pointer]:
+                - button "Play" [ref=f9e302]
+                - generic [ref=f9e305]: Meloich - מלוך (Cover)
+                - generic [ref=f9e306]: Shmili Landau
+              - button "Play נשמת Avraham Fried" [ref=f9e307] [cursor=pointer]:
+                - button "Play" [ref=f9e312]
+                - generic [ref=f9e315]: נשמת
+                - generic [ref=f9e316]: Avraham Fried
+              - button "Play מה רבו מעשיך Sruly Green" [ref=f9e317] [cursor=pointer]:
+                - button "Play" [ref=f9e322]
+                - generic [ref=f9e325]: מה רבו מעשיך
+                - generic [ref=f9e326]: Sruly Green
+          - generic [ref=f9e327]:
+            - heading "Trending Artists" [level=2] [ref=f9e329]
+            - generic [ref=f9e330]:
+              - button "Shmulik Sukkot - שמוליק סוכות" [ref=f9e331] [cursor=pointer]
+              - button "Thank You Hashem" [ref=f9e337] [cursor=pointer]
+              - button "Yaakov Shwekey" [ref=f9e343] [cursor=pointer]
+              - button "Beri Weber" [ref=f9e349] [cursor=pointer]
+              - button "Benny Friedman" [ref=f9e355] [cursor=pointer]
+              - button "Ari Goldwag" [ref=f9e361] [cursor=pointer]
+              - button "Baruch Levine" [ref=f9e367] [cursor=pointer]
+              - button "Shloime Gertner" [ref=f9e373] [cursor=pointer]
+              - button "DJ MUSIIX" [ref=f9e379] [cursor=pointer]
+              - button "Moshy Kraus" [ref=f9e385] [cursor=pointer]
+              - button "Naftali Kempeh" [ref=f9e391] [cursor=pointer]
+              - button "Sruly Green" [ref=f9e397] [cursor=pointer]
+              - button "Nachmen Filmer" [ref=f9e403] [cursor=pointer]
+              - button "Avraham Fried" [ref=f9e409] [cursor=pointer]
+              - button "Moshe Klein" [ref=f9e415] [cursor=pointer]
+              - button "Simcha Leiner" [ref=f9e421] [cursor=pointer]
+              - button "Itzik Dadya" [ref=f9e427] [cursor=pointer]
+              - button "Soulful Acappella" [ref=f9e433] [cursor=pointer]
+          - generic [ref=f9e439]:
+            - heading "Quick Picks" [level=2] [ref=f9e441]
+            - generic [ref=f9e442]:
+              - button "יוסף חיים שוואקי - חזור בך | Yosef Chaim Shwekey - Chazor Becha Yosef Chaim Shwekey Like 5:11 Play" [ref=f9e443] [cursor=pointer]:
+                - generic [ref=f9e444]:
+                  - generic [ref=f9e445]: יוסף חיים שוואקי - חזור בך | Yosef Chaim Shwekey - Chazor Becha
+                  - generic [ref=f9e447]: Yosef Chaim Shwekey
+                - button "Like" [ref=f9e448]
+                - generic [ref=f9e451]: 5:11
+                - button "Play" [ref=f9e452]
+              - button "Waltz MRM Music Like 1:50 Play" [ref=f9e455] [cursor=pointer]:
+                - generic [ref=f9e456]:
+                  - generic [ref=f9e457]: Waltz
+                  - generic [ref=f9e459]: MRM Music
+                - button "Like" [ref=f9e460]
+                - generic [ref=f9e463]: 1:50
+                - button "Play" [ref=f9e464]
+              - button "Victim Ari Samet Like 3:04 Play" [ref=f9e467] [cursor=pointer]:
+                - generic [ref=f9e468]:
+                  - generic [ref=f9e469]: Victim
+                  - generic [ref=f9e471]: Ari Samet
+                - button "Like" [ref=f9e472]
+                - generic [ref=f9e475]: 3:04
+                - button "Play" [ref=f9e476]
+              - button "Kaddish Elli Kranzler Like 4:08 Play" [ref=f9e479] [cursor=pointer]:
+                - generic [ref=f9e480]:
+                  - generic [ref=f9e481]: Kaddish
+                  - generic [ref=f9e483]: Elli Kranzler
+                - button "Like" [ref=f9e484]
+                - generic [ref=f9e487]: 4:08
+                - button "Play" [ref=f9e488]
+              - button "Meal 1 (Levy Falkowitz) Motty Morgan Productions Like 12:05 Play" [ref=f9e491] [cursor=pointer]:
+                - generic [ref=f9e492]:
+                  - generic [ref=f9e493]: Meal 1 (Levy Falkowitz)
+                  - generic [ref=f9e495]: Motty Morgan Productions
+                - button "Like" [ref=f9e496]
+                - generic [ref=f9e499]: 12:05
+                - button "Play" [ref=f9e500]
+              - button "Ashreinu (Chabad) MRM All Stars Like 5:19 Play" [ref=f9e503] [cursor=pointer]:
+                - generic [ref=f9e504]:
+                  - generic [ref=f9e505]: Ashreinu (Chabad)
+                  - generic [ref=f9e507]: MRM All Stars
+                - button "Like" [ref=f9e508]
+                - generic [ref=f9e511]: 5:19
+                - button "Play" [ref=f9e512]
+              - button "הבן של המלך הרב שלום ארוש Like 3:27 Play" [ref=f9e515] [cursor=pointer]:
+                - generic [ref=f9e516]:
+                  - generic [ref=f9e517]: הבן של המלך
+                  - generic [ref=f9e519]: הרב שלום ארוש
+                - button "Like" [ref=f9e520]
+                - generic [ref=f9e523]: 3:27
+                - button "Play" [ref=f9e524]
+              - button "Zchus Ovos Gilad Potolski Like 3:19 Play" [ref=f9e527] [cursor=pointer]:
+                - generic [ref=f9e528]:
+                  - generic [ref=f9e529]: Zchus Ovos
+                  - generic [ref=f9e531]: Gilad Potolski
+                - button "Like" [ref=f9e532]
+                - generic [ref=f9e535]: 3:19
+                - button "Play" [ref=f9e536]
+              - button "MArch Viznitz Like 3:01 Play" [ref=f9e539] [cursor=pointer]:
+                - generic [ref=f9e540]:
+                  - generic [ref=f9e541]: MArch
+                  - generic [ref=f9e543]: Viznitz
+                - button "Like" [ref=f9e544]
+                - generic [ref=f9e547]: 3:01
+                - button "Play" [ref=f9e548]
+              - button "Avinu Malkenu (Chabad) (feat. Avraham Balti) Mendy Portnoy Like 4:14 Play" [ref=f9e551] [cursor=pointer]:
+                - generic [ref=f9e552]:
+                  - generic [ref=f9e553]: Avinu Malkenu (Chabad) (feat. Avraham Balti)
+                  - generic [ref=f9e555]: Mendy Portnoy
+                - button "Like" [ref=f9e556]
+                - generic [ref=f9e559]: 4:14
+                - button "Play" [ref=f9e560]
+              - button "Niggun Shabbat Yosef Gutman Like 5:05 Play" [ref=f9e563] [cursor=pointer]:
+                - generic [ref=f9e564]:
+                  - generic [ref=f9e565]: Niggun Shabbat
+                  - generic [ref=f9e567]: Yosef Gutman
+                - button "Like" [ref=f9e568]
+                - generic [ref=f9e571]: 5:05
+                - button "Play" [ref=f9e572]
+              - button "לוס ביבליקוס Daniel Ahaviel Like 2:15 Play" [ref=f9e575] [cursor=pointer]:
+                - generic [ref=f9e576]:
+                  - generic [ref=f9e577]: לוס ביבליקוס
+                  - generic [ref=f9e579]: Daniel Ahaviel
+                - button "Like" [ref=f9e580]
+                - generic [ref=f9e583]: 2:15
+                - button "Play" [ref=f9e584]
+              - button "Mimkomcha Thank You Hashem Like 5:03 Play" [ref=f9e587] [cursor=pointer]:
+                - generic [ref=f9e588]:
+                  - generic [ref=f9e589]: Mimkomcha
+                  - generic [ref=f9e591]: Thank You Hashem
+                - button "Like" [ref=f9e592]
+                - generic [ref=f9e595]: 5:03
+                - button "Play" [ref=f9e596]
+              - button "אבא שאוהב בצלאל שמיר Like 3:31 Play" [ref=f9e599] [cursor=pointer]:
+                - generic [ref=f9e600]:
+                  - generic [ref=f9e601]: אבא שאוהב
+                  - generic [ref=f9e603]: בצלאל שמיר
+                - button "Like" [ref=f9e604]
+                - generic [ref=f9e607]: 3:31
+                - button "Play" [ref=f9e608]
+              - button "Never Again - קיינמאל נישט מער Moishe Molomovsky Like 3:02 Play" [ref=f9e611] [cursor=pointer]:
+                - generic [ref=f9e612]:
+                  - generic [ref=f9e613]: Never Again - קיינמאל נישט מער
+                  - generic [ref=f9e615]: Moishe Molomovsky
+                - button "Like" [ref=f9e616]
+                - generic [ref=f9e619]: 3:02
+                - button "Play" [ref=f9e620]
+              - button "מאמע רחל יוסף משה כהנא Like 8:07 Play" [ref=f9e623] [cursor=pointer]:
+                - generic [ref=f9e624]:
+                  - generic [ref=f9e625]: מאמע רחל
+                  - generic [ref=f9e627]: יוסף משה כהנא
+                - button "Like" [ref=f9e628]
+                - generic [ref=f9e631]: 8:07
+                - button "Play" [ref=f9e632]
+              - button "Anenu Yaakov Shwekey Like 2:10 Play" [ref=f9e635] [cursor=pointer]:
+                - generic [ref=f9e636]:
+                  - generic [ref=f9e637]: Anenu
+                  - generic [ref=f9e639]: Yaakov Shwekey
+                - button "Like" [ref=f9e640]
+                - generic [ref=f9e643]: 2:10
+                - button "Play" [ref=f9e644]
+              - button "והיא שעמדה (Live) (feat. Yonatan Razel & Nathan Goshen) Akiva Like 5:38 Play" [ref=f9e647] [cursor=pointer]:
+                - generic [ref=f9e648]:
+                  - generic [ref=f9e649]: והיא שעמדה (Live) (feat. Yonatan Razel & Nathan Goshen)
+                  - generic [ref=f9e651]: Akiva
+                - button "Like" [ref=f9e652]
+                - generic [ref=f9e655]: 5:38
+                - button "Play" [ref=f9e656]
+              - button "Be A Friend Baruch Levine Like 0:54 Play" [ref=f9e659] [cursor=pointer]:
+                - generic [ref=f9e660]:
+                  - generic [ref=f9e661]: Be A Friend
+                  - generic [ref=f9e663]: Baruch Levine
+                - button "Like" [ref=f9e664]
+                - generic [ref=f9e667]: 0:54
+                - button "Play" [ref=f9e668]
+              - button "פרק קמ\"ד-ליום שבת Dudu Dery Like 2:22 Play" [ref=f9e671] [cursor=pointer]:
+                - generic [ref=f9e672]:
+                  - generic [ref=f9e673]: פרק קמ"ד-ליום שבת
+                  - generic [ref=f9e675]: Dudu Dery
+                - button "Like" [ref=f9e676]
+                - generic [ref=f9e679]: 2:22
+                - button "Play" [ref=f9e680]
+              - button "Èmes - אמת Yidi Bialostozky Like 4:20 Play" [ref=f9e683] [cursor=pointer]:
+                - generic [ref=f9e684]:
+                  - generic [ref=f9e685]: Èmes - אמת
+                  - generic [ref=f9e687]: Yidi Bialostozky
+                - button "Like" [ref=f9e688]
+                - generic [ref=f9e691]: 4:20
+                - button "Play" [ref=f9e692]
+              - button "Vaanachnu Boruch Sholom Blesofsky Like 4:30 Play" [ref=f9e695] [cursor=pointer]:
+                - generic [ref=f9e696]:
+                  - generic [ref=f9e697]: Vaanachnu
+                  - generic [ref=f9e699]: Boruch Sholom Blesofsky
+                - button "Like" [ref=f9e700]
+                - generic [ref=f9e703]: 4:30
+                - button "Play" [ref=f9e704]
+              - button "Window in Heaven (Instrumental) Shea Rubenstein Like 6:41 Play" [ref=f9e707] [cursor=pointer]:
+                - generic [ref=f9e708]:
+                  - generic [ref=f9e709]: Window in Heaven (Instrumental)
+                  - generic [ref=f9e711]: Shea Rubenstein
+                - button "Like" [ref=f9e712]
+                - generic [ref=f9e715]: 6:41
+                - button "Play" [ref=f9e716]
+          - generic [ref=f9e719]:
+            - heading "Curated Playlists" [level=2] [ref=f9e721]
+            - generic [ref=f9e722]:
+              - button "Acapella Top 50 50 songs" [ref=f9e723] [cursor=pointer]:
+                - generic [ref=f9e728]: Acapella Top 50
+                - generic [ref=f9e729]: 50 songs
+              - button "Favorites 20 songs" [ref=f9e730] [cursor=pointer]:
+                - generic [ref=f9e735]: Favorites
+                - generic [ref=f9e736]: 20 songs
+              - button "Year of 2026 5,775 songs" [ref=f9e737] [cursor=pointer]:
+                - generic [ref=f9e742]: Year of 2026
+                - generic [ref=f9e743]: 5,775 songs
+              - button "Acapella 2,102 songs" [ref=f9e744] [cursor=pointer]:
+                - generic [ref=f9e749]: Acapella
+                - generic [ref=f9e750]: 2,102 songs
+          - generic [ref=f9e751]:
+            - heading "Latest Releases" [level=2] [ref=f9e753]
+            - generic [ref=f9e754]:
+              - button "ככה רצינו לגדול ישיבת ירושלים לצעירים · 2026" [ref=f9e755] [cursor=pointer]:
+                - generic [ref=f9e760]: ככה רצינו לגדול
+                - generic [ref=f9e761]: ישיבת ירושלים לצעירים · 2026
+              - button "Hashivenu Mordy Weinstein · 2026" [ref=f9e762] [cursor=pointer]:
+                - generic [ref=f9e767]: Hashivenu
+                - generic [ref=f9e768]: Mordy Weinstein · 2026
+              - button "Time To Breathe 2 (An Acapella Experience) Akiva Elbogen · 2026" [ref=f9e769] [cursor=pointer]:
+                - generic [ref=f9e774]: Time To Breathe 2 (An Acapella Experience)
+                - generic [ref=f9e775]: Akiva Elbogen · 2026
+              - button "Tzama (Acapella) Ari Goldwag · 2026" [ref=f9e776] [cursor=pointer]:
+                - generic [ref=f9e781]: Tzama (Acapella)
+                - generic [ref=f9e782]: Ari Goldwag · 2026
+              - button "ניגון אברהם אחיה אשר כהן אלורו · 2026" [ref=f9e783] [cursor=pointer]:
+                - generic [ref=f9e788]: ניגון אברהם
+                - generic [ref=f9e789]: אחיה אשר כהן אלורו · 2026
+              - button "Adei Ad - עדי עד (Acapella) Shloime Gertner · 2026" [ref=f9e790] [cursor=pointer]:
+                - generic [ref=f9e795]: Adei Ad - עדי עד (Acapella)
+                - generic [ref=f9e796]: Shloime Gertner · 2026
+              - button "Any Day Now (Acapella ) DJ MUSIIX · 2026" [ref=f9e797] [cursor=pointer]:
+                - generic [ref=f9e802]: Any Day Now (Acapella )
+                - generic [ref=f9e803]: DJ MUSIIX · 2026
+              - button "מלך ברחמיו מקהלת מלכות · 2026" [ref=f9e804] [cursor=pointer]:
+                - generic [ref=f9e809]: מלך ברחמיו
+                - generic [ref=f9e810]: מקהלת מלכות · 2026
+              - button "Ad Ana (Vocal Version) Yechiel Schron · 2026" [ref=f9e811] [cursor=pointer]:
+                - generic [ref=f9e816]: Ad Ana (Vocal Version)
+                - generic [ref=f9e817]: Yechiel Schron · 2026
+              - button "ידיעת האמת - ווקאלי Ariel Borzutzky - אריאל בורסוצקי · 2026" [ref=f9e818] [cursor=pointer]:
+                - generic [ref=f9e823]: ידיעת האמת - ווקאלי
+                - generic [ref=f9e824]: Ariel Borzutzky - אריאל בורסוצקי · 2026
+              - button "A Small Cup of Wine (Remix) Yoey Muchnik · 2026" [ref=f9e825] [cursor=pointer]:
+                - generic [ref=f9e830]: A Small Cup of Wine (Remix)
+                - generic [ref=f9e831]: Yoey Muchnik · 2026
+              - button "מחרוזת ריקודים Neshama Choir - מקהלת נשמה · 2026" [ref=f9e832] [cursor=pointer]:
+                - generic [ref=f9e837]: מחרוזת ריקודים
+                - generic [ref=f9e838]: Neshama Choir - מקהלת נשמה · 2026
+              - button "Simchas Torah Intro Moshe Lobel · 2026" [ref=f9e839] [cursor=pointer]:
+                - generic [ref=f9e844]: Simchas Torah Intro
+                - generic [ref=f9e845]: Moshe Lobel · 2026
+              - button "A Journey Through Pesach Moshe Lobel · 2026" [ref=f9e846] [cursor=pointer]:
+                - generic [ref=f9e851]: A Journey Through Pesach
+                - generic [ref=f9e852]: Moshe Lobel · 2026
+              - button "A Marvelous Middos Machine Intro Moshe Lobel · 2026" [ref=f9e853] [cursor=pointer]:
+                - generic [ref=f9e858]: A Marvelous Middos Machine Intro
+                - generic [ref=f9e859]: Moshe Lobel · 2026
+              - button "דע לפני מי אתה עומד Mordechai Loveman · 2026" [ref=f9e860] [cursor=pointer]:
+                - generic [ref=f9e865]: דע לפני מי אתה עומד
+                - generic [ref=f9e866]: Mordechai Loveman · 2026
+              - button "רַק לַעֲשׂוֹת רְצוֹנְוֹ Mordechai Loveman · 2026" [ref=f9e867] [cursor=pointer]:
+                - generic [ref=f9e872]: רַק לַעֲשׂוֹת רְצוֹנְוֹ
+                - generic [ref=f9e873]: Mordechai Loveman · 2026
+              - button "עד דלא ידע Mordechai Loveman · 2026" [ref=f9e874] [cursor=pointer]:
+                - generic [ref=f9e879]: עד דלא ידע
+                - generic [ref=f9e880]: Mordechai Loveman · 2026
+              - button "Ashrei Ha Ish Mordechai Loveman · 2026" [ref=f9e881] [cursor=pointer]:
+                - generic [ref=f9e886]: Ashrei Ha Ish
+                - generic [ref=f9e887]: Mordechai Loveman · 2026
+              - button "אוֹר חַיַּי Mordechai Loveman · 2026" [ref=f9e888] [cursor=pointer]:
+                - generic [ref=f9e893]: אוֹר חַיַּי
+                - generic [ref=f9e894]: Mordechai Loveman · 2026
+              - button "Ten Li Tfila (Acapella Version) Yisroel Meth · 2026" [ref=f9e895] [cursor=pointer]:
+                - generic [ref=f9e900]: Ten Li Tfila (Acapella Version)
+                - generic [ref=f9e901]: Yisroel Meth · 2026
+              - button "Still A Yid Shlezky · 2026" [ref=f9e902] [cursor=pointer]:
+                - generic [ref=f9e907]: Still A Yid
+                - generic [ref=f9e908]: Shlezky · 2026
+              - button "Mitzvah Tantz - איה אשתך, הנה באהל - גראמען מצוה טאנץ Motty Ilowitz · 2026" [ref=f9e909] [cursor=pointer]:
+                - generic [ref=f9e914]: Mitzvah Tantz - איה אשתך, הנה באהל - גראמען מצוה טאנץ
+                - generic [ref=f9e915]: Motty Ilowitz · 2026
+          - generic [ref=f9e916]:
+            - heading "New Songs" [level=2] [ref=f9e918]
+            - generic [ref=f9e919]:
+              - button "Play ככה רצינו לגדול ישיבת ירושלים לצעירים" [ref=f9e920] [cursor=pointer]:
+                - button "Play" [ref=f9e925]
+                - generic [ref=f9e928]: ככה רצינו לגדול
+                - generic [ref=f9e929]: ישיבת ירושלים לצעירים
+              - button "Play Hashivenu Mordy Weinstein" [ref=f9e930] [cursor=pointer]:
+                - button "Play" [ref=f9e935]
+                - generic [ref=f9e938]: Hashivenu
+                - generic [ref=f9e939]: Mordy Weinstein
+              - button "Play ניגון אברהם אחיה אשר כהן אלורו" [ref=f9e940] [cursor=pointer]:
+                - button "Play" [ref=f9e945]
+                - generic [ref=f9e948]: ניגון אברהם
+                - generic [ref=f9e949]: אחיה אשר כהן אלורו
+              - button "Play מלך ברחמיו מקהלת מלכות" [ref=f9e950] [cursor=pointer]:
+                - button "Play" [ref=f9e955]
+                - generic [ref=f9e958]: מלך ברחמיו
+                - generic [ref=f9e959]: מקהלת מלכות
+              - button "Play A Small Cup of Wine (Remix) Yoey Muchnik" [ref=f9e960] [cursor=pointer]:
+                - button "Play" [ref=f9e965]
+                - generic [ref=f9e968]: A Small Cup of Wine (Remix)
+                - generic [ref=f9e969]: Yoey Muchnik
+              - button "Play מחרוזת ריקודים Neshama Choir - מקהלת נשמה" [ref=f9e970] [cursor=pointer]:
+                - button "Play" [ref=f9e975]
+                - generic [ref=f9e978]: מחרוזת ריקודים
+                - generic [ref=f9e979]: Neshama Choir - מקהלת נשמה
+              - button "Play Simchas Torah Intro Moshe Lobel" [ref=f9e980] [cursor=pointer]:
+                - button "Play" [ref=f9e985]
+                - generic [ref=f9e988]: Simchas Torah Intro
+                - generic [ref=f9e989]: Moshe Lobel
+              - button "Play Simanei Haseder Moshe Lobel" [ref=f9e990] [cursor=pointer]:
+                - button "Play" [ref=f9e995]
+                - generic [ref=f9e998]: Simanei Haseder
+                - generic [ref=f9e999]: Moshe Lobel
+              - button "Play A Marvelous Middos Machine Intro Moshe Lobel" [ref=f9e1000] [cursor=pointer]:
+                - button "Play" [ref=f9e1005]
+                - generic [ref=f9e1008]: A Marvelous Middos Machine Intro
+                - generic [ref=f9e1009]: Moshe Lobel
+              - button "Play דע לפני מי אתה עומד Mordechai Loveman" [ref=f9e1010] [cursor=pointer]:
+                - button "Play" [ref=f9e1015]
+                - generic [ref=f9e1018]: דע לפני מי אתה עומד
+                - generic [ref=f9e1019]: Mordechai Loveman
+              - button "Play רַק לַעֲשׂוֹת רְצוֹנְוֹ Mordechai Loveman" [ref=f9e1020] [cursor=pointer]:
+                - button "Play" [ref=f9e1025]
+                - generic [ref=f9e1028]: רַק לַעֲשׂוֹת רְצוֹנְוֹ
+                - generic [ref=f9e1029]: Mordechai Loveman
+              - button "Play עד דלא ידע Mordechai Loveman" [ref=f9e1030] [cursor=pointer]:
+                - button "Play" [ref=f9e1035]
+                - generic [ref=f9e1038]: עד דלא ידע
+                - generic [ref=f9e1039]: Mordechai Loveman
+              - button "Play Ashrei Ha Ish Mordechai Loveman" [ref=f9e1040] [cursor=pointer]:
+                - button "Play" [ref=f9e1045]
+                - generic [ref=f9e1048]: Ashrei Ha Ish
+                - generic [ref=f9e1049]: Mordechai Loveman
+              - button "Play אוֹר חַיַּי Mordechai Loveman" [ref=f9e1050] [cursor=pointer]:
+                - button "Play" [ref=f9e1055]
+                - generic [ref=f9e1058]: אוֹר חַיַּי
+                - generic [ref=f9e1059]: Mordechai Loveman
+          - generic [ref=f9e1060]:
+            - heading "Featured Playlists" [level=2] [ref=f9e1062]
+            - generic [ref=f9e1063]:
+              - button "מנגינת הנשמה משה פפירוב" [ref=f9e1064] [cursor=pointer]:
+                - generic [ref=f9e1069]: מנגינת הנשמה
+                - generic [ref=f9e1070]: משה פפירוב
+              - button "הייליגע מאלכים Ari Samet" [ref=f9e1071] [cursor=pointer]:
+                - generic [ref=f9e1076]: הייליגע מאלכים
+                - generic [ref=f9e1077]: Ari Samet
+              - button "נפתלי קמפה - שירים - Naftali Kempeh - Singles Naftali Kempeh" [ref=f9e1078] [cursor=pointer]:
+                - generic [ref=f9e1083]: נפתלי קמפה - שירים - Naftali Kempeh - Singles
+                - generic [ref=f9e1084]: Naftali Kempeh
+              - button "התיקון הכללי בקליפ יהודי - ארז Erez Yehiel" [ref=f9e1085] [cursor=pointer]:
+                - generic [ref=f9e1090]: התיקון הכללי בקליפ יהודי - ארז
+                - generic [ref=f9e1091]: Erez Yehiel
+              - button "Live Avraham David" [ref=f9e1092] [cursor=pointer]:
+                - generic [ref=f9e1097]: Live
+                - generic [ref=f9e1098]: Avraham David
+              - button "סינגלים | Single's Elad Shaer" [ref=f9e1099] [cursor=pointer]:
+                - generic [ref=f9e1104]: סינגלים | Single's
+                - generic [ref=f9e1105]: Elad Shaer
+              - button "קליפים רשמיים | The Official Music Video's Dudu Dery" [ref=f9e1106] [cursor=pointer]:
+                - generic [ref=f9e1111]: קליפים רשמיים | The Official Music Video's
+                - generic [ref=f9e1112]: Dudu Dery
+              - button "From Other Channels Shira Choir" [ref=f9e1113] [cursor=pointer]:
+                - generic [ref=f9e1118]: From Other Channels
+                - generic [ref=f9e1119]: Shira Choir
+              - button "האלבום \"תהליל\" Yuval Taieb" [ref=f9e1120] [cursor=pointer]:
+                - generic [ref=f9e1125]: האלבום "תהליל"
+                - generic [ref=f9e1126]: Yuval Taieb
+              - button "שקטים בסיום Chaim Israel" [ref=f9e1127] [cursor=pointer]:
+                - generic [ref=f9e1132]: שקטים בסיום
+                - generic [ref=f9e1133]: Chaim Israel
+          - generic [ref=f9e1134]:
+            - heading "Artists You'll Like" [level=2] [ref=f9e1136]
+            - generic [ref=f9e1137]:
+              - button "שילה אליה" [ref=f9e1138] [cursor=pointer]
+              - button "Shimon Craimer" [ref=f9e1144] [cursor=pointer]
+              - button "Yossi Goldstein" [ref=f9e1150] [cursor=pointer]
+              - button "Dovid Chesner" [ref=f9e1156] [cursor=pointer]
+              - button "Duvid Schwarcz" [ref=f9e1162] [cursor=pointer]
+              - button "Suki & Ding" [ref=f9e1168] [cursor=pointer]
+              - button "Shloime Goldreich" [ref=f9e1174] [cursor=pointer]
+              - button "Shmulik Berger" [ref=f9e1180] [cursor=pointer]
+              - button "Shlomie Rabin" [ref=f9e1186] [cursor=pointer]
+              - button "Camp Horizon" [ref=f9e1192] [cursor=pointer]
+              - button "Moshe Yess / Megama" [ref=f9e1198] [cursor=pointer]
+              - button "Shay Viner" [ref=f9e1204] [cursor=pointer]
+              - button "Vach Family - משפחת ואך" [ref=f9e1210] [cursor=pointer]
+              - button "Yosef Schick" [ref=f9e1216] [cursor=pointer]
+              - button "Ari Ettinger" [ref=f9e1222] [cursor=pointer]
+              - button "Nachmen Filmer" [ref=f9e1228] [cursor=pointer]
+          - generic [ref=f9e1234]:
+            - heading "Albums" [level=2] [ref=f9e1236]
+            - generic [ref=f9e1237]:
+              - button "Dec 17 '25 Chanukah Party (Duvid Fleischman) Yeedle Kahan · 2025" [ref=f9e1238] [cursor=pointer]:
+                - generic [ref=f9e1243]: Dec 17 '25 Chanukah Party (Duvid Fleischman)
+                - generic [ref=f9e1244]: Yeedle Kahan · 2025
+              - button "Double Trouble Rabbi Yoel Ferber · 2024" [ref=f9e1245] [cursor=pointer]:
+                - generic [ref=f9e1250]: Double Trouble
+                - generic [ref=f9e1251]: Rabbi Yoel Ferber · 2024
+              - button "Ad Alot Hashachar - Until The Morning Light - Volume 2 Menachem Philip · 2010" [ref=f9e1252] [cursor=pointer]:
+                - generic [ref=f9e1257]: Ad Alot Hashachar - Until The Morning Light - Volume 2
+                - generic [ref=f9e1258]: Menachem Philip · 2010
+              - button "מנגינות 1 ישראל סוסנה ותזמורתו · 2022" [ref=f9e1259] [cursor=pointer]:
+                - generic [ref=f9e1264]: מנגינות 1
+                - generic [ref=f9e1265]: ישראל סוסנה ותזמורתו · 2022
+              - button "Parasha Power Vayikra, Vol. 2 Rabbi Dovid Eisenberg · 2024" [ref=f9e1266] [cursor=pointer]:
+                - generic [ref=f9e1271]: Parasha Power Vayikra, Vol. 2
+                - generic [ref=f9e1272]: Rabbi Dovid Eisenberg · 2024
+              - button "Lefkowitz Wedding 4.10.24 (feat. Heshy Weinberger & Shira Choir) Shimmy Levy Productions · 2024" [ref=f9e1273] [cursor=pointer]:
+                - generic [ref=f9e1278]: Lefkowitz Wedding 4.10.24 (feat. Heshy Weinberger & Shira Choir)
+                - generic [ref=f9e1279]: Shimmy Levy Productions · 2024
+              - button "May 28 '25 Wedding (Refoel Meir Halpert) Moishy Weiss · 2025" [ref=f9e1280] [cursor=pointer]:
+                - generic [ref=f9e1285]: May 28 '25 Wedding (Refoel Meir Halpert)
+                - generic [ref=f9e1286]: Moishy Weiss · 2025
+              - button "Mincha Shloime Gertner · 2016" [ref=f9e1287] [cursor=pointer]:
+                - generic [ref=f9e1292]: Mincha
+                - generic [ref=f9e1293]: Shloime Gertner · 2016
+              - button "Klal Yisroel Together Yerachmiel Begun & The Miami Boys Choir · 1987" [ref=f9e1294] [cursor=pointer]:
+                - generic [ref=f9e1299]: Klal Yisroel Together
+                - generic [ref=f9e1300]: Yerachmiel Begun & The Miami Boys Choir · 1987
+              - button "שירה חדשה Naor Carmi · 2010" [ref=f9e1301] [cursor=pointer]:
+                - generic [ref=f9e1306]: שירה חדשה
+                - generic [ref=f9e1307]: Naor Carmi · 2010
+              - button "Zeh Yoely Greenfeld · 2015" [ref=f9e1308] [cursor=pointer]:
+                - generic [ref=f9e1313]: Zeh
+                - generic [ref=f9e1314]: Yoely Greenfeld · 2015
+              - button "Aba ejad lekulam Saúl Suli · 2016" [ref=f9e1315] [cursor=pointer]:
+                - generic [ref=f9e1320]: Aba ejad lekulam
+                - generic [ref=f9e1321]: Saúl Suli · 2016
+              - button "Solid Gold, Vol. 2 Avi Fishoff · 1997" [ref=f9e1322] [cursor=pointer]:
+                - generic [ref=f9e1327]: Solid Gold, Vol. 2
+                - generic [ref=f9e1328]: Avi Fishoff · 1997
+              - button "The Whole World Lit Up Blue Fringe · 2007" [ref=f9e1329] [cursor=pointer]:
+                - generic [ref=f9e1334]: The Whole World Lit Up
+                - generic [ref=f9e1335]: Blue Fringe · 2007
+              - button "Morning, A Journey Josh Goldberg · 2022" [ref=f9e1336] [cursor=pointer]:
+                - generic [ref=f9e1341]: Morning, A Journey
+                - generic [ref=f9e1342]: Josh Goldberg · 2022
+          - generic [ref=f9e1343]:
+            - heading "Music Videos" [level=2] [ref=f9e1345]
+            - generic [ref=f9e1346]:
+              - button "Play אל נורא Erez Yehiel" [ref=f9e1347] [cursor=pointer]:
+                - button "Play" [ref=f9e1352]
+                - generic [ref=f9e1355]: אל נורא
+                - generic [ref=f9e1356]: Erez Yehiel
+              - button "Play גאות ושפל Avishai Eshel - אבישי אשל" [ref=f9e1357] [cursor=pointer]:
+                - button "Play" [ref=f9e1362]
+                - generic [ref=f9e1365]: גאות ושפל
+                - generic [ref=f9e1366]: Avishai Eshel - אבישי אשל
+              - button "Play Bring Back Our Boys (ושבו בנים לגבולם) Naftali Kalfa" [ref=f9e1367] [cursor=pointer]:
+                - button "Play" [ref=f9e1372]
+                - generic [ref=f9e1375]: Bring Back Our Boys (ושבו בנים לגבולם)
+                - generic [ref=f9e1376]: Naftali Kalfa
+              - button "Play Mama Rochel (feat. Eli Marcus) Blue Melody" [ref=f9e1377] [cursor=pointer]:
+                - button "Play" [ref=f9e1382]
+                - generic [ref=f9e1385]: Mama Rochel (feat. Eli Marcus)
+                - generic [ref=f9e1386]: Blue Melody
+              - button "Play קרב יום (Karev Yom) Nussy Fuchs" [ref=f9e1387] [cursor=pointer]:
+                - button "Play" [ref=f9e1392]
+                - generic [ref=f9e1395]: קרב יום (Karev Yom)
+                - generic [ref=f9e1396]: Nussy Fuchs
+              - button "Play איפה האור - עובדיה חממה עובדיה חממה" [ref=f9e1397] [cursor=pointer]:
+                - button "Play" [ref=f9e1402]
+                - generic [ref=f9e1405]: איפה האור - עובדיה חממה
+                - generic [ref=f9e1406]: עובדיה חממה
+              - button "Play The Solomon Brothers -האחים סלומון -Barry John (Official music video) The Solomon Brothers" [ref=f9e1407] [cursor=pointer]:
+                - button "Play" [ref=f9e1412]
+                - generic [ref=f9e1415]: The Solomon Brothers -האחים סלומון -Barry John (Official music video)
+                - generic [ref=f9e1416]: The Solomon Brothers
+              - button "Play Ani Ma - Dudi Knopfler | EDM REMIX - by Moshe Klein Dudi Knopfler" [ref=f9e1417] [cursor=pointer]:
+                - button "Play" [ref=f9e1422]
+                - generic [ref=f9e1425]: Ani Ma - Dudi Knopfler | EDM REMIX - by Moshe Klein
+                - generic [ref=f9e1426]: Dudi Knopfler
+              - button "Play אמיר אליהו - מחרוזת המועבט 2 - Amir Eliyahu אמיר אליהו" [ref=f9e1427] [cursor=pointer]:
+                - button "Play" [ref=f9e1432]
+                - generic [ref=f9e1435]: אמיר אליהו - מחרוזת המועבט 2 - Amir Eliyahu
+                - generic [ref=f9e1436]: אמיר אליהו
+              - button "Play משה דוויק בביצוע מרגש לשיר של ישי ריבו \"הלב שלי\" בגרסא מזרחית • מיוחד Moshe Dweck - משה דוויק" [ref=f9e1437] [cursor=pointer]:
+                - button "Play" [ref=f9e1442]
+                - generic [ref=f9e1445]: משה דוויק בביצוע מרגש לשיר של ישי ריבו "הלב שלי" בגרסא מזרחית • מיוחד
+                - generic [ref=f9e1446]: Moshe Dweck - משה דוויק
+              - button "Play שטח אפור Ishay Ribo" [ref=f9e1447] [cursor=pointer]:
+                - button "Play" [ref=f9e1452]
+                - generic [ref=f9e1455]: שטח אפור
+                - generic [ref=f9e1456]: Ishay Ribo
+              - button "Play ושבו בנים לגבולם אלעד צפירה" [ref=f9e1457] [cursor=pointer]:
+                - button "Play" [ref=f9e1462]
+                - generic [ref=f9e1465]: ושבו בנים לגבולם
+                - generic [ref=f9e1466]: אלעד צפירה
+              - button "Play אשר ברא | Asher Bara🔥 Powerful Jewish Wedding Blessing Song | MECHEL MECHEL" [ref=f9e1467] [cursor=pointer]:
+                - button "Play" [ref=f9e1472]
+                - generic [ref=f9e1475]: אשר ברא | Asher Bara🔥 Powerful Jewish Wedding Blessing Song | MECHEL
+                - generic [ref=f9e1476]: MECHEL
+              - button "Play Zol Shoyn - Kobi Arieli & Ofir Sobol / זאל שוין גיין די קורונה! - קובי אריאלי ואופיר סובול Yossele Rosenblatt" [ref=f9e1477] [cursor=pointer]:
+                - button "Play" [ref=f9e1482]
+                - generic [ref=f9e1485]: Zol Shoyn - Kobi Arieli & Ofir Sobol / זאל שוין גיין די קורונה! - קובי אריאלי ואופיר סובול
+                - generic [ref=f9e1486]: Yossele Rosenblatt
+              - button "Play Rabbi B - Are You Sleeping King Pharaoh? Rabbi B" [ref=f9e1487] [cursor=pointer]:
+                - button "Play" [ref=f9e1492]
+                - generic [ref=f9e1495]: Rabbi B - Are You Sleeping King Pharaoh?
+                - generic [ref=f9e1496]: Rabbi B
+              - button "Play Little Bardichevers TYH Boys" [ref=f9e1497] [cursor=pointer]:
+                - button "Play" [ref=f9e1502]
+                - generic [ref=f9e1505]: Little Bardichevers
+                - generic [ref=f9e1506]: TYH Boys
+  - generic [ref=f9e1507]:
+    - heading "Content filters" [level=4] [ref=f9e1508]
+    - generic [ref=f9e1509]:
+      - button "Hide DJ sets Exclude DJ / remix artists" [ref=f9e1510] [cursor=pointer]:
+        - generic [ref=f9e1511]:
+          - text: Hide DJ sets
+          - generic [ref=f9e1512]: Exclude DJ / remix artists
+      - generic [ref=f9e1514]:
+        - generic [ref=f9e1515]:
+          - text: Chasidish
+          - generic [ref=f9e1516]: Filter by Chasidic / non-Chasidic
+        - generic [ref=f9e1517]:
+          - button "All" [ref=f9e1518] [cursor=pointer]
+          - button "Only" [ref=f9e1519] [cursor=pointer]
+          - button "Hide" [ref=f9e1520] [cursor=pointer]
+      - generic [ref=f9e1521]:
+        - generic [ref=f9e1522]:
+          - text: Israeli artists
+          - generic [ref=f9e1523]: Filter by Israeli / non-Israeli
+        - generic [ref=f9e1524]:
+          - button "All" [ref=f9e1525] [cursor=pointer]
+          - button "Only" [ref=f9e1526] [cursor=pointer]
+          - button "Hide" [ref=f9e1527] [cursor=pointer]
+      - generic [ref=f9e1528]:
+        - generic [ref=f9e1529]:
+          - text: Acapella
+          - generic [ref=f9e1530]: Only, or hide, Acapella songs
+        - generic [ref=f9e1531]:
+          - button "All" [ref=f9e1532] [cursor=pointer]
+          - button "Only" [ref=f9e1533] [cursor=pointer]
+          - button "Hide" [ref=f9e1534] [cursor=pointer]
+    - generic [ref=f9e1535]:
+      - generic [ref=f9e1536]: Locked by Parental Controls
+      - button "Hide female singers🔒 Kol isha — change in Parental Controls" [ref=f9e1539] [cursor=pointer]:
+        - generic [ref=f9e1540]:
+          - text: Hide female singers🔒
+          - generic [ref=f9e1541]: Kol isha — change in Parental Controls
+      - text: 🔒
+    - button "Reset filters" [ref=f9e1544] [cursor=pointer]
+  - generic [ref=f9e1545]:
+    - generic [ref=f9e1547]:
+      - button "Collapse" [ref=f9e1548] [cursor=pointer]
+      - generic [ref=f9e1551]: Now Playing
+      - button "Playback speed" [ref=f9e1552] [cursor=pointer]: 1×
+    - generic [ref=f9e1553]:
+      - generic [ref=f9e1554]:
+        - generic [ref=f9e1559]:
+          - button "Like" [ref=f9e1560] [cursor=pointer]
+          - button "Share" [ref=f9e1563] [cursor=pointer]
+        - generic [ref=f9e1566]:
+          - slider "Seek" [ref=f9e1567] [cursor=pointer]: "0"
+          - generic [ref=f9e1568]:
+            - generic [ref=f9e1569]: 0:00
+            - generic [ref=f9e1570]: 0:00
+        - generic [ref=f9e1571]:
+          - button "Back 15 seconds" [ref=f9e1572] [cursor=pointer]:
+            - img [ref=f9e1573]:
+              - generic [ref=f9e1575]: "15"
+          - button "Previous" [ref=f9e1576] [cursor=pointer]
+          - button "Play" [ref=f9e1579] [cursor=pointer]
+          - button "Next" [ref=f9e1582] [cursor=pointer]
+          - button "Forward 15 seconds" [ref=f9e1585] [cursor=pointer]:
+            - img [ref=f9e1586]:
+              - generic [ref=f9e1588]: "15"
+          - button "Repeat this song" [ref=f9e1589] [cursor=pointer]
+      - heading "Up Next" [level=4] [ref=f9e1593]
+  - iframe [ref=f9e1594]:
+    - generic [ref=f10e1]:
+      - generic "YouTube Video Player" [ref=f10e3]
+      - generic [ref=f10e5]:
+        - generic:
+          - generic:
+            - button "Play video" [ref=f10e10] [cursor=pointer]
+            - button "Hide player controls" [ref=f10e12] [cursor=pointer]
+  - status

@@ -3824,6 +3824,11 @@ function openSongMenu(anchor, t) {
   const acaOnly = acapellaMode() === "only";
   const ico = { pl: '<svg viewBox="0 0 24 24"><path d="M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v6l5-3z"/></svg>', radio: ICON.radio, artist: ICON.artist, share: ICON.share, flag: '<svg viewBox="0 0 24 24"><path d="M14.4 6 14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>', dl: '<svg viewBox="0 0 24 24"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z"/></svg>' };
   let html = `<div class="mihead">${esc(t.title || "Song")}</div>`;
+  if (t.videoId && !t.kind) {
+    html += `<button class="mi" role="menuitem" onclick="closeMenus();smPlayNext()"><svg viewBox="0 0 24 24"><path d="M4 5v14l8-7zm9 0v14l8-7z"/></svg><span>Play next</span></button>`;
+    html += `<button class="mi" role="menuitem" onclick="closeMenus();smAddToQueue()"><svg viewBox="0 0 24 24"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zm14-6v4.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5v4z"/></svg><span>Add to queue</span></button>`;
+    html += `<div class="misep"></div>`;
+  }
   html += `<button class="mi" role="menuitem" onclick="openAddToPlaylistMenu()">${ico.pl}<span>Add to playlist</span></button>`;
   if (!acaOnly) html += `<button class="mi" role="menuitem" onclick="closeMenus();smRadio()">${ico.radio}<span>Start radio</span></button>`;
   if (t.artist) html += `<button class="mi" role="menuitem" onclick="closeMenus();smArtist()">${ico.artist}<span>Go to artist</span></button>`;
@@ -3837,6 +3842,22 @@ function smArtist() { const t = _menuTrack; if (t && t.artist) gotoArtistByName(
 function smDownload() { const t = _menuTrack; if (!t || !t.videoId) return; if (SK_NATIVE) { skDownload(t.videoId, t.title, t.artist); } else { showToast("Downloads require the desktop app", 2000); } }
 function smShare() { const t = _menuTrack; if (t) shareSong(t, _menuRect ? rectAnchor(_menuRect) : null); }
 function smReport() { const t = _menuTrack; if (t) reportSong(t); }
+function smPlayNext() { enqueueMenuTrack(true); }
+function smAddToQueue() { enqueueMenuTrack(false); }
+// Insert the menu track into the live queue. "Play next" = right after the current track; "Add to
+// queue" = at the end. With nothing playing yet, start it. Only re-cue the gapless standby when the
+// insert actually changes the NEXT slot, so appending behind an existing queue never disturbs a cue.
+function enqueueMenuTrack(next) {
+  const t = _menuTrack; if (!t || !t.videoId) return;
+  const q = { videoId: t.videoId, title: t.title || "", artist: t.artist || "", isFemale: t.isFemale, isChasid: t.isChasid, isVideo: t.isVideo, durationSec: t.durationSec, explicit: t.explicit };
+  if (!state.queue.length || state.qi < 0) { playFrom(regQueue([q]), 0); openNow(); return; }
+  const at = next ? state.qi + 1 : state.queue.length;
+  const affectsNext = at === state.qi + 1;
+  state.queue.splice(at, 0, q);
+  if (affectsNext) { cancelSwap(); cueNext(); }
+  if (state.nowOpen) paintQueue();
+  showToast(next ? `Playing next: “${t.title || "song"}”.` : `Added “${t.title || "song"}” to the queue.`, 1600);
+}
 async function openAddToPlaylistMenu() {
   if (!requirePlaylistLogin()) { closeMenus(); return; }
   const t = _menuTrack;

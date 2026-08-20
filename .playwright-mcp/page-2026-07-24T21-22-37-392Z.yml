@@ -1,0 +1,42 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - heading "Trending" [level=1] [ref=e4]
+    - link "Open SK Music" [ref=e5] [cursor=pointer]:
+      - /url: /
+    - paragraph [ref=e6]: Top songs and artists across both players, last 30 days.
+  - generic [ref=e7]:
+    - generic [ref=e8]: SK Music (web)
+    - generic [ref=e10]: Zemer app
+  - generic [ref=e12]:
+    - heading "Trending Songs" [level=2] [ref=e13]
+    - paragraph [ref=e14]: Qualified plays — short skips don't count.
+    - table [ref=e16]:
+      - rowgroup [ref=e17]:
+        - row [ref=e18]:
+          - columnheader "#" [ref=e19]
+          - columnheader "Song" [ref=e20]
+          - columnheader "SK Music" [ref=e21]
+          - columnheader "Zemer App" [ref=e23]
+          - columnheader "Total" [ref=e25]
+      - rowgroup [ref=e26]:
+        - row [ref=e27]:
+          - cell "Loading…" [ref=e28]
+  - generic [ref=e29]:
+    - heading "Trending Artists" [level=2] [ref=e30]
+    - paragraph [ref=e31]: All plays credited to the artist, both players combined.
+    - table [ref=e33]:
+      - rowgroup [ref=e34]:
+        - row [ref=e35]:
+          - columnheader "#" [ref=e36]
+          - columnheader "Artist" [ref=e37]
+          - columnheader "SK Music" [ref=e38]
+          - columnheader "Zemer App" [ref=e40]
+          - columnheader "Total" [ref=e42]
+      - rowgroup [ref=e43]:
+        - row [ref=e44]:
+          - cell "Loading…" [ref=e45]
+  - contentinfo [ref=e46]:
+    - text: SK Music counts come from this site's own play analytics; Zemer app counts come from the app's public
+    - link "usage stats" [ref=e47] [cursor=pointer]:
+      - /url: https://tracking.zemer.io/
+    - text: ", matched to the same catalog and refreshed twice daily. Ranking blends both sources, weighting the app side by unique listeners."

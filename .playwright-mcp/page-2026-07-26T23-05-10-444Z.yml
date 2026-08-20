@@ -1,0 +1,88 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#maincontent"
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - img "SK Music" [ref=e6]
+      - navigation "Primary" [ref=e7]:
+        - generic [ref=e8]:
+          - generic [ref=e9]: Discover
+          - link "Home" [ref=e10] [cursor=pointer]
+          - link "For You" [ref=e14] [cursor=pointer]
+          - link "Search" [ref=e18] [cursor=pointer]
+        - generic [ref=e22]:
+          - generic [ref=e23]: Browse
+          - link "Artists" [ref=e24] [cursor=pointer]
+          - link "Playlists" [ref=e28] [cursor=pointer]
+          - link "Kid Zone" [ref=e32] [cursor=pointer]
+        - generic [ref=e36]:
+          - generic [ref=e37]: You
+          - link "Library" [ref=e38] [cursor=pointer]
+          - link "About" [ref=e42] [cursor=pointer]
+      - generic [ref=e46]:
+        - link "View source" [ref=e47] [cursor=pointer]:
+          - /url: https://github.com/Shalom-Karr/SK-Music
+        - link "Built by Shalom Karr" [ref=e51] [cursor=pointer]:
+          - /url: https://shalomkarr.pages.dev/
+          - generic [ref=e54]: Built by
+          - generic [ref=e55]: Shalom Karr
+    - generic [ref=e58]:
+      - banner [ref=e59]:
+        - generic [ref=e60]: Home
+        - generic "Live catalog" [ref=e61]:
+          - generic [ref=e63]: 71,531
+          - text: songs
+          - generic [ref=e64]: ·
+          - generic [ref=e65]: 1,625
+          - text: artists
+          - generic [ref=e66]: ·
+          - generic [ref=e67]: 3,568
+          - text: albums
+        - button "Content filters" [ref=e68] [cursor=pointer]
+        - button "Sign in / Sign up" [ref=e74] [cursor=pointer]:
+          - generic [ref=e75]: ＋
+      - main [ref=e77]:
+        - generic [ref=e78]:
+          - generic [ref=e79]:
+            - generic [ref=e80]: Kosher music, by construction
+            - heading "Only the music you trust." [level=1] [ref=e81]
+            - paragraph [ref=e82]: Every song here comes from a whitelisted artist's full catalog — searched, not filtered. Nothing outside it.
+            - generic: מוזיקה
+          - heading "Quick Picks" [level=2] [ref=e85]
+  - text: 🔒 🔒
+  - generic [ref=e111]:
+    - generic [ref=e113]:
+      - button "Collapse" [ref=e114] [cursor=pointer]
+      - generic [ref=e117]: Now Playing
+      - button "Playback speed" [ref=e118] [cursor=pointer]: 1×
+    - generic [ref=e119]:
+      - generic [ref=e120]:
+        - generic [ref=e125]:
+          - button "Like" [ref=e126] [cursor=pointer]
+          - button "Share" [ref=e129] [cursor=pointer]
+        - generic [ref=e132]:
+          - slider "Seek" [ref=e133] [cursor=pointer]: "0"
+          - generic [ref=e134]:
+            - generic [ref=e135]: 0:00
+            - generic [ref=e136]: 0:00
+        - generic [ref=e137]:
+          - button "Back 15 seconds" [ref=e138] [cursor=pointer]:
+            - img [ref=e139]:
+              - generic [ref=e141]: "15"
+          - button "Previous" [ref=e142] [cursor=pointer]
+          - button "Play" [ref=e145] [cursor=pointer]
+          - button "Next" [ref=e148] [cursor=pointer]
+          - button "Forward 15 seconds" [ref=e151] [cursor=pointer]:
+            - img [ref=e152]:
+              - generic [ref=e154]: "15"
+          - button "Repeat this song" [ref=e155] [cursor=pointer]
+      - heading "Up Next" [level=4] [ref=e159]
+  - iframe [ref=e160]:
+    - generic [ref=f1e1]:
+      - generic "YouTube Video Player" [ref=f1e3]
+      - generic [ref=f1e5]:
+        - generic:
+          - generic:
+            - button "Play video" [ref=f1e10] [cursor=pointer]
+            - button "Hide player controls" [ref=f1e12] [cursor=pointer]
+  - status

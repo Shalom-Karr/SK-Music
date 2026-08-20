@@ -1,0 +1,748 @@
+- generic [ref=f26e2]:
+  - banner [ref=f26e3]:
+    - heading "Trending" [level=1] [ref=f26e4]
+    - link "Open SK Music" [ref=f26e5] [cursor=pointer]:
+      - /url: /
+    - paragraph [ref=f26e6]: Top songs and artists across both players, last 30 days.
+  - generic [ref=f26e7]:
+    - generic [ref=f26e8]: SK Music (web)
+    - generic [ref=f26e10]: Zemer app
+  - generic [ref=f26e12]:
+    - heading "Trending Songs" [level=2] [ref=f26e13]
+    - paragraph [ref=f26e14]: Qualified plays — short skips don't count.
+    - table [ref=f26e16]:
+      - rowgroup [ref=f26e17]:
+        - row [ref=f26e18]:
+          - columnheader "#" [ref=f26e19]
+          - columnheader "Song" [ref=f26e20]
+          - columnheader "SK Music" [ref=f26e21]
+          - columnheader "Zemer App" [ref=f26e23]
+          - columnheader "Total" [ref=f26e25]
+      - rowgroup [ref=f26e26]:
+        - row [ref=f26e27]:
+          - cell "1" [ref=f26e28]
+          - cell [ref=f26e29]:
+            - link "שמוליק סוכות - הילד הזה (ווקאלי) | Shmulik Sukkot - Hayeled H… Shmulik Sukkot - שמוליק סוכות" [ref=f26e30] [cursor=pointer]:
+              - /url: /song/Ym3yKN0LdDs
+              - generic [ref=f26e31]:
+                - generic "שמוליק סוכות - הילד הזה (ווקאלי) | Shmulik Sukkot - Hayeled Hazeh (Acapella)" [ref=f26e32]: שמוליק סוכות - הילד הזה (ווקאלי) | Shmulik Sukkot - Hayeled H…
+                - generic "Shmulik Sukkot - שמוליק סוכות" [ref=f26e33]
+          - cell "11" [ref=f26e34]
+          - cell "129" [ref=f26e35]
+          - cell "140" [ref=f26e36]
+        - row [ref=f26e37]:
+          - cell "2" [ref=f26e38]
+          - cell [ref=f26e39]:
+            - link "Any Day Now (Acapella ) DJ MUSIIX" [ref=f26e40] [cursor=pointer]:
+              - /url: /song/GjYZJaQ-XJw
+              - generic [ref=f26e41]:
+                - generic "Any Day Now (Acapella )" [ref=f26e42]
+                - generic "DJ MUSIIX" [ref=f26e43]
+          - cell "—" [ref=f26e44]
+          - cell "134" [ref=f26e45]
+          - cell "134" [ref=f26e46]
+        - row [ref=f26e47]:
+          - cell "3" [ref=f26e48]
+          - cell [ref=f26e49]:
+            - link "New Day Will Rise (Acapella) Thank You Hashem" [ref=f26e50] [cursor=pointer]:
+              - /url: /song/OUmNotFGKx4
+              - generic [ref=f26e51]:
+                - generic "New Day Will Rise (Acapella)" [ref=f26e52]
+                - generic "Thank You Hashem" [ref=f26e53]
+          - cell "—" [ref=f26e54]
+          - cell "115" [ref=f26e55]
+          - cell "115" [ref=f26e56]
+        - row [ref=f26e57]:
+          - cell "4" [ref=f26e58]
+          - cell [ref=f26e59]:
+            - link "Home Again (Acapella) Shloime Gertner" [ref=f26e60] [cursor=pointer]:
+              - /url: /song/U3VdZEl1aCg
+              - generic [ref=f26e61]:
+                - generic "Home Again (Acapella)" [ref=f26e62]
+                - generic "Shloime Gertner" [ref=f26e63]
+          - cell "8" [ref=f26e64]
+          - cell "100" [ref=f26e65]
+          - cell "108" [ref=f26e66]
+        - row [ref=f26e67]:
+          - cell "5" [ref=f26e68]
+          - cell [ref=f26e69]:
+            - link "⁠I Wanna Be Like Zusha (Acapella) Thank You Hashem" [ref=f26e70] [cursor=pointer]:
+              - /url: /song/uXhQc8v6Jic
+              - generic [ref=f26e71]:
+                - generic "⁠I Wanna Be Like Zusha (Acapella)" [ref=f26e72]
+                - generic "Thank You Hashem" [ref=f26e73]
+          - cell "12" [ref=f26e74]
+          - cell "96" [ref=f26e75]
+          - cell "108" [ref=f26e76]
+        - row [ref=f26e77]:
+          - cell "6" [ref=f26e78]
+          - cell [ref=f26e79]:
+            - link "שמוליק סוכות - עם יפה (ווקאלי) | Shmulik Sukkot - Am Ya… Shmulik Sukkot - שמוליק סוכות" [ref=f26e80] [cursor=pointer]:
+              - /url: /song/XK2fehM4b5Y
+              - generic [ref=f26e81]:
+                - generic "שמוליק סוכות - עם יפה (ווקאלי) | Shmulik Sukkot - Am Yafe (Acapella)" [ref=f26e82]: שמוליק סוכות - עם יפה (ווקאלי) | Shmulik Sukkot - Am Ya…
+                - generic "Shmulik Sukkot - שמוליק סוכות" [ref=f26e83]
+          - cell "17" [ref=f26e84]
+          - cell "77" [ref=f26e85]
+          - cell "94" [ref=f26e86]
+        - row [ref=f26e87]:
+          - cell "7" [ref=f26e88]
+          - cell [ref=f26e89]:
+            - link "שמוליק סוכות - התעוררי (ווקאלי) | Shmulik Sukkot - Hitor… Shmulik Sukkot - שמוליק סוכות" [ref=f26e90] [cursor=pointer]:
+              - /url: /song/ebhSuh9S0CQ
+              - generic [ref=f26e91]:
+                - generic "שמוליק סוכות - התעוררי (ווקאלי) | Shmulik Sukkot - Hitoreri (Acapella)" [ref=f26e92]: שמוליק סוכות - התעוררי (ווקאלי) | Shmulik Sukkot - Hitor…
+                - generic "Shmulik Sukkot - שמוליק סוכות" [ref=f26e93]
+          - cell "16" [ref=f26e94]
+          - cell "74" [ref=f26e95]
+          - cell "90" [ref=f26e96]
+        - row [ref=f26e97]:
+          - cell "8" [ref=f26e98]
+          - cell [ref=f26e99]:
+            - link "שמוליק סוכות - התפילה (ווקאלי) | Shmulik Sukkot - Hatfi… Shmulik Sukkot - שמוליק סוכות" [ref=f26e100] [cursor=pointer]:
+              - /url: /song/pOp2Cne4BtY
+              - generic [ref=f26e101]:
+                - generic "שמוליק סוכות - התפילה (ווקאלי) | Shmulik Sukkot - Hatfila (Acapella)" [ref=f26e102]: שמוליק סוכות - התפילה (ווקאלי) | Shmulik Sukkot - Hatfi…
+                - generic "Shmulik Sukkot - שמוליק סוכות" [ref=f26e103]
+          - cell "14" [ref=f26e104]
+          - cell "67" [ref=f26e105]
+          - cell "81" [ref=f26e106]
+        - row [ref=f26e107]:
+          - cell "9" [ref=f26e108]
+          - cell [ref=f26e109]:
+            - link "ידיעת האמת - ווקאלי Ariel Borzutzky - אריאל בורסוצקי" [ref=f26e110] [cursor=pointer]:
+              - /url: /song/g0BkvTbIJng
+              - generic [ref=f26e111]:
+                - generic "ידיעת האמת - ווקאלי" [ref=f26e112]
+                - generic "Ariel Borzutzky - אריאל בורסוצקי" [ref=f26e113]
+          - cell "9" [ref=f26e114]
+          - cell "71" [ref=f26e115]
+          - cell "80" [ref=f26e116]
+        - row [ref=f26e117]:
+          - cell "10" [ref=f26e118]
+          - cell [ref=f26e119]:
+            - link "משה קליין - להיות שלם (ווקאלי) | Moshe Klein - Lihiyot Sha… Moshe Klein" [ref=f26e120] [cursor=pointer]:
+              - /url: /song/U7XssHCmesY
+              - generic [ref=f26e121]:
+                - generic "משה קליין - להיות שלם (ווקאלי) | Moshe Klein - Lihiyot Shalem (Acapella)" [ref=f26e122]: משה קליין - להיות שלם (ווקאלי) | Moshe Klein - Lihiyot Sha…
+                - generic "Moshe Klein" [ref=f26e123]
+          - cell "7" [ref=f26e124]
+          - cell "62" [ref=f26e125]
+          - cell "69" [ref=f26e126]
+        - row [ref=f26e127]:
+          - cell "11" [ref=f26e128]
+          - cell [ref=f26e129]:
+            - link "נחמן פילמר | סט ווקאלי • 2026 • הלהיטים הגדולים • Acapell… Nachmen Filmer" [ref=f26e130] [cursor=pointer]:
+              - /url: /song/BN_0xK5mNyw
+              - generic [ref=f26e131]:
+                - generic "נחמן פילמר | סט ווקאלי • 2026 • הלהיטים הגדולים • Acapella // vocal set" [ref=f26e132]: נחמן פילמר | סט ווקאלי • 2026 • הלהיטים הגדולים • Acapell…
+                - generic "Nachmen Filmer" [ref=f26e133]
+          - cell "—" [ref=f26e134]
+          - cell "58" [ref=f26e135]
+          - cell "58" [ref=f26e136]
+        - row [ref=f26e137]:
+          - cell "12" [ref=f26e138]
+          - cell [ref=f26e139]:
+            - link "I Need You Now Acapella (Feat. Ari… Yechiel Giniger" [ref=f26e140] [cursor=pointer]:
+              - /url: /song/LY5R6XOaqUo
+              - generic [ref=f26e141]:
+                - generic "I Need You Now Acapella (Feat. Ari Goldwag)" [ref=f26e142]: I Need You Now Acapella (Feat. Ari…
+                - generic "Yechiel Giniger" [ref=f26e143]
+          - cell "—" [ref=f26e144]
+          - cell "54" [ref=f26e145]
+          - cell "54" [ref=f26e146]
+        - row [ref=f26e147]:
+          - cell "13" [ref=f26e148]
+          - cell [ref=f26e149]:
+            - link "Chaim Green - Nesoyen - Acappella | חיים גרין - נס… Chaim Green" [ref=f26e150] [cursor=pointer]:
+              - /url: /song/petayqYEP54
+              - generic [ref=f26e151]:
+                - generic "Chaim Green - Nesoyen - Acappella | חיים גרין - נסיון - ווקאלי" [ref=f26e152]: Chaim Green - Nesoyen - Acappella | חיים גרין - נס…
+                - generic "Chaim Green" [ref=f26e153]
+          - cell "7" [ref=f26e154]
+          - cell "44" [ref=f26e155]
+          - cell "51" [ref=f26e156]
+        - row [ref=f26e157]:
+          - cell "14" [ref=f26e158]
+          - cell [ref=f26e159]:
+            - link "אבי אילסון & אהרל'ע סאמעט - המלמד תורה ווקאלי | Avi Ilson & Ahrele samet - Hamel… Avi Ilson" [ref=f26e160] [cursor=pointer]:
+              - /url: /song/U1LpStyP-IY
+              - generic [ref=f26e161]:
+                - generic "אבי אילסון & אהרל'ע סאמעט - המלמד תורה ווקאלי | Avi Ilson & Ahrele samet - Hamelamed Torah Acapella" [ref=f26e162]: אבי אילסון & אהרל'ע סאמעט - המלמד תורה ווקאלי | Avi Ilson & Ahrele samet - Hamel…
+                - generic "Avi Ilson" [ref=f26e163]
+          - cell "—" [ref=f26e164]
+          - cell "51" [ref=f26e165]
+          - cell "51" [ref=f26e166]
+        - row [ref=f26e167]:
+          - cell "15" [ref=f26e168]
+          - cell [ref=f26e169]:
+            - link "Modeh Ani - מודה אני (Acapella) Shloime Gertner" [ref=f26e170] [cursor=pointer]:
+              - /url: /song/cgTVzS-k-Po
+              - generic [ref=f26e171]:
+                - generic "Modeh Ani - מודה אני (Acapella)" [ref=f26e172]
+                - generic "Shloime Gertner" [ref=f26e173]
+          - cell "11" [ref=f26e174]
+          - cell "32" [ref=f26e175]
+          - cell "43" [ref=f26e176]
+        - row [ref=f26e177]:
+          - cell "16" [ref=f26e178]
+          - cell [ref=f26e179]:
+            - link "Pischi Li - פתחי לי (Acapella) Shloime Gertner" [ref=f26e180] [cursor=pointer]:
+              - /url: /song/gof1Ipsl10s
+              - generic [ref=f26e181]:
+                - generic "Pischi Li - פתחי לי (Acapella)" [ref=f26e182]
+                - generic "Shloime Gertner" [ref=f26e183]
+          - cell "14" [ref=f26e184]
+          - cell "28" [ref=f26e185]
+          - cell "42" [ref=f26e186]
+        - row [ref=f26e187]:
+          - cell "17" [ref=f26e188]
+          - cell [ref=f26e189]:
+            - link "Hoshieinu - הושיענו (Acapella) Shloime Gertner" [ref=f26e190] [cursor=pointer]:
+              - /url: /song/n0prGLL90zk
+              - generic [ref=f26e191]:
+                - generic "Hoshieinu - הושיענו (Acapella)" [ref=f26e192]
+                - generic "Shloime Gertner" [ref=f26e193]
+          - cell "12" [ref=f26e194]
+          - cell "26" [ref=f26e195]
+          - cell "38" [ref=f26e196]
+        - row [ref=f26e197]:
+          - cell "18" [ref=f26e198]
+          - cell [ref=f26e199]:
+            - link "Kain Hashem Benny Friedman" [ref=f26e200] [cursor=pointer]:
+              - /url: /song/aJPhq0K6t6M
+              - generic [ref=f26e201]:
+                - generic "Kain Hashem" [ref=f26e202]
+                - generic "Benny Friedman" [ref=f26e203]
+          - cell "36" [ref=f26e204]
+          - cell "—" [ref=f26e205]
+          - cell "36" [ref=f26e206]
+        - row [ref=f26e207]:
+          - cell "19" [ref=f26e208]
+          - cell [ref=f26e209]:
+            - link "Baal Shem Tov Niggun (Acapella) Thank You Hashem" [ref=f26e210] [cursor=pointer]:
+              - /url: /song/GkVJ9IBB-Ss
+              - generic [ref=f26e211]:
+                - generic "Baal Shem Tov Niggun (Acapella)" [ref=f26e212]
+                - generic "Thank You Hashem" [ref=f26e213]
+          - cell "—" [ref=f26e214]
+          - cell "35" [ref=f26e215]
+          - cell "35" [ref=f26e216]
+        - row [ref=f26e217]:
+          - cell "20" [ref=f26e218]
+          - cell [ref=f26e219]:
+            - link "Hashiveinu Benny Friedman" [ref=f26e220] [cursor=pointer]:
+              - /url: /song/wpQXwFgIZNU
+              - generic [ref=f26e221]:
+                - generic "Hashiveinu" [ref=f26e222]
+                - generic "Benny Friedman" [ref=f26e223]
+          - cell "—" [ref=f26e224]
+          - cell "35" [ref=f26e225]
+          - cell "35" [ref=f26e226]
+        - row [ref=f26e227]:
+          - cell "21" [ref=f26e228]
+          - cell [ref=f26e229]:
+            - link "נחמן פילמר | סט ווקאלי 2025 🎙️ A cappella… Nachmen Filmer" [ref=f26e230] [cursor=pointer]:
+              - /url: /song/etDZROnaDtI
+              - generic [ref=f26e231]:
+                - generic "נחמן פילמר | סט ווקאלי 2025 🎙️ A cappella vocal set" [ref=f26e232]: נחמן פילמר | סט ווקאלי 2025 🎙️ A cappella…
+                - generic "Nachmen Filmer" [ref=f26e233]
+          - cell "—" [ref=f26e234]
+          - cell "33" [ref=f26e235]
+          - cell "33" [ref=f26e236]
+        - row [ref=f26e237]:
+          - cell "22" [ref=f26e238]
+          - cell [ref=f26e239]:
+            - link "An Everlasting Love Benny Friedman" [ref=f26e240] [cursor=pointer]:
+              - /url: /song/g_1UD3PluZo
+              - generic [ref=f26e241]:
+                - generic "An Everlasting Love" [ref=f26e242]
+                - generic "Benny Friedman" [ref=f26e243]
+          - cell "31" [ref=f26e244]
+          - cell "—" [ref=f26e245]
+          - cell "31" [ref=f26e246]
+        - row [ref=f26e247]:
+          - cell "23" [ref=f26e248]
+          - cell [ref=f26e249]:
+            - link "What Does The Schach Say (feat. Binyomi… A. K. A. Pella" [ref=f26e250] [cursor=pointer]:
+              - /url: /song/G9dNxXhehmg
+              - generic [ref=f26e251]:
+                - generic "What Does The Schach Say (feat. Binyomin Miller)" [ref=f26e252]: What Does The Schach Say (feat. Binyomi…
+                - generic "A. K. A. Pella" [ref=f26e253]
+          - cell "—" [ref=f26e254]
+          - cell "30" [ref=f26e255]
+          - cell "30" [ref=f26e256]
+        - row [ref=f26e257]:
+          - cell "24" [ref=f26e258]
+          - cell [ref=f26e259]:
+            - link "Racheim Al Tzion Benny Friedman" [ref=f26e260] [cursor=pointer]:
+              - /url: /song/_uwxGv7MRZQ
+              - generic [ref=f26e261]:
+                - generic "Racheim Al Tzion" [ref=f26e262]
+                - generic "Benny Friedman" [ref=f26e263]
+          - cell "—" [ref=f26e264]
+          - cell "30" [ref=f26e265]
+          - cell "30" [ref=f26e266]
+        - row [ref=f26e267]:
+          - cell "25" [ref=f26e268]
+          - cell [ref=f26e269]:
+            - link "Reishis Chuchma - ראשית חכמה (Acapella) Shloime Gertner" [ref=f26e270] [cursor=pointer]:
+              - /url: /song/um7nAf1K7HQ
+              - generic [ref=f26e271]:
+                - generic "Reishis Chuchma - ראשית חכמה (Acapella)" [ref=f26e272]
+                - generic "Shloime Gertner" [ref=f26e273]
+          - cell "9" [ref=f26e274]
+          - cell "19" [ref=f26e275]
+          - cell "28" [ref=f26e276]
+        - row [ref=f26e277]:
+          - cell "26" [ref=f26e278]
+          - cell [ref=f26e279]:
+            - link "Ba'avur Avoseinu (Vocal Version) Ari Goldwag" [ref=f26e280] [cursor=pointer]:
+              - /url: /song/soV_RYtvI9s
+              - generic [ref=f26e281]:
+                - generic "Ba'avur Avoseinu (Vocal Version)" [ref=f26e282]
+                - generic "Ari Goldwag" [ref=f26e283]
+          - cell "—" [ref=f26e284]
+          - cell "27" [ref=f26e285]
+          - cell "27" [ref=f26e286]
+        - row [ref=f26e287]:
+          - cell "27" [ref=f26e288]
+          - cell [ref=f26e289]:
+            - link "Hamalach - המלאך (Acapella) Shloime Gertner" [ref=f26e290] [cursor=pointer]:
+              - /url: /song/-WyS44mF2uw
+              - generic [ref=f26e291]:
+                - generic "Hamalach - המלאך (Acapella)" [ref=f26e292]
+                - generic "Shloime Gertner" [ref=f26e293]
+          - cell "6" [ref=f26e294]
+          - cell "20" [ref=f26e295]
+          - cell "26" [ref=f26e296]
+        - row [ref=f26e297]:
+          - cell "28" [ref=f26e298]
+          - cell [ref=f26e299]:
+            - link "Ad Ana (Vocal Version) Yechiel Schron" [ref=f26e300] [cursor=pointer]:
+              - /url: /song/zY187wJQsBo
+              - generic [ref=f26e301]:
+                - generic "Ad Ana (Vocal Version)" [ref=f26e302]
+                - generic "Yechiel Schron" [ref=f26e303]
+          - cell "—" [ref=f26e304]
+          - cell "26" [ref=f26e305]
+          - cell "26" [ref=f26e306]
+        - row [ref=f26e307]:
+          - cell "29" [ref=f26e308]
+          - cell [ref=f26e309]:
+            - link "Chasdei Hashem (Acapella) Naftali Kempeh" [ref=f26e310] [cursor=pointer]:
+              - /url: /song/13csDufh73A
+              - generic [ref=f26e311]:
+                - generic "Chasdei Hashem (Acapella)" [ref=f26e312]
+                - generic "Naftali Kempeh" [ref=f26e313]
+          - cell "25" [ref=f26e314]
+          - cell "—" [ref=f26e315]
+          - cell "25" [ref=f26e316]
+        - row [ref=f26e317]:
+          - cell "30" [ref=f26e318]
+          - cell [ref=f26e319]:
+            - link "Thinking of Yerushalaim Naftali Kempeh" [ref=f26e320] [cursor=pointer]:
+              - /url: /song/PIJh0tzK6dY
+              - generic [ref=f26e321]:
+                - generic "Thinking of Yerushalaim" [ref=f26e322]
+                - generic "Naftali Kempeh" [ref=f26e323]
+          - cell "24" [ref=f26e324]
+          - cell "—" [ref=f26e325]
+          - cell "24" [ref=f26e326]
+        - row [ref=f26e327]:
+          - cell "31" [ref=f26e328]
+          - cell [ref=f26e329]:
+            - link "קנא Sruli Broncher" [ref=f26e330] [cursor=pointer]:
+              - /url: /song/b0sI5fIlwTQ
+              - generic [ref=f26e331]:
+                - generic "קנא" [ref=f26e332]
+                - generic "Sruli Broncher" [ref=f26e333]
+          - cell "—" [ref=f26e334]
+          - cell "22" [ref=f26e335]
+          - cell "22" [ref=f26e336]
+        - row [ref=f26e337]:
+          - cell "32" [ref=f26e338]
+          - cell [ref=f26e339]:
+            - link "K'ayol Benny Friedman" [ref=f26e340] [cursor=pointer]:
+              - /url: /song/IpUjceFLE80
+              - generic [ref=f26e341]:
+                - generic "K'ayol" [ref=f26e342]
+                - generic "Benny Friedman" [ref=f26e343]
+          - cell "21" [ref=f26e344]
+          - cell "—" [ref=f26e345]
+          - cell "21" [ref=f26e346]
+        - row [ref=f26e347]:
+          - cell "33" [ref=f26e348]
+          - cell [ref=f26e349]:
+            - link "Korveini Eilecha (Acapella) Naftali Kempeh" [ref=f26e350] [cursor=pointer]:
+              - /url: /song/HOEGay5E8xw
+              - generic [ref=f26e351]:
+                - generic "Korveini Eilecha (Acapella)" [ref=f26e352]
+                - generic "Naftali Kempeh" [ref=f26e353]
+          - cell "7" [ref=f26e354]
+          - cell "14" [ref=f26e355]
+          - cell "21" [ref=f26e356]
+        - row [ref=f26e357]:
+          - cell "34" [ref=f26e358]
+          - cell [ref=f26e359]:
+            - link "V'nikeisi Benny Friedman" [ref=f26e360] [cursor=pointer]:
+              - /url: /song/FDMyzzhwbY0
+              - generic [ref=f26e361]:
+                - generic "V'nikeisi" [ref=f26e362]
+                - generic "Benny Friedman" [ref=f26e363]
+          - cell "15" [ref=f26e364]
+          - cell "—" [ref=f26e365]
+          - cell "15" [ref=f26e366]
+        - row [ref=f26e367]:
+          - cell "35" [ref=f26e368]
+          - cell [ref=f26e369]:
+            - link "Kol Hanechalim (Live) Naftali Kempeh" [ref=f26e370] [cursor=pointer]:
+              - /url: /song/hGnzJnbp1Qk
+              - generic [ref=f26e371]:
+                - generic "Kol Hanechalim (Live)" [ref=f26e372]
+                - generic "Naftali Kempeh" [ref=f26e373]
+          - cell "15" [ref=f26e374]
+          - cell "—" [ref=f26e375]
+          - cell "15" [ref=f26e376]
+        - row [ref=f26e377]:
+          - cell "36" [ref=f26e378]
+          - cell [ref=f26e379]:
+            - link "יהי רצון Yonatan Stern" [ref=f26e380] [cursor=pointer]:
+              - /url: /song/jA0I_rq-ccI
+              - generic [ref=f26e381]:
+                - generic "יהי רצון" [ref=f26e382]
+                - generic "Yonatan Stern" [ref=f26e383]
+          - cell "14" [ref=f26e384]
+          - cell "—" [ref=f26e385]
+          - cell "14" [ref=f26e386]
+        - row [ref=f26e387]:
+          - cell "37" [ref=f26e388]
+          - cell [ref=f26e389]:
+            - link "Gut Shabbos (Intro) Yaakov Shwekey" [ref=f26e390] [cursor=pointer]:
+              - /url: /song/VCEQPuoX2sk
+              - generic [ref=f26e391]:
+                - generic "Gut Shabbos (Intro)" [ref=f26e392]
+                - generic "Yaakov Shwekey" [ref=f26e393]
+          - cell "—" [ref=f26e394]
+          - cell "14" [ref=f26e395]
+          - cell "14" [ref=f26e396]
+        - row [ref=f26e397]:
+          - cell "38" [ref=f26e398]
+          - cell [ref=f26e399]:
+            - link "(שלום עליכם) סלבודקה - Slobodka (Shalom Aleichem) (feat. Yidi Bialostozky & Mend… Motty Ilowitz" [ref=f26e400] [cursor=pointer]:
+              - /url: /song/iZAlJWKfFJ8
+              - generic [ref=f26e401]:
+                - generic "(שלום עליכם) סלבודקה - Slobodka (Shalom Aleichem) (feat. Yidi Bialostozky & Mendy Hershkowitz Band)" [ref=f26e402]: (שלום עליכם) סלבודקה - Slobodka (Shalom Aleichem) (feat. Yidi Bialostozky & Mend…
+                - generic "Motty Ilowitz" [ref=f26e403]
+          - cell "13" [ref=f26e404]
+          - cell "—" [ref=f26e405]
+          - cell "13" [ref=f26e406]
+        - row [ref=f26e407]:
+          - cell "39" [ref=f26e408]
+          - cell [ref=f26e409]:
+            - link "Mi Adir The Miami Boys Choir" [ref=f26e410] [cursor=pointer]:
+              - /url: /song/Bo9bb8hM-Ag
+              - generic [ref=f26e411]:
+                - generic "Mi Adir" [ref=f26e412]
+                - generic "The Miami Boys Choir" [ref=f26e413]
+          - cell "13" [ref=f26e414]
+          - cell "—" [ref=f26e415]
+          - cell "13" [ref=f26e416]
+        - row [ref=f26e417]:
+          - cell "40" [ref=f26e418]
+          - cell [ref=f26e419]:
+            - link "Sason V'Simcha (Acapella) Shloime Balsam" [ref=f26e420] [cursor=pointer]:
+              - /url: /song/tl9n1VfZdfY
+              - generic [ref=f26e421]:
+                - generic "Sason V'Simcha (Acapella)" [ref=f26e422]
+                - generic "Shloime Balsam" [ref=f26e423]
+          - cell "—" [ref=f26e424]
+          - cell "12" [ref=f26e425]
+          - cell "12" [ref=f26e426]
+  - generic [ref=f26e427]:
+    - heading "Trending Artists" [level=2] [ref=f26e428]
+    - paragraph [ref=f26e429]: All plays credited to the artist, both players combined.
+    - table [ref=f26e431]:
+      - rowgroup [ref=f26e432]:
+        - row [ref=f26e433]:
+          - columnheader "#" [ref=f26e434]
+          - columnheader "Artist" [ref=f26e435]
+          - columnheader "SK Music" [ref=f26e436]
+          - columnheader "Zemer App" [ref=f26e438]
+          - columnheader "Total" [ref=f26e440]
+      - rowgroup [ref=f26e441]:
+        - row [ref=f26e442]:
+          - cell "1" [ref=f26e443]
+          - cell [ref=f26e444]:
+            - link "Shmulik Sukkot - שמוליק סוכות" [ref=f26e445] [cursor=pointer]:
+              - /url: /artists/UC_30I6RrK_UZdmuHnI6d87g
+              - generic "Shmulik Sukkot - שמוליק סוכות" [ref=f26e448]
+          - cell "73" [ref=f26e449]
+          - cell "512" [ref=f26e450]
+          - cell "585" [ref=f26e451]
+        - row [ref=f26e452]:
+          - cell "2" [ref=f26e453]
+          - cell [ref=f26e454]:
+            - link "Thank You Hashem" [ref=f26e455] [cursor=pointer]:
+              - /url: /artists/UCHBST5NBv-gZeXkJjjP74Kw
+              - generic "Thank You Hashem" [ref=f26e458]
+          - cell "44" [ref=f26e459]
+          - cell "507" [ref=f26e460]
+          - cell "551" [ref=f26e461]
+        - row [ref=f26e462]:
+          - cell "3" [ref=f26e463]
+          - cell [ref=f26e464]:
+            - link "Benny Friedman" [ref=f26e465] [cursor=pointer]:
+              - /url: /artists/UCOSu81C9u9V-3JoOglWwEEw
+              - generic "Benny Friedman" [ref=f26e468]
+          - cell "180" [ref=f26e469]
+          - cell "309" [ref=f26e470]
+          - cell "489" [ref=f26e471]
+        - row [ref=f26e472]:
+          - cell "4" [ref=f26e473]
+          - cell [ref=f26e474]:
+            - link "Yaakov Shwekey" [ref=f26e475] [cursor=pointer]:
+              - /url: /artists/UC_dRX63mhvOrenBjYWJx9mA
+              - generic "Yaakov Shwekey" [ref=f26e478]
+          - cell "28" [ref=f26e479]
+          - cell "435" [ref=f26e480]
+          - cell "463" [ref=f26e481]
+        - row [ref=f26e482]:
+          - cell "5" [ref=f26e483]
+          - cell [ref=f26e484]:
+            - link "Beri Weber" [ref=f26e485] [cursor=pointer]:
+              - /url: /artists/UC8n1Io5T76kSYeuYVQHzsQA
+              - generic "Beri Weber" [ref=f26e488]
+          - cell "19" [ref=f26e489]
+          - cell "408" [ref=f26e490]
+          - cell "427" [ref=f26e491]
+        - row [ref=f26e492]:
+          - cell "6" [ref=f26e493]
+          - cell [ref=f26e494]:
+            - link "Shloime Gertner" [ref=f26e495] [cursor=pointer]:
+              - /url: /artists/UCR4H633zdnrJOP7zgN2SvHg
+              - generic "Shloime Gertner" [ref=f26e498]
+          - cell "77" [ref=f26e499]
+          - cell "267" [ref=f26e500]
+          - cell "344" [ref=f26e501]
+        - row [ref=f26e502]:
+          - cell "7" [ref=f26e503]
+          - cell [ref=f26e504]:
+            - link "Naftali Kempeh" [ref=f26e505] [cursor=pointer]:
+              - /url: /artists/UCJMSsbz2JigH3Gd-ODmjEMw
+              - generic "Naftali Kempeh" [ref=f26e508]
+          - cell "164" [ref=f26e509]
+          - cell "178" [ref=f26e510]
+          - cell "342" [ref=f26e511]
+        - row [ref=f26e512]:
+          - cell "8" [ref=f26e513]
+          - cell [ref=f26e514]:
+            - link "Ari Goldwag" [ref=f26e515] [cursor=pointer]:
+              - /url: /artists/UC31c9ukaP0w1Gugn6mTb5pA
+              - generic "Ari Goldwag" [ref=f26e518]
+          - cell "25" [ref=f26e519]
+          - cell "305" [ref=f26e520]
+          - cell "330" [ref=f26e521]
+        - row [ref=f26e522]:
+          - cell "9" [ref=f26e523]
+          - cell [ref=f26e524]:
+            - link "Baruch Levine" [ref=f26e525] [cursor=pointer]:
+              - /url: /artists/UC_IxmTZosg-FyYkvf1mzYnw
+              - generic "Baruch Levine" [ref=f26e528]
+          - cell "—" [ref=f26e529]
+          - cell "304" [ref=f26e530]
+          - cell "304" [ref=f26e531]
+        - row [ref=f26e532]:
+          - cell "10" [ref=f26e533]
+          - cell [ref=f26e534]:
+            - link "Moshy Kraus" [ref=f26e535] [cursor=pointer]:
+              - /url: /artists/UCQcynxK9GrpTCbzYRsP0RoQ
+              - generic "Moshy Kraus" [ref=f26e538]
+          - cell "34" [ref=f26e539]
+          - cell "181" [ref=f26e540]
+          - cell "215" [ref=f26e541]
+        - row [ref=f26e542]:
+          - cell "11" [ref=f26e543]
+          - cell [ref=f26e544]:
+            - link "DJ MUSIIX" [ref=f26e545] [cursor=pointer]:
+              - /url: /artists/UCuqMngyTKC3pLbBEcYYd4pw
+              - generic "DJ MUSIIX" [ref=f26e548]
+          - cell "—" [ref=f26e549]
+          - cell "201" [ref=f26e550]
+          - cell "201" [ref=f26e551]
+        - row [ref=f26e552]:
+          - cell "12" [ref=f26e553]
+          - cell [ref=f26e554]:
+            - link "Sruly Green" [ref=f26e555] [cursor=pointer]:
+              - /url: /artists/UCEjcKdpkZkvgT5ISMGV5DCg
+              - generic "Sruly Green" [ref=f26e558]
+          - cell "—" [ref=f26e559]
+          - cell "168" [ref=f26e560]
+          - cell "168" [ref=f26e561]
+        - row [ref=f26e562]:
+          - cell "13" [ref=f26e563]
+          - cell [ref=f26e564]:
+            - link "Maccabeats" [ref=f26e565] [cursor=pointer]:
+              - /url: /artists/UCEg5tmfi6WmJZRnezYLVHSg
+              - generic "Maccabeats" [ref=f26e568]
+          - cell "18" [ref=f26e569]
+          - cell "144" [ref=f26e570]
+          - cell "162" [ref=f26e571]
+        - row [ref=f26e572]:
+          - cell "14" [ref=f26e573]
+          - cell [ref=f26e574]:
+            - link "Avraham Fried" [ref=f26e575] [cursor=pointer]:
+              - /url: /artists/UC1-uPfCV7ZcLCSou9v_Vclw
+              - generic "Avraham Fried" [ref=f26e578]
+          - cell "16" [ref=f26e579]
+          - cell "130" [ref=f26e580]
+          - cell "146" [ref=f26e581]
+        - row [ref=f26e582]:
+          - cell "15" [ref=f26e583]
+          - cell [ref=f26e584]:
+            - link "Nachmen Filmer" [ref=f26e585] [cursor=pointer]:
+              - /url: /artists/UCgGb3s4V-jKqxGghfiIgvlg
+              - generic "Nachmen Filmer" [ref=f26e588]
+          - cell "—" [ref=f26e589]
+          - cell "131" [ref=f26e590]
+          - cell "131" [ref=f26e591]
+        - row [ref=f26e592]:
+          - cell "16" [ref=f26e593]
+          - cell [ref=f26e594]:
+            - link "Motty Ilowitz" [ref=f26e595] [cursor=pointer]:
+              - /url: /artists/UCVLQWjtgDSTZN37_YbISUAQ
+              - generic "Motty Ilowitz" [ref=f26e598]
+          - cell "123" [ref=f26e599]
+          - cell "—" [ref=f26e600]
+          - cell "123" [ref=f26e601]
+        - row [ref=f26e602]:
+          - cell "17" [ref=f26e603]
+          - cell [ref=f26e604]:
+            - link "Yechiel Giniger" [ref=f26e605] [cursor=pointer]:
+              - /url: /artists/UC6J2dA6gWquS57eE6UlE7OQ
+              - generic "Yechiel Giniger" [ref=f26e608]
+          - cell "58" [ref=f26e609]
+          - cell "56" [ref=f26e610]
+          - cell "114" [ref=f26e611]
+        - row [ref=f26e612]:
+          - cell "18" [ref=f26e613]
+          - cell [ref=f26e614]:
+            - link "Moshe Klein" [ref=f26e615] [cursor=pointer]:
+              - /url: /artists/UCpHeJBXBqnyvxF_eK-BiwnQ
+              - generic "Moshe Klein" [ref=f26e618]
+          - cell "—" [ref=f26e619]
+          - cell "113" [ref=f26e620]
+          - cell "113" [ref=f26e621]
+        - row [ref=f26e622]:
+          - cell "19" [ref=f26e623]
+          - cell [ref=f26e624]:
+            - link "Soulful Acappella" [ref=f26e625] [cursor=pointer]:
+              - /url: /artists/UCDSyf6lqSeFEZHDrxwJUjqA
+              - generic "Soulful Acappella" [ref=f26e628]
+          - cell "12" [ref=f26e629]
+          - cell "86" [ref=f26e630]
+          - cell "98" [ref=f26e631]
+        - row [ref=f26e632]:
+          - cell "20" [ref=f26e633]
+          - cell [ref=f26e634]:
+            - link "A. K. A. Pella" [ref=f26e635] [cursor=pointer]:
+              - /url: /artists/UCZFAzTfD7_WcgDVHwfmGrdw
+              - generic "A. K. A. Pella" [ref=f26e638]
+          - cell "—" [ref=f26e639]
+          - cell "94" [ref=f26e640]
+          - cell "94" [ref=f26e641]
+        - row [ref=f26e642]:
+          - cell "21" [ref=f26e643]
+          - cell [ref=f26e644]:
+            - link "Itzik Dadya" [ref=f26e645] [cursor=pointer]:
+              - /url: /artists/UCuUcHnYY30pDCJ-wNjw20gA
+              - generic "Itzik Dadya" [ref=f26e648]
+          - cell "—" [ref=f26e649]
+          - cell "87" [ref=f26e650]
+          - cell "87" [ref=f26e651]
+        - row [ref=f26e652]:
+          - cell "22" [ref=f26e653]
+          - cell [ref=f26e654]:
+            - link "Shulem Lemmer" [ref=f26e655] [cursor=pointer]:
+              - /url: /artists/UCNu_lYQXHXhzkf1YU-aZl8Q
+              - generic "Shulem Lemmer" [ref=f26e658]
+          - cell "18" [ref=f26e659]
+          - cell "65" [ref=f26e660]
+          - cell "83" [ref=f26e661]
+        - row [ref=f26e662]:
+          - cell "23" [ref=f26e663]
+          - cell [ref=f26e664]:
+            - link "Ariel Borzutzky - אריאל בורסוצקי" [ref=f26e665] [cursor=pointer]:
+              - /url: /artists/UCpisTPlZZUfL5Nrh_7580Fg
+              - generic "Ariel Borzutzky - אריאל בורסוצקי" [ref=f26e668]
+          - cell "—" [ref=f26e669]
+          - cell "71" [ref=f26e670]
+          - cell "71" [ref=f26e671]
+        - row [ref=f26e672]:
+          - cell "24" [ref=f26e673]
+          - cell [ref=f26e674]:
+            - link "Hanan Ben Ari" [ref=f26e675] [cursor=pointer]:
+              - /url: /artists/UCz4N_ARAr1VxGzXq_Xj850g
+              - generic "Hanan Ben Ari" [ref=f26e678]
+          - cell "67" [ref=f26e679]
+          - cell "—" [ref=f26e680]
+          - cell "67" [ref=f26e681]
+        - row [ref=f26e682]:
+          - cell "25" [ref=f26e683]
+          - cell [ref=f26e684]:
+            - link "MRM All Stars" [ref=f26e685] [cursor=pointer]:
+              - /url: /artists/UCfk1MtCGFY4qwWui3rxHCIQ
+              - generic "MRM All Stars" [ref=f26e688]
+          - cell "27" [ref=f26e689]
+          - cell "39" [ref=f26e690]
+          - cell "66" [ref=f26e691]
+        - row [ref=f26e692]:
+          - cell "26" [ref=f26e693]
+          - cell [ref=f26e694]:
+            - link "Avi Ilson" [ref=f26e695] [cursor=pointer]:
+              - /url: /artists/UClhlH-uzEKhMTlJQWbD2nrA
+              - generic "Avi Ilson" [ref=f26e698]
+          - cell "—" [ref=f26e699]
+          - cell "61" [ref=f26e700]
+          - cell "61" [ref=f26e701]
+        - row [ref=f26e702]:
+          - cell "27" [ref=f26e703]
+          - cell [ref=f26e704]:
+            - link "Mendy Worch" [ref=f26e705] [cursor=pointer]:
+              - /url: /artists/UC5f4TehK7zXuLDHNEcTCHig
+              - generic "Mendy Worch" [ref=f26e708]
+          - cell "—" [ref=f26e709]
+          - cell "60" [ref=f26e710]
+          - cell "60" [ref=f26e711]
+        - row [ref=f26e712]:
+          - cell "28" [ref=f26e713]
+          - cell [ref=f26e714]:
+            - link "Rabbi Yoel Ferber" [ref=f26e715] [cursor=pointer]:
+              - /url: /artists/UCzO25gJ0zn2Hhu10n0n2m4g
+              - generic "Rabbi Yoel Ferber" [ref=f26e718]
+          - cell "59" [ref=f26e719]
+          - cell "—" [ref=f26e720]
+          - cell "59" [ref=f26e721]
+        - row [ref=f26e722]:
+          - cell "29" [ref=f26e723]
+          - cell [ref=f26e724]:
+            - link "Shmueli Ungar" [ref=f26e725] [cursor=pointer]:
+              - /url: /artists/UCckg6lcQaW00lvNHwCjo7xA
+              - generic "Shmueli Ungar" [ref=f26e728]
+          - cell "—" [ref=f26e729]
+          - cell "50" [ref=f26e730]
+          - cell "50" [ref=f26e731]
+        - row [ref=f26e732]:
+          - cell "30" [ref=f26e733]
+          - cell [ref=f26e734]:
+            - link "Joey Newcomb" [ref=f26e735] [cursor=pointer]:
+              - /url: /artists/UC1QsA-Q6SUKX9gWi1heQDEA
+              - generic "Joey Newcomb" [ref=f26e738]
+          - cell "—" [ref=f26e739]
+          - cell "42" [ref=f26e740]
+          - cell "42" [ref=f26e741]
+  - contentinfo [ref=f26e742]:
+    - text: SK Music counts come from this site's own play analytics; Zemer app counts come from the app's public
+    - link "usage stats" [ref=f26e743] [cursor=pointer]:
+      - /url: https://tracking.zemer.io/
+    - text: ", matched to the same catalog and refreshed twice daily. Ranking blends both sources, weighting the app side by unique listeners."

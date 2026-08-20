@@ -1,0 +1,395 @@
+[   13710ms] [VERBOSE] [DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:8979/:0
+[   14791ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   14807ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   15029ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   15056ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   15411ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   15411ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   21709ms] [VERBOSE] [DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:8979/:0
+[   22220ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   22244ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   22470ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   22489ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   22723ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   22738ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   22972ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   22989ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   49638ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   49940ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   50234ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   50539ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   50834ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   51133ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   51433ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   51733ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   52032ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   52333ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   52633ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   52933ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   53233ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   53533ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   53834ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   54133ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   54432ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   54732ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   55040ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   55340ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   55639ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   55937ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   56233ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   56533ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   56840ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   57134ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   57433ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   57733ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   58035ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   58337ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   58640ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   58933ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   59236ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   59533ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   59832ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   60132ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   60432ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   60734ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   61033ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   61341ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   61632ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   62530ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   62531ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   62533ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   63234ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   63302ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/:2364:28)
+[   64177ms] [VERBOSE] [DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:8979/song/uXhQc8v6Jic:0
+[   64517ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   64522ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   64772ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   64772ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   65016ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   65022ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   65271ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   65271ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   71742ms] [VERBOSE] [DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:8979/song/uXhQc8v6Jic:0
+[   72064ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   72073ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   72314ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   72322ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   72564ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   72571ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube-nocookie.com') does not match the recipient window's origin ('http://127.0.0.1:8979'). @ https://www.youtube.com/s/player/15147aab/www-widgetapi.vflset/www-widgetapi.js:162
+[   74398ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   74694ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   75013ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   75193ms] ReferenceError: gaplessSwap is not defined
+    at Object.seek (http://127.0.0.1:8979/song/uXhQc8v6Jic:2105:15)
+    at HTMLInputElement.<anonymous> (http://127.0.0.1:8979/song/uXhQc8v6Jic:2390:70)
+[   75302ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   75596ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   75895ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   76194ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   76499ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   76800ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   77099ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   77340ms] ReferenceError: gaplessSwap is not defined
+    at Object.seek (http://127.0.0.1:8979/song/uXhQc8v6Jic:2105:15)
+    at HTMLInputElement.<anonymous> (http://127.0.0.1:8979/song/uXhQc8v6Jic:2390:70)
+[   77402ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   77700ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   77999ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   78298ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   78474ms] ReferenceError: gaplessSwap is not defined
+    at Object.seek (http://127.0.0.1:8979/song/uXhQc8v6Jic:2105:15)
+    at HTMLInputElement.<anonymous> (http://127.0.0.1:8979/song/uXhQc8v6Jic:2390:70)
+[   78600ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   78901ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   79201ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   79500ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   79800ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   80020ms] ReferenceError: gaplessSwap is not defined
+    at Object.seek (http://127.0.0.1:8979/song/uXhQc8v6Jic:2105:15)
+    at HTMLInputElement.<anonymous> (http://127.0.0.1:8979/song/uXhQc8v6Jic:2390:70)
+[   80099ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   80402ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   80703ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   80999ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   81237ms] ReferenceError: gaplessSwap is not defined
+    at Object.seek (http://127.0.0.1:8979/song/uXhQc8v6Jic:2105:15)
+    at HTMLInputElement.<anonymous> (http://127.0.0.1:8979/song/uXhQc8v6Jic:2390:70)
+[   81300ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   81600ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   81895ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   82202ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   82500ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   82794ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   83095ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   83396ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   83698ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   83998ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   84299ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   84599ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   84898ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   85199ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   85495ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   85799ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   86099ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   86395ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   86699ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   86999ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   87298ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   87596ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   87900ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   88198ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   88498ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   88796ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   89098ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   89398ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   89698ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   90035ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   90327ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   90598ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   90899ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   91199ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   91500ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   91800ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   92100ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   92394ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   92699ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   92999ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   93377ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   93623ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   93914ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   94249ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   94622ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   94870ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   95283ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   95462ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   95709ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   96150ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   96300ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   96657ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   96979ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   97264ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   97552ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   97848ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   98128ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   98426ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   98716ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[   99050ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  100899ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  100900ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  100900ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  100900ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  100900ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  100900ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  102033ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  102033ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  102033ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  102269ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  102677ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  102752ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  103140ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  103323ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  103503ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  103984ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  104385ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  104631ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  104848ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  105024ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  105520ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  105520ms] ReferenceError: gaplessSwap is not defined
+    at Object.pause (http://127.0.0.1:8979/song/uXhQc8v6Jic:2102:13)
+    at toggle (http://127.0.0.1:8979/song/uXhQc8v6Jic:2269:83)
+    at HTMLButtonElement.onclick (http://127.0.0.1:8979/song/uXhQc8v6Jic:876:107)
+[  105859ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  106067ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  106231ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  106499ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  106799ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  107098ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  107398ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  107693ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  107994ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  108298ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  108598ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  108901ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  109196ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  109499ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  109703ms] ReferenceError: gaplessSwap is not defined
+    at Object.pause (http://127.0.0.1:8979/song/uXhQc8v6Jic:2102:13)
+    at toggle (http://127.0.0.1:8979/song/uXhQc8v6Jic:2269:83)
+    at HTMLButtonElement.onclick (http://127.0.0.1:8979/song/uXhQc8v6Jic:876:107)
+[  109798ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  110095ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  110399ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  110701ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  110999ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)
+[  111299ms] ReferenceError: gaplessSwap is not defined
+    at tick (http://127.0.0.1:8979/song/uXhQc8v6Jic:2364:28)

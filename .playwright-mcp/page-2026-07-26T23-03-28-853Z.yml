@@ -1,0 +1,58 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#maincontent"
+  - generic [ref=e3]: loading
+  - generic [ref=e15]:
+    - complementary [ref=e16]:
+      - img "SK Music" [ref=e18]
+      - navigation "Primary" [ref=e19]
+      - generic [ref=e20]:
+        - link "View source" [ref=e21] [cursor=pointer]:
+          - /url: https://github.com/Shalom-Karr/SK-Music
+        - link "Built by Shalom Karr" [ref=e25] [cursor=pointer]:
+          - /url: https://shalomkarr.pages.dev/
+          - generic [ref=e28]: Built by
+          - generic [ref=e29]: Shalom Karr
+    - generic [ref=e32]:
+      - banner [ref=e33]:
+        - generic [ref=e34]: Home
+        - generic "Live catalog"
+        - button "Content filters" [ref=e35] [cursor=pointer]
+      - main [ref=e38]
+  - text: 🔒 🔒
+  - generic [ref=e39]:
+    - generic [ref=e41]:
+      - button "Collapse" [ref=e42] [cursor=pointer]
+      - generic [ref=e45]: Now Playing
+      - button "Playback speed" [ref=e46] [cursor=pointer]: 1×
+    - generic [ref=e47]:
+      - generic [ref=e48]:
+        - generic [ref=e53]:
+          - button "Like" [ref=e54] [cursor=pointer]
+          - button "Share" [ref=e57] [cursor=pointer]
+        - generic [ref=e60]:
+          - slider "Seek" [ref=e61] [cursor=pointer]: "0"
+          - generic [ref=e62]:
+            - generic [ref=e63]: 0:00
+            - generic [ref=e64]: 0:00
+        - generic [ref=e65]:
+          - button "Back 15 seconds" [ref=e66] [cursor=pointer]:
+            - img [ref=e67]:
+              - generic [ref=e69]: "15"
+          - button "Previous" [ref=e70] [cursor=pointer]
+          - button "Play" [ref=e73] [cursor=pointer]
+          - button "Next" [ref=e74] [cursor=pointer]
+          - button "Forward 15 seconds" [ref=e77] [cursor=pointer]:
+            - img [ref=e78]:
+              - generic [ref=e80]: "15"
+          - button "Repeat this song" [ref=e81] [cursor=pointer]
+      - heading "Up Next" [level=4] [ref=e85]
+  - iframe [ref=e86]:
+    - generic [ref=f1e1]:
+      - generic "YouTube Video Player" [ref=f1e3]
+      - generic [ref=f1e5]:
+        - generic:
+          - generic:
+            - button "Play video" [ref=f1e10] [cursor=pointer]
+            - button "Hide player controls" [ref=f1e12] [cursor=pointer]
+  - status
