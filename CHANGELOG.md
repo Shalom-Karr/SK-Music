@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.8.2 — 2026-08-24 (web)
+
+**Why the bump:** on iPad the app loaded, passed every connection test, and then played nothing at all.
+
+**Playback falls back instead of failing**
+- iPhone/iPad play through an alternate audio source so the music survives a screen lock. If that source
+  is unreachable, the app now **falls back to the normal player** and keeps going, instead of failing every
+  track in turn and reporting a restricted network. Background playback needs the alternate source, so it
+  is unavailable while running on the fallback — but the music plays.
+- The switch happens once per session, on the first failure, and resumes the **same song** at the position
+  it reached rather than skipping it. Reloading the app tries the preferred source again.
+- When **both** sources are unavailable — the network blocks the normal player *and* the alternate source
+  is unreachable — the app now says plainly that playback on a filtered device is unsupported right now,
+  for lack of the funding to run a streaming server, instead of sending people to a connection test that
+  can only confirm a problem that isn't on their end.
+- **Play next** and **Add to queue** are now in the ⋯ menu on any song, alongside Add to playlist.
+
 ## 1.8.1 — 2026-08-18 (web)
 
 **Streaming setting renamed**

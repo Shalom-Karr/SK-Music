@@ -3842,6 +3842,28 @@ function smArtist() { const t = _menuTrack; if (t && t.artist) gotoArtistByName(
 function smDownload() { const t = _menuTrack; if (!t || !t.videoId) return; if (SK_NATIVE) { skDownload(t.videoId, t.title, t.artist); } else { showToast("Downloads require the desktop app", 2000); } }
 function smShare() { const t = _menuTrack; if (t) shareSong(t, _menuRect ? rectAnchor(_menuRect) : null); }
 function smReport() { const t = _menuTrack; if (t) reportSong(t); }
+// A relay-sourced <audio> error means the RELAY refused us — the track itself is fine, so skipping
+// to the next one (which would fail identically) is exactly wrong. Retire the relay for this
+// session and resume the SAME track through the YouTube iframe, fetching the API first on iOS
+// where boot skipped it. Returns true if it took ownership of the error.
+function relayFailed(src) {
+  if (relayDead || !src || src.indexOf(RELAY_BASE) !== 0) return false;
+  relayDead = true;
+  console.warn("[relay] refused — falling back to the YouTube player for this session");
+  // Unconditionally, and BEFORE the track check: the iframe is now the only engine left, and on iOS
+  // boot never fetched the API. Skipping this when nothing happens to be queued would retire the relay
+  // and leave no engine at all — every later track would sit in PB.pending waiting for an API that was
+  // never requested.
+  ensureYT();
+  const t = state.queue[state.qi];
+  if (!t || t.kind || !t.videoId) return false; // nothing to resume; let the normal error path run
+  const at = PB.cur() || 0; // 0 when the relay 403'd before playing; a real position if it died mid-track
+  cancelSwap();
+  PB.nextStart = at;
+  PB.load(t.videoId, at); // relayOn() is false now, so this takes the iframe path (queues in `pending` until the API lands)
+  showToast("Switching player\u2026", 1800);
+  return true;
+}
 function smPlayNext() { enqueueMenuTrack(true); }
 function smAddToQueue() { enqueueMenuTrack(false); }
 // Insert the menu track into the live queue. "Play next" = right after the current track; "Add to
@@ -4201,9 +4223,13 @@ const relayDownloadUrl = (id) => RELAY_BASE + "/download?v=" + encodeURIComponen
 // Every reader goes through relayOn(), which is true for either, so the engine choice, the
 // toggle UI and the analytics tag all just work.
 let relaySession = false;
+// Set when a relay-sourced <audio> errors: the relay is refusing this origin (403) or is down.
+// Session-only and one-way — a reload gives it another chance, but within a session we stop
+// re-trying an engine that just proved it cannot serve us and fall back to the iframe instead.
+let relayDead = false;
 // IS_IOS first: on iOS the iframe engine cannot play in the background at all, so the relay IS the
 // engine, not a fallback. The manual toggle is hidden there (syncFilterUI).
-const relayOn = () => IS_IOS || relaySession || LS.get("zw_relay", "") === "1";
+const relayOn = () => !relayDead && (IS_IOS || relaySession || LS.get("zw_relay", "") === "1");
 function setRelay(on, quiet, persist = true) {
   if (persist) { LS.set("zw_relay", on ? "1" : ""); relaySession = false; }
   else relaySession = !!on;
@@ -4554,8 +4580,9 @@ window.onYouTubeIframeAPIReady = function () {
   PB.yt = mk("ytplayer", true);
   ytStandbyBoot = mk("ytplayer2", false); // promoted to ytStandby by its onReady OR by tick()'s readiness poll
 };
-(function loadYT() {
-  if (IS_IOS) return; // iOS never uses the iframe engine — do not load ~500 KB of YT script or arm the "slow player" warning
+let ytRequested = false;
+function ensureYT() {
+  if (ytRequested) return; ytRequested = true;
   const s = document.createElement("script"); s.src = "https://www.youtube.com/iframe_api"; s.onerror = () => ytUnavailable(true); // the script was REFUSED: a real block, not a slow load
   document.head.appendChild(s);
   // A SLOW load is not a blocked one. This used to flip PB.mode to "html5" after 9s — a ONE-WAY trapdoor onto
@@ -4568,7 +4595,10 @@ window.onYouTubeIframeAPIReady = function () {
   // relay auto-switch on unfiltered laptops that were merely slow to start, then persisted
   // that choice across reloads. Only s.onerror (the script actually refused) may switch.
   setTimeout(() => ytUnavailable(false), 9000);
-})();
+}
+// iOS boots on the relay (background audio is impossible through the iframe), so the iframe API is
+// not fetched up front there — relayFailed() calls ensureYT() if the relay lets us down.
+if (!IS_IOS) ensureYT();
 // The embed host is unreachable — a filtered network, nearly always. There is no server-side stream to fall
 // back to, so say so plainly and point at the diagnostic that identifies WHICH layer is blocked.
 let ytWarnedAt = 0, ytBlockReported = false;
@@ -4592,7 +4622,7 @@ function ytUnavailable(confirmed) {
   // Auto-switch to the relay ONLY on a confirmed block, and only for THIS session: an
   // automatic switch is never written to localStorage, so a one-off hiccup can't leave an
   // unfiltered user parked on the relay for good. A user's own toggle still persists.
-  if (confirmed && !relayOn()) {
+  if (confirmed && !relayOn() && !relayDead) {
     setRelay(true, true, /*persist*/ false);
     showToast('<b>Your filter blocks the normal player — switched to proxy streaming.</b> Music should play now. '
       + '<a href="/test" style="color:var(--primary);font-weight:700">Run the connection test</a> if anything is still wrong.', 10000);
@@ -4603,8 +4633,20 @@ function ytUnavailable(confirmed) {
       + '<a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a> — or turn on <b>Stream via proxy</b> in the filter menu.', 9000);
     return;
   }
+  if (relayDead) return noSourceToast();
   showToast('<b>Playback is blocked on this network.</b> Search &amp; browse still work — <a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a> to see what\'s blocking it.', 9000);
 }
+// Both engines are gone: the network refused the normal player AND the alternate source is unusable.
+// This is the end of the line for a filtered device, and pointing at the connection test would only
+// send someone to diagnose a problem that is not on their end — so say what is actually true.
+function noSourceToast() {
+  if (noSourceShown) return; noSourceShown = true;
+  track("filter_blocked", { stage: "no_source", desktop: !!SK_NATIVE });
+  showToast('<b>Playback on a filtered device is currently unsupported.</b> Getting music through a content '
+    + 'filter needs a streaming server that SK Music does not have the funding to run right now. '
+    + 'Search, browse and playlists still work.', 12000);
+}
+let noSourceShown = false;
 
 function playFrom(qid, i, source) { const q = queues.get(qid); if (!q) return; stStop(); state.queue = q; state.radio = null; state.playSource = source || (state.detailOpen ? (state.detailKind || "detail") : (state.tab || "home")); state.qi = i; if (state.shuffle) shuffleTail(); playIndex(state.qi); }
 // Play-duration tracking — measure REAL listen time (excludes pauses) and emit the `play` event on end/skip,
@@ -5431,6 +5473,7 @@ function onPlaybackError() {
     // one-per-session report as ytUnavailable so the Filter-Blocked panel counts
     // people, not failures.
     if (!ytBlockReported) { ytBlockReported = true; track("filter_blocked", { stage: "playback", desktop: !!SK_NATIVE }); }
+    if (relayDead) return noSourceToast(); // the alternate source is already gone, so this is not a per-track dud
     showToast('<b>Couldn\'t play these tracks.</b> Playback looks restricted on this network — <a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a> to see what\'s blocking it.', 9000);
     return;
   }
@@ -5449,7 +5492,7 @@ function onPlaybackError() {
   m.addEventListener("canplay", () => { if (m === PB.med()) setBuffering(false); });
   m.addEventListener("pause", () => { if (m !== PB.med()) return; stopTick(); setPlayIcons(); playAccrue(); });
   m.addEventListener("ended", () => { if (m !== PB.med()) return; setBuffering(false); stopTick(); playFinalize(); repeatOrNext(); });
-  m.addEventListener("error", () => { if (m !== PB.med() || !m.getAttribute("src")) return; if (PB.local) { const t = state.queue[state.qi]; if (t && t.videoId) skDL.bad.add(t.videoId); PB.local = false; onPlaybackError(); } else if (PB.direct || PB.mode === "html5") onPlaybackError(); }); // SK-OFFLINE: a bad local file → blacklist it for the session and skip. PB.direct: a dead upstream media URL must surface as a playback error, not silence
+  m.addEventListener("error", () => { if (m !== PB.med() || !m.getAttribute("src")) return; if (PB.direct && relayFailed(m.getAttribute("src"))) return; if (PB.local) { const t = state.queue[state.qi]; if (t && t.videoId) skDL.bad.add(t.videoId); PB.local = false; onPlaybackError(); } else if (PB.direct || PB.mode === "html5") onPlaybackError(); }); // SK-OFFLINE: a bad local file → blacklist it for the session and skip. PB.direct: a dead upstream media URL must surface as a playback error, not silence
 });
 // On iOS the keep-alive pumps "timeupdate" every ~100ms while locked; that is the only heartbeat that
 // survives the background JS freeze, so hang the end-of-track advance off it.
