@@ -20,6 +20,8 @@ rows were effectively stuck at their first few covers.
 **Also**
 - Fixed the play button on a cover being positioned against the page instead of its own card. It only
   ever looked right because hovering a card happens to create the frame it was measured from.
+- A row whose contents change without the row itself being rebuilt now re-checks its arrows, so a
+  chevron can't linger on a row that has nothing left to scroll to.
 
 ## 1.8.1 — 2026-08-18 (web)
 

@@ -7091,7 +7091,7 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   };
   const ro = new ResizeObserver((ents) => ents.forEach((en) => sync(en.target)));
   const dress = (s) => {
-    if (s.dataset.railnav || !s.parentNode) return;
+    if (!s.parentNode) return;
     s.dataset.railnav = "1";
     const w = document.createElement("div");
     w.className = "railwrap " + (s.classList.contains("rail") ? "rw-rail" : s.classList.contains("qpgrid") ? "rw-qp" : "rw-sts");
@@ -7114,7 +7114,10 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
     ro.observe(s);
     sync(s);
   };
-  const scan = () => document.querySelectorAll(SEL).forEach(dress);
+  // A rail already dressed gets re-synced rather than re-dressed. When its items change in place the
+  // element keeps its box and its scroll position, so neither the ResizeObserver nor a scroll event
+  // fires — and can-l/can-r would sit there stale, offering a chevron that scrolls nowhere.
+  const scan = () => document.querySelectorAll(SEL).forEach((s) => (s.dataset.railnav ? sync(s) : dress(s)));
   let pending = 0;
   new MutationObserver(() => {
     if (pending) return; // rails arrive in bursts (a whole view at a time); dress them once per frame
