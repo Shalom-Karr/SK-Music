@@ -315,7 +315,8 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .sechead .more:hover{color:var(--primary)}
 
 .rail{display:grid;grid-auto-flow:column;grid-auto-columns:172px;gap:18px;overflow-x:auto;overflow-y:hidden;
-  padding:4px 4px 14px;scroll-snap-type:x proximity;scrollbar-width:thin}
+  padding:4px 4px 14px;scroll-snap-type:x proximity;scrollbar-width:none;-ms-overflow-style:none}
+.rail::-webkit-scrollbar{display:none}
 .rail.round{grid-auto-columns:150px}
 .card{scroll-snap-align:start;cursor:pointer;border-radius:var(--r-md);transition:transform .18s var(--ease)}
 .card:hover{transform:translateY(-4px)}
@@ -373,7 +374,8 @@ body.on-air .live-note{display:block}
 
 /* Quick Picks — 4-row horizontally paging grid */
 .qpgrid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(4,1fr);grid-auto-columns:min(94%,420px);
-  gap:6px 22px;overflow-x:auto;padding:4px 4px 12px;scroll-snap-type:x proximity}
+  gap:6px 22px;overflow-x:auto;padding:4px 4px 12px;scroll-snap-type:x proximity;scrollbar-width:none;-ms-overflow-style:none}
+.qpgrid::-webkit-scrollbar{display:none}
 .qpgrid .row{scroll-snap-align:start}
 @media(min-width:1200px){.qpgrid{grid-auto-columns:minmax(360px,1fr)}}
 
