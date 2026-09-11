@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.8.2 — 2026-09-10 (web)
+
+**Why the bump:** the horizontal rows had no way to scroll with a plain mouse. The scrollbars are
+hidden, a wheel only scrolls up and down, and there was nothing to click — so on a desktop mouse the
+rows were effectively stuck at their first few covers.
+
+**Scrolling the rows with a mouse**
+- **Drag them.** Grab anywhere on a row and throw it sideways. Clicks still work exactly as before —
+  a press that doesn't travel plays the song; only a real drag is swallowed.
+- **The wheel now scrolls sideways.** Point at a row and your scroll wheel moves it left and right.
+  Once the row reaches its end the wheel goes back to scrolling the page, so you never get stuck in one.
+- **Hover arrows.** Chevron buttons fade in at each end of a row, each one appearing only when there's
+  more to see in that direction; a click pages across. They're mouse-only — nothing changes on a phone
+  or tablet, where rows already swipe.
+- Applies to every horizontal row: the home and detail-page card rails, Quick Picks, Zemer Radio,
+  Statuses and Shorts.
+
+**Also**
+- Fixed the play button on a cover being positioned against the page instead of its own card. It only
+  ever looked right because hovering a card happens to create the frame it was measured from.
+- A row whose contents change without the row itself being rebuilt now re-checks its arrows, so a
+  chevron can't linger on a row that has nothing left to scroll to.
+
 ## 1.8.1 — 2026-08-18 (web)
 
 **Streaming setting renamed**

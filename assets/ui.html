@@ -318,7 +318,10 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
   padding:4px 4px 14px;scroll-snap-type:x proximity;scrollbar-width:none;-ms-overflow-style:none}
 .rail::-webkit-scrollbar{display:none}
 .rail.round{grid-auto-columns:150px}
-.card{scroll-snap-align:start;cursor:pointer;border-radius:var(--r-md);transition:transform .18s var(--ease)}
+/* position:relative anchors .play-fab (absolute, centred) to its own card. It used to land there only
+   because .card:hover applies a transform — which happens to be exactly when the FAB is visible — so
+   this is no visual change, but it stops the new .railwrap from becoming the FAB's containing block. */
+.card{position:relative;scroll-snap-align:start;cursor:pointer;border-radius:var(--r-md);transition:transform .18s var(--ease)}
 .card:hover{transform:translateY(-4px)}
 /* Zemer Radio (live broadcast stations) — the LIVE pip sits on the cover so a station card reads as
    "on air right now" rather than as another playlist. .on-air marks the station you're tuned into. */
@@ -378,6 +381,39 @@ body.on-air .live-note{display:block}
 .qpgrid::-webkit-scrollbar{display:none}
 .qpgrid .row{scroll-snap-align:start}
 @media(min-width:1200px){.qpgrid{grid-auto-columns:minmax(360px,1fr)}}
+
+/* ==================== Horizontal rails: drag / wheel / hover chevrons ====================
+   A wheel-and-buttons mouse has no sideways gesture, and the rail scrollbars are hidden for
+   looks — so every horizontal scroller (.rail, .qpgrid, .sts-rail) also grabs-and-drags, takes
+   the wheel sideways, and grows a pair of paging chevrons on hover. .railwrap is wrapped around
+   each scroller at runtime (see "Horizontal rails" near the end of the script): rails are built
+   as HTML strings in ~20 places, so wrapping in the DOM beats editing every call site. */
+.railwrap{position:relative}
+/* Snap fights direct scrollLeft writes (it drags the rail back mid-gesture), so it's off while
+   the pointer or wheel is driving and restored the moment it settles. */
+.rail.nosnap,.qpgrid.nosnap{scroll-snap-type:none}
+.rail.dragging,.qpgrid.dragging,.sts-rail.dragging{scroll-behavior:auto;cursor:grabbing;user-select:none}
+.rail.dragging *,.qpgrid.dragging *,.sts-rail.dragging *{cursor:grabbing}
+.rail img,.qpgrid img,.sts-rail img{-webkit-user-drag:none;user-drag:none}
+.railnav{position:absolute;top:50%;z-index:4;display:none;align-items:center;justify-content:center;
+  width:38px;height:38px;padding:0;border:1px solid var(--line-2);border-radius:50%;
+  background:rgba(24,17,18,.82);backdrop-filter:blur(8px);color:var(--text);cursor:pointer;opacity:0;
+  transform:translateY(-50%);transition:opacity .18s var(--ease),transform .18s var(--ease),background .18s var(--ease)}
+.railnav.l{left:-4px}
+.railnav.r{right:-4px}
+/* Wrappers are tagged by scroller type so a chevron lands on the cover art, not on the midpoint of
+   art-plus-title. Quick Picks rows fill their box, so that one stays centred. */
+.rw-rail .railnav{top:calc(50% - 17px)}
+.rw-sts .railnav{top:calc(50% - 11px);width:32px;height:32px}
+.railnav:hover{background:var(--surface-3);transform:translateY(-50%) scale(1.06)}
+.railnav:active{transform:translateY(-50%) scale(.94)}
+.railnav:focus-visible{outline:2px solid var(--primary);outline-offset:2px;opacity:1}
+/* Mouse only: a chevron shows on hover, and only on the side that has somewhere left to go. */
+@media(hover:hover) and (pointer:fine){
+  .railwrap.can-l>.railnav.l,.railwrap.can-r>.railnav.r{display:flex}
+  .railwrap:hover>.railnav,.railnav:focus-visible{opacity:1}
+}
+@media(prefers-reduced-motion:reduce){.railnav{transition:none}}
 
 /* ============================ List rows ============================ */
 .rows{display:flex;flex-direction:column;gap:2px}
@@ -6946,6 +6982,150 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   // in-thread engine when there's no worker, to avoid loading the dataset into memory twice.
   if (STATIC && !ENGINE_WORKER && ENGINE && ENGINE.preload) { const warm = () => ENGINE.preload().catch(() => {}); "requestIdleCallback" in window ? requestIdleCallback(warm, { timeout: 1500 }) : setTimeout(warm, 800); }
 })();
+
+/* ============================ Horizontal rails: drag, wheel, chevrons ============================
+   A mouse can't move a horizontal scroller: there's no sideways gesture and the rail scrollbars are
+   hidden. So every rail gets three affordances, wired by delegation plus a MutationObserver because
+   rails are re-rendered with innerHTML all over this file:
+     • grab and drag anywhere on the rail (with a click guard — cards carry inline onclick)
+     • the wheel scrolls the rail sideways, handing back to the page at either end
+     • paging chevrons that fade in on hover, on whichever side has somewhere left to go
+   Each behaviour no-ops unless the element actually overflows, which keeps it off rails too short to
+   scroll and off .detail-aside .rail (a vertical list above 900px). */
+(() => {
+  const SEL = ".rail, .qpgrid, .sts-rail";
+  const SLOP = 4; // px of travel before a press stops being a click and becomes a drag
+  const EDGE = 8; // snap parks a rail a few px in (its own padding), so "at the end" needs slack
+  const overflows = (s) => s && s.scrollWidth - s.clientWidth > 1;
+  const railAt = (t) => (t instanceof Element ? t.closest(SEL) : null);
+  const reduce = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Snap is dropped while a gesture drives scrollLeft and restored once it settles (see .nosnap).
+  const unsnap = (s) => {
+    s.classList.add("nosnap");
+    clearTimeout(s._snapT);
+    s._snapT = setTimeout(() => s.classList.remove("nosnap"), 140);
+  };
+
+  /* ---------------- drag to scroll ---------------- */
+  let drag = null, swallowClick = false;
+  addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || e.pointerType !== "mouse") return; // touch and pen already pan natively
+    const s = railAt(e.target);
+    if (!s || !overflows(s)) return;
+    // Buttons need no exemption — the slop threshold keeps a press that doesn't travel a click, so
+    // the play FAB, row menus and the status circles (themselves buttons) all still work. Only
+    // controls that consume drags of their own are skipped.
+    if (e.target.closest("input, textarea, select, [role=slider]")) return;
+    drag = { s, id: e.pointerId, x: e.clientX, left: s.scrollLeft, moved: 0 };
+  }, true);
+  addEventListener("pointermove", (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x;
+    drag.moved = Math.max(drag.moved, Math.abs(dx));
+    if (drag.moved < SLOP) return;
+    if (!drag.s.classList.contains("dragging")) {
+      drag.s.classList.add("dragging");
+      try { drag.s.setPointerCapture(drag.id); } catch {}
+    }
+    unsnap(drag.s);
+    drag.s.scrollLeft = drag.left - dx;
+    e.preventDefault();
+  }, true);
+  const endDrag = () => {
+    if (!drag) return;
+    const { s, id, moved } = drag;
+    drag = null;
+    s.classList.remove("dragging");
+    try { s.releasePointerCapture(id); } catch {}
+    s.classList.remove("nosnap"); // let proximity snap settle the rail where the drag left it
+    clearTimeout(s._snapT);
+    if (moved < SLOP) return;
+    // The click that follows this pointerup would open whatever card the drag ended on. Swallow it in
+    // the capture phase (cards use inline onclick, which a bubble-phase guard can't reach in time).
+    swallowClick = true;
+    setTimeout(() => { swallowClick = false; }, 0);
+  };
+  addEventListener("pointerup", endDrag, true);
+  addEventListener("pointercancel", endDrag, true);
+  addEventListener("click", (e) => {
+    if (!swallowClick) return;
+    e.stopPropagation();
+    e.preventDefault();
+  }, true);
+  // Artwork is natively draggable, which would hijack the gesture as an HTML5 image drag.
+  addEventListener("dragstart", (e) => { if (railAt(e.target)) e.preventDefault(); }, true);
+
+  /* ---------------- wheel over a rail scrolls it sideways ---------------- */
+  addEventListener("wheel", (e) => {
+    const s = railAt(e.target);
+    if (!s || !overflows(s)) return;
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // tilt wheel or trackpad: already horizontal
+    const step = e.deltaMode === 1 ? e.deltaY * 18 : e.deltaMode === 2 ? e.deltaY * s.clientWidth : e.deltaY;
+    if (!step) return;
+    // At either end, hand the wheel back so the page keeps scrolling instead of trapping the cursor.
+    const max = s.scrollWidth - s.clientWidth;
+    if ((step < 0 && s.scrollLeft <= EDGE) || (step > 0 && s.scrollLeft >= max - EDGE)) return;
+    unsnap(s);
+    s.scrollLeft += step;
+    e.preventDefault();
+  }, { passive: false });
+
+  /* ---------------- hover chevrons ---------------- */
+  const CHEV = {
+    l: "M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z",
+    r: "M8.6 7.4 10 6l6 6-6 6-1.4-1.4L13.2 12z",
+  };
+  const page = (s, dir) => {
+    // Quick Picks pages a full screen-width (its columns are page-sized); card rails move most of one.
+    const by = s.clientWidth * (s.classList.contains("qpgrid") ? 1 : 0.85);
+    s.classList.remove("nosnap"); // a paged jump should land on a snap point
+    s.scrollBy({ left: dir * Math.max(120, by), behavior: reduce() ? "auto" : "smooth" });
+  };
+  const sync = (s) => {
+    const w = s.parentElement;
+    if (!w || !w.classList.contains("railwrap")) return;
+    const max = s.scrollWidth - s.clientWidth;
+    w.classList.toggle("can-l", max > 1 && s.scrollLeft > EDGE);
+    w.classList.toggle("can-r", max > 1 && s.scrollLeft < max - EDGE);
+  };
+  const ro = new ResizeObserver((ents) => ents.forEach((en) => sync(en.target)));
+  const dress = (s) => {
+    if (!s.parentNode) return;
+    s.dataset.railnav = "1";
+    const w = document.createElement("div");
+    w.className = "railwrap " + (s.classList.contains("rail") ? "rw-rail" : s.classList.contains("qpgrid") ? "rw-qp" : "rw-sts");
+    s.parentNode.insertBefore(w, s);
+    w.appendChild(s);
+    for (const side of ["l", "r"]) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "railnav " + side;
+      b.tabIndex = -1; // a mouse affordance; the cards themselves are already keyboard-reachable
+      b.setAttribute("aria-label", side === "l" ? "Scroll left" : "Scroll right");
+      b.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="${CHEV[side]}"/></svg>`;
+      b.addEventListener("click", (ev) => { ev.stopPropagation(); page(s, side === "l" ? -1 : 1); });
+      w.appendChild(b);
+    }
+    s.addEventListener("scroll", () => {
+      if (s._syncRaf) return;
+      s._syncRaf = requestAnimationFrame(() => { s._syncRaf = 0; sync(s); });
+    }, { passive: true });
+    ro.observe(s);
+    sync(s);
+  };
+  // A rail already dressed gets re-synced rather than re-dressed. When its items change in place the
+  // element keeps its box and its scroll position, so neither the ResizeObserver nor a scroll event
+  // fires — and can-l/can-r would sit there stale, offering a chevron that scrolls nowhere.
+  const scan = () => document.querySelectorAll(SEL).forEach((s) => (s.dataset.railnav ? sync(s) : dress(s)));
+  let pending = 0;
+  new MutationObserver(() => {
+    if (pending) return; // rails arrive in bursts (a whole view at a time); dress them once per frame
+    pending = requestAnimationFrame(() => { pending = 0; scan(); });
+  }).observe(document.body, { childList: true, subtree: true });
+  scan();
+})();
+
 </script>
 </body>
 </html>
