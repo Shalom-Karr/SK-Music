@@ -315,9 +315,13 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .sechead .more:hover{color:var(--primary)}
 
 .rail{display:grid;grid-auto-flow:column;grid-auto-columns:172px;gap:18px;overflow-x:auto;overflow-y:hidden;
-  padding:4px 4px 14px;scroll-snap-type:x proximity;scrollbar-width:thin}
+  padding:4px 4px 14px;scroll-snap-type:x proximity;scrollbar-width:none;-ms-overflow-style:none}
+.rail::-webkit-scrollbar{display:none}
 .rail.round{grid-auto-columns:150px}
-.card{scroll-snap-align:start;cursor:pointer;border-radius:var(--r-md);transition:transform .18s var(--ease)}
+/* position:relative anchors .play-fab (absolute, centred) to its own card. It used to land there only
+   because .card:hover applies a transform — which happens to be exactly when the FAB is visible — so
+   this is no visual change, but it stops the new .railwrap from becoming the FAB's containing block. */
+.card{position:relative;scroll-snap-align:start;cursor:pointer;border-radius:var(--r-md);transition:transform .18s var(--ease)}
 .card:hover{transform:translateY(-4px)}
 /* Zemer Radio (live broadcast stations) — the LIVE pip sits on the cover so a station card reads as
    "on air right now" rather than as another playlist. .on-air marks the station you're tuned into. */
@@ -373,9 +377,43 @@ body.on-air .live-note{display:block}
 
 /* Quick Picks — 4-row horizontally paging grid */
 .qpgrid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(4,1fr);grid-auto-columns:min(94%,420px);
-  gap:6px 22px;overflow-x:auto;padding:4px 4px 12px;scroll-snap-type:x proximity}
+  gap:6px 22px;overflow-x:auto;padding:4px 4px 12px;scroll-snap-type:x proximity;scrollbar-width:none;-ms-overflow-style:none}
+.qpgrid::-webkit-scrollbar{display:none}
 .qpgrid .row{scroll-snap-align:start}
 @media(min-width:1200px){.qpgrid{grid-auto-columns:minmax(360px,1fr)}}
+
+/* ==================== Horizontal rails: drag / wheel / hover chevrons ====================
+   A wheel-and-buttons mouse has no sideways gesture, and the rail scrollbars are hidden for
+   looks — so every horizontal scroller (.rail, .qpgrid, .sts-rail) also grabs-and-drags, takes
+   the wheel sideways, and grows a pair of paging chevrons on hover. .railwrap is wrapped around
+   each scroller at runtime (see "Horizontal rails" near the end of the script): rails are built
+   as HTML strings in ~20 places, so wrapping in the DOM beats editing every call site. */
+.railwrap{position:relative}
+/* Snap fights direct scrollLeft writes (it drags the rail back mid-gesture), so it's off while
+   the pointer or wheel is driving and restored the moment it settles. */
+.rail.nosnap,.qpgrid.nosnap{scroll-snap-type:none}
+.rail.dragging,.qpgrid.dragging,.sts-rail.dragging{scroll-behavior:auto;cursor:grabbing;user-select:none}
+.rail.dragging *,.qpgrid.dragging *,.sts-rail.dragging *{cursor:grabbing}
+.rail img,.qpgrid img,.sts-rail img{-webkit-user-drag:none;user-drag:none}
+.railnav{position:absolute;top:50%;z-index:4;display:none;align-items:center;justify-content:center;
+  width:38px;height:38px;padding:0;border:1px solid var(--line-2);border-radius:50%;
+  background:rgba(24,17,18,.82);backdrop-filter:blur(8px);color:var(--text);cursor:pointer;opacity:0;
+  transform:translateY(-50%);transition:opacity .18s var(--ease),transform .18s var(--ease),background .18s var(--ease)}
+.railnav.l{left:-4px}
+.railnav.r{right:-4px}
+/* Wrappers are tagged by scroller type so a chevron lands on the cover art, not on the midpoint of
+   art-plus-title. Quick Picks rows fill their box, so that one stays centred. */
+.rw-rail .railnav{top:calc(50% - 17px)}
+.rw-sts .railnav{top:calc(50% - 11px);width:32px;height:32px}
+.railnav:hover{background:var(--surface-3);transform:translateY(-50%) scale(1.06)}
+.railnav:active{transform:translateY(-50%) scale(.94)}
+.railnav:focus-visible{outline:2px solid var(--primary);outline-offset:2px;opacity:1}
+/* Mouse only: a chevron shows on hover, and only on the side that has somewhere left to go. */
+@media(hover:hover) and (pointer:fine){
+  .railwrap.can-l>.railnav.l,.railwrap.can-r>.railnav.r{display:flex}
+  .railwrap:hover>.railnav,.railnav:focus-visible{opacity:1}
+}
+@media(prefers-reduced-motion:reduce){.railnav{transition:none}}
 
 /* ============================ List rows ============================ */
 .rows{display:flex;flex-direction:column;gap:2px}
@@ -445,7 +483,10 @@ body.on-air .live-note{display:block}
 
 /* filter menu popover */
 .menu{position:fixed;z-index:70;background:var(--surface-2);border:1px solid var(--line-2);border-radius:16px;
-  box-shadow:var(--shadow);padding:8px;min-width:250px;display:none}
+  box-shadow:var(--shadow);padding:8px;min-width:250px;display:none;
+  /* toggleMenu caps max-height to the space below the button, so a menu taller than the window
+     scrolls itself; contain keeps the wheel from falling through to the page once it hits an end */
+  overflow-y:auto;overscroll-behavior:contain}
 .menu.on{display:block;animation:pop .16s var(--ease)}
 @keyframes pop{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
 .menu h4{margin:6px 12px 8px;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--faint)}
@@ -487,6 +528,7 @@ body.on-air .live-note{display:block}
 .detail-aside .rail{grid-auto-flow:row;grid-auto-columns:auto;gap:12px}
 @media(max-width:899px){.detail-split{grid-template-columns:minmax(0,1fr)}.detail-aside .rail{grid-auto-flow:column;grid-auto-columns:172px;gap:18px}}
 .actions{display:flex;align-items:center;gap:14px;margin:6px 6px 26px}
+.searchbox.dsearch{margin:-8px 6px 22px;max-width:420px}
 .btn-play{display:inline-flex;align-items:center;gap:10px;height:52px;padding:0 26px;border:0;border-radius:26px;cursor:pointer;
   font-size:15px;font-weight:700;background:var(--primary);color:var(--primary-ink);box-shadow:0 12px 30px -8px var(--primary-glow);transition:transform .15s,box-shadow .15s}
 .btn-play:hover{transform:scale(1.03);box-shadow:0 16px 38px -8px var(--primary-glow)}
@@ -1596,7 +1638,7 @@ function syncFilterUI() {
   el("filterBtn").querySelector(".dot")?.remove();
   if (anyFilter()) { const d = document.createElement("span"); d.className = "dot"; el("filterBtn").appendChild(d); }
 }
-function toggleMenu(e) { e.stopPropagation(); const m = el("menu"); const on = m.classList.toggle("on"); el("filterBtn").setAttribute("aria-expanded", on); if (on) { const r = el("filterBtn").getBoundingClientRect(); m.style.top = (r.bottom + 8) + "px"; m.style.right = (innerWidth - r.right) + "px"; } }
+function toggleMenu(e) { e.stopPropagation(); const m = el("menu"); const on = m.classList.toggle("on"); el("filterBtn").setAttribute("aria-expanded", on); if (on) { const r = el("filterBtn").getBoundingClientRect(); m.style.top = (r.bottom + 8) + "px"; m.style.right = (innerWidth - r.right) + "px"; m.style.maxHeight = (innerHeight - r.bottom - 20) + "px"; } }
 document.addEventListener("click", (e) => { if (!el("menu").contains(e.target) && e.target !== el("filterBtn")) { el("menu").classList.remove("on"); el("filterBtn").setAttribute("aria-expanded", "false"); } const sm = el("shareMenu"), ns = el("npShare"); if (sm && !sm.contains(e.target) && (!ns || !ns.contains(e.target))) sm.classList.remove("on"); const aw = el("acctWrap"); if (aw && !aw.contains(e.target)) closeAcctMenu(); });
 function reloadCurrent() { regateQueue(); ({ home: loadHome, foryou: loadForYou, artists: loadArtists, playlists: loadPlaylists, podcasts: loadPodcasts, shiurim: loadShiurim, kidzone: loadKid, search: doSearch, library: loadLibrary }[state.tab] || (() => {}))(); }
 // A filter/parental change must not leave now-blocked tracks in the LIVE play queue (they'd keep
@@ -3822,7 +3864,7 @@ function openSongMenu(anchor, t) {
   // row button it was anchored to no longer has a usable rect.
   _menuRect = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : null;
   const acaOnly = acapellaMode() === "only";
-  const ico = { pl: '<svg viewBox="0 0 24 24"><path d="M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v6l5-3z"/></svg>', radio: ICON.radio, artist: ICON.artist, share: ICON.share, flag: '<svg viewBox="0 0 24 24"><path d="M14.4 6 14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>', dl: '<svg viewBox="0 0 24 24"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z"/></svg>' };
+  const ico = { pl: '<svg viewBox="0 0 24 24"><path d="M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v6l5-3z"/></svg>', radio: ICON.radio, artist: ICON.artist, album: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20m0 14.5a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9m0-5.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2"/></svg>', share: ICON.share, flag: '<svg viewBox="0 0 24 24"><path d="M14.4 6 14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>', dl: '<svg viewBox="0 0 24 24"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z"/></svg>' };
   let html = `<div class="mihead">${esc(t.title || "Song")}</div>`;
   if (t.videoId && !t.kind) {
     html += `<button class="mi" role="menuitem" onclick="closeMenus();smPlayNext()"><svg viewBox="0 0 24 24"><path d="M4 5v14l8-7zm9 0v14l8-7z"/></svg><span>Play next</span></button>`;
@@ -3832,6 +3874,7 @@ function openSongMenu(anchor, t) {
   html += `<button class="mi" role="menuitem" onclick="openAddToPlaylistMenu()">${ico.pl}<span>Add to playlist</span></button>`;
   if (!acaOnly) html += `<button class="mi" role="menuitem" onclick="closeMenus();smRadio()">${ico.radio}<span>Start radio</span></button>`;
   if (t.artist) html += `<button class="mi" role="menuitem" onclick="closeMenus();smArtist()">${ico.artist}<span>Go to artist</span></button>`;
+  if (t.videoId && !t.kind) html += `<button class="mi" role="menuitem" onclick="closeMenus();smAlbum()">${ico.album}<span>Go to album</span></button>`;
   if (t.videoId && !t.kind) html += `<button class="mi" role="menuitem" onclick="closeMenus();smDownload()">${ico.dl}<span>Download</span></button>`;
   html += `<button class="mi" role="menuitem" onclick="closeMenus();smShare()">${ico.share}<span>Share</span></button>`;
   html += `<div class="misep"></div><button class="mi" role="menuitem" onclick="closeMenus();smReport()">${ico.flag}<span>Report a problem</span></button>`;
@@ -3839,6 +3882,17 @@ function openSongMenu(anchor, t) {
 }
 function smRadio() { const t = _menuTrack; if (t && t.videoId && acapellaMode() !== "only") startRadio("song", t.videoId); }
 function smArtist() { const t = _menuTrack; if (t && t.artist) gotoArtistByName(t.artist); }
+// Tracks don't carry their album, so ask the engine (/track resolves videoId → album). The first call
+// can wait on the worker's index build, hence the toast. Closes the now-playing sheet first, or the
+// album page would open hidden behind it.
+async function smAlbum() {
+  const t = _menuTrack; if (!t || !t.videoId) return;
+  showToast("Finding album…", 1200);
+  const d = await getJSON("/track?v=" + encodeURIComponent(t.videoId));
+  if (!d || !d.albumId) return showToast("This song isn’t on an album", 2400);
+  if (state.nowOpen) closeNow();
+  openAlbum(d.albumId);
+}
 function smDownload() { const t = _menuTrack; if (!t || !t.videoId) return; if (SK_NATIVE) { skDownload(t.videoId, t.title, t.artist); } else { showToast("Downloads require the desktop app", 2000); } }
 function smShare() { const t = _menuTrack; if (t) shareSong(t, _menuRect ? rectAnchor(_menuRect) : null); }
 function smReport() { const t = _menuTrack; if (t) reportSong(t); }
@@ -3959,6 +4013,12 @@ function renderDetailView(v) {
     <div class="detail-hero"><div class="cover ${v.round ? "round" : ""}">${artHTML(v.thumb, v.round ? ICON.artist : NOTE, v.round, 640)}</div>
     <div class="dh-meta"><div class="dh-kind">${v.kind}</div><div class="dh-title">${esc(v.title)}</div><div class="dh-sub">${v.sub}</div></div></div>`;
   h += `<div class="actions">${qid ? `<button class="btn-play" onclick="playFrom('${qid}',0)">${ICON.play} Play</button>` : ""}${qid ? `<button class="btn-ghost" onclick="shufflePlay('${qid}')"><svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>Shuffle</button>` : ""}${v.radio ? `<button class="btn-ghost" onclick="startRadio('${v.radio.kind}','${v.radio.seed}')">${ICON.radio}Radio</button>` : ""}${v.follow ? `<button class="btn-ghost follow-btn ${isFollowing(v.follow.channelId) ? "on" : ""}" onclick="toggleFollow('${esc(v.follow.channelId)}','${esc(v.follow.name).replace(/'/g, "\\'")}',this)"><svg viewBox="0 0 24 24"><path d="M15 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4m0 2c-3 0-9 1.5-9 4.5V21h18v-2.5c0-3-6-4.5-9-4.5"/></svg><span class="follow-lbl">${isFollowing(v.follow.channelId) ? "Following" : "Follow"}</span></button>` : ""}${v.path ? `<button class="btn-ghost" onclick="shareDetail(event)">${ICON.share}Share</button>` : ""}</div>`;
+  if (v.search) {
+    h += `<div class="searchbox dsearch"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14"/></svg><input id="dq" type="search" placeholder="Search ${esc(v.title)}’s songs" aria-label="Search this artist's songs" autocomplete="off" oninput="detailSearchSoon(this.value)"></div><div id="dRes"></div>`;
+    // One results queue per track section, registered now and refilled in place on each keystroke —
+    // re-registering per keystroke would push this page's own Play / row queues out of regQueue's cap.
+    _dSearch = { sections: v.sections, artistName: v.artistName, qids: v.sections.map((s) => s.tracks ? regQueue([]) : null) };
+  } else _dSearch = null;
   let main = "";
   for (const s of v.sections) {
     if (s.tracks && s.tracks.length) {
@@ -3975,8 +4035,31 @@ function renderDetailView(v) {
   }
   // Optional side column (podcast episode pages: more from the same podcaster). Without one the
   // layout is byte-for-byte what it was.
-  h += v.aside ? `<div class="detail-split"><div>${main}</div><aside class="detail-aside">${v.aside}</aside></div>` : main;
+  h += v.aside ? `<div class="detail-split"><div>${main}</div><aside class="detail-aside">${v.aside}</aside></div>` : v.search ? `<div id="dMain">${main}</div>` : main;
   el("v-detail").innerHTML = h; showDetail();
+}
+// Search within one artist's page: filters the songs, videos, albums and singles already on it (so the
+// content filters that shaped the page apply to the results too). While a query is active the normal
+// sections — and the async "Fans also like" shelf, which lands inside #dMain — are hidden.
+let _dSearch = null, _dSearchT = 0;
+function detailSearchSoon(q) { clearTimeout(_dSearchT); _dSearchT = setTimeout(() => detailSearch(q), 120); }
+function detailSearch(q) {
+  const res = el("dRes"), main = el("dMain"), ds = _dSearch; if (!res || !main || !ds) return; // navigated away mid-debounce
+  const terms = sxTerms(q);
+  if (!terms.length) { res.innerHTML = ""; main.hidden = false; return; }
+  secN = 0; let h = "", n = 0;
+  ds.sections.forEach((s, si) => {
+    if (s.tracks) {
+      const hits = s.tracks.filter((t) => sxHit(terms, t.title)); const qid = ds.qids[si];
+      queues.set(qid, hits); n += hits.length;
+      if (hits.length) h += section(s.label, `<div class="rows">${hits.map((t, i) => songRow(t, qid, i, { index: true, artist: ds.artistName, hideArtist: !!s.plays, plays: s.plays })).join("")}</div>`);
+    } else if (s.items && s.render) {
+      const hits = s.items.filter((x) => sxHit(terms, x.title || x.name)); n += hits.length;
+      if (hits.length) h += section(s.label, `<div class="rail">${hits.map(s.render).join("")}</div>`);
+    }
+  });
+  res.innerHTML = n ? h : emptyState("No matches", `Nothing by ${ds.artistName || "this artist"} matches “${q.trim()}”.`);
+  main.hidden = true;
 }
 function pushDetail(v, fromRoute) { renderDetailView(v); if (!fromRoute) pushURL(v.path); }
 function shufflePlay(qid) { const q = queues.get(qid); if (!q || !q.length) return; const s = q.slice(); for (let i = s.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[s[i], s[j]] = [s[j], s[i]]; } state.queue = s; state.radio = null; playIndex(0); }
@@ -4016,7 +4099,7 @@ async function openArtist(id, fromRoute) {
   const videos = (acOnly || blockVideos()) ? [] : (am === "hide" ? (d.videos || []).filter((t) => !acapellaTrack(t)) : d.videos);
   const albums = acOnly ? [] : d.albums, singles = acOnly ? [] : d.singles, plists = acOnly ? [] : (d.playlists || []); // Audio-only hides the Videos section + keeps videos out of the play queue
   const n = (songs?.length || 0) + (videos?.length || 0);
-  pushDetail({ path: "/artists/" + id, kind: "Artist", title: d.artist.name, sub: acOnly ? `<b>${num(n)}</b> Acapella songs` : `<b>${num(n)}</b> songs · <b>${num(d.albums?.length || 0)}</b> albums`, thumb: d.artist.thumbnail, round: true, artistName: d.artist.name, radio: acOnly ? null : { kind: "artist", seed: id }, follow: { channelId: id, name: d.artist.name }, sections: [
+  pushDetail({ path: "/artists/" + id, kind: "Artist", title: d.artist.name, sub: acOnly ? `<b>${num(n)}</b> Acapella songs` : `<b>${num(n)}</b> songs · <b>${num(d.albums?.length || 0)}</b> albums`, thumb: d.artist.thumbnail, round: true, artistName: d.artist.name, search: true, radio: acOnly ? null : { kind: "artist", seed: id }, follow: { channelId: id, name: d.artist.name }, sections: [
     { label: "Songs", tracks: songs, plays: true, collapse: 6 }, { label: "Albums", items: albums, render: albumCard }, { label: "Singles & EPs", items: singles, render: albumCard },
     { label: "Videos", tracks: videos, collapse: 6 }, { label: "Playlists", items: plists, render: playlistCard } ] }, fromRoute);
   if (!acOnly) appendSimilarArtists(id, nm); // "Fans also like" from the co-listening radio graph
@@ -4034,7 +4117,7 @@ async function appendSimilarArtists(id, selfName) {
       if (a && !hiddenArtist(a.name) && !blockedId(a.id)) { arts.push(a); if (arts.length >= 14) break; }
     }
     if (arts.length >= 3 && state.detailKind === "artist") {
-      el("v-detail").insertAdjacentHTML("beforeend", section("Fans also like", `<div class="rail round">${arts.map(artistCard).join("")}</div>`));
+      (el("dMain") || el("v-detail")).insertAdjacentHTML("beforeend", section("Fans also like", `<div class="rail round">${arts.map(artistCard).join("")}</div>`));
     }
   } catch {}
 }
@@ -5452,7 +5535,9 @@ function shareMenuFor(anchor, entries) {
 }
 // popMenu only ever calls getBoundingClientRect(), so a captured rect stands in for a live element.
 const rectAnchor = (r) => ({ getBoundingClientRect: () => r });
+let _popAnchor = null; // the button that opened #popmenu — pressing it again closes the menu
 function popMenu(anchor, html) {
+  _popAnchor = anchor && anchor.nodeType === 1 ? anchor : null; // rectAnchor() stand-ins aren't elements
   const m = el("popmenu"); m.innerHTML = html; m.classList.add("on"); m.setAttribute("aria-hidden", "false");
   const r = anchor.getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;
   let x = Math.min(r.left, innerWidth - mw - 8), y = r.bottom + 6;
@@ -5461,7 +5546,15 @@ function popMenu(anchor, html) {
   const first = m.querySelector(".mi"); if (first) first.focus();
 }
 function closeMenus() { const m = el("popmenu"); if (m) { m.classList.remove("on"); m.setAttribute("aria-hidden", "true"); } }
-addEventListener("click", (e) => { const m = el("popmenu"); if (m && m.classList.contains("on") && !m.contains(e.target)) closeMenus(); }, true);
+// Outside click closes. A click on the button that opened the menu closes it AND is swallowed here in
+// the capture phase — otherwise the button's own onclick runs next and reopens it, so a second press
+// (the sleep timer, a song's ⋮) could never dismiss the menu it opened.
+addEventListener("click", (e) => {
+  const m = el("popmenu"); if (!m || !m.classList.contains("on") || m.contains(e.target)) return;
+  const again = _popAnchor && _popAnchor.contains(e.target);
+  closeMenus();
+  if (again) { e.stopPropagation(); e.preventDefault(); }
+}, true);
 addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenus(); });
 addEventListener("scroll", () => closeMenus(), true);
 function onPlaybackError() {
@@ -6987,6 +7080,150 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   // in-thread engine when there's no worker, to avoid loading the dataset into memory twice.
   if (STATIC && !ENGINE_WORKER && ENGINE && ENGINE.preload) { const warm = () => ENGINE.preload().catch(() => {}); "requestIdleCallback" in window ? requestIdleCallback(warm, { timeout: 1500 }) : setTimeout(warm, 800); }
 })();
+
+/* ============================ Horizontal rails: drag, wheel, chevrons ============================
+   A mouse can't move a horizontal scroller: there's no sideways gesture and the rail scrollbars are
+   hidden. So every rail gets three affordances, wired by delegation plus a MutationObserver because
+   rails are re-rendered with innerHTML all over this file:
+     • grab and drag anywhere on the rail (with a click guard — cards carry inline onclick)
+     • the wheel scrolls the rail sideways, handing back to the page at either end
+     • paging chevrons that fade in on hover, on whichever side has somewhere left to go
+   Each behaviour no-ops unless the element actually overflows, which keeps it off rails too short to
+   scroll and off .detail-aside .rail (a vertical list above 900px). */
+(() => {
+  const SEL = ".rail, .qpgrid, .sts-rail";
+  const SLOP = 4; // px of travel before a press stops being a click and becomes a drag
+  const EDGE = 8; // snap parks a rail a few px in (its own padding), so "at the end" needs slack
+  const overflows = (s) => s && s.scrollWidth - s.clientWidth > 1;
+  const railAt = (t) => (t instanceof Element ? t.closest(SEL) : null);
+  const reduce = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Snap is dropped while a gesture drives scrollLeft and restored once it settles (see .nosnap).
+  const unsnap = (s) => {
+    s.classList.add("nosnap");
+    clearTimeout(s._snapT);
+    s._snapT = setTimeout(() => s.classList.remove("nosnap"), 140);
+  };
+
+  /* ---------------- drag to scroll ---------------- */
+  let drag = null, swallowClick = false;
+  addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || e.pointerType !== "mouse") return; // touch and pen already pan natively
+    const s = railAt(e.target);
+    if (!s || !overflows(s)) return;
+    // Buttons need no exemption — the slop threshold keeps a press that doesn't travel a click, so
+    // the play FAB, row menus and the status circles (themselves buttons) all still work. Only
+    // controls that consume drags of their own are skipped.
+    if (e.target.closest("input, textarea, select, [role=slider]")) return;
+    drag = { s, id: e.pointerId, x: e.clientX, left: s.scrollLeft, moved: 0 };
+  }, true);
+  addEventListener("pointermove", (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x;
+    drag.moved = Math.max(drag.moved, Math.abs(dx));
+    if (drag.moved < SLOP) return;
+    if (!drag.s.classList.contains("dragging")) {
+      drag.s.classList.add("dragging");
+      try { drag.s.setPointerCapture(drag.id); } catch {}
+    }
+    unsnap(drag.s);
+    drag.s.scrollLeft = drag.left - dx;
+    e.preventDefault();
+  }, true);
+  const endDrag = () => {
+    if (!drag) return;
+    const { s, id, moved } = drag;
+    drag = null;
+    s.classList.remove("dragging");
+    try { s.releasePointerCapture(id); } catch {}
+    s.classList.remove("nosnap"); // let proximity snap settle the rail where the drag left it
+    clearTimeout(s._snapT);
+    if (moved < SLOP) return;
+    // The click that follows this pointerup would open whatever card the drag ended on. Swallow it in
+    // the capture phase (cards use inline onclick, which a bubble-phase guard can't reach in time).
+    swallowClick = true;
+    setTimeout(() => { swallowClick = false; }, 0);
+  };
+  addEventListener("pointerup", endDrag, true);
+  addEventListener("pointercancel", endDrag, true);
+  addEventListener("click", (e) => {
+    if (!swallowClick) return;
+    e.stopPropagation();
+    e.preventDefault();
+  }, true);
+  // Artwork is natively draggable, which would hijack the gesture as an HTML5 image drag.
+  addEventListener("dragstart", (e) => { if (railAt(e.target)) e.preventDefault(); }, true);
+
+  /* ---------------- wheel over a rail scrolls it sideways ---------------- */
+  addEventListener("wheel", (e) => {
+    const s = railAt(e.target);
+    if (!s || !overflows(s)) return;
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // tilt wheel or trackpad: already horizontal
+    const step = e.deltaMode === 1 ? e.deltaY * 18 : e.deltaMode === 2 ? e.deltaY * s.clientWidth : e.deltaY;
+    if (!step) return;
+    // At either end, hand the wheel back so the page keeps scrolling instead of trapping the cursor.
+    const max = s.scrollWidth - s.clientWidth;
+    if ((step < 0 && s.scrollLeft <= EDGE) || (step > 0 && s.scrollLeft >= max - EDGE)) return;
+    unsnap(s);
+    s.scrollLeft += step;
+    e.preventDefault();
+  }, { passive: false });
+
+  /* ---------------- hover chevrons ---------------- */
+  const CHEV = {
+    l: "M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z",
+    r: "M8.6 7.4 10 6l6 6-6 6-1.4-1.4L13.2 12z",
+  };
+  const page = (s, dir) => {
+    // Quick Picks pages a full screen-width (its columns are page-sized); card rails move most of one.
+    const by = s.clientWidth * (s.classList.contains("qpgrid") ? 1 : 0.85);
+    s.classList.remove("nosnap"); // a paged jump should land on a snap point
+    s.scrollBy({ left: dir * Math.max(120, by), behavior: reduce() ? "auto" : "smooth" });
+  };
+  const sync = (s) => {
+    const w = s.parentElement;
+    if (!w || !w.classList.contains("railwrap")) return;
+    const max = s.scrollWidth - s.clientWidth;
+    w.classList.toggle("can-l", max > 1 && s.scrollLeft > EDGE);
+    w.classList.toggle("can-r", max > 1 && s.scrollLeft < max - EDGE);
+  };
+  const ro = new ResizeObserver((ents) => ents.forEach((en) => sync(en.target)));
+  const dress = (s) => {
+    if (!s.parentNode) return;
+    s.dataset.railnav = "1";
+    const w = document.createElement("div");
+    w.className = "railwrap " + (s.classList.contains("rail") ? "rw-rail" : s.classList.contains("qpgrid") ? "rw-qp" : "rw-sts");
+    s.parentNode.insertBefore(w, s);
+    w.appendChild(s);
+    for (const side of ["l", "r"]) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "railnav " + side;
+      b.tabIndex = -1; // a mouse affordance; the cards themselves are already keyboard-reachable
+      b.setAttribute("aria-label", side === "l" ? "Scroll left" : "Scroll right");
+      b.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="${CHEV[side]}"/></svg>`;
+      b.addEventListener("click", (ev) => { ev.stopPropagation(); page(s, side === "l" ? -1 : 1); });
+      w.appendChild(b);
+    }
+    s.addEventListener("scroll", () => {
+      if (s._syncRaf) return;
+      s._syncRaf = requestAnimationFrame(() => { s._syncRaf = 0; sync(s); });
+    }, { passive: true });
+    ro.observe(s);
+    sync(s);
+  };
+  // A rail already dressed gets re-synced rather than re-dressed. When its items change in place the
+  // element keeps its box and its scroll position, so neither the ResizeObserver nor a scroll event
+  // fires — and can-l/can-r would sit there stale, offering a chevron that scrolls nowhere.
+  const scan = () => document.querySelectorAll(SEL).forEach((s) => (s.dataset.railnav ? sync(s) : dress(s)));
+  let pending = 0;
+  new MutationObserver(() => {
+    if (pending) return; // rails arrive in bursts (a whole view at a time); dress them once per frame
+    pending = requestAnimationFrame(() => { pending = 0; scan(); });
+  }).observe(document.body, { childList: true, subtree: true });
+  scan();
+})();
+
 </script>
 </body>
 </html>

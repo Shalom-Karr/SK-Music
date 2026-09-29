@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.8.2 — 2026-08-24 (web)
+## 1.8.8 — 2026-09-29 (web)
 
 **Why the bump:** on iPad the app loaded, passed every connection test, and then played nothing at all.
 
@@ -16,6 +16,62 @@
   for lack of the funding to run a streaming server, instead of sending people to a connection test that
   can only confirm a problem that isn't on their end.
 - **Play next** and **Add to queue** are now in the ⋯ menu on any song, alongside Add to playlist.
+
+## 1.8.7 — 2026-09-29 (web)
+
+**Pop-up menus close on a second press**
+- Pressing the button that opened a small pop-up menu — the sleep timer, a song's **⋮**, and the
+  rest — now closes it again. Before, the second press closed the menu and then immediately reopened
+  it, so the only way out was clicking somewhere else or pressing Escape.
+
+## 1.8.6 — 2026-09-29 (web)
+
+**Filter menu scrolls**
+- The content-filter menu (filter icon, top right) is now capped to the window and scrolls on its own.
+  On a shorter screen its last settings — Stream via proxy, Reset filters — used to hang off the
+  bottom, and the mouse wheel scrolled the page behind the menu instead. Now the wheel scrolls the menu
+  while you're over it, and stops at its end instead of carrying on into the page.
+
+## 1.8.4 — 2026-09-29 (web)
+
+**Search inside an artist**
+- Every artist page now has its own search box under the Play / Shuffle buttons. Type part of a song
+  name and the page narrows to that artist's matching **songs, videos, albums and singles** — nothing
+  from other artists. Works with Hebrew titles too.
+- Playing a result queues just the matches. Clearing the box brings the full page back.
+- Results respect the same content filters as the page itself (Acapella, audio-only, and so on).
+
+## 1.8.3 — 2026-09-29 (web)
+
+**Go to album**
+- The **⋮** menu on a song — including the one in the full-screen now-playing view — now has
+  **Go to album**, next to Go to artist. It opens the album the song is on. When a song appears on
+  more than one release, the artist's own full album wins over a single or someone else's compilation.
+- Opening it from the now-playing view closes that view first, so the album page isn't hidden behind it.
+- Songs that aren't on any album say so instead of opening an empty page.
+
+## 1.8.2 — 2026-09-10 (web)
+
+**Why the bump:** the horizontal rows had no way to scroll with a plain mouse. The scrollbars are
+hidden, a wheel only scrolls up and down, and there was nothing to click — so on a desktop mouse the
+rows were effectively stuck at their first few covers.
+
+**Scrolling the rows with a mouse**
+- **Drag them.** Grab anywhere on a row and throw it sideways. Clicks still work exactly as before —
+  a press that doesn't travel plays the song; only a real drag is swallowed.
+- **The wheel now scrolls sideways.** Point at a row and your scroll wheel moves it left and right.
+  Once the row reaches its end the wheel goes back to scrolling the page, so you never get stuck in one.
+- **Hover arrows.** Chevron buttons fade in at each end of a row, each one appearing only when there's
+  more to see in that direction; a click pages across. They're mouse-only — nothing changes on a phone
+  or tablet, where rows already swipe.
+- Applies to every horizontal row: the home and detail-page card rails, Quick Picks, Zemer Radio,
+  Statuses and Shorts.
+
+**Also**
+- Fixed the play button on a cover being positioned against the page instead of its own card. It only
+  ever looked right because hovering a card happens to create the frame it was measured from.
+- A row whose contents change without the row itself being rebuilt now re-checks its arrows, so a
+  chevron can't linger on a row that has nothing left to scroll to.
 
 ## 1.8.1 — 2026-08-18 (web)
 
