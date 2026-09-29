@@ -92,6 +92,24 @@ async function homeFeed(kid, allowFem, blockVid, allowChas) {
 
 const idOK = (id) => /^[A-Za-z0-9_-]+$/.test(id);
 
+// videoId → the album it's on, built once on first use. A song can sit on several releases (its own
+// album, a single, someone else's compilation), so rank them: the track's own artist first, then a full
+// album over a single, then the newest.
+let ALBUM_OF = null;
+function albumOf(t) {
+  if (!ALBUM_OF) {
+    ALBUM_OF = new Map();
+    for (const [albumId, vids] of Object.entries(DS.albumTracks || {})) for (const v of vids) {
+      const cur = ALBUM_OF.get(v); if (cur) cur.push(albumId); else ALBUM_OF.set(v, [albumId]);
+    }
+  }
+  const ids = ALBUM_OF.get(t.videoId); if (!ids) return null;
+  const rank = (a) => [a.artistId === t.artistId ? 0 : 1, a.type === "single" ? 1 : 0, -(a.year || 0)];
+  const best = ids.map((id) => DS.albumById.get(id)).filter(Boolean)
+    .sort((x, y) => { const a = rank(x), b = rank(y); return a[0] - b[0] || a[1] - b[1] || a[2] - b[2]; })[0];
+  return best ? best.id : null;
+}
+
 export async function handle(url) {
   const u = new URL(url, location.origin), path = u.pathname, q = u.searchParams;
   const allowFem = q.get("allowFemale") !== "0", allowChas = q.get("allowChasid") !== "0", kid = q.get("kidZone") === "1", blockVid = q.get("blockVideos") === "1";
@@ -119,7 +137,7 @@ export async function handle(url) {
   }
   if (path === "/artist") { const id = q.get("id") || ""; return idOK(id) ? ((await grab("/data/artist/" + id + ".json")) || { error: "artist not found" }) : { error: "artist not found" }; }
   if (path === "/album") { const id = q.get("id") || ""; return idOK(id) ? ((await grab("/data/album/" + id + ".json")) || { error: "album not found" }) : { error: "album not found" }; }
-  if (path === "/track") { await ready(); const t = DS.trackById.get(q.get("v")); return t ? { videoId: t.videoId, title: t.title, artist: t.artistName, durationSec: t.durationSec, explicit: t.explicit, isVideo: t.isVideo, isFemale: t.isFemale, isChasid: t.isChasid } : { error: "not found" }; }
+  if (path === "/track") { await ready(); const t = DS.trackById.get(q.get("v")); return t ? { videoId: t.videoId, title: t.title, artist: t.artistName, durationSec: t.durationSec, explicit: t.explicit, isVideo: t.isVideo, isFemale: t.isFemale, isChasid: t.isChasid, albumId: albumOf(t) } : { error: "not found" }; }
   if (path === "/playlist") {   // live route: keep only whitelisted-corpus tracks from the upstream list
     const id = q.get("id") || "";
     const r = await fetch(url), remote = r.ok ? await r.json() : null; await ready();

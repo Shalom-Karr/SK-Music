@@ -1,13 +1,20 @@
 # Changelog
 
-## 1.8.4 — 2026-09-29 (web)
-
 **Search inside an artist**
 - Every artist page now has its own search box under the Play / Shuffle buttons. Type part of a song
   name and the page narrows to that artist's matching **songs, videos, albums and singles** — nothing
   from other artists. Works with Hebrew titles too.
 - Playing a result queues just the matches. Clearing the box brings the full page back.
 - Results respect the same content filters as the page itself (Acapella, audio-only, and so on).
+=======
+## 1.8.3 — 2026-09-29 (web)
+
+**Go to album**
+- The **⋮** menu on a song — including the one in the full-screen now-playing view — now has
+  **Go to album**, next to Go to artist. It opens the album the song is on. When a song appears on
+  more than one release, the artist's own full album wins over a single or someone else's compilation.
+- Opening it from the now-playing view closes that view first, so the album page isn't hidden behind it.
+- Songs that aren't on any album say so instead of opening an empty page.
 
 ## 1.8.2 — 2026-09-10 (web)
 
