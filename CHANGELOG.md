@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.8.5 — 2026-09-29 (web)
+
+**Light theme**
+- New sun / moon button in the top-right corner, next to Sign in. Dark stays the default; tap the sun
+  for a light, cream-and-rose theme across the whole app — sidebar, pages, menus, sign-in, the player
+  bar and the full-screen player — and the moon to go back.
+- The choice is remembered on this device and applied before the page draws, so there's no dark flash
+  on load. It's separate from the content filters: Reset filters and Parental Controls don't touch it.
+- The status viewer and full-screen video stay dark in both themes, like a photo viewer.
+
 ## 1.8.2 — 2026-09-10 (web)
 
 **Why the bump:** the horizontal rows had no way to scroll with a plain mouse. The scrollbars are
