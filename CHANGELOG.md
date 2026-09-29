@@ -6,6 +6,17 @@
 - Pressing the button that opened a small pop-up menu — the sleep timer, a song's **⋮**, and the
   rest — now closes it again. Before, the second press closed the menu and then immediately reopened
   it, so the only way out was clicking somewhere else or pressing Escape.
+
+## 1.8.6 — 2026-09-29 (web)
+
+**Filter menu scrolls**
+- The content-filter menu (filter icon, top right) is now capped to the window and scrolls on its own.
+  On a shorter screen its last settings — Stream via proxy, Reset filters — used to hang off the
+  bottom, and the mouse wheel scrolled the page behind the menu instead. Now the wheel scrolls the menu
+  while you're over it, and stops at its end instead of carrying on into the page.
+
+## 1.8.4 — 2026-09-29 (web)
+
 **Search inside an artist**
 - Every artist page now has its own search box under the Play / Shuffle buttons. Type part of a song
   name and the page narrows to that artist's matching **songs, videos, albums and singles** — nothing
