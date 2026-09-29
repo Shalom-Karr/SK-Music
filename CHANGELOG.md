@@ -1,12 +1,18 @@
 # Changelog
 
+## 1.8.7 — 2026-09-29 (web)
+
+**Pop-up menus close on a second press**
+- Pressing the button that opened a small pop-up menu — the sleep timer, a song's **⋮**, and the
+  rest — now closes it again. Before, the second press closed the menu and then immediately reopened
+  it, so the only way out was clicking somewhere else or pressing Escape.
 **Search inside an artist**
 - Every artist page now has its own search box under the Play / Shuffle buttons. Type part of a song
   name and the page narrows to that artist's matching **songs, videos, albums and singles** — nothing
   from other artists. Works with Hebrew titles too.
 - Playing a result queues just the matches. Clearing the box brings the full page back.
 - Results respect the same content filters as the page itself (Acapella, audio-only, and so on).
-=======
+
 ## 1.8.3 — 2026-09-29 (web)
 
 **Go to album**
