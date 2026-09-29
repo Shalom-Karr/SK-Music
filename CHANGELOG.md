@@ -9,6 +9,8 @@
 - The choice is remembered on this device and applied before the page draws, so there's no dark flash
   on load. It's separate from the content filters: Reset filters and Parental Controls don't touch it.
 - The status viewer and full-screen video stay dark in both themes, like a photo viewer.
+- The sleep-timer button in the full-screen player is now a **clock** instead of a moon, so it can't be
+  mistaken for the new dark-mode button.
 
 ## 1.8.2 — 2026-09-10 (web)
 
