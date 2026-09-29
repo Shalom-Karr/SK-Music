@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.4 — 2026-09-29 (web)
+
+**Search inside an artist**
+- Every artist page now has its own search box under the Play / Shuffle buttons. Type part of a song
+  name and the page narrows to that artist's matching **songs, videos, albums and singles** — nothing
+  from other artists. Works with Hebrew titles too.
+- Playing a result queues just the matches. Clearing the box brings the full page back.
+- Results respect the same content filters as the page itself (Acapella, audio-only, and so on).
+
 ## 1.8.2 — 2026-09-10 (web)
 
 **Why the bump:** the horizontal rows had no way to scroll with a plain mouse. The scrollbars are
