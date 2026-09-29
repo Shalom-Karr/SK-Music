@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.6 — 2026-09-29 (web)
+
+**Filter menu scrolls**
+- The content-filter menu (filter icon, top right) is now capped to the window and scrolls on its own.
+  On a shorter screen its last settings — Stream via proxy, Reset filters — used to hang off the
+  bottom, and the mouse wheel scrolled the page behind the menu instead. Now the wheel scrolls the menu
+  while you're over it, and stops at its end instead of carrying on into the page.
+
 ## 1.8.2 — 2026-09-10 (web)
 
 **Why the bump:** the horizontal rows had no way to scroll with a plain mouse. The scrollbars are

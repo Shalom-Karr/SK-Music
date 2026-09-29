@@ -483,7 +483,10 @@ body.on-air .live-note{display:block}
 
 /* filter menu popover */
 .menu{position:fixed;z-index:70;background:var(--surface-2);border:1px solid var(--line-2);border-radius:16px;
-  box-shadow:var(--shadow);padding:8px;min-width:250px;display:none}
+  box-shadow:var(--shadow);padding:8px;min-width:250px;display:none;
+  /* toggleMenu caps max-height to the space below the button, so a menu taller than the window
+     scrolls itself; contain keeps the wheel from falling through to the page once it hits an end */
+  overflow-y:auto;overscroll-behavior:contain}
 .menu.on{display:block;animation:pop .16s var(--ease)}
 @keyframes pop{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
 .menu h4{margin:6px 12px 8px;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--faint)}
@@ -1634,7 +1637,7 @@ function syncFilterUI() {
   el("filterBtn").querySelector(".dot")?.remove();
   if (anyFilter()) { const d = document.createElement("span"); d.className = "dot"; el("filterBtn").appendChild(d); }
 }
-function toggleMenu(e) { e.stopPropagation(); const m = el("menu"); const on = m.classList.toggle("on"); el("filterBtn").setAttribute("aria-expanded", on); if (on) { const r = el("filterBtn").getBoundingClientRect(); m.style.top = (r.bottom + 8) + "px"; m.style.right = (innerWidth - r.right) + "px"; } }
+function toggleMenu(e) { e.stopPropagation(); const m = el("menu"); const on = m.classList.toggle("on"); el("filterBtn").setAttribute("aria-expanded", on); if (on) { const r = el("filterBtn").getBoundingClientRect(); m.style.top = (r.bottom + 8) + "px"; m.style.right = (innerWidth - r.right) + "px"; m.style.maxHeight = (innerHeight - r.bottom - 20) + "px"; } }
 document.addEventListener("click", (e) => { if (!el("menu").contains(e.target) && e.target !== el("filterBtn")) { el("menu").classList.remove("on"); el("filterBtn").setAttribute("aria-expanded", "false"); } const sm = el("shareMenu"), ns = el("npShare"); if (sm && !sm.contains(e.target) && (!ns || !ns.contains(e.target))) sm.classList.remove("on"); const aw = el("acctWrap"); if (aw && !aw.contains(e.target)) closeAcctMenu(); });
 function reloadCurrent() { regateQueue(); ({ home: loadHome, foryou: loadForYou, artists: loadArtists, playlists: loadPlaylists, podcasts: loadPodcasts, shiurim: loadShiurim, kidzone: loadKid, search: doSearch, library: loadLibrary }[state.tab] || (() => {}))(); }
 // A filter/parental change must not leave now-blocked tracks in the LIVE play queue (they'd keep
