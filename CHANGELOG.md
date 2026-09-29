@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.7 — 2026-09-29 (web)
+
+**Pop-up menus close on a second press**
+- Pressing the button that opened a small pop-up menu — the sleep timer, a song's **⋮**, and the
+  rest — now closes it again. Before, the second press closed the menu and then immediately reopened
+  it, so the only way out was clicking somewhere else or pressing Escape.
+
 ## 1.8.2 — 2026-09-10 (web)
 
 **Why the bump:** the horizontal rows had no way to scroll with a plain mouse. The scrollbars are

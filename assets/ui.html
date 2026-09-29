@@ -5448,7 +5448,9 @@ function shareMenuFor(anchor, entries) {
 }
 // popMenu only ever calls getBoundingClientRect(), so a captured rect stands in for a live element.
 const rectAnchor = (r) => ({ getBoundingClientRect: () => r });
+let _popAnchor = null; // the button that opened #popmenu — pressing it again closes the menu
 function popMenu(anchor, html) {
+  _popAnchor = anchor && anchor.nodeType === 1 ? anchor : null; // rectAnchor() stand-ins aren't elements
   const m = el("popmenu"); m.innerHTML = html; m.classList.add("on"); m.setAttribute("aria-hidden", "false");
   const r = anchor.getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;
   let x = Math.min(r.left, innerWidth - mw - 8), y = r.bottom + 6;
@@ -5457,7 +5459,15 @@ function popMenu(anchor, html) {
   const first = m.querySelector(".mi"); if (first) first.focus();
 }
 function closeMenus() { const m = el("popmenu"); if (m) { m.classList.remove("on"); m.setAttribute("aria-hidden", "true"); } }
-addEventListener("click", (e) => { const m = el("popmenu"); if (m && m.classList.contains("on") && !m.contains(e.target)) closeMenus(); }, true);
+// Outside click closes. A click on the button that opened the menu closes it AND is swallowed here in
+// the capture phase — otherwise the button's own onclick runs next and reopens it, so a second press
+// (the sleep timer, a song's ⋮) could never dismiss the menu it opened.
+addEventListener("click", (e) => {
+  const m = el("popmenu"); if (!m || !m.classList.contains("on") || m.contains(e.target)) return;
+  const again = _popAnchor && _popAnchor.contains(e.target);
+  closeMenus();
+  if (again) { e.stopPropagation(); e.preventDefault(); }
+}, true);
 addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenus(); });
 addEventListener("scroll", () => closeMenus(), true);
 function onPlaybackError() {
