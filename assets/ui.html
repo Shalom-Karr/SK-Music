@@ -4358,8 +4358,11 @@ function setRelay(on, quiet, persist = true) {
 
 // Download the current track. Desktop keeps its own offline library (skdl:// + an index); the web
 // app has nowhere to put a library, so it just hands the file to the browser — the relay sends
-// `Content-Disposition: attachment` with a real "Artist - Title.m4a" name, so a plain link download
-// is all that is needed and no CORS grant is involved.
+// The relay sends `Content-Disposition: attachment` with a real "Artist - Title.m4a" name, so the
+// browser saves it rather than rendering it. It is a CROSS-ORIGIN URL (stream host ≠ this site), so the
+// `download` attribute is ignored — a same-tab click would NAVIGATE the SPA to the relay URL, wiping the
+// app state (and showing an error page if the relay refuses). Open it in a NEW tab instead: the download
+// fires there off the attachment header, that tab self-closes, and this tab's URL is never touched.
 function downloadCurrent() {
   const t = state.queue[state.qi];
   if (!t || !t.videoId) return;
@@ -4367,7 +4370,8 @@ function downloadCurrent() {
   if (typeof SK_NATIVE !== "undefined" && SK_NATIVE) return skToggleDownloadCurrent();
   const a = document.createElement("a");
   a.href = relayDownloadUrl(t.videoId);
-  a.rel = "noopener";
+  a.target = "_blank";                // download in a new tab so the app tab's URL never changes
+  a.rel = "noopener noreferrer";
   document.body.appendChild(a);
   a.click();
   a.remove();

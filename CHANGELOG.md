@@ -13,6 +13,10 @@ people actually listen to from them.
   doesn't have enough recent listening to fill a row, it simply isn't shown and the page opens on Songs as before.
 - It loads after the page appears, so artist pages are no slower to open.
 
+**Also**
+- **Downloading a song on the web no longer kicks you out of the app.** The download opens in its own tab
+  instead of navigating the page you were on, so the app and whatever was playing stay put.
+
 ## 1.8.8 — 2026-09-29 (web)
 
 **Why the bump:** on iPad the app loaded, passed every connection test, and then played nothing at all.
