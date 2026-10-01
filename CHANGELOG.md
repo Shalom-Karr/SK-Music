@@ -1,5 +1,16 @@
 # Changelog
 
+## Desktop 1.2.4 — 2026-10-01
+
+**Why the bump:** closing the desktop app with **X** didn't close it — the window hid to the tray and
+the music kept playing in the background, so the app always seemed to still be running.
+
+**Closing the app actually closes it**
+- The window's **X** now quits SK Music completely and stops playback, the same as **Quit** in the
+  tray menu. Before, it only hid the window to the tray and the song carried on.
+- **Minimizing** is unchanged: the window minimizes and the mini player appears (while something is
+  playing), so you can still keep music going with a small on-screen control.
+
 ## 1.8.7 — 2026-09-29 (web)
 
 **Pop-up menus close on a second press**
