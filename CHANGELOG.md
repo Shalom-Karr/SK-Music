@@ -26,6 +26,19 @@ the music kept playing in the background, so the app always seemed to still be r
   bottom, and the mouse wheel scrolled the page behind the menu instead. Now the wheel scrolls the menu
   while you're over it, and stops at its end instead of carrying on into the page.
 
+## 1.8.5 — 2026-09-29 (web)
+
+**Light theme**
+- New sun / moon button in the top-right corner, next to Sign in. Dark stays the default; tap the sun
+  for a light, cream-and-rose theme across the whole app — sidebar, pages, menus, sign-in, the player
+  bar and the full-screen player — and the moon to go back.
+- The choice is remembered on this device and applied before the page draws, so there's no dark flash
+  on load. It's separate from the content filters: Reset filters and Parental Controls don't touch it.
+- The status viewer and full-screen video stay dark in both themes, like a photo viewer.
+- The sleep-timer button in the full-screen player is now a **clock** instead of a moon, so it can't be
+  mistaken for the new dark-mode button.
+
+
 ## 1.8.4 — 2026-09-29 (web)
 
 **Search inside an artist**
