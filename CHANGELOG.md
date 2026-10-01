@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.8.9 — 2026-10-01 (web)
+
+**Why the bump:** an artist's page opened straight into an alphabetical song list, with no way to see what
+people actually listen to from them.
+
+**Trending Songs on artist pages**
+- The top of every artist page now has a **Trending Songs** row of cards, scrolling sideways like the one on
+  Home. It ranks that artist's songs by how much they're being played over the last 30 days, **combining SK
+  Music listeners with Zemer app listeners**, most-played first.
+- It respects every filter the same way Home's trending does (blocked songs, Acapella mode). When an artist
+  doesn't have enough recent listening to fill a row, it simply isn't shown and the page opens on Songs as before.
+- It loads after the page appears, so artist pages are no slower to open.
+
 ## 1.8.8 — 2026-09-29 (web)
 
 **Why the bump:** on iPad the app loaded, passed every connection test, and then played nothing at all.

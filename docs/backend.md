@@ -39,6 +39,7 @@ security model is summarized at the top of that file; the parental hard lock is 
 |---|---|---|---|
 | `top_songs(days,lim)` | anon | DEFINER | home Trending (Worker `/trending`) — top qualified plays, deduped by videoId |
 | `top_artists(days,lim)` | anon | DEFINER | home Trending — top qualified-play artists |
+| `artist_top_songs(p_artist,days,lim)` | anon | DEFINER | artist-page Trending (Worker `/artist-trending`) — one artist's top qualified plays, matched on catalog artist name. Migration: `supabase/artist-top-songs.sql` |
 | `play_analytics(days)` | anon | DEFINER | dashboard: listen hours + play source attribution |
 | `search_analytics(days)` | anon | DEFINER | dashboard: search click-through rate + avg clicked rank |
 | `is_zemer_admin()` | (policy) | DEFINER | RLS predicate for admin SELECT on analytics |

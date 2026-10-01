@@ -576,6 +576,80 @@ async function handleAnalyticsBeacon(request, env, ctx) {
 // TWO populations: our own web plays (Supabase RPCs, day-window follows ?days) and the Zemer
 // app's listening stats (KV, cron-resolved to catalog ids, fixed 30-day window). Both songs and
 // artists carry catalog ids so the client can merge/route without name matching. Edge-cached 30 min.
+// Union two play populations by videoId. Score = web share + app share, each normalized to its own
+// top item so neither platform's absolute volume dominates; app share is DEVICE-weighted (unique
+// listeners), which one looping device can't inflate. Cross-platform hits naturally rise to the top.
+// Shared by /trending (global) and /artist-trending (one artist).
+function blendSongs(songs, extSongs, idx) {
+  const maxWeb = Math.max(1, ...songs.map((s) => s.plays || 0));
+  const maxApp = Math.max(1, ...extSongs.map((s) => s.devices || 0));
+  const byVid = new Map();
+  for (const s of songs) {
+    byVid.set(s.videoId, {
+      videoId: s.videoId, title: s.title, artist: s.artist,
+      artistId: resolveArtistId(idx, s.artist),
+      plays: s.plays || 0, appPlays: 0, appDevices: 0, skipRate: null, sources: ["web"],
+    });
+  }
+  for (const e of extSongs) {
+    const cur = byVid.get(e.videoId);
+    if (cur) {
+      cur.appPlays = e.plays || 0; cur.appDevices = e.devices || 0;
+      cur.skipRate = e.skipRate ?? null;
+      if (!cur.artistId) cur.artistId = e.artistId || null;
+      if (e.offCatalog) cur.offCatalog = true;
+      cur.sources.push("app");
+    } else {
+      byVid.set(e.videoId, {
+        videoId: e.videoId, title: e.title, artist: e.artist, artistId: e.artistId || null,
+        plays: 0, appPlays: e.plays || 0, appDevices: e.devices || 0,
+        skipRate: e.skipRate ?? null, ...(e.offCatalog ? { offCatalog: true } : {}), sources: ["app"],
+      });
+    }
+  }
+  return [...byVid.values()]
+    .map((s) => ({ ...s, score: +(s.plays / maxWeb + s.appDevices / maxApp).toFixed(4) }))
+    .sort((a, b) => b.score - a.score);
+}
+
+// One artist's trending songs, blended the same way as /trending: their web plays (Supabase
+// artist_top_songs — the global top_songs only reaches the site-wide top 40, which would leave most
+// artist pages empty) + their Zemer-app plays (the cron-resolved KV snapshot, filtered by channel id).
+// The artist's NAME is resolved server-side from the id — web plays are recorded under the catalog
+// name — so a caller can't pair one artist's cache entry with another artist's plays.
+async function handleArtistTrending(url, env, ctx) {
+  const id = url.searchParams.get("id") || "";
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return Response.json({ error: "bad id" }, { status: 400 });
+  const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get("days") || "30", 10) || 30));
+  const edgeCache = caches.default;
+  const cacheKey = new Request(`https://sk/artist-trending?id=${id}&days=${days}&v=1`);
+  const cached = await edgeCache.match(cacheKey);
+  if (cached) return cached;
+
+  const idx = await getArtistNameIndex(env);
+  const name = idx.names.get(id) || null;
+  let web = [];
+  if (name && env.SUPABASE_URL && env.SUPABASE_KEY) {
+    const raw = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/artist_top_songs`, {
+      method: "POST",
+      headers: { apikey: env.SUPABASE_KEY, Authorization: `Bearer ${env.SUPABASE_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_artist: name, days, lim: 40 }),
+    }).then((r) => (r.ok ? r.json() : [])).catch(() => []); // RPC not deployed yet → app-only, never an error
+    web = (Array.isArray(raw) ? raw : []).map((x) => ({ videoId: x.video_id, title: x.title, artist: x.artist, plays: x.plays }));
+  }
+  let ext = null;
+  if (env.PAGES) { try { ext = await env.PAGES.get(EXT_TRENDING_KEY, "json"); } catch { /* malformed → web-only */ } }
+  const extSongs = (ext && Array.isArray(ext.songs) ? ext.songs : []).filter((s) => s.artistId === id);
+
+  const songs = blendSongs(web, extSongs, idx).filter((s) => !s.artistId || s.artistId === id).slice(0, 24);
+  const res = Response.json(
+    { id, days, songs, app: ext ? { fetchedAt: ext.fetchedAt, days: ext.days } : null },
+    { headers: { "Cache-Control": `public, max-age=${ext ? 1800 : 120}` } }
+  );
+  ctx.waitUntil(edgeCache.put(cacheKey, res.clone()));
+  return res;
+}
+
 async function handleTrending(request, url, env, ctx) {
   const days = Math.min(
     365,
@@ -632,39 +706,7 @@ async function handleTrending(request, url, env, ctx) {
   const extSongs = (ext && Array.isArray(ext.songs)) ? ext.songs : [];
   const extArtists = (ext && Array.isArray(ext.artists)) ? ext.artists : [];
 
-  // Union by videoId. Score = web share + app share, each normalized to its own top item so
-  // neither platform's absolute volume dominates; app share is DEVICE-weighted (unique listeners),
-  // which one looping device can't inflate. Cross-platform hits naturally rise to the top.
-  const maxWeb = Math.max(1, ...songs.map((s) => s.plays || 0));
-  const maxApp = Math.max(1, ...extSongs.map((s) => s.devices || 0));
-  const byVid = new Map();
-  for (const s of songs) {
-    byVid.set(s.videoId, {
-      videoId: s.videoId, title: s.title, artist: s.artist,
-      artistId: resolveArtistId(idx, s.artist),
-      plays: s.plays || 0, appPlays: 0, appDevices: 0, skipRate: null, sources: ["web"],
-    });
-  }
-  for (const e of extSongs) {
-    const cur = byVid.get(e.videoId);
-    if (cur) {
-      cur.appPlays = e.plays || 0; cur.appDevices = e.devices || 0;
-      cur.skipRate = e.skipRate ?? null;
-      if (!cur.artistId) cur.artistId = e.artistId || null;
-      if (e.offCatalog) cur.offCatalog = true;
-      cur.sources.push("app");
-    } else {
-      byVid.set(e.videoId, {
-        videoId: e.videoId, title: e.title, artist: e.artist, artistId: e.artistId || null,
-        plays: 0, appPlays: e.plays || 0, appDevices: e.devices || 0,
-        skipRate: e.skipRate ?? null, ...(e.offCatalog ? { offCatalog: true } : {}), sources: ["app"],
-      });
-    }
-  }
-  const mergedSongs = [...byVid.values()]
-    .map((s) => ({ ...s, score: +(s.plays / maxWeb + s.appDevices / maxApp).toFixed(4) }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 40);
+  const mergedSongs = blendSongs(songs, extSongs, idx).slice(0, 40);
 
   // Artists: same union, keyed by resolved channel id (name-keyed fallback for the rare
   // web-side name that doesn't resolve — it still shows, it just can't merge).
@@ -723,8 +765,9 @@ const normArtistName = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ")
 // " - Hebrew" suffix between their index and ours ("Shmulik Sukkot - שמוליק סוכות" vs
 // "Shmulik Sukkot"), so a stripped-suffix key resolves those — but only when it's unique.
 function buildArtistNameIndex(artists) {
-  const exact = new Map(), prefix = new Map(), dupes = new Set();
+  const exact = new Map(), prefix = new Map(), dupes = new Set(), names = new Map();
   for (const a of artists) {
+    if (a.id && a.name) names.set(a.id, a.name);
     const n = normArtistName(a.name);
     if (n) exact.set(n, a.id);
     const p = n.split(" - ")[0].trim();
@@ -734,7 +777,7 @@ function buildArtistNameIndex(artists) {
     }
   }
   for (const d of dupes) prefix.delete(d);
-  return { exact, prefix };
+  return { exact, prefix, names };
 }
 
 const resolveArtistId = (idx, name) => {
@@ -887,7 +930,7 @@ async function refreshExternalTrending(env) {
 
   await env.PAGES.put(
     EXT_TRENDING_KEY,
-    JSON.stringify({ fetchedAt: Date.now(), days: 30, songs: songs.slice(0, 100), artists: artists.slice(0, 50) }),
+    JSON.stringify({ fetchedAt: Date.now(), days: 30, songs: songs.slice(0, 200), artists: artists.slice(0, 50) }),
     { expirationTtl: 46800 }
   );
 }
@@ -1787,6 +1830,7 @@ export default {
       }
       return handleTrending(request, url, env, ctx);
     }
+    if (pathname === "/artist-trending") return handleArtistTrending(url, env, ctx);
     if (pathname === "/a" && request.method === "POST")
       return handleAnalyticsBeacon(request, env, ctx);
     // Desktop auto-updater: serve the newest signed desktop release manifest (edge-cached). 204 =

@@ -4102,7 +4102,35 @@ async function openArtist(id, fromRoute) {
   pushDetail({ path: "/artists/" + id, kind: "Artist", title: d.artist.name, sub: acOnly ? `<b>${num(n)}</b> Acapella songs` : `<b>${num(n)}</b> songs · <b>${num(d.albums?.length || 0)}</b> albums`, thumb: d.artist.thumbnail, round: true, artistName: d.artist.name, search: true, radio: acOnly ? null : { kind: "artist", seed: id }, follow: { channelId: id, name: d.artist.name }, sections: [
     { label: "Songs", tracks: songs, plays: true, collapse: 6 }, { label: "Albums", items: albums, render: albumCard }, { label: "Singles & EPs", items: singles, render: albumCard },
     { label: "Videos", tracks: videos, collapse: 6 }, { label: "Playlists", items: plists, render: playlistCard } ] }, fromRoute);
+  appendArtistTrending(id); // "Trending Songs" rail across the top, filled in after render
   if (!acOnly) appendSimilarArtists(id, nm); // "Fans also like" from the co-listening radio graph
+}
+// "Trending Songs" across the top of an artist page: this artist's songs ranked by combined SK Music +
+// Zemer-app listening (Worker /artist-trending), ordered by total listens like Home's rail. Inserted
+// after render so it never delays the page, and skipped when there's too little data for a real rail.
+// Memoized per session (successes only) so revisiting an artist costs no extra Worker request.
+const _artistTrend = new Map();
+async function appendArtistTrending(id) {
+  try {
+    let p = _artistTrend.get(id);
+    if (!p) {
+      p = fetch("/artist-trending?id=" + encodeURIComponent(id) + "&b=" + Math.floor(Date.now() / 600000)) // &b= busts filter-proxy caches, as on Home
+        .then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      _artistTrend.set(id, p);
+    }
+    const d = await p;
+    if (!d) { _artistTrend.delete(id); return; }
+    if (!Array.isArray(d.songs) || state.detailKind !== "artist" || state.detailPath !== "/artists/" + id) return;
+    await loadBlockedIds(); if (acapella()) await loadAcapella(); // per-song blocks + the Acapella set, same gates as Home's trending
+    const total = (x) => (x.plays || 0) + (x.appPlays || 0);
+    const songs = d.songs.slice().sort((a, b) => total(b) - total(a))
+      .map((x) => ({ videoId: x.videoId, title: x.title, artist: x.artist }))
+      .filter((x) => x.videoId && !blockedId(x.videoId) && songOK(x));
+    if (songs.length < 3) return;
+    const main = el("dMain");
+    if (!main || main.querySelector(".artist-trending")) return;
+    main.insertAdjacentHTML("afterbegin", section("Trending Songs", songCards(songs)).replace('class="section"', 'class="section artist-trending"'));
+  } catch {}
 }
 // Derive a "Similar artists" shelf from the artist's radio station: the distinct OTHER artists the
 // co-listening graph surfaces. Appended after render so it never delays the artist page.
