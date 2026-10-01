@@ -66,7 +66,24 @@ jobs:
           releaseBody: |
             Native SK Music desktop app (Tauri 2 — a fast native shell around the web app).
             Download the installer for your OS:
-            - **Windows:** the `*-setup.exe`
+            - **Windows:** the `*-setup.exe`, or `SK-Music-Portable.exe` to run with no install step
             - **Linux:** the `*.AppImage` or `*.deb`
           releaseDraft: false
           prerelease: false
+
+      # The NSIS/MSI bundlers above wrap the same plain binary Cargo already produced at
+      # target/release — that binary runs standalone with no install step, so it doubles as a
+      # portable build. We just copy it out under a clearer name and attach it to the release
+      # tauri-action already created/updated for this tag.
+      - name: Attach portable build (Windows only)
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./Desktop/src-tauri/tauri.conf.json').version")
+          SRC="Desktop/src-tauri/target/release/sk-music-desktop.exe"
+          DEST="SK-Music-Portable.exe"
+          cp "$SRC" "$DEST"
+          gh release upload "desktop-v$VERSION" "$DEST" --clobber --repo "${{ github.repository }}"
