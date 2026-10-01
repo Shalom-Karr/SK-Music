@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.8.9 — 2026-10-01 (web; affects the desktop app)
+
+**Reopening picks up where you left off**
+- Opening the desktop app again shows the last song in the player bar, **paused** at the spot you
+  left it, with its progress on the seek bar. Press Play and it carries on from there — nothing plays
+  on its own. Before, the app opened with an empty player, and the last song only came back if you
+  pressed Play within 20 minutes.
+- Pausing now saves your exact spot right away, instead of up to five seconds earlier.
+- Only the desktop app does this; the website in a browser is unchanged.
+
 ## 1.8.7 — 2026-09-29 (web)
 
 **Pop-up menus close on a second press**
