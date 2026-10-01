@@ -315,7 +315,7 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .sechead .more:hover{color:var(--primary)}
 
 .rail{display:grid;grid-auto-flow:column;grid-auto-columns:172px;gap:18px;overflow-x:auto;overflow-y:hidden;
-  padding:4px 4px 14px;scroll-snap-type:x proximity;scrollbar-width:none;-ms-overflow-style:none}
+  padding:4px 4px 14px;scroll-snap-type:x proximity;scroll-behavior:smooth;scrollbar-width:none;-ms-overflow-style:none}
 .rail::-webkit-scrollbar{display:none}
 .rail.round{grid-auto-columns:150px}
 /* position:relative anchors .play-fab (absolute, centred) to its own card. It used to land there only
@@ -377,7 +377,7 @@ body.on-air .live-note{display:block}
 
 /* Quick Picks — 4-row horizontally paging grid */
 .qpgrid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(4,1fr);grid-auto-columns:min(94%,420px);
-  gap:6px 22px;overflow-x:auto;padding:4px 4px 12px;scroll-snap-type:x proximity;scrollbar-width:none;-ms-overflow-style:none}
+  gap:6px 22px;overflow-x:auto;padding:4px 4px 12px;scroll-snap-type:x proximity;scroll-behavior:smooth;scrollbar-width:none;-ms-overflow-style:none}
 .qpgrid::-webkit-scrollbar{display:none}
 .qpgrid .row{scroll-snap-align:start}
 @media(min-width:1200px){.qpgrid{grid-auto-columns:minmax(360px,1fr)}}
@@ -7111,20 +7111,10 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   // Artwork is natively draggable, which would hijack the gesture as an HTML5 image drag.
   addEventListener("dragstart", (e) => { if (railAt(e.target)) e.preventDefault(); }, true);
 
-  /* ---------------- wheel over a rail scrolls it sideways ---------------- */
-  addEventListener("wheel", (e) => {
-    const s = railAt(e.target);
-    if (!s || !overflows(s)) return;
-    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // tilt wheel or trackpad: already horizontal
-    const step = e.deltaMode === 1 ? e.deltaY * 18 : e.deltaMode === 2 ? e.deltaY * s.clientWidth : e.deltaY;
-    if (!step) return;
-    // At either end, hand the wheel back so the page keeps scrolling instead of trapping the cursor.
-    const max = s.scrollWidth - s.clientWidth;
-    if ((step < 0 && s.scrollLeft <= EDGE) || (step > 0 && s.scrollLeft >= max - EDGE)) return;
-    unsnap(s);
-    s.scrollLeft += step;
-    e.preventDefault();
-  }, { passive: false });
+  // A plain vertical wheel is left alone so it keeps scrolling the page even while the cursor sits
+  // over a rail — hijacking it into sideways rail motion trapped the cursor until a rail ran out of
+  // room to scroll. Drag-to-scroll and the hover chevrons below already cover sideways mouse input;
+  // an actual sideways gesture (trackpad swipe, tilt wheel) still scrolls the rail natively.
 
   /* ---------------- hover chevrons ---------------- */
   const CHEV = {

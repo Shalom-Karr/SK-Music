@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.8.8 — 2026-10-01 (web)
+
+**Why the bump:** the mouse-wheel fix in 1.8.2 traded one stuck-scroll bug for another — hovering a
+row while scrolling down the page could trap the wheel sideways until the row ran out of cards, and
+releasing a drag or wheel gesture mid-card snapped back instantly instead of settling smoothly.
+
+**Rows no longer trap the scroll wheel**
+- Scrolling down the page with the cursor over an artist/album row (or Quick Picks, Statuses, Shorts)
+  no longer gets diverted into scrolling that row sideways — the page now keeps scrolling past it like
+  any other content. Dragging a row and the hover arrows still move it sideways with a mouse; an actual
+  sideways gesture (trackpad swipe, tilt wheel) still scrolls the row too.
+- Letting go of a drag (or a sideways trackpad scroll) mid-card now settles smoothly onto the nearest
+  card instead of jumping there instantly.
+
 ## 1.8.7 — 2026-09-29 (web)
 
 **Pop-up menus close on a second press**
