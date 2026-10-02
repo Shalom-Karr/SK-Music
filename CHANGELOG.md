@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.9.2 — 2026-10-01 (web; affects the desktop app)
+
+**Why the bump:** music played as sound only everywhere — there was no way to see a music video.
+
+**Watch music videos in the desktop app**
+- In the desktop app, a song that's a real music video now has a **Watch** button in Now Playing. Press
+  it and the video plays where the album art was; press it again for the art. The choice is remembered
+  for the next music video.
+- The picture only shows while the video is **playing** — pause and you see the album art again, so
+  YouTube's own "more videos" suggestions never appear. Nothing in the video can be clicked.
+- **Parental Controls → Music videos** decides it for an account: once an account has Parental
+  Controls, music videos are **off** until a parent turns them on. Never available under a Kid Zone lock.
+- The website in a browser is unchanged — music stays audio-only there.
+
 ## 1.9.1 — 2026-10-01 (web; affects the desktop app)
 
 **Reopening picks up where you left off**

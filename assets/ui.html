@@ -783,6 +783,11 @@ body.on-air .npx-clear{display:none}
 .row.sk-dl-done .title::after{content:"";display:inline-block;width:12px;height:12px;margin-left:7px;vertical-align:-1px;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234ade80'%3E%3Cpath d='M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z'/%3E%3C/svg%3E")}
 /* hidden YouTube IFrame audio engine — rendered off-screen so audio keeps playing */
 #ytwrap{position:fixed;left:-9999px;bottom:0;width:320px;height:180px;opacity:0;pointer-events:none;z-index:-1}
+/* Music-video watch mode (desktop): mvPaint() sizes #ytwrap onto #npArtBox. Above #now (80), below the
+   toast (90) and menus (95). pointer-events stays none, so nothing in the embed is clickable. */
+#ytwrap.mv{opacity:1;z-index:81;background:#000;border-radius:20px;overflow:hidden;bottom:auto}
+#ytwrap.mv iframe{position:absolute;inset:0;width:100%;height:100%}
+#ytwrap.mv iframe.mv-off{visibility:hidden}
 .iconbtn.rateBtn{width:auto;min-width:40px;height:34px;padding:0 11px;border-radius:12px;font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums}
 .iconbtn.rateBtn.on{color:var(--primary)}
 
@@ -1228,6 +1233,7 @@ fill="url(#royal)" stroke="none">
         <button class="iconbtn heart" id="npLike" onclick="toggleLikeCurrent()" title="Like" aria-label="Like" aria-pressed="false" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg></button>
         <!-- Watch / Listen — only shown for a track that actually has video (a filmed shiur), and only
              while the account allows video shiurim. See shToggleWatch / paintWatchUI. -->
+        <button class="iconbtn" id="npMV" onclick="mvToggle()" title="Watch the music video" aria-label="Watch the music video" aria-pressed="false" style="width:48px;height:48px;flex:none;display:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M4 5h11a2 2 0 0 1 2 2v2.4l4-2.6v10.4l-4-2.6V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/></svg></button>
         <button class="iconbtn" id="npWatch" onclick="shToggleWatch()" title="Watch the video" aria-label="Watch the video" aria-pressed="false" style="width:48px;height:48px;flex:none;display:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M4 5h11a2 2 0 0 1 2 2v2.4l4-2.6v10.4l-4-2.6V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/></svg></button>
         <!-- Video-only, shown while watching. Controls = the browser's own scrubber, the thing you'd
              otherwise reach by right-clicking the frame — which the desktop shell has no menu for. -->
@@ -1549,6 +1555,57 @@ function setShiurim(on) {
 // whatever artists post today, which is not the whitelisted-catalog promise the rest of the app makes,
 // so filters.statuses === "on" is the ONLY thing that enables them — absent (or signed out) = blocked.
 const pcStatuses = () => pcFilters().statuses === "on";
+// Music videos (desktop app only): watch a music video's picture instead of its album art. A device with
+// no parental policy can; once an account has one, only filters.musicVideos === "on" allows it; Kid Zone
+// never does. The YouTube iframe can't be moved into Now Playing (re-parenting an iframe reloads it), so
+// watch mode lays the hidden #ytwrap over the art box instead — and only while the video is actually
+// PLAYING: a paused or ended embed draws YouTube's own "more videos" panel, which is outside the whitelist.
+const pcMusicVideos = () => { const p = pcPolicy(); return !p || ((p.filters || {}).musicVideos === "on"); };
+const mvAllowed = () => !!SK_NATIVE && pcMusicVideos() && !kidZoneActive();
+const mvWanted = () => LS.get("zw_mvWatch", "") === "1";
+const mvTrackOK = (t) => !!(t && t.isVideo && !t.kind);
+// Most entry points (search, Home rails, trending) carry no isVideo flag, so look the authoritative one up
+// once per track from the catalog engine — only when the Watch button could actually be offered.
+const _mvChecked = new Set();
+async function mvResolve(t) {
+  if (!t || t.kind || t.isVideo || !t.videoId || !mvAllowed() || _mvChecked.has(t.videoId)) return;
+  _mvChecked.add(t.videoId);
+  const r = await getJSON("/track?v=" + encodeURIComponent(t.videoId)).catch(() => null);
+  if (r && r.isVideo) { t.isVideo = true; if (state.queue[state.qi] === t) { paintMVButton(); mvPaint(); } }
+}
+function mvToggle() {
+  if (!mvAllowed()) { showToast("<b>Music videos are turned off</b> for this account — a parent can enable them in Parental Controls.", 4600); return; }
+  LS.set("zw_mvWatch", mvWanted() ? "" : "1");
+  mvPaint(); paintMVButton();
+  showToast(mvWanted() ? "Watching music videos." : "Back to the album art.", 1800);
+}
+function paintMVButton() {
+  const b = el("npMV"); if (!b) return;
+  const can = mvAllowed() && mvTrackOK(state.queue[state.qi]), on = can && mvWanted();
+  b.style.display = can ? "" : "none";
+  b.classList.toggle("on", on);
+  const lbl = on ? "Show the album art" : "Watch the music video";
+  b.title = lbl; b.setAttribute("aria-label", lbl); b.setAttribute("aria-pressed", String(on));
+}
+function mvPaint() {
+  const w = el("ytwrap"); if (!w) return;
+  let playing = false; try { playing = PB.ready && PB.yt.getPlayerState() === 1; } catch {}
+  const box = el("npArtBox"), r = box && box.getBoundingClientRect();
+  const show = state.nowOpen && mvWanted() && mvAllowed() && mvTrackOK(state.queue[state.qi]) && PB.useYt() && playing && r && r.width > 0;
+  if (!show) { if (w.classList.contains("mv")) { w.classList.remove("mv"); w.removeAttribute("style"); } return; }
+  w.classList.add("mv");
+  w.style.left = r.left + "px"; w.style.top = r.top + "px"; w.style.width = r.width + "px"; w.style.height = r.height + "px";
+  let live = null; try { live = PB.yt.getIframe(); } catch {}
+  for (const f of w.querySelectorAll("iframe")) f.classList.toggle("mv-off", f !== live); // the gapless standby stays hidden
+}
+addEventListener("resize", () => mvPaint());
+async function pcSetMusicVideos() {
+  if (!(await pcGuard())) return;
+  const cur = (acct.profile && acct.profile.filters) || {};
+  const next = (cur.musicVideos === "on") ? "" : "on";
+  if (!(await pcSave({ filters: Object.assign({}, cur, { noFemale: noFemale(), noChasid: noChasid(), blockVideos: blockVideos(), musicVideos: next }) }))) return;
+  mvPaint(); paintMVButton(); syncFilterUI(); renderParental();
+}
 const statusesOn = () => pcStatuses() && LS.get("zw_statuses", "1") === "1";
 function setStatuses(on) {
   if (!pcStatuses()) { showToast("<b>Statuses are turned off</b> for this account — a parent can enable them in Parental Controls.", 4600); return; }
@@ -4095,7 +4152,8 @@ async function openArtist(id, fromRoute) {
   } else if (am === "hide") {
     songs = (d.songs || []).filter((t) => !acapellaTrack(t));
   }
-  const videos = (acOnly || blockVideos()) ? [] : (am === "hide" ? (d.videos || []).filter((t) => !acapellaTrack(t)) : d.videos);
+  const videos = ((acOnly || blockVideos()) ? [] : (am === "hide" ? (d.videos || []).filter((t) => !acapellaTrack(t)) : (d.videos || [])))
+    .map((t) => (t.isVideo ? t : { ...t, isVideo: true })); // the bake implies "video" from the section and omits the flag; music-video Watch needs it on the track
   const albums = acOnly ? [] : d.albums, singles = acOnly ? [] : d.singles, plists = acOnly ? [] : (d.playlists || []); // Audio-only hides the Videos section + keeps videos out of the play queue
   const n = (songs?.length || 0) + (videos?.length || 0);
   pushDetail({ path: "/artists/" + id, kind: "Artist", title: d.artist.name, sub: acOnly ? `<b>${num(n)}</b> Acapella songs` : `<b>${num(n)}</b> songs · <b>${num(d.albums?.length || 0)}</b> albums`, thumb: d.artist.thumbnail, round: true, artistName: d.artist.name, search: true, radio: acOnly ? null : { kind: "artist", seed: id }, follow: { channelId: id, name: d.artist.name }, sections: [
@@ -4820,6 +4878,7 @@ function playIndex(i, dir) {
 // recents, the shareable /song URL, the play-duration session, and the browser/OS media sessions.
 function trackStarted(t) {
   bootResume = null;
+  paintMVButton(); mvResolve(t);
   el("nowbar").classList.add("on");
   PB.fallbackDur = t.durationSec || 0; // catalog duration, used by PB.dur() iOS correction
   if (IS_IOS) { ensureIOSKeepAlive(); resumeIOSKeepAlive(); resetIOSAudioBase(); }
@@ -5104,8 +5163,8 @@ function clearQueue() {
   if (state.nowOpen) paintQueue();
   showToast("Cleared what was coming up.", 1800);
 }
-function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); const au = el("npAuto"); if (au) au.checked = radioAutoplay(); paintShuffleUI(); paintSleepUI(); paintCrossfadeUI(); paintQueue(); if (lyricsOpen()) loadLyrics(); }
-function closeNow() { state.nowOpen = false; el("now").classList.remove("on"); }
+function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); const au = el("npAuto"); if (au) au.checked = radioAutoplay(); paintShuffleUI(); paintSleepUI(); paintCrossfadeUI(); paintQueue(); if (lyricsOpen()) loadLyrics(); paintMVButton(); mvPaint(); }
+function closeNow() { state.nowOpen = false; el("now").classList.remove("on"); mvPaint(); }
 function saveRecent(t) { try { const h = readRecent().filter((x) => x.videoId !== t.videoId); h.unshift({ videoId: t.videoId, title: t.title, artist: t.artist, explicit: t.explicit, isVideo: t.isVideo }); localStorage.setItem("zw_recent", JSON.stringify(h.slice(0, 80))); } catch {} acctSyncRecents(); }
 function toggleMute() { PB.setMuted(!PB.muted); el("vol").value = PB.muted ? 0 : Math.round(PB.vol * 100); paintSeek(el("vol")); }
 function paintQueue() {
@@ -5467,6 +5526,7 @@ let tickTimer = null, seeking = false, toastTimer, streamFails = 0;
 function startTick() { if (!tickTimer) tickTimer = setInterval(tick, 300); }
 function stopTick() { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } }
 function tick() {
+  mvPaint(); // keeps the overlay on the art box through Now Playing's open animation and gapless swaps
   if (bootResume && !state.queue.length) { // nothing loaded yet: show the paused resume point, not 0:00
     const d = bootResume.t.durationSec || 0, c = bootResume.pos || 0, pct = d ? Math.min(1, c / d) : 0;
     el("nbProgress").style.width = (pct * 100) + "%";
@@ -5510,6 +5570,7 @@ function tick() {
   skTick(c);
 }
 function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing · 2 paused · 3 buffering · 5 cued
+  mvPaint(); // hide the picture the instant it stops PLAYING (paused/ended embeds draw YouTube's own suggestions)
   if (code === 3) setBuffering(true); else if (code === 1 || code === 2 || code === 0) setBuffering(false);
   if (code === 1) {
     streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); // rate resets on each load
@@ -6928,6 +6989,8 @@ function renderParental() {
           tog(pcShiurim(), "pcToggleShiurim()")) +
         row("Statuses", "Artist story circles from JewishStatus — <b>off by default</b>. Third-party video, outside the whitelisted catalog.",
           tog(pcStatuses(), "pcSetStatuses()")) +
+        row("Music videos", "Watch the video on music videos in the desktop app — <b>off by default</b> for this account. A video can show more than the song does. Never available under a Kid Zone lock.",
+          tog((pcFilters().musicVideos === "on"), "pcSetMusicVideos()")) +
         row("Zemer Radio", "Live broadcast stations on Home — block them, or allow only one",
           `<div class="pc-seg-wrap" style="margin-top:0;width:290px;flex-wrap:wrap">${
             // Driven off STATION_STYLE rather than a hardcoded three, so a station added upstream
