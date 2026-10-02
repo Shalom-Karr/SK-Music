@@ -1,5 +1,32 @@
 # Changelog
 
+## Desktop 1.2.5 — 2026-10-01
+
+**Why the bump:** songs saved with **Download** couldn't be played without internet. The app couldn't
+open at all offline, so they were stuck behind the "Couldn't reach SK Music" screen.
+
+**Offline player for saved songs**
+- When the app can't connect and you have saved songs, it now opens straight into a built-in offline
+  player — no internet needed, nothing to click. With nothing saved you still get the Try again screen.
+- It looks like the regular app — same fonts, sidebar, top bar, home banner, song rows, now-playing bar
+  and full-screen Now Playing view. Tapping a song plays it; tap the song in the bar at the bottom to
+  open Now Playing, like the website.
+- Saved songs are grouped like the website: **Home** shows recently saved songs and artists;
+  **Artists** lists everyone you've saved songs from, and an artist's page has their songs with Play
+  and Shuffle. **Search** covers saved songs and artists. Items that need the internet (Playlists, Kid
+  Zone, Library, About) are dimmed and say so.
+- Every song has a **⋮** menu — in the lists (on hover) and in Now Playing — with **Play next**, **Add
+  to queue**, **Go to artist** and **Remove from offline**, which deletes the saved song from this
+  computer. Things that need the internet (playlists, sharing, radio) aren't offered.
+- Play/pause, next/previous, skip 15 seconds, shuffle, repeat-one, playback speed, seek and volume all
+  work. The tray menu, keyboard media keys, Windows' media controls and the mini player control it too.
+- It remembers where you were: reopen it and it's paused on the same song at the same spot.
+- **Reconnect** checks the connection right then: if you're back online it opens SK Music straight
+  away, otherwise it tells you you're still offline. When the connection returns on its own, the top
+  bar shows **Back online** with an **Open SK Music** button.
+- Saved songs stay inside the app's own data folder, not your Downloads folder, and the installed
+  and portable versions share the same saved songs.
+
 ## Desktop 1.2.4 — 2026-10-01
 
 **Why the bump:** closing the desktop app with **X** didn't close it — the window hid to the tray and

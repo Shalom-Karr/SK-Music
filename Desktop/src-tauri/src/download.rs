@@ -84,7 +84,7 @@ const RELAY_DOWNLOAD: &str = "https://stream.zemer.io/download";
 // ---------------------------------------------------------------------------
 
 /// One downloaded song, as stored in `downloads/index.json` and sent to the SPA.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Entry {
     video_id: String,
@@ -94,6 +94,22 @@ struct Entry {
     mime: String, // Content-Type served by the skdl:// handler
     bytes: u64,
     added: u64, // epoch ms
+    // Filled in by "Save for offline" so the offline player can group by album and show artwork.
+    // Files named here live in downloads/art and may be missing (fetch failed) — callers check.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    duration_sec: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    album_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    album: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    album_year: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cover: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    album_cover: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    artist_photo: Option<String>,
 }
 
 /// Serialize index writes across the download worker + delete handler.
@@ -327,7 +343,7 @@ async fn process(app: &AppHandle, job: Job) {
 
     let title = pick(&job.title, &extracted.title, &id);
     let artist = pick(&job.artist, &extracted.author, "");
-    let entry = Entry { video_id: id.clone(), title, artist, ext, mime, bytes: written, added: now_ms() };
+    let entry = Entry { video_id: id.clone(), title, artist, ext, mime, bytes: written, added: now_ms(), ..Default::default() };
     upsert_index(app, entry);
     emit_done(app, &id);
     emit_list(app);
@@ -552,6 +568,18 @@ fn delete(app: &AppHandle, id: &str) {
     emit_list(app);
 }
 
+/// "Remove from offline" in the offline player (a local page, so it may invoke commands). Same
+/// removal as the full app's delete: the audio file and its index entry. Artwork is left alone because
+/// album covers and artist photos are shared by other songs.
+#[tauri::command]
+pub fn offline_remove(app: AppHandle, video_id: String) -> Result<(), String> {
+    if !valid_id(&video_id) {
+        return Err("invalid video id".into());
+    }
+    delete(&app, &video_id);
+    Ok(())
+}
+
 /// Open the OS file manager on a finished download, with the file selected.
 ///
 /// The page sends only the videoId — never a path. A path arriving from the main window would be a
@@ -627,6 +655,9 @@ fn park_extractor(app: &AppHandle) {
 /// Handler for `skdl://localhost/<videoId>` (Windows: `http://skdl.localhost/<videoId>`).
 /// Supports HTTP Range so the html5 scrubber can seek.
 pub fn serve_protocol(app: &AppHandle, req: &Request<Vec<u8>>) -> Response<Vec<u8>> {
+    if let Some(name) = req.uri().path().strip_prefix("/art/") {
+        return serve_art(app, name);
+    }
     let id = req.uri().path().trim_start_matches('/');
     let id = id.split('.').next().unwrap_or(id); // tolerate a trailing extension
     if !valid_id(id) {
@@ -672,6 +703,26 @@ pub fn serve_protocol(app: &AppHandle, req: &Request<Vec<u8>>) -> Response<Vec<u
         );
     }
     builder.body(buf).unwrap_or_else(|_| simple(StatusCode::INTERNAL_SERVER_ERROR))
+}
+
+/// Saved artwork (cover / album cover / artist photo) for the offline player.
+fn serve_art(app: &AppHandle, name: &str) -> Response<Vec<u8>> {
+    if !valid_art_name(name) {
+        return simple(StatusCode::BAD_REQUEST);
+    }
+    let Ok(bytes) = fs::read(downloads_dir(app).join("art").join(name)) else {
+        return simple(StatusCode::NOT_FOUND);
+    };
+    let Some(mime) = image_mime(&bytes) else {
+        return simple(StatusCode::NOT_FOUND);
+    };
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, mime)
+        .header(header::CACHE_CONTROL, "no-store")
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .body(bytes)
+        .unwrap_or_else(|_| simple(StatusCode::INTERNAL_SERVER_ERROR))
 }
 
 fn parse_range(spec: &str, len: u64) -> Option<(u64, u64)> {
@@ -737,13 +788,73 @@ fn emit_done(app: &AppHandle, id: &str) {
 }
 
 fn emit_list(app: &AppHandle) {
+    let _ = app.emit("sk-dl-list", serde_json::json!({ "items": library_items(app) }));
+}
+
+/// The whole library as SPA-ready items, newest first.
+fn library_items(app: &AppHandle) -> Vec<serde_json::Value> {
     let mut items: Vec<_> = load_index(app).values().map(to_item).collect();
-    // Newest first.
     items.sort_by(|a, b| {
         b.get("added").and_then(|v| v.as_u64()).unwrap_or(0)
             .cmp(&a.get("added").and_then(|v| v.as_u64()).unwrap_or(0))
     });
-    let _ = app.emit("sk-dl-list", serde_json::json!({ "items": items }));
+    items
+}
+
+/// The library for the bundled offline player (`frontend/offline.html`). A local page can invoke app
+/// commands, unlike the remote SPA, which has to go through the `sk-dl-list-request` event. Entries
+/// whose audio file has gone missing are left out so the player never lists an unplayable song.
+#[tauri::command]
+pub fn offline_library(app: AppHandle) -> Vec<serde_json::Value> {
+    let dir = downloads_dir(&app);
+    let art = dir.join("art");
+    let art_src = |name: &Option<String>| {
+        name.as_ref().filter(|n| valid_art_name(n) && art.join(n.as_str()).is_file()).map(|n| art_url(n))
+    };
+    let mut entries: Vec<Entry> = load_index(&app)
+        .into_values()
+        .filter(|e| dir.join(format!("{}.{}", e.video_id, e.ext)).is_file())
+        .collect();
+    entries.sort_by(|a, b| b.added.cmp(&a.added)); // newest first
+    entries
+        .iter()
+        .map(|e| {
+            let mut it = to_item(e);
+            if let Some(o) = it.as_object_mut() {
+                o.insert("durationSec".into(), serde_json::json!(e.duration_sec));
+                o.insert("albumId".into(), serde_json::json!(e.album_id));
+                o.insert("album".into(), serde_json::json!(e.album));
+                o.insert("albumYear".into(), serde_json::json!(e.album_year));
+                o.insert("coverSrc".into(), serde_json::json!(art_src(&e.cover)));
+                o.insert("albumCoverSrc".into(), serde_json::json!(art_src(&e.album_cover)));
+                o.insert("artistPhotoSrc".into(), serde_json::json!(art_src(&e.artist_photo)));
+            }
+            it
+        })
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
+// Saved artwork helpers (used when listing and serving the library)
+// ---------------------------------------------------------------------------
+
+fn valid_art_name(name: &str) -> bool {
+    name.len() <= 80
+        && name.ends_with(".img")
+        && name.trim_end_matches(".img").bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+}
+
+/// Content-Type from the first bytes; also our "is this really an image" check.
+fn image_mime(head: &[u8]) -> Option<&'static str> {
+    if head.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        Some("image/jpeg")
+    } else if head.starts_with(b"\x89PNG") {
+        Some("image/png")
+    } else if head.len() >= 12 && &head[0..4] == b"RIFF" && &head[8..12] == b"WEBP" {
+        Some("image/webp")
+    } else {
+        None
+    }
 }
 
 /// An index entry as sent to the SPA, with a ready-to-use `src` for the audio element.
@@ -762,6 +873,10 @@ fn to_item(entry: &Entry) -> serde_json::Value {
 
 /// Platform-correct URL for the skdl:// scheme. Tauri serves custom schemes at
 /// `http://<scheme>.localhost/...` on Windows and `<scheme>://localhost/...` elsewhere.
+fn art_url(name: &str) -> String {
+    format!("{}/art/{name}", src_url("").trim_end_matches('/'))
+}
+
 fn src_url(id: &str) -> String {
     #[cfg(windows)]
     {
