@@ -1920,7 +1920,7 @@ function songRow(t, qid, i, opt) {
 }
 function songRows(tracks, opt) { const qid = regQueue(tracks); return `<div class="rows">${tracks.map((t, i) => songRow(t, qid, i, opt)).join("")}</div>`; }
 function songCard(t, qid, i) {
-  return `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="playFrom('${qid}',${i})">${artHTML(yt(t.videoId))}<button class="play-fab" aria-label="Play" onclick="event.stopPropagation();playFrom('${qid}',${i})">${ICON.play}</button><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist || "")}</div></div>`;
+  return `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="playFrom('${qid}',${i})">${artHTML(yt(t.videoId))}<button class="play-fab" aria-label="Play" onclick="event.stopPropagation();playFrom('${qid}',${i})">${ICON.play}</button><button class="iconbtn cardbtn" aria-label="More actions" aria-haspopup="true" title="More" onkeydown="event.stopPropagation()" onclick="songMenuAt('${qid}',${i},event)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4m0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/></svg></button><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist || "")}</div></div>`;
 }
 function songCards(tracks) { const qid = regQueue(tracks); return `<div class="rail">${tracks.map((t, i) => songCard(t, qid, i)).join("")}</div>`; }
 function quickPicks(tracks) { const qid = regQueue(tracks); return `<div class="qpgrid">${tracks.map((t, i) => songRow(t, qid, i)).join("")}</div>`; }

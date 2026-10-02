@@ -2,10 +2,12 @@
 
 ## web — 2026-10-02
 
-**Hover menu on albums, artists and playlists**
-- Hover an album, artist or playlist tile and a **⋮** appears in its corner — the same idea as the **⋮**
-  on a song, but for the whole set. Choose **Play**, **Shuffle**, **Play next**, **Add to queue**,
+**Hover menu on every tile**
+- Hover any album, artist or playlist tile and a **⋮** appears in its corner — the same idea as the
+  **⋮** on a song, but for the whole set. Choose **Play**, **Shuffle**, **Play next**, **Add to queue**,
   **Start radio**, or (on an album) **Go to artist** without opening the page first.
+- Song tiles (Trending Songs, New Songs, Keep Listening, and every other song rail) now get the same
+  **⋮**, matching the one already on song rows.
 - It respects your content filters: an artist or album they hide can't be played or queued from a tile.
 
 ## Desktop 1.2.4 — 2026-10-01
