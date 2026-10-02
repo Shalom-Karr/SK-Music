@@ -97,9 +97,8 @@ pub fn init_external_links(app: &tauri::AppHandle) {
     });
 }
 
-/// Surface the running window (restores a close-to-tray-hidden window, unminimizes,
-/// focuses). Called by the single-instance callback so a second launch focuses
-/// instead of duplicating.
+/// Surface the running window (unminimizes, focuses). Called by the single-instance callback so a
+/// second launch focuses instead of duplicating.
 pub fn focus_main_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
         let _ = window.show();

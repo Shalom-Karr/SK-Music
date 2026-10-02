@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e0a0b">
+<!-- Dark mode is the default; the Appearance switch stores "light" in zw_theme. Applied here, before the
+     stylesheet paints, so a light-mode user never sees a flash of the dark theme. -->
+<script>try { if (localStorage.getItem("zw_theme") === "light") { document.documentElement.dataset.theme = "light"; document.querySelector('meta[name="theme-color"]').content = "#faf6f4"; } } catch {}</script>
 <link rel="icon" type="image/svg+xml" href="/assets/skmusic_logo.svg">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="manifest" href="/assets/manifest.json">
@@ -40,6 +43,44 @@
   --shadow:0 18px 50px -12px rgba(0,0,0,.7);
   --ease:cubic-bezier(.2,.7,.2,1);
 }
+/* ---- Light theme (Dark mode switched off) — same warm palette on cream. The accents are deepened
+   so they still read as text on a light background. Then the handful of rules that hard-code a dark
+   surface or a white-on-dark tint get a light counterpart. The statuses viewer and fullscreen video
+   stay dark on purpose (media-first, like a lightbox). ---- */
+html[data-theme="light"]{
+  --bg:#faf6f4; --bg-grad-1:#fffaf7; --bg-grad-2:#f5eeeb;
+  --surface:#ffffff; --surface-2:#f5eeeb; --surface-3:#ede3df; --surface-4:#dfd2cd;
+  --line:rgba(60,30,32,.10); --line-2:rgba(60,30,32,.17);
+  --text:#231619; --muted:#6b5752; --faint:#94817c;
+  --primary:#d9384b; --primary-2:#c22b3e; --primary-ink:#fff; --primary-glow:rgba(217,56,75,.35);
+  --gold:#a66a12; --gold-ink:#fff;
+  --ok:#1f9d4d;
+  --shadow:0 18px 44px -14px rgba(80,40,40,.28);
+  color-scheme:light;
+}
+.themebtn{width:36px;height:36px;flex:none;color:var(--muted)}
+.themebtn:hover{color:var(--text)}
+.themebtn .ic-moon,html[data-theme="light"] .themebtn .ic-sun{display:none}
+html[data-theme="light"] .themebtn .ic-moon{display:block}
+html[data-theme="light"] body::after{opacity:.02}
+html[data-theme="light"] ::-webkit-scrollbar-thumb:hover{background:#c9b8b3;background-clip:padding-box}
+html[data-theme="light"] #topbar{background:linear-gradient(180deg,rgba(250,246,244,.9),rgba(250,246,244,.6) 70%,transparent)}
+html[data-theme="light"] #nowbar{background:linear-gradient(180deg,rgba(255,255,255,.86),rgba(250,246,244,.97))}
+html[data-theme="light"] #now::before{background:linear-gradient(180deg,rgba(250,246,244,.55),rgba(250,246,244,.9))}
+html[data-theme="light"] #now .np-bg{filter:blur(90px) saturate(1.4) brightness(1.1)}
+html[data-theme="light"] .azstrip{background:rgba(255,255,255,.75)}
+html[data-theme="light"] .nb-play:hover,html[data-theme="light"] .np-controls .big:hover{background:#000}
+html[data-theme="light"] .hero .heb{color:rgba(60,30,32,.05)}
+html[data-theme="light"] .art .ph{color:rgba(60,30,32,.2)}
+html[data-theme="light"] .built-by-pill{background:rgba(60,30,32,.05)}
+html[data-theme="light"] .built-by-pill:hover,html[data-theme="light"] .acct:hover,html[data-theme="light"] .acctmenu .am-row:hover,
+html[data-theme="light"] .authclose:hover,html[data-theme="light"] .autheye:hover,html[data-theme="light"] .pc-sugrow:hover{background:rgba(60,30,32,.06)}
+html[data-theme="light"] .authmodal{background:rgba(40,24,26,.42)}
+html[data-theme="light"] .authmsg,html[data-theme="light"] .authbtn.danger,html[data-theme="light"] .pc-btn.danger,
+html[data-theme="light"] .blockcard h2,html[data-theme="light"] #npDownload.err{color:#c4283b}
+html[data-theme="light"] #splash{background:radial-gradient(900px 520px at 50% 42%,rgba(240,179,90,.10),transparent 60%),linear-gradient(180deg,#fffaf7,#faf6f4)}
+html[data-theme="light"] #sploading{color:#6b5752}
+html[data-theme="light"] .blogo,html[data-theme="light"] #splogo svg{filter:brightness(.7) saturate(1.4) contrast(1.15)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{background:var(--bg)}
 body{
@@ -371,6 +412,17 @@ body.on-air .live-note{display:block}
 .card:hover .play-fab{opacity:1;transform:translate(-50%,-50%) scale(1)}
 .card .play-fab:hover{transform:translate(-50%,-50%) scale(1.07);box-shadow:0 13px 32px -6px var(--primary-glow),inset 0 0 0 1px rgba(255,255,255,.26)}
 .card .play-fab:active{transform:translate(-50%,-50%) scale(.95)}
+/* Hover ⋮ on album / artist / playlist tiles: the same options the song ⋮ offers, for the whole set. */
+.card .cardbtn{position:absolute;top:8px;right:8px;width:34px;height:34px;z-index:2;opacity:0;color:var(--text);
+  background:rgba(14,10,11,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:opacity .14s,color .15s,background .15s}
+.card .cardbtn:hover{background:rgba(14,10,11,.92)}
+.card .cardbtn svg{width:20px;height:20px}
+.card.round .cardbtn{top:12px;right:12px}
+.card:hover .cardbtn,.card .cardbtn:focus-visible,.gcell:hover .cardbtn,.gcell .cardbtn:focus-visible{opacity:1}
+.gcell{position:relative}
+.gcell .cardbtn{position:absolute;top:8px;right:8px;width:34px;height:34px;z-index:2;opacity:0;color:var(--text);
+  background:rgba(14,10,11,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:opacity .14s,color .15s,background .15s}
+.gcell .cardbtn svg{width:20px;height:20px}
 .card .t{font-size:14px;font-weight:600;margin-top:11px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card .s{font-size:12.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card.round .t{text-align:center;margin-top:12px}.card.round .s{text-align:center}
@@ -1018,6 +1070,12 @@ fill="url(#royal)" stroke="none">
           <div class="am-row" role="menuitem" tabindex="0" onclick="acctSignOut()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 13v-2H7V8l-5 4 5 4v-3zM20 3h-9a2 2 0 0 0-2 2v4h2V5h9v14h-9v-4H9v4a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2"/></svg><span>Sign out</span></div>
         </div>
       </div>
+      <!-- Dark / light switch. Shows the theme you'd switch TO: a sun while dark, a moon while light
+           (the swap is pure CSS off html[data-theme], so it's right from first paint). -->
+      <button class="iconbtn themebtn" id="themeBtn" title="Switch to light mode" aria-label="Switch to light mode" onclick="setDarkMode(!darkOn())">
+        <svg class="ic-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10M11 1h2v3h-2zm0 19h2v3h-2zM3.5 4.9l1.4-1.4 2.1 2.1-1.4 1.4zm12.6 12.6 1.4-1.4 2.1 2.1-1.4 1.4zM1 11h3v2H1zm19 0h3v2h-3zM3.5 19.1l2.1-2.1 1.4 1.4-2.1 2.1zM16.1 5.6l2.1-2.1 1.4 1.4-2.1 2.1z"/></svg>
+        <svg class="ic-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12.3 2a10 10 0 1 0 9.7 12.4A8 8 0 0 1 12.3 2"/></svg>
+      </button>
     </header>
     <main id="maincontent" tabindex="-1">
       <section class="view" id="v-home"></section>
@@ -1209,7 +1267,7 @@ fill="url(#royal)" stroke="none">
     <button class="iconbtn" onclick="closeNow()" title="Collapse" aria-label="Collapse"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg></button>
     <div class="lbl">Now Playing</div>
     <button class="iconbtn" id="npXfade" onclick="openCrossfadeMenu(event)" title="Crossfade" aria-label="Crossfade"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 6h6l6 12h6M3 18h6l6-12h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    <button class="iconbtn" id="npSleep" onclick="openSleepMenu(event)" title="Sleep timer" aria-label="Sleep timer"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-8.54-8.54C11.92 2.04 11.46 2 11 2m1 2.07V4z"/></svg></button>
+    <button class="iconbtn" id="npSleep" onclick="openSleepMenu(event)" title="Sleep timer" aria-label="Sleep timer"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20m0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16m.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg></button>
     <button class="iconbtn rateBtn" onclick="cycleRate()" title="Playback speed" aria-label="Playback speed">1×</button>
   </div>
   <div class="np-body">
@@ -1600,6 +1658,22 @@ function setZemerRadio(on) {
 function gotoParental() { loggedIn() ? openParental() : openAuth("in"); }
 // Chasidish 3-state (free, no login) — "" all · "only" · "hide". Parental can set an account default too.
 function setChasid(v) { if (!parentalFilterGate("chasid")) return; const cl = guardOnlyConflict(v, "zw_israeli", "Israeli"); if (chasidMode() === v && !cl) return; LS.set("zw_chasid", v); track("filter", { f: "chasid", on: v || "off" }); acctSyncFilters(); syncFilterUI(); state.loaded = {}; reloadCurrent(); }
+// Appearance — per-device, not a filter: not synced to the account, not locked by a PIN, not reset by
+// Reset filters. The <head> script applies the stored choice before first paint; this flips it live.
+function darkOn() { return LS.get("zw_theme", "") !== "light"; }
+function setDarkMode(on) {
+  LS.set("zw_theme", on ? "" : "light");
+  if (on) delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = "light";
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = on ? "#0e0a0b" : "#faf6f4";
+  track("theme", { dark: !!on });
+  syncThemeBtn();
+}
+function syncThemeBtn() {
+  const b = el("themeBtn"); if (!b) return;
+  const lbl = darkOn() ? "Switch to light mode" : "Switch to dark mode";
+  b.title = lbl; b.setAttribute("aria-label", lbl);
+}
+syncThemeBtn();
 function resetFilters() { if (!filterGate()) return; LS.set("zw_noFemale", "1"); LS.set("zw_chasid", ""); LS.set("zw_blockVideos", "0"); LS.set("zw_acapella", ""); LS.set("zw_noDJ", "0"); LS.set("zw_israeli", ""); acctSyncFilters(); syncFilterUI(); state.loaded = {}; reloadCurrent(); } // defaults: female ON, others OFF
 function syncFilterUI() {
   el("tgFemale").classList.toggle("on", noFemale());
@@ -1908,16 +1982,17 @@ function songRow(t, qid, i, opt) {
 }
 function songRows(tracks, opt) { const qid = regQueue(tracks); return `<div class="rows">${tracks.map((t, i) => songRow(t, qid, i, opt)).join("")}</div>`; }
 function songCard(t, qid, i) {
-  return `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="playFrom('${qid}',${i})">${artHTML(yt(t.videoId))}<button class="play-fab" aria-label="Play" onclick="event.stopPropagation();playFrom('${qid}',${i})">${ICON.play}</button><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist || "")}</div></div>`;
+  return `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="playFrom('${qid}',${i})">${artHTML(yt(t.videoId))}<button class="play-fab" aria-label="Play" onclick="event.stopPropagation();playFrom('${qid}',${i})">${ICON.play}</button><button class="iconbtn cardbtn" aria-label="More actions" aria-haspopup="true" title="More" onkeydown="event.stopPropagation()" onclick="songMenuAt('${qid}',${i},event)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4m0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/></svg></button><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist || "")}</div></div>`;
 }
 function songCards(tracks) { const qid = regQueue(tracks); return `<div class="rail">${tracks.map((t, i) => songCard(t, qid, i)).join("")}</div>`; }
 function quickPicks(tracks) { const qid = regQueue(tracks); return `<div class="qpgrid">${tracks.map((t, i) => songRow(t, qid, i)).join("")}</div>`; }
-const albumCard = (a) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openAlbum('${safeId(a.id)}')" onmouseenter="pf('album','${safeId(a.id)}')">${artHTML(a.thumbnail)}<div class="t">${esc(a.title)}</div><div class="s">${esc(a.artist || "")}${a.year ? " · " + a.year : ""}</div></div>`;
-const playlistCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openPlaylist('${safeId(p.id)}')">${artHTML(p.thumbnail)}<div class="t">${esc(p.title)}</div><div class="s">${esc(p.artist || "Playlist")}</div></div>`;
+const tileBtn = (kind, id, title, artist) => `<button class="iconbtn cardbtn" aria-label="More actions" aria-haspopup="true" title="More" onkeydown="event.stopPropagation()" onclick="event.stopPropagation();openTileMenu(this,'${kind}','${safeId(id)}',this.dataset.t,this.dataset.a)" data-t="${esc(title || "")}" data-a="${esc(artist || "")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4m0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/></svg></button>`;
+const albumCard = (a) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openAlbum('${safeId(a.id)}')" onmouseenter="pf('album','${safeId(a.id)}')">${artHTML(a.thumbnail)}${tileBtn("album", a.id, a.title, a.artist)}<div class="t">${esc(a.title)}</div><div class="s">${esc(a.artist || "")}${a.year ? " · " + a.year : ""}</div></div>`;
+const playlistCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openPlaylist('${safeId(p.id)}')">${artHTML(p.thumbnail)}${tileBtn("playlist", p.id, p.title, "")}<div class="t">${esc(p.title)}</div><div class="s">${esc(p.artist || "Playlist")}</div></div>`;
 // Curated playlist card — SVG cover; click → the curated detail (albums + songs).
-const zpCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openCuratedPlaylist('${safeId(p.id)}')">${artHTML(p.thumbnail)}<div class="t">${esc(p.title)}</div><div class="s">${num(p.trackCount || 0)} songs</div></div>`;
-const artistCard = (a) => `<div class="card round" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${safeId(a.id)}')" onmouseenter="pf('artist','${safeId(a.id)}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="t">${esc(a.name || "")}</div></div>`;
-const artistCell = (a) => `<div class="gcell" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${safeId(a.id)}')" onmouseenter="pf('artist','${safeId(a.id)}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="n">${esc(a.name || "")}</div></div>`;
+const zpCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openCuratedPlaylist('${safeId(p.id)}')">${artHTML(p.thumbnail)}${tileBtn("zp", p.id, p.title, "")}<div class="t">${esc(p.title)}</div><div class="s">${num(p.trackCount || 0)} songs</div></div>`;
+const artistCard = (a) => `<div class="card round" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${safeId(a.id)}')" onmouseenter="pf('artist','${safeId(a.id)}')">${artHTML(a.thumbnail, ICON.artist, true)}${tileBtn("artist", a.id, a.name, "")}<div class="t">${esc(a.name || "")}</div></div>`;
+const artistCell = (a) => `<div class="gcell" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${safeId(a.id)}')" onmouseenter="pf('artist','${safeId(a.id)}')">${artHTML(a.thumbnail, ICON.artist, true)}${tileBtn("artist", a.id, a.name, "")}<div class="n">${esc(a.name || "")}</div></div>`;
 let secN = 0, expSeq = 0;
 // Bumped on every loadHome so a slow section from a superseded run can't paint into the current page.
 let _homeGen = 0;
@@ -3932,6 +4007,58 @@ function enqueueMenuTrack(next) {
   if (affectsNext) { cancelSwap(); cueNext(); }
   if (state.nowOpen) paintQueue();
   showToast(next ? `Playing next: “${t.title || "song"}”.` : `Added “${t.title || "song"}” to the queue.`, 1600);
+}
+/* ---- Hover ⋮ on album / artist / playlist tiles ----
+   The song ⋮ for a whole set: Play, Shuffle, Play next, Add to queue, Start radio, Go to artist. The
+   tracks are fetched when an action is chosen (not when the tile renders), then run through the same
+   gates the detail page applies, so a filtered artist/album can't be queued from a tile. */
+let _tile = null;
+function openTileMenu(anchor, kind, id, title, artist) {
+  _tile = { kind, id, title: title || "", artist: artist || "" };
+  const mi = (icon, label, fn) => `<button class="mi" role="menuitem" onclick="closeMenus();${fn}">${icon}<span>${label}</span></button>`;
+  const ic = {
+    play: ICON.play,
+    shuf: '<svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>',
+    next: '<svg viewBox="0 0 24 24"><path d="M4 5v14l8-7zm9 0v14l8-7z"/></svg>',
+    queue: '<svg viewBox="0 0 24 24"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zm14-6v4.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>',
+    radio: ICON.radio, artist: ICON.artist
+  };
+  const radioKind = kind === "zp" ? "playlist" : kind;
+  let h = `<div class="mihead">${esc(_tile.title || "Options")}</div>`;
+  h += mi(ic.play, "Play", "tileDo('play')") + mi(ic.shuf, "Shuffle", "tileDo('shuffle')");
+  h += `<div class="misep"></div>` + mi(ic.next, "Play next", "tileDo('next')") + mi(ic.queue, "Add to queue", "tileDo('queue')");
+  if (acapellaMode() !== "only") h += `<div class="misep"></div>` + mi(ic.radio, "Start radio", `startRadio('${radioKind}','${safeId(id)}')`);
+  if (kind === "album" && _tile.artist) h += mi(ic.artist, "Go to artist", "gotoArtistByName(_tile.artist)");
+  popMenu(anchor, h);
+}
+// The playable, filtered tracks behind a tile — [] (with a toast) if it's hidden or empty.
+async function tileTracks() {
+  const t = _tile; if (!t) return [];
+  const path = t.kind === "album" ? "/album?id=" : t.kind === "artist" ? "/artist?id=" : t.kind === "zp" ? "/zemer-playlists?id=" : "/playlist?id=";
+  const d = await detailGet(path + encodeURIComponent(t.id));
+  if (!d || d.error) { showToast("Couldn't load that right now.", 2400); return []; }
+  await ensureFilters();
+  const hidden = (t.kind === "album" && d.album && hiddenArtist(d.album.artist))
+    || (t.kind === "artist" && d.artist && ((noFemale() && d.artist.isFemale) || (noChasid() && d.artist.isChasid) || hiddenArtist(d.artist.name) || blockedId(d.artist.id)));
+  if (hidden) { showToast("That's hidden by your content filters.", 2600); return []; }
+  const tracks = gate((t.kind === "artist" ? d.songs : d.tracks) || []).filter((x) => x.videoId && !(blockVideos() && x.isVideo));
+  if (!tracks.length) showToast("Nothing to play here.", 2200);
+  return tracks;
+}
+async function tileDo(action) {
+  const t = _tile; if (!t) return;
+  const tracks = await tileTracks(); if (!tracks.length) return;
+  if (action === "play") { playFrom(regQueue(tracks), 0, t.kind); return openNow(); }
+  if (action === "shuffle") { shufflePlay(regQueue(tracks)); return openNow(); }
+  const next = action === "next";
+  const slim = tracks.map((x) => ({ videoId: x.videoId, title: x.title || "", artist: x.artist || "", isFemale: x.isFemale, isChasid: x.isChasid, isVideo: x.isVideo, durationSec: x.durationSec, explicit: x.explicit }));
+  if (!state.queue.length || state.qi < 0) { playFrom(regQueue(slim), 0, t.kind); return openNow(); }
+  const at = next ? state.qi + 1 : state.queue.length;
+  state.queue.splice(at, 0, ...slim);
+  if (at === state.qi + 1) { cancelSwap(); cueNext(); }
+  if (state.nowOpen) paintQueue();
+  const n = slim.length, what = n === 1 ? `“${slim[0].title || "song"}”` : `${n} songs`;
+  showToast(next ? `Playing next: ${what}.` : `Added ${what} to the queue.`, 1800);
 }
 async function openAddToPlaylistMenu() {
   if (!requirePlaylistLogin()) { closeMenus(); return; }
@@ -7205,6 +7332,10 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   // Artwork is natively draggable, which would hijack the gesture as an HTML5 image drag.
   addEventListener("dragstart", (e) => { if (railAt(e.target)) e.preventDefault(); }, true);
 
+  // A plain vertical wheel is left alone so it keeps scrolling the page even while the cursor sits
+  // over a rail — hijacking it into sideways rail motion trapped the cursor until a rail ran out of
+  // room to scroll. Drag-to-scroll and the hover chevrons below already cover sideways mouse input;
+  // an actual sideways gesture (trackpad swipe, tilt wheel) still scrolls the rail natively.
   /* ---------------- wheel over a rail scrolls it sideways ---------------- */
   addEventListener("wheel", (e) => {
     const s = railAt(e.target);
@@ -7226,6 +7357,18 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   };
   const page = (s, dir) => {
     // Quick Picks pages a full screen-width (its columns are page-sized); card rails move most of one.
+    // Scroll-snap is off (see .rail/.qpgrid), so land on a card edge ourselves: scroll roughly a page,
+    // then pick whichever card/row is closest to that point instead of stopping mid-card.
+    const by = s.clientWidth * (s.classList.contains("qpgrid") ? 1 : 0.85);
+    const approx = s.scrollLeft + dir * Math.max(120, by);
+    const kids = Array.from(s.children).filter((k) => getComputedStyle(k).scrollSnapAlign !== "none");
+    let target = approx, bestDist = Infinity;
+    for (const k of kids) {
+      const d = Math.abs(k.offsetLeft - approx);
+      if (d < bestDist) { bestDist = d; target = k.offsetLeft; }
+    }
+    const max = s.scrollWidth - s.clientWidth;
+    target = Math.max(0, Math.min(max, target));
     // Scroll-snap is off (see .rail/.qpgrid), so land on a card edge ourselves: aim roughly a page
     // over, then go to whichever card/row starts closest to that point instead of stopping mid-card.
     const by = s.clientWidth * (s.classList.contains("qpgrid") ? 1 : 0.85);

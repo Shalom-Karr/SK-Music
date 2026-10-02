@@ -2,13 +2,24 @@
 
 ## 1.9.1 — 2026-10-01 (web; affects the desktop app)
 
-**Reopening picks up where you left off**
-- Opening the desktop app again shows the last song in the player bar, **paused** at the spot you
-  left it, with its progress on the seek bar. Press Play and it carries on from there — nothing plays
-  on its own. Before, the app opened with an empty player, and the last song only came back if you
-  pressed Play within 20 minutes.
-- Pausing now saves your exact spot right away, instead of up to five seconds earlier.
-- Only the desktop app does this; the website in a browser is unchanged.
+**Hover menu on every tile**
+- Hover any album, artist or playlist tile and a **⋮** appears in its corner — the same idea as the
+  **⋮** on a song, but for the whole set. Choose **Play**, **Shuffle**, **Play next**, **Add to queue**,
+  **Start radio**, or (on an album) **Go to artist** without opening the page first.
+- Song tiles (Trending Songs, New Songs, Keep Listening, and every other song rail) now get the same
+  **⋮**, matching the one already on song rows.
+- It respects your content filters: an artist or album they hide can't be played or queued from a tile.
+
+## Desktop 1.2.4 — 2026-10-01
+
+**Why the bump:** closing the desktop app with **X** didn't close it — the window hid to the tray and
+the music kept playing in the background, so the app always seemed to still be running.
+
+**Closing the app actually closes it**
+- The window's **X** now quits SK Music completely and stops playback, the same as **Quit** in the
+  tray menu. Before, it only hid the window to the tray and the song carried on.
+- **Minimizing** is unchanged: the window minimizes and the mini player appears (while something is
+  playing), so you can still keep music going with a small on-screen control.
 
 ## 1.9.0 — 2026-10-01 (web)
 
@@ -67,6 +78,19 @@ people actually listen to from them.
   On a shorter screen its last settings — Stream via proxy, Reset filters — used to hang off the
   bottom, and the mouse wheel scrolled the page behind the menu instead. Now the wheel scrolls the menu
   while you're over it, and stops at its end instead of carrying on into the page.
+
+## 1.8.5 — 2026-09-29 (web)
+
+**Light theme**
+- New sun / moon button in the top-right corner, next to Sign in. Dark stays the default; tap the sun
+  for a light, cream-and-rose theme across the whole app — sidebar, pages, menus, sign-in, the player
+  bar and the full-screen player — and the moon to go back.
+- The choice is remembered on this device and applied before the page draws, so there's no dark flash
+  on load. It's separate from the content filters: Reset filters and Parental Controls don't touch it.
+- The status viewer and full-screen video stay dark in both themes, like a photo viewer.
+- The sleep-timer button in the full-screen player is now a **clock** instead of a moon, so it can't be
+  mistaken for the new dark-mode button.
+
 
 ## 1.8.4 — 2026-09-29 (web)
 
