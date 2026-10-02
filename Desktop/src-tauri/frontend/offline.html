@@ -165,6 +165,11 @@
   .art .ini{font-family:Fraunces,serif;font-weight:600;font-size:clamp(30px,4vw,46px);color:rgba(255,240,235,.55)}
   .card.round .art{border-radius:50%}
   .card .t.l,.card .s.l{text-align:left}
+  .card .cardbtn{position:absolute;top:8px;right:8px;width:34px;height:34px;opacity:0;z-index:2;color:var(--text);
+    background:rgba(14,10,11,.72);backdrop-filter:blur(6px);transition:opacity .14s,color .15s,background .15s}
+  .card .cardbtn:hover{background:rgba(14,10,11,.92)}
+  .card .cardbtn svg{width:20px;height:20px}
+  .card:hover .cardbtn,.card .cardbtn:focus-visible{opacity:1}
   .card .t{font-size:14px;font-weight:600;margin-top:12px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
   .card .s{font-size:12.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
   .backbtn{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 14px 0 10px;margin:4px 0 6px;border-radius:19px;
@@ -475,7 +480,7 @@
       tx.appendChild(t); tx.appendChild(el("div", "sub", [it.artist, it.album].filter(Boolean).join(" · "))); r.appendChild(tx);
       if (it.durationSec) r.appendChild(el("span", "dur", fmt(it.durationSec)));
       var mb = el("button", "iconbtn rowbtn"); mb.type = "button"; mb.title = "More"; mb.setAttribute("aria-label", "More actions"); mb.setAttribute("aria-haspopup", "true"); mb.innerHTML = MI.dots;
-      mb.addEventListener("click", function (e) { e.stopPropagation(); var m = $("popmenu"); if (m.classList.contains("on")) closeMenu(); else openMenu(mb, it); });
+      mb.addEventListener("click", function (e) { e.stopPropagation(); toggleMenu(mb, it.title, songMenu(it)); });
       mb.addEventListener("keydown", function (e) { e.stopPropagation(); });
       r.appendChild(mb);
       r.addEventListener("click", function () { playList(idxs, n); });
@@ -488,13 +493,22 @@
     var c = el("div", "card round"); c.tabIndex = 0; c.setAttribute("role", "link");
     var a = el("div", "art"); fillArt(a, photoOf(name), initialHtml(name)); c.appendChild(a);
     c.appendChild(el("div", "t", name)); c.appendChild(el("div", "s", count + (count === 1 ? " song" : " songs")));
+    c.appendChild(tileMenuBtn(name, function () { return groupMenu(songsBy(name), { removeLabel: "Remove all songs by " + name }); }));
     c.addEventListener("click", function () { openArtist(name); });
     c.addEventListener("keydown", function (e) { if (e.key === "Enter") openArtist(name); });
     return c;
   }
+  // The hover ⋮ on an artist / album tile.
+  function tileMenuBtn(title, itemsFn) {
+    var b = el("button", "iconbtn cardbtn"); b.type = "button"; b.title = "More"; b.setAttribute("aria-label", "More actions"); b.setAttribute("aria-haspopup", "true"); b.innerHTML = MI.dots;
+    b.addEventListener("click", function (e) { e.stopPropagation(); toggleMenu(b, title, itemsFn()); });
+    b.addEventListener("keydown", function (e) { e.stopPropagation(); });
+    return b;
+  }
   function albumCard(al) {
     var c = el("div", "card"); c.tabIndex = 0; c.setAttribute("role", "link");
     var a = el("div", "art"); fillArt(a, al.cover, ICON.note); c.appendChild(a);
+    c.appendChild(tileMenuBtn(al.title, function () { return groupMenu(al.idxs, { artist: al.artist, removeLabel: "Remove the album \u201c" + al.title + "\u201d" }); }));
     c.appendChild(el("div", "t l", al.title));
     c.appendChild(el("div", "s l", [al.year, al.idxs.length + (al.idxs.length === 1 ? " song" : " songs")].filter(Boolean).join(" · ")));
     c.addEventListener("click", function () { openAlbum(al.id); });
@@ -641,28 +655,66 @@
     dots: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4m0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/></svg>'
   };
   function closeMenu() { var m = $("popmenu"); m.classList.remove("on"); m.setAttribute("aria-hidden", "true"); }
-  function openMenu(anchor, it) {
-    if (!it) return;
+  // items: [{ icon, label, fn, cls }] or the string "sep".
+  function showMenu(anchor, title, items) {
     var m = $("popmenu"); m.textContent = "";
-    var add = function (cls, icon, label, fn) {
-      var b = el("button", "mi" + (cls ? " " + cls : "")); b.type = "button"; b.setAttribute("role", "menuitem");
-      b.innerHTML = icon; b.appendChild(el("span", null, label));
-      b.addEventListener("click", function () { closeMenu(); fn(); }); m.appendChild(b);
-    };
-    m.appendChild(el("div", "mihead", it.title || "Song"));
-    add("", MI.next, "Play next", function () { playNextSong(it); });
-    add("", MI.queue, "Add to queue", function () { queueSong(it); });
-    m.appendChild(el("div", "misep"));
-    add("", MI.artist, "Go to artist", function () { openArtist(artistKey(it)); });
-    if (it.albumId) add("", MI.album, "Go to album", function () { openAlbum(it.albumId); });
-    m.appendChild(el("div", "misep"));
-    add("danger", MI.trash, "Remove from offline", function () { removeSong(it); });
+    m.appendChild(el("div", "mihead", title || "Options"));
+    items.forEach(function (x) {
+      if (x === "sep") { m.appendChild(el("div", "misep")); return; }
+      var b = el("button", "mi" + (x.cls ? " " + x.cls : "")); b.type = "button"; b.setAttribute("role", "menuitem");
+      b.innerHTML = x.icon; b.appendChild(el("span", null, x.label));
+      b.addEventListener("click", function () { closeMenu(); x.fn(); }); m.appendChild(b);
+    });
     m.classList.add("on"); m.setAttribute("aria-hidden", "false");
     var r = anchor.getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;
-    var x = Math.min(r.left, innerWidth - mw - 8), y = r.bottom + 6;
+    var x0 = Math.min(r.left, innerWidth - mw - 8), y = r.bottom + 6;
     if (y + mh > innerHeight - 8) y = Math.max(8, r.top - mh - 6);
-    m.style.left = Math.max(8, x) + "px"; m.style.top = y + "px";
+    m.style.left = Math.max(8, x0) + "px"; m.style.top = y + "px";
     var first = m.querySelector(".mi"); if (first) first.focus();
+  }
+  function toggleMenu(anchor, title, items) { if ($("popmenu").classList.contains("on")) closeMenu(); else showMenu(anchor, title, items); }
+  function songMenu(it) {
+    var items = [
+      { icon: MI.next, label: "Play next", fn: function () { playNextSong(it); } },
+      { icon: MI.queue, label: "Add to queue", fn: function () { queueSong(it); } },
+      "sep",
+      { icon: MI.artist, label: "Go to artist", fn: function () { openArtist(artistKey(it)); } }
+    ];
+    if (it.albumId) items.push({ icon: MI.album, label: "Go to album", fn: function () { openAlbum(it.albumId); } });
+    items.push("sep", { icon: MI.trash, label: "Remove from offline", cls: "danger", fn: function () { removeSong(it); } });
+    return items;
+  }
+  // Menus for a whole album / artist: they act on every saved song in it.
+  function groupMenu(idxs, opts) {
+    var songs = function () { return idxs.map(function (i) { return lib[i]; }).filter(Boolean); };
+    var items = [
+      { icon: ICON.play, label: "Play", fn: function () { playList(idxs, 0); } },
+      { icon: ICON.shuffle, label: "Shuffle", fn: function () { shuffle = true; playList(idxs, -1); } },
+      "sep",
+      { icon: MI.next, label: "Play next", fn: function () { enqueue(songs(), true); } },
+      { icon: MI.queue, label: "Add to queue", fn: function () { enqueue(songs(), false); } }
+    ];
+    if (opts.artist) items.push("sep", { icon: MI.artist, label: "Go to artist", fn: function () { openArtist(opts.artist); } });
+    items.push("sep", { icon: MI.trash, label: opts.removeLabel, cls: "danger", fn: function () { removeMany(songs(), opts.removeLabel); } });
+    return items;
+  }
+  // Put several songs in the queue at once, after the current one or at the end.
+  function enqueue(items, afterCurrent) {
+    var ids = items.map(function (x) { return lib.indexOf(x); }).filter(function (i) { return i >= 0; });
+    if (!ids.length) return;
+    if (at < 0) { queue = ids.slice(); load(0, false); }
+    else if (afterCurrent) { queue.splice.apply(queue, [at + 1, 0].concat(ids)); report(); }
+    else { queue = queue.concat(ids); report(); }
+    toast(ids.length === 1 ? "<b>" + esc(items[0].title || "Song") + "</b> " + (afterCurrent ? "will play next." : "added to the queue.")
+      : ids.length + " songs " + (afterCurrent ? "will play next." : "added to the queue."), 2200);
+  }
+  function removeMany(items, label) {
+    if (!items.length) return;
+    if (!window.confirm(label + "?\n\nThis deletes " + items.length + (items.length === 1 ? " saved song" : " saved songs") + " from this computer. You can save them again when you're online.")) return;
+    Promise.all(items.map(function (x) { return removeSong(x, true); })).then(function (r) {
+      var n = r.filter(Boolean).length;
+      toast(n ? "Removed <b>" + n + "</b> " + (n === 1 ? "song" : "songs") + " from offline." : "Couldn't remove those songs.", 2600);
+    });
   }
   function playNextSong(it) {
     var li = lib.indexOf(it); if (li < 0) return;
@@ -676,10 +728,10 @@
   }
   // Delete a saved song (the audio file and its library entry, natively), then repair the library, the
   // queue and the screen. If it's the song playing, carry on with whatever now sits in its place.
-  function removeSong(it) {
-    if (!invoke) { toast("Couldn't remove that song.", 2600); return; }
-    invoke("offline_remove", { videoId: it.videoId }).then(function () {
-      var li = lib.indexOf(it); if (li < 0) return;
+  function removeSong(it, quiet) {
+    if (!invoke) { if (!quiet) toast("Couldn't remove that song.", 2600); return Promise.resolve(false); }
+    return invoke("offline_remove", { videoId: it.videoId }).then(function () {
+      var li = lib.indexOf(it); if (li < 0) return true;
       var removingCurrent = cur() === it, wasPlaying = !audio.paused;
       var before = queue.slice(0, Math.max(at, 0)).filter(function (q) { return q !== li; }).length;
       var newAt = -1, newQueue = [];
@@ -697,10 +749,11 @@
         else { audio.pause(); audio.removeAttribute("src"); audio.load(); at = -1; paintBar(); }
       } else at = newAt;
       render();
-      toast("Removed <b>" + esc(it.title || "the song") + "</b> from offline.", 2600);
-    }).catch(function () { toast("Couldn't remove that song.", 2600); });
+      if (!quiet) toast("Removed <b>" + esc(it.title || "the song") + "</b> from offline.", 2600);
+      return true;
+    }).catch(function () { if (!quiet) toast("Couldn't remove that song.", 2600); return false; });
   }
-  $("npMenu").addEventListener("click", function (e) { var m = $("popmenu"); if (m.classList.contains("on")) closeMenu(); else openMenu(e.currentTarget, cur()); e.stopPropagation(); });
+  $("npMenu").addEventListener("click", function (e) { var m = $("popmenu"); e.stopPropagation(); var it = cur(); if (it) toggleMenu(e.currentTarget, it.title, songMenu(it)); });
   document.addEventListener("click", function (e) { var m = $("popmenu"); if (m.classList.contains("on") && !m.contains(e.target)) closeMenu(); });
 
   // ---- player UI ----

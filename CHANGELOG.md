@@ -18,6 +18,9 @@ open at all offline, so they were stuck behind the "Couldn't reach SK Music" scr
 - Every song has a **⋮** menu — in the lists (on hover) and in Now Playing — with **Play next**, **Add
   to queue**, **Go to artist** and **Remove from offline**, which deletes the saved song from this
   computer. Things that need the internet (playlists, sharing, radio) aren't offered.
+- Hover an artist or album tile for the same **⋮**: **Play**, **Shuffle**, **Play next**, **Add to
+  queue**, **Go to artist** (albums) and **Remove** — which removes all of that artist's, or that
+  album's, saved songs after asking you to confirm.
 - Play/pause, next/previous, skip 15 seconds, shuffle, repeat-one, playback speed, seek and volume all
   work. The tray menu, keyboard media keys, Windows' media controls and the mini player control it too.
 - It remembers where you were: reopen it and it's paused on the same song at the same spot.
