@@ -214,6 +214,26 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
     });
     let h = app.clone();
     app.listen("sk-dl-list-request", move |_| emit_list(&h));
+    // The SPA's ⋮ "Save for offline" (it toasts on its own, so no native notifications).
+    let h = app.clone();
+    app.listen("sk-offline-save", move |ev| {
+        if let Ok(meta) = serde_json::from_str::<SaveMeta>(ev.payload()) {
+            let h = h.clone();
+            // Off the event thread: building a window from a synchronous handler can deadlock on Windows,
+            // and the lookup below is network. The page normally sends everything; this fills any gap.
+            tauri::async_runtime::spawn(async move {
+                let meta = if valid_id(&meta.video_id) && (meta.album_id.is_none() || meta.artist_photo_url.is_none()) {
+                    enrich_meta(meta).await
+                } else {
+                    meta
+                };
+                save_offline(&h, meta, false);
+            });
+        }
+    });
+    // Tray / right-click save on a site that doesn't offer __skSaveOfflineCurrent yet.
+    let h = app.clone();
+    app.listen("sk-offline-save-fallback", move |_| save_from_snapshot(&h));
     let h = app.clone();
     app.listen("sk-dl-reveal", move |ev| {
         if let Ok(r) = serde_json::from_str::<IdOnly>(ev.payload()) {
@@ -835,8 +855,304 @@ pub fn offline_library(app: AppHandle) -> Vec<serde_json::Value> {
 }
 
 // ---------------------------------------------------------------------------
-// Saved artwork helpers (used when listing and serving the library)
+// "Save for offline" — fetched by the WEBVIEW, not by reqwest
 // ---------------------------------------------------------------------------
+//
+// The Download pipeline above fetches with reqwest, i.e. Windows' own TLS stack. Behind a
+// TLS-intercepting filter (Techloq, Bitdefender web scan…) that path fails where the webview —
+// Chromium's network stack — streams music through the same filter fine. So a save runs in a hidden
+// window on a LOCAL page (frontend/saver.html): it asks `offline_saver_job` what to fetch, pulls the
+// cover / album cover / artist photo with fetch() and hands them back through `offline_store_image`,
+// then navigates to the relay's /download URL. That answers `Content-Disposition: attachment`, so the
+// webview's own download manager writes the song wherever `on_download` points it. Images the webview
+// couldn't get (a host without CORS, a filter) are retried with reqwest once the song has landed; an
+// image that still fails just leaves the placeholder. The song and its details join the same library
+// as Download, so the full app plays it locally and the offline player lists it — grouped by artist
+// and album, with artwork.
+
+/// How long a save may take before the hidden window is torn down and the save reported failed
+/// (covers a relay that answers with a page instead of a file, or a filter that silently drops it).
+const SAVE_TIMEOUT: Duration = Duration::from_secs(180);
+/// Images are small; anything bigger than this isn't the thumbnail we asked for.
+const MAX_IMAGE_BYTES: usize = 3 << 20;
+
+/// Everything the page knows about a song when it asks to save it. Only `video_id` is required; the
+/// rest makes the offline player look like the site (artist/album grouping, artwork, durations).
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SaveMeta {
+    video_id: String,
+    title: String,
+    artist: String,
+    duration_sec: Option<serde_json::Value>,
+    album_id: Option<String>,
+    album: Option<String>,
+    album_year: Option<serde_json::Value>,
+    cover_url: Option<String>,
+    album_cover_url: Option<String>,
+    artist_photo_url: Option<String>,
+}
+
+/// One pending save, keyed by its hidden window's label, so `offline_saver_job` /
+/// `offline_store_image` only ever act for the window that owns the job.
+#[derive(Clone)]
+struct SaveJob {
+    relay: String,
+    images: Vec<(String, String)>, // (file name under downloads/art, https url)
+}
+static SAVE_JOBS: OnceLock<Mutex<HashMap<String, SaveJob>>> = OnceLock::new();
+fn save_jobs() -> &'static Mutex<HashMap<String, SaveJob>> {
+    SAVE_JOBS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Tray / right-click "Save for offline": let the page do it when it can — it knows the album and
+/// the artist's photo — and fall back to what the native now-playing snapshot carries. The page
+/// answers by calling `__skSaveOfflineCurrent` (newer site) or emitting `sk-offline-save-fallback`.
+pub fn save_current_offline(app: &AppHandle) {
+    let Some(win) = app.get_webview_window("main") else { return };
+    let on_site = win
+        .url()
+        .ok()
+        .and_then(|u| u.host_str().map(|h| h.ends_with("skmusic.shalomkarr.com") || h.ends_with("skmusic.shalomkarr.workers.dev")))
+        .unwrap_or(false);
+    if !on_site {
+        notify(app, "You're offline", "Connect to the internet to save songs for offline.");
+        return;
+    }
+    let _ = win.eval(
+        "(function(){try{if(typeof window.__skSaveOfflineCurrent==='function'){window.__skSaveOfflineCurrent();return;}}catch(e){}\
+         try{window.__TAURI__.event.emit('sk-offline-save-fallback',{});}catch(e){}})();",
+    );
+}
+
+/// The page couldn't (older site): save from the native now-playing snapshot instead.
+fn save_from_snapshot(app: &AppHandle) {
+    let np = crate::media::snapshot_value();
+    let field = |k: &str| np.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let id = field("videoId");
+    if id.is_empty() {
+        notify(app, "Nothing to save", "Play a song first, then choose Save for offline.");
+        return;
+    }
+    let art = field("artUrl");
+    let meta = SaveMeta {
+        video_id: id.clone(),
+        title: field("title"),
+        artist: field("artist"),
+        duration_sec: np.get("durationMs").and_then(|v| v.as_u64()).map(|ms| serde_json::json!(ms / 1000)),
+        // The snapshot's art is whatever the media overlay uses; the YouTube thumbnail is the same cover
+        // the site shows, so prefer it when the id is well-formed.
+        cover_url: if valid_id(&id) { Some(format!("https://i.ytimg.com/vi/{id}/hqdefault.jpg")) } else if art.is_empty() { None } else { Some(art) },
+        ..Default::default()
+    };
+    let h = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let meta = enrich_meta(meta).await; // album + artist photo, looked up natively
+        save_offline(&h, meta, true);
+    });
+}
+
+const SITE: &str = "https://skmusic.shalomkarr.com";
+/// Artist name (lowercase) -> photo URL, fetched once per run from the site's /artists list.
+static ARTIST_THUMBS: OnceLock<Mutex<Option<HashMap<String, String>>>> = OnceLock::new();
+
+/// Same rewrite the site's sizedArt() does: Google image CDN URLs take a size after the last "=", and
+/// the corpus ships banner-sized originals. Other hosts pass through untouched.
+fn sized_art(src: &str, px: u32) -> String {
+    let ok = Url::parse(src)
+        .map(|u| {
+            let h = u.host_str().unwrap_or("");
+            u.scheme() == "https"
+                && u.query().is_none()
+                && (h.starts_with("yt3.") || h.starts_with("lh"))
+                && (h.ends_with(".googleusercontent.com") || h.ends_with(".ggpht.com"))
+        })
+        .unwrap_or(false);
+    if !ok {
+        return src.to_string();
+    }
+    let base = match src.rfind('=') {
+        Some(c) if c > src.rfind('/').unwrap_or(0) => &src[..c],
+        _ => src,
+    };
+    format!("{base}=s{px}-c-k-c0x00ffffff-no-rj")
+}
+
+async fn site_json(client: &reqwest::Client, path_and_query: &str) -> Option<serde_json::Value> {
+    let resp = client.get(format!("{SITE}{path_and_query}")).send().await.ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    serde_json::from_str(&resp.text().await.ok()?).ok()
+}
+
+/// Fill in what the page didn't send — album (id/title/year/cover) and the artist's photo — from the
+/// site's own /track, /album and /artists endpoints. Best effort: any failure leaves the field empty
+/// and the song still saves, just with a placeholder in that spot.
+async fn enrich_meta(mut meta: SaveMeta) -> SaveMeta {
+    let Ok(client) = reqwest::Client::builder().timeout(Duration::from_secs(8)).user_agent(UA).build() else {
+        return meta;
+    };
+    if meta.album_id.is_none() {
+        let album_id = site_json(&client, &format!("/track?v={}", meta.video_id))
+            .await
+            .and_then(|t| t.get("albumId").and_then(|v| v.as_str()).map(str::to_string))
+            .filter(|a| !a.is_empty() && a.len() <= 64 && a.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-'));
+        if let Some(aid) = album_id {
+            if let Some(al) = site_json(&client, &format!("/album?id={aid}")).await.and_then(|v| v.get("album").cloned()) {
+                meta.album = al.get("title").and_then(|v| v.as_str()).map(str::to_string);
+                meta.album_year = al.get("year").filter(|v| !v.is_null()).cloned();
+                meta.album_cover_url = al.get("thumbnail").and_then(|v| v.as_str()).map(|u| sized_art(u, 480));
+                meta.album_id = Some(aid);
+            }
+        }
+    }
+    if meta.artist_photo_url.is_none() && !meta.artist.trim().is_empty() {
+        let cached = ARTIST_THUMBS.get_or_init(|| Mutex::new(None)).lock().unwrap().clone();
+        let map = match cached {
+            Some(m) => m,
+            None => {
+                let mut m = HashMap::new();
+                if let Some(list) = site_json(&client, "/artists").await {
+                    for a in list.get("artists").and_then(|v| v.as_array()).into_iter().flatten() {
+                        if let (Some(n), Some(t)) = (a.get("name").and_then(|v| v.as_str()), a.get("thumbnail").and_then(|v| v.as_str())) {
+                            m.insert(n.to_lowercase(), sized_art(t, 480));
+                        }
+                    }
+                }
+                if !m.is_empty() {
+                    *ARTIST_THUMBS.get_or_init(|| Mutex::new(None)).lock().unwrap() = Some(m.clone());
+                }
+                m
+            }
+        };
+        meta.artist_photo_url = map.get(&meta.artist.trim().to_lowercase()).cloned();
+    }
+    meta
+}
+
+/// `native_notices`: true from the tray / right-click menu (no in-page UI to report back), false from
+/// the SPA, which shows its own toasts off `sk-dl-done` / `sk-dl-error`.
+pub fn save_offline(app: &AppHandle, meta: SaveMeta, native_notices: bool) {
+    let id = meta.video_id.clone();
+    let name = if meta.title.is_empty() { "This song".to_string() } else { meta.title.clone() };
+    if !valid_id(&id) {
+        if native_notices { notify(app, "Can't save this one", "Only songs can be saved for offline, not shiurim or podcasts."); }
+        return;
+    }
+    let dir = downloads_dir(app);
+    if let Some(e) = load_index(app).get(&id) {
+        if dir.join(format!("{}.{}", e.video_id, e.ext)).is_file() {
+            if native_notices { notify(app, "Already saved for offline", &name); }
+            emit_done(app, &id);
+            return;
+        }
+    }
+    let label = format!("sk-offline-{id}");
+    if app.get_webview_window(&label).is_some() {
+        return; // this song is already being saved
+    }
+    let _ = fs::create_dir_all(dir.join("art"));
+    let part = dir.join(format!("{id}.m4a.part"));
+    let _ = fs::remove_file(&part);
+
+    // Only fetch artwork we don't already have (album covers and artist photos are shared).
+    let images: Vec<(String, String)> = art_plan(&meta)
+        .into_iter()
+        .filter(|(file, _)| !dir.join("art").join(file).is_file())
+        .collect();
+    save_jobs().lock().unwrap().insert(
+        label.clone(),
+        SaveJob { relay: format!("{RELAY_DOWNLOAD}?v={id}"), images },
+    );
+
+    let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let (h, meta_s, part_s, label_s, done_s) = (app.clone(), meta.clone(), part.clone(), label.clone(), done.clone());
+    let built = WebviewWindowBuilder::new(app, &label, WebviewUrl::App("saver.html".into()))
+        .title("SK Music — saving for offline")
+        .visible(false)
+        .focused(false)
+        .skip_taskbar(true)
+        .on_download(move |_webview, event| match event {
+            tauri::webview::DownloadEvent::Requested { destination, .. } => {
+                *destination = part_s.clone();
+                true
+            }
+            tauri::webview::DownloadEvent::Finished { success, .. } => {
+                if !done_s.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                    finish_offline_save(&h, &meta_s, &part_s, success, native_notices);
+                    end_save_job(&h, &label_s);
+                }
+                true
+            }
+            _ => true,
+        })
+        .build();
+    if let Err(e) = built {
+        save_jobs().lock().unwrap().remove(&label);
+        emit_error(app, &id, "couldn't start saving for offline");
+        if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: {e}")); }
+        return;
+    }
+    if native_notices { notify(app, "Saving for offline…", &name); }
+
+    let (h, label_s) = (app.clone(), label);
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(SAVE_TIMEOUT).await;
+        if !done.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            let _ = fs::remove_file(downloads_dir(&h).join(format!("{id}.m4a.part")));
+            end_save_job(&h, &label_s);
+            emit_error(&h, &id, "the song didn't start downloading. Check your connection and try again");
+            if native_notices { notify(&h, "Couldn't save for offline", &format!("{name}: the download didn't start. Check your connection and try again.")); }
+        }
+    });
+}
+
+/// Which images a song wants, as (file under downloads/art, url). Album covers and artist photos get
+/// shared names, so the second song from the same album/artist reuses the first one's file.
+fn art_plan(meta: &SaveMeta) -> Vec<(String, String)> {
+    [
+        (cover_name(meta), meta.cover_url.as_deref()),
+        (album_cover_name(meta), meta.album_cover_url.as_deref()),
+        (artist_photo_name(meta), meta.artist_photo_url.as_deref()),
+    ]
+    .into_iter()
+    .filter_map(|(name, url)| match (name, url) {
+        (Some(n), Some(u)) if image_url_ok(u) => Some((n, u.to_string())),
+        _ => None,
+    })
+    .collect()
+}
+fn cover_name(meta: &SaveMeta) -> Option<String> {
+    meta.cover_url.as_ref().map(|_| format!("{}.img", meta.video_id))
+}
+fn album_cover_name(meta: &SaveMeta) -> Option<String> {
+    let id = meta.album_id.as_deref().filter(|s| !s.is_empty())?;
+    meta.album_cover_url.as_ref().map(|_| format!("al-{}.img", art_key(id)))
+}
+fn artist_photo_name(meta: &SaveMeta) -> Option<String> {
+    let a = meta.artist.trim();
+    if a.is_empty() { return None; }
+    meta.artist_photo_url.as_ref().map(|_| format!("ar-{}.img", art_key(&a.to_lowercase())))
+}
+
+/// The page passes these URLs, so only fetch from the image CDNs the site itself uses, over https.
+fn image_url_ok(u: &str) -> bool {
+    let Ok(url) = Url::parse(u) else { return false };
+    let host = url.host_str().unwrap_or("");
+    url.scheme() == "https"
+        && (host.ends_with(".ytimg.com") || host.ends_with(".ggpht.com") || host.ends_with(".googleusercontent.com"))
+}
+
+/// Stable, filename-safe key (FNV-1a) — album ids and artist names can hold any character.
+fn art_key(s: &str) -> String {
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in s.as_bytes() {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    format!("{h:016x}")
+}
 
 fn valid_art_name(name: &str) -> bool {
     name.len() <= 80
@@ -855,6 +1171,140 @@ fn image_mime(head: &[u8]) -> Option<&'static str> {
     } else {
         None
     }
+}
+
+fn store_art(app: &AppHandle, name: &str, bytes: &[u8]) -> bool {
+    if !valid_art_name(name) || bytes.len() > MAX_IMAGE_BYTES || image_mime(bytes).is_none() {
+        return false;
+    }
+    let dir = downloads_dir(app).join("art");
+    let _ = fs::create_dir_all(&dir);
+    fs::write(dir.join(name), bytes).is_ok()
+}
+
+/// saver.html: "what am I fetching?" — answered only for the hidden window that owns the job.
+#[tauri::command]
+pub fn offline_saver_job(window: tauri::WebviewWindow) -> Option<serde_json::Value> {
+    let job = save_jobs().lock().unwrap().get(window.label()).cloned()?;
+    Some(serde_json::json!({
+        "relay": job.relay,
+        "images": job.images.iter().map(|(n, u)| serde_json::json!({ "name": n, "url": u })).collect::<Vec<_>>(),
+    }))
+}
+
+/// saver.html hands back one fetched image as a raw body, named by the `x-sk-name` header. Accepted
+/// only for a name its own job asked for, and only if the bytes really are an image.
+#[tauri::command]
+pub fn offline_store_image(app: AppHandle, window: tauri::WebviewWindow, request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let name = request
+        .headers()
+        .get("x-sk-name")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    let wanted = save_jobs()
+        .lock()
+        .unwrap()
+        .get(window.label())
+        .map(|j| j.images.iter().any(|(n, _)| *n == name))
+        .unwrap_or(false);
+    if !wanted {
+        return Err("not part of this save".into());
+    }
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("expected raw image bytes".into());
+    };
+    if store_art(&app, &name, bytes) { Ok(()) } else { Err("not a usable image".into()) }
+}
+
+/// Close the hidden window and, in the background, retry with reqwest any image the webview couldn't
+/// fetch — the song is already saved by then, so this can only add artwork, never hold anything up.
+fn end_save_job(app: &AppHandle, label: &str) {
+    let job = save_jobs().lock().unwrap().remove(label);
+    close_window_later(app, label);
+    let Some(job) = job else { return };
+    let h = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let dir = downloads_dir(&h).join("art");
+        let Ok(client) = reqwest::Client::builder().timeout(Duration::from_secs(15)).user_agent(UA).build() else { return };
+        for (name, url) in job.images {
+            if dir.join(&name).is_file() {
+                continue;
+            }
+            if let Ok(resp) = client.get(&url).send().await {
+                if resp.status().is_success() {
+                    if let Ok(bytes) = resp.bytes().await {
+                        let _ = store_art(&h, &name, &bytes);
+                    }
+                }
+            }
+        }
+    });
+}
+
+/// Move the finished `.part` into the library — but only if it's really audio. A relay error, or a
+/// filter's block page, would also "download" successfully as a few KB of HTML.
+fn finish_offline_save(app: &AppHandle, meta: &SaveMeta, part: &PathBuf, success: bool, native_notices: bool) {
+    let id = meta.video_id.as_str();
+    let name = if meta.title.is_empty() { "This song" } else { meta.title.as_str() };
+    let looks_like_m4a = || {
+        let mut head = [0u8; 8];
+        File::open(part).and_then(|mut f| f.read_exact(&mut head)).is_ok() && &head[4..8] == b"ftyp"
+    };
+    let bytes = fs::metadata(part).map(|m| m.len()).unwrap_or(0);
+    if !success || bytes < 16 * 1024 || !looks_like_m4a() {
+        let _ = fs::remove_file(part);
+        emit_error(app, id, "the song couldn't be fetched for offline. Try again later");
+        if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: the song couldn't be fetched. Try again later.")); }
+        return;
+    }
+    let dest = downloads_dir(app).join(format!("{id}.m4a"));
+    if fs::rename(part, &dest).is_err() {
+        let _ = fs::remove_file(part);
+        emit_error(app, id, "the saved song couldn't be stored");
+        if native_notices { notify(app, "Couldn't save for offline", name); }
+        return;
+    }
+    upsert_index(app, Entry {
+        video_id: id.to_string(),
+        title: meta.title.clone(),
+        artist: meta.artist.clone(),
+        ext: "m4a".into(),
+        mime: "audio/mp4".into(),
+        bytes,
+        added: now_ms(),
+        duration_sec: meta.duration_sec.as_ref().and_then(json_u64),
+        album_id: meta.album_id.clone().filter(|s| !s.is_empty()),
+        album: meta.album.clone().filter(|s| !s.is_empty()),
+        album_year: meta.album_year.as_ref().and_then(json_u64).and_then(|y| u32::try_from(y).ok()),
+        cover: cover_name(meta),
+        album_cover: album_cover_name(meta),
+        artist_photo: artist_photo_name(meta),
+    });
+    emit_done(app, id); // the full app's Downloads list + local playback pick it up live
+    if native_notices { notify(app, "Saved for offline", name); }
+}
+
+/// A number the page may send as a number or a numeric string ("2019").
+fn json_u64(v: &serde_json::Value) -> Option<u64> {
+    v.as_u64()
+        .or_else(|| v.as_f64().filter(|f| *f >= 0.0).map(|f| f.round() as u64))
+        .or_else(|| v.as_str().and_then(|s| s.trim().parse().ok()))
+}
+
+/// Destroy a hidden save window outside of its own event callback.
+fn close_window_later(app: &AppHandle, label: &str) {
+    let (h, label) = (app.clone(), label.to_string());
+    tauri::async_runtime::spawn(async move {
+        if let Some(w) = h.get_webview_window(&label) {
+            let _ = w.destroy();
+        }
+    });
+}
+
+fn notify(app: &AppHandle, title: &str, body: &str) {
+    use tauri_plugin_notification::NotificationExt;
+    let _ = app.notification().builder().title(title).body(body).show();
 }
 
 /// An index entry as sent to the SPA, with a ready-to-use `src` for the audio element.

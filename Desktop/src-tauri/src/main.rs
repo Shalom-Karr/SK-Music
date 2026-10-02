@@ -127,6 +127,8 @@ fn main() {
             tray::show_app_menu,
             download::offline_library,
             download::offline_remove,
+            download::offline_saver_job,
+            download::offline_store_image,
         ])
         .setup(|app| {
             let handle = app.handle();

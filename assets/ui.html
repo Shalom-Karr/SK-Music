@@ -3864,7 +3864,7 @@ function openSongMenu(anchor, t) {
   // row button it was anchored to no longer has a usable rect.
   _menuRect = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : null;
   const acaOnly = acapellaMode() === "only";
-  const ico = { pl: '<svg viewBox="0 0 24 24"><path d="M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v6l5-3z"/></svg>', radio: ICON.radio, artist: ICON.artist, album: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20m0 14.5a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9m0-5.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2"/></svg>', share: ICON.share, flag: '<svg viewBox="0 0 24 24"><path d="M14.4 6 14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>', dl: '<svg viewBox="0 0 24 24"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z"/></svg>' };
+  const ico = { pl: '<svg viewBox="0 0 24 24"><path d="M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v6l5-3z"/></svg>', radio: ICON.radio, artist: ICON.artist, album: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20m0 14.5a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9m0-5.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2"/></svg>', share: ICON.share, flag: '<svg viewBox="0 0 24 24"><path d="M14.4 6 14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>', dl: '<svg viewBox="0 0 24 24"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z"/></svg>', off: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20m5 16H7v-2h10zm-6.7-4L7 10.7l1.4-1.4 1.9 1.9 4.9-4.9 1.4 1.4z"/></svg>' };
   let html = `<div class="mihead">${esc(t.title || "Song")}</div>`;
   if (t.videoId && !t.kind) {
     html += `<button class="mi" role="menuitem" onclick="closeMenus();smPlayNext()"><svg viewBox="0 0 24 24"><path d="M4 5v14l8-7zm9 0v14l8-7z"/></svg><span>Play next</span></button>`;
@@ -3876,6 +3876,7 @@ function openSongMenu(anchor, t) {
   if (t.artist) html += `<button class="mi" role="menuitem" onclick="closeMenus();smArtist()">${ico.artist}<span>Go to artist</span></button>`;
   if (t.videoId && !t.kind) html += `<button class="mi" role="menuitem" onclick="closeMenus();smAlbum()">${ico.album}<span>Go to album</span></button>`;
   if (t.videoId && !t.kind) html += `<button class="mi" role="menuitem" onclick="closeMenus();smDownload()">${ico.dl}<span>Download</span></button>`;
+  if (SK_NATIVE && t.videoId && !t.kind) html += `<button class="mi" role="menuitem" onclick="closeMenus();smSaveOffline()">${ico.off}<span>Save for offline</span></button>`;
   html += `<button class="mi" role="menuitem" onclick="closeMenus();smShare()">${ico.share}<span>Share</span></button>`;
   html += `<div class="misep"></div><button class="mi" role="menuitem" onclick="closeMenus();smReport()">${ico.flag}<span>Report a problem</span></button>`;
   popMenu(anchor, html);
@@ -3893,6 +3894,38 @@ async function smAlbum() {
   if (state.nowOpen) closeNow();
   openAlbum(d.albumId);
 }
+// Desktop only: keep the song in the app's offline library. Unlike Download (fetched by the native
+// downloader), the shell fetches it through a hidden webview — the same network path playback uses —
+// so it still works behind a TLS-intercepting filter. Result arrives as sk-dl-done / sk-dl-error.
+// The album (title, year, cover) and the artist's photo ride along so the offline player can group by
+// artist and album with real artwork; a lookup that fails just saves the song without them.
+function smSaveOffline() { skSaveOffline(_menuTrack); }
+async function skSaveOffline(t) {
+  if (!SK_NATIVE || !t || !t.videoId || t.kind) return;
+  if (skIsDownloaded(t.videoId)) { showToast("Already saved for offline", 1800); return; }
+  showToast("<b>Saving for offline…</b> You'll get a notification when it's ready.", 3200);
+  const meta = { videoId: t.videoId, title: t.title || "", artist: t.artist || "", durationSec: t.durationSec || null, coverUrl: yt(t.videoId, "hq") };
+  try {
+    const tr = await getJSON("/track?v=" + encodeURIComponent(t.videoId));
+    if (tr && tr.albumId) {
+      const al = await getJSON("/album?id=" + encodeURIComponent(tr.albumId));
+      const a = al && al.album;
+      if (a) Object.assign(meta, { albumId: a.id || tr.albumId, album: a.title || "", albumYear: a.year || null, albumCoverUrl: sizedArt(a.thumbnail, 480) || null });
+    }
+    const byName = await artistByName();
+    const ar = byName && byName.get((t.artist || "").toLowerCase());
+    if (ar && ar.thumbnail) meta.artistPhotoUrl = sizedArt(ar.thumbnail, 480);
+  } catch {}
+  skEmit("sk-offline-save", meta);
+}
+// The tray / right-click "Save for offline" asks the page first (desktop shell: save_current_offline),
+// so those saves get the same album and artwork details as the ⋮ menu.
+window.__skSaveOfflineCurrent = function () {
+  const t = state.queue[state.qi];
+  if (!t || !t.videoId) { showToast("Play a song first, then choose Save for offline.", 2600); return; }
+  if (t.kind) { showToast("Only songs can be saved for offline.", 2600); return; }
+  skSaveOffline(t);
+};
 function smDownload() { const t = _menuTrack; if (!t || !t.videoId) return; if (SK_NATIVE) { skDownload(t.videoId, t.title, t.artist); } else { showToast("Downloads require the desktop app", 2000); } }
 function smShare() { const t = _menuTrack; if (t) shareSong(t, _menuRect ? rectAnchor(_menuRect) : null); }
 function smReport() { const t = _menuTrack; if (t) reportSong(t); }

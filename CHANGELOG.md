@@ -1,5 +1,21 @@
 # Changelog
 
+## Desktop 1.2.6 + web — 2026-10-02
+
+**Why the bump:** **Download** fails behind a network filter — Windows' own connection code rejects the
+filter's certificate, so saving a song for offline listening timed out. There was also no way to save a
+song without it landing as a download.
+
+**Save for offline** (new, desktop only)
+- On any song's **⋮** menu, choose **Save for offline** (desktop app only; this part arrives with the
+  website update). Or right-click inside the app, or right-click the tray icon, and choose **Save for
+  offline** to keep the song that's playing. Saved songs show up in the offline player and in Downloads.
+- Saving also keeps the song's album and artwork, so the offline player can group by album and artist.
+  The app looks the album and the artist's photo up itself, so right-click and tray saves get them too.
+- It fetches the song the same way the player streams it, so it works behind filters (Techloq,
+  Bitdefender web protection and the like) where **Download** can fail.
+- **Download** is unchanged.
+
 ## Desktop 1.2.5 — 2026-10-01
 
 **Why the bump:** songs saved with **Download** couldn't be played without internet. The app couldn't

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>SK Music — saving for offline</title>
+</head>
+<body>
+<script>
+  // Hidden helper window for "Save for offline" (download.rs: save_offline). Runs in the webview so its
+  // requests travel Chromium's network stack — the one that already gets music through a filter.
+  //   1. ask Rust what this save needs (only this window's own job is answered),
+  //   2. fetch the cover / album cover / artist photo and hand each back as raw bytes — best effort:
+  //      anything that fails here is retried natively after the song lands,
+  //   3. navigate to the relay's /download URL; it answers as an attachment, so the webview downloads
+  //      the song and Rust's on_download handler takes it from there.
+  (async function () {
+    var invoke = window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke;
+    if (!invoke) return;
+    var job = null;
+    try { job = await invoke("offline_saver_job"); } catch (e) {}
+    if (!job || !job.relay) return;
+    await Promise.all((job.images || []).map(async function (im) {
+      var ctl = new AbortController(), t = setTimeout(function () { ctl.abort(); }, 15000);
+      try {
+        var r = await fetch(im.url, { signal: ctl.signal, credentials: "omit" });
+        if (!r.ok) return;
+        var bytes = new Uint8Array(await r.arrayBuffer());
+        await invoke("offline_store_image", bytes, { headers: { "x-sk-name": im.name } });
+      } catch (e) {
+        // CORS, a filter, a timeout: leave it for the native retry.
+      } finally { clearTimeout(t); }
+    }));
+    location.href = job.relay;
+  })();
+</script>
+</body>
+</html>
