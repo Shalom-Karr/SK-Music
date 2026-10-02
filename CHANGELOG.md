@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.9.0 — 2026-10-01 (web)
+
+**Rows stop where you let go**
+- Dragging a row of songs, albums or artists sideways (or swiping it on a trackpad) and letting go
+  partway through a card used to make the row jump back to the nearest card edge. It now stays exactly
+  where you left it — no snap-back.
+- The arrow buttons on either end of a row still move a page at a time and land neatly on a card.
+- Applies to the card rows on the home and detail pages, and to Quick Picks.
+
 ## 1.8.9 — 2026-10-01 (web)
 
 **Why the bump:** an artist's page opened straight into an alphabetical song list, with no way to see what
