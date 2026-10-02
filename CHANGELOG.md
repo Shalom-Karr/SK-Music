@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.8.9 — 2026-10-01 (web; affects the desktop app)
+
+**Reopening picks up where you left off**
+- Opening the desktop app again shows the last song in the player bar, **paused** at the spot you
+  left it, with its progress on the seek bar. Press Play and it carries on from there — nothing plays
+  on its own. Before, the app opened with an empty player, and the last song only came back if you
+  pressed Play within 20 minutes.
+- Pausing now saves your exact spot right away, instead of up to five seconds earlier.
+- Only the desktop app does this; the website in a browser is unchanged.
+
+## 1.8.8 — 2026-10-01 (web)
+
+**Why the bump:** the mouse-wheel fix in 1.8.2 traded one stuck-scroll bug for another — hovering a
+row while scrolling down the page could trap the wheel sideways until the row ran out of cards, and
+releasing a drag or wheel gesture mid-card snapped back instantly instead of settling smoothly.
+
+**Rows no longer trap the scroll wheel**
+- Scrolling down the page with the cursor over an artist/album row (or Quick Picks, Statuses, Shorts)
+  no longer gets diverted into scrolling that row sideways — the page now keeps scrolling past it like
+  any other content. Dragging a row and the hover arrows still move it sideways with a mouse; an actual
+  sideways gesture (trackpad swipe, tilt wheel) still scrolls the row too.
+- Letting go of a drag (or a sideways trackpad scroll) mid-card now leaves the row exactly where you
+  stopped instead of snapping it onto the nearest card — the snap-back bounce is gone entirely. The
+  paging chevrons still land precisely on a card edge, since that's a deliberate jump.
+
 ## Desktop 1.2.4 — 2026-10-01
 
 **Why the bump:** closing the desktop app with **X** didn't close it — the window hid to the tray and
@@ -25,6 +50,19 @@ the music kept playing in the background, so the app always seemed to still be r
   On a shorter screen its last settings — Stream via proxy, Reset filters — used to hang off the
   bottom, and the mouse wheel scrolled the page behind the menu instead. Now the wheel scrolls the menu
   while you're over it, and stops at its end instead of carrying on into the page.
+
+## 1.8.5 — 2026-09-29 (web)
+
+**Light theme**
+- New sun / moon button in the top-right corner, next to Sign in. Dark stays the default; tap the sun
+  for a light, cream-and-rose theme across the whole app — sidebar, pages, menus, sign-in, the player
+  bar and the full-screen player — and the moon to go back.
+- The choice is remembered on this device and applied before the page draws, so there's no dark flash
+  on load. It's separate from the content filters: Reset filters and Parental Controls don't touch it.
+- The status viewer and full-screen video stay dark in both themes, like a photo viewer.
+- The sleep-timer button in the full-screen player is now a **clock** instead of a moon, so it can't be
+  mistaken for the new dark-mode button.
+
 
 ## 1.8.4 — 2026-09-29 (web)
 

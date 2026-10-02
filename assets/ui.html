@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e0a0b">
+<!-- Dark mode is the default; the Appearance switch stores "light" in zw_theme. Applied here, before the
+     stylesheet paints, so a light-mode user never sees a flash of the dark theme. -->
+<script>try { if (localStorage.getItem("zw_theme") === "light") { document.documentElement.dataset.theme = "light"; document.querySelector('meta[name="theme-color"]').content = "#faf6f4"; } } catch {}</script>
 <link rel="icon" type="image/svg+xml" href="/assets/skmusic_logo.svg">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="manifest" href="/assets/manifest.json">
@@ -40,6 +43,44 @@
   --shadow:0 18px 50px -12px rgba(0,0,0,.7);
   --ease:cubic-bezier(.2,.7,.2,1);
 }
+/* ---- Light theme (Dark mode switched off) — same warm palette on cream. The accents are deepened
+   so they still read as text on a light background. Then the handful of rules that hard-code a dark
+   surface or a white-on-dark tint get a light counterpart. The statuses viewer and fullscreen video
+   stay dark on purpose (media-first, like a lightbox). ---- */
+html[data-theme="light"]{
+  --bg:#faf6f4; --bg-grad-1:#fffaf7; --bg-grad-2:#f5eeeb;
+  --surface:#ffffff; --surface-2:#f5eeeb; --surface-3:#ede3df; --surface-4:#dfd2cd;
+  --line:rgba(60,30,32,.10); --line-2:rgba(60,30,32,.17);
+  --text:#231619; --muted:#6b5752; --faint:#94817c;
+  --primary:#d9384b; --primary-2:#c22b3e; --primary-ink:#fff; --primary-glow:rgba(217,56,75,.35);
+  --gold:#a66a12; --gold-ink:#fff;
+  --ok:#1f9d4d;
+  --shadow:0 18px 44px -14px rgba(80,40,40,.28);
+  color-scheme:light;
+}
+.themebtn{width:36px;height:36px;flex:none;color:var(--muted)}
+.themebtn:hover{color:var(--text)}
+.themebtn .ic-moon,html[data-theme="light"] .themebtn .ic-sun{display:none}
+html[data-theme="light"] .themebtn .ic-moon{display:block}
+html[data-theme="light"] body::after{opacity:.02}
+html[data-theme="light"] ::-webkit-scrollbar-thumb:hover{background:#c9b8b3;background-clip:padding-box}
+html[data-theme="light"] #topbar{background:linear-gradient(180deg,rgba(250,246,244,.9),rgba(250,246,244,.6) 70%,transparent)}
+html[data-theme="light"] #nowbar{background:linear-gradient(180deg,rgba(255,255,255,.86),rgba(250,246,244,.97))}
+html[data-theme="light"] #now::before{background:linear-gradient(180deg,rgba(250,246,244,.55),rgba(250,246,244,.9))}
+html[data-theme="light"] #now .np-bg{filter:blur(90px) saturate(1.4) brightness(1.1)}
+html[data-theme="light"] .azstrip{background:rgba(255,255,255,.75)}
+html[data-theme="light"] .nb-play:hover,html[data-theme="light"] .np-controls .big:hover{background:#000}
+html[data-theme="light"] .hero .heb{color:rgba(60,30,32,.05)}
+html[data-theme="light"] .art .ph{color:rgba(60,30,32,.2)}
+html[data-theme="light"] .built-by-pill{background:rgba(60,30,32,.05)}
+html[data-theme="light"] .built-by-pill:hover,html[data-theme="light"] .acct:hover,html[data-theme="light"] .acctmenu .am-row:hover,
+html[data-theme="light"] .authclose:hover,html[data-theme="light"] .autheye:hover,html[data-theme="light"] .pc-sugrow:hover{background:rgba(60,30,32,.06)}
+html[data-theme="light"] .authmodal{background:rgba(40,24,26,.42)}
+html[data-theme="light"] .authmsg,html[data-theme="light"] .authbtn.danger,html[data-theme="light"] .pc-btn.danger,
+html[data-theme="light"] .blockcard h2,html[data-theme="light"] #npDownload.err{color:#c4283b}
+html[data-theme="light"] #splash{background:radial-gradient(900px 520px at 50% 42%,rgba(240,179,90,.10),transparent 60%),linear-gradient(180deg,#fffaf7,#faf6f4)}
+html[data-theme="light"] #sploading{color:#6b5752}
+html[data-theme="light"] .blogo,html[data-theme="light"] #splogo svg{filter:brightness(.7) saturate(1.4) contrast(1.15)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{background:var(--bg)}
 body{
@@ -315,7 +356,7 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .sechead .more:hover{color:var(--primary)}
 
 .rail{display:grid;grid-auto-flow:column;grid-auto-columns:172px;gap:18px;overflow-x:auto;overflow-y:hidden;
-  padding:4px 4px 14px;scroll-snap-type:x proximity;scrollbar-width:none;-ms-overflow-style:none}
+  padding:4px 4px 14px;scroll-behavior:smooth;scrollbar-width:none;-ms-overflow-style:none}
 .rail::-webkit-scrollbar{display:none}
 .rail.round{grid-auto-columns:150px}
 /* position:relative anchors .play-fab (absolute, centred) to its own card. It used to land there only
@@ -377,8 +418,10 @@ body.on-air .live-note{display:block}
 
 /* Quick Picks — 4-row horizontally paging grid */
 .qpgrid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(4,1fr);grid-auto-columns:min(94%,420px);
-  gap:6px 22px;overflow-x:auto;padding:4px 4px 12px;scroll-snap-type:x proximity;scrollbar-width:none;-ms-overflow-style:none}
+  gap:6px 22px;overflow-x:auto;padding:4px 4px 12px;scroll-behavior:smooth;scrollbar-width:none;-ms-overflow-style:none}
 .qpgrid::-webkit-scrollbar{display:none}
+/* .row keeps scroll-snap-align as a marker only — scroll-snap-type is off above, so it has no native
+   effect; the paging chevrons below read it via getComputedStyle to find each card/row's boundary. */
 .qpgrid .row{scroll-snap-align:start}
 @media(min-width:1200px){.qpgrid{grid-auto-columns:minmax(360px,1fr)}}
 
@@ -389,9 +432,6 @@ body.on-air .live-note{display:block}
    each scroller at runtime (see "Horizontal rails" near the end of the script): rails are built
    as HTML strings in ~20 places, so wrapping in the DOM beats editing every call site. */
 .railwrap{position:relative}
-/* Snap fights direct scrollLeft writes (it drags the rail back mid-gesture), so it's off while
-   the pointer or wheel is driving and restored the moment it settles. */
-.rail.nosnap,.qpgrid.nosnap{scroll-snap-type:none}
 .rail.dragging,.qpgrid.dragging,.sts-rail.dragging{scroll-behavior:auto;cursor:grabbing;user-select:none}
 .rail.dragging *,.qpgrid.dragging *,.sts-rail.dragging *{cursor:grabbing}
 .rail img,.qpgrid img,.sts-rail img{-webkit-user-drag:none;user-drag:none}
@@ -1019,6 +1059,12 @@ fill="url(#royal)" stroke="none">
           <div class="am-row" role="menuitem" tabindex="0" onclick="acctSignOut()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 13v-2H7V8l-5 4 5 4v-3zM20 3h-9a2 2 0 0 0-2 2v4h2V5h9v14h-9v-4H9v4a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2"/></svg><span>Sign out</span></div>
         </div>
       </div>
+      <!-- Dark / light switch. Shows the theme you'd switch TO: a sun while dark, a moon while light
+           (the swap is pure CSS off html[data-theme], so it's right from first paint). -->
+      <button class="iconbtn themebtn" id="themeBtn" title="Switch to light mode" aria-label="Switch to light mode" onclick="setDarkMode(!darkOn())">
+        <svg class="ic-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10M11 1h2v3h-2zm0 19h2v3h-2zM3.5 4.9l1.4-1.4 2.1 2.1-1.4 1.4zm12.6 12.6 1.4-1.4 2.1 2.1-1.4 1.4zM1 11h3v2H1zm19 0h3v2h-3zM3.5 19.1l2.1-2.1 1.4 1.4-2.1 2.1zM16.1 5.6l2.1-2.1 1.4 1.4-2.1 2.1z"/></svg>
+        <svg class="ic-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12.3 2a10 10 0 1 0 9.7 12.4A8 8 0 0 1 12.3 2"/></svg>
+      </button>
     </header>
     <main id="maincontent" tabindex="-1">
       <section class="view" id="v-home"></section>
@@ -1210,7 +1256,7 @@ fill="url(#royal)" stroke="none">
     <button class="iconbtn" onclick="closeNow()" title="Collapse" aria-label="Collapse"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg></button>
     <div class="lbl">Now Playing</div>
     <button class="iconbtn" id="npXfade" onclick="openCrossfadeMenu(event)" title="Crossfade" aria-label="Crossfade"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 6h6l6 12h6M3 18h6l6-12h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    <button class="iconbtn" id="npSleep" onclick="openSleepMenu(event)" title="Sleep timer" aria-label="Sleep timer"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-8.54-8.54C11.92 2.04 11.46 2 11 2m1 2.07V4z"/></svg></button>
+    <button class="iconbtn" id="npSleep" onclick="openSleepMenu(event)" title="Sleep timer" aria-label="Sleep timer"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20m0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16m.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg></button>
     <button class="iconbtn rateBtn" onclick="cycleRate()" title="Playback speed" aria-label="Playback speed">1×</button>
   </div>
   <div class="np-body">
@@ -1601,6 +1647,22 @@ function setZemerRadio(on) {
 function gotoParental() { loggedIn() ? openParental() : openAuth("in"); }
 // Chasidish 3-state (free, no login) — "" all · "only" · "hide". Parental can set an account default too.
 function setChasid(v) { if (!parentalFilterGate("chasid")) return; const cl = guardOnlyConflict(v, "zw_israeli", "Israeli"); if (chasidMode() === v && !cl) return; LS.set("zw_chasid", v); track("filter", { f: "chasid", on: v || "off" }); acctSyncFilters(); syncFilterUI(); state.loaded = {}; reloadCurrent(); }
+// Appearance — per-device, not a filter: not synced to the account, not locked by a PIN, not reset by
+// Reset filters. The <head> script applies the stored choice before first paint; this flips it live.
+function darkOn() { return LS.get("zw_theme", "") !== "light"; }
+function setDarkMode(on) {
+  LS.set("zw_theme", on ? "" : "light");
+  if (on) delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = "light";
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = on ? "#0e0a0b" : "#faf6f4";
+  track("theme", { dark: !!on });
+  syncThemeBtn();
+}
+function syncThemeBtn() {
+  const b = el("themeBtn"); if (!b) return;
+  const lbl = darkOn() ? "Switch to light mode" : "Switch to dark mode";
+  b.title = lbl; b.setAttribute("aria-label", lbl);
+}
+syncThemeBtn();
 function resetFilters() { if (!filterGate()) return; LS.set("zw_noFemale", "1"); LS.set("zw_chasid", ""); LS.set("zw_blockVideos", "0"); LS.set("zw_acapella", ""); LS.set("zw_noDJ", "0"); LS.set("zw_israeli", ""); acctSyncFilters(); syncFilterUI(); state.loaded = {}; reloadCurrent(); } // defaults: female ON, others OFF
 function syncFilterUI() {
   el("tgFemale").classList.toggle("on", noFemale());
@@ -4746,6 +4808,7 @@ function playIndex(i, dir) {
 // Start-of-track bookkeeping shared by playIndex and the gapless handoff: now-bar/Now-Playing UI,
 // recents, the shareable /song URL, the play-duration session, and the browser/OS media sessions.
 function trackStarted(t) {
+  bootResume = null;
   el("nowbar").classList.add("on");
   PB.fallbackDur = t.durationSec || 0; // catalog duration, used by PB.dur() iOS correction
   if (IS_IOS) { ensureIOSKeepAlive(); resumeIOSKeepAlive(); resetIOSAudioBase(); }
@@ -4848,12 +4911,30 @@ function refreshNowPlaying() {
     if (title) { if (on && !eq) title.insertAdjacentHTML("afterbegin", EQ); else if (!on && eq) eq.remove(); }
   });
 }
-function toggle() { if (!state.queue.length) return resumeOrRadio(); PB.paused() ? PB.play() : PB.pause(); }
-// Empty-queue Play: resume the last listen if it's fresh (≤ 20 min since it last ticked), otherwise
-// start the endless trending mix — the play button always does something musical.
+function toggle() { if (!state.queue.length) return resumeOrRadio(); if (PB.paused()) PB.play(); else { saveLastPlay(PB.cur(), true); PB.pause(); } }
+// Desktop app: after the app is quit and reopened it should land exactly where you left off —
+// the last track shown in the player bar, PAUSED at its saved position (nothing loads or plays until Play).
+// Cleared the moment any track actually starts (trackStarted), so a route that plays something wins.
+let bootResume = null;
+function restoreLastPlayPaused() {
+  if (!SK_NATIVE) return;
+  let saved = null; try { saved = JSON.parse(localStorage.getItem("zw_lastPlay") || "null"); } catch {}
+  if (!saved || !saved.t || !saved.t.videoId) return;
+  bootResume = saved;
+  const t = saved.t, art = t.kind ? (t.thumbnail || "") : yt(t.videoId, "hq"), small = t.kind ? art : yt(t.videoId);
+  el("nowbar").classList.add("on");
+  if (small) el("nbArt").src = small;
+  el("nbArt").classList.toggle("hide", !small); el("nbTitle").textContent = t.title || ""; el("nbArtist").textContent = t.artist || "";
+  if (art) el("npArt").src = art;
+  el("npArt").classList.toggle("hide", !art); el("npTitle").textContent = t.title || ""; el("npArtist").textContent = t.artist || "";
+  el("npBg").style.backgroundImage = art ? `url('${art}')` : "none";
+  setPlayIcons(); tick(); // the 300ms tick only starts on play, so paint the saved position once now
+}
+// Empty-queue Play: resume the last listen if it's fresh (≤ 20 min since it last ticked) or was restored
+// paused at launch, otherwise start the endless trending mix — the play button always does something musical.
 async function resumeOrRadio() {
   let saved = null; try { saved = JSON.parse(localStorage.getItem("zw_lastPlay") || "null"); } catch {}
-  if (saved && saved.t && saved.t.videoId && Date.now() - (saved.at || 0) <= 20 * 60 * 1000) {
+  if (saved && saved.t && saved.t.videoId && (bootResume || Date.now() - (saved.at || 0) <= 20 * 60 * 1000)) {
     // Re-gate before replaying: filters/parental policy may have changed since the track was saved
     // (a parent could have flipped a filter, or Sefira begun). Never resume a now-blocked track.
     await ensureFilters();
@@ -4875,9 +4956,9 @@ async function resumeOrRadio() {
   startRadio("shuffle", "");
 }
 let _lastPlaySavedAt = 0;
-function saveLastPlay(c) { // called from tick() ~every 5 s while something plays
+function saveLastPlay(c, force) { // called from tick() ~every 5 s while something plays, and on pause (force)
   const t = state.queue[state.qi]; if (!t || !t.videoId || !(c > 0)) return;
-  const nowT = Date.now(); if (nowT - _lastPlaySavedAt < 5000) return;
+  const nowT = Date.now(); if (!force && nowT - _lastPlaySavedAt < 5000) return;
   _lastPlaySavedAt = nowT;
   // A shiur needs its source URL and flags carried across the reload too — the saved shape is replayed
   // verbatim by resumeOrRadio(), and without `src` PB.load() would fall through to the YouTube engine.
@@ -5375,6 +5456,14 @@ let tickTimer = null, seeking = false, toastTimer, streamFails = 0;
 function startTick() { if (!tickTimer) tickTimer = setInterval(tick, 300); }
 function stopTick() { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } }
 function tick() {
+  if (bootResume && !state.queue.length) { // nothing loaded yet: show the paused resume point, not 0:00
+    const d = bootResume.t.durationSec || 0, c = bootResume.pos || 0, pct = d ? Math.min(1, c / d) : 0;
+    el("nbProgress").style.width = (pct * 100) + "%";
+    if (!seeking) { el("nbSeek").value = el("npSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); }
+    el("nbCur").textContent = el("npCur").textContent = fmt(c);
+    el("nbDur").textContent = el("npDur").textContent = d ? fmt(d) : "0:00";
+    return;
+  }
   const d = PB.dur(), c = PB.cur(), pct = d ? c / d : 0;
   el("nbProgress").style.width = (pct * 100) + "%";
   if (!seeking) { el("nbSeek").value = el("npSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); }
@@ -7001,7 +7090,7 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
       setInterval(() => reg.update(), 3600000);
     }).catch(() => {});
     // Reload once when a new SW takes over — but NEVER while the window is hidden. In the desktop app the
-    // window closes to the tray (webview stays alive, background-timer throttling is disabled), so a hidden
+    // window can sit minimized behind the mini player (webview alive, background-timer throttling off), so a hidden
     // reload would silently re-run boot, re-open the current /song/:id URL and AUTOPLAY it — audio starting on
     // its own an hour after the app was "closed". Defer the refresh until the window is visible again; an
     // already-playing track keeps playing until then.
@@ -7018,6 +7107,7 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   maybeShowRecovery(); // password-reset link (#type=recovery) → open the "Set a new password" form
   renderAcct(); if (loggedIn()) onLogin(); // accounts: load profile/likes/filters
   renderNav(); initSearch(); syncFilterUI(); setPlayIcons();
+  restoreLastPlayPaused(); // desktop: reopen on the last track, paused where it was left
   refreshStat(); setInterval(() => { if (document.visibilityState !== "hidden") refreshStat(); }, 30000); // the corpus stat is near-static; poll slowly and pause on hidden tabs (battery/requests)
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refreshStat(); });
   // Route from the URL: a shared /artists/:id (etc.) opens directly, with Home seeded underneath so Back works.
@@ -7055,13 +7145,6 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   const railAt = (t) => (t instanceof Element ? t.closest(SEL) : null);
   const reduce = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // Snap is dropped while a gesture drives scrollLeft and restored once it settles (see .nosnap).
-  const unsnap = (s) => {
-    s.classList.add("nosnap");
-    clearTimeout(s._snapT);
-    s._snapT = setTimeout(() => s.classList.remove("nosnap"), 140);
-  };
-
   /* ---------------- drag to scroll ---------------- */
   let drag = null, swallowClick = false;
   addEventListener("pointerdown", (e) => {
@@ -7083,7 +7166,6 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
       drag.s.classList.add("dragging");
       try { drag.s.setPointerCapture(drag.id); } catch {}
     }
-    unsnap(drag.s);
     drag.s.scrollLeft = drag.left - dx;
     e.preventDefault();
   }, true);
@@ -7093,9 +7175,10 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
     drag = null;
     s.classList.remove("dragging");
     try { s.releasePointerCapture(id); } catch {}
-    s.classList.remove("nosnap"); // let proximity snap settle the rail where the drag left it
-    clearTimeout(s._snapT);
     if (moved < SLOP) return;
+    // The rail stays exactly where the drag let go, mid-card or not — nothing here pulls it onto a
+    // snap point (scroll-snap-type is off on .rail/.qpgrid entirely now; only the paging chevrons
+    // below land on a card edge, deliberately).
     // The click that follows this pointerup would open whatever card the drag ended on. Swallow it in
     // the capture phase (cards use inline onclick, which a bubble-phase guard can't reach in time).
     swallowClick = true;
@@ -7111,20 +7194,10 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   // Artwork is natively draggable, which would hijack the gesture as an HTML5 image drag.
   addEventListener("dragstart", (e) => { if (railAt(e.target)) e.preventDefault(); }, true);
 
-  /* ---------------- wheel over a rail scrolls it sideways ---------------- */
-  addEventListener("wheel", (e) => {
-    const s = railAt(e.target);
-    if (!s || !overflows(s)) return;
-    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // tilt wheel or trackpad: already horizontal
-    const step = e.deltaMode === 1 ? e.deltaY * 18 : e.deltaMode === 2 ? e.deltaY * s.clientWidth : e.deltaY;
-    if (!step) return;
-    // At either end, hand the wheel back so the page keeps scrolling instead of trapping the cursor.
-    const max = s.scrollWidth - s.clientWidth;
-    if ((step < 0 && s.scrollLeft <= EDGE) || (step > 0 && s.scrollLeft >= max - EDGE)) return;
-    unsnap(s);
-    s.scrollLeft += step;
-    e.preventDefault();
-  }, { passive: false });
+  // A plain vertical wheel is left alone so it keeps scrolling the page even while the cursor sits
+  // over a rail — hijacking it into sideways rail motion trapped the cursor until a rail ran out of
+  // room to scroll. Drag-to-scroll and the hover chevrons below already cover sideways mouse input;
+  // an actual sideways gesture (trackpad swipe, tilt wheel) still scrolls the rail natively.
 
   /* ---------------- hover chevrons ---------------- */
   const CHEV = {
@@ -7133,9 +7206,19 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   };
   const page = (s, dir) => {
     // Quick Picks pages a full screen-width (its columns are page-sized); card rails move most of one.
+    // Scroll-snap is off (see .rail/.qpgrid), so land on a card edge ourselves: scroll roughly a page,
+    // then pick whichever card/row is closest to that point instead of stopping mid-card.
     const by = s.clientWidth * (s.classList.contains("qpgrid") ? 1 : 0.85);
-    s.classList.remove("nosnap"); // a paged jump should land on a snap point
-    s.scrollBy({ left: dir * Math.max(120, by), behavior: reduce() ? "auto" : "smooth" });
+    const approx = s.scrollLeft + dir * Math.max(120, by);
+    const kids = Array.from(s.children).filter((k) => getComputedStyle(k).scrollSnapAlign !== "none");
+    let target = approx, bestDist = Infinity;
+    for (const k of kids) {
+      const d = Math.abs(k.offsetLeft - approx);
+      if (d < bestDist) { bestDist = d; target = k.offsetLeft; }
+    }
+    const max = s.scrollWidth - s.clientWidth;
+    target = Math.max(0, Math.min(max, target));
+    s.scrollTo({ left: target, behavior: reduce() ? "auto" : "smooth" });
   };
   const sync = (s) => {
     const w = s.parentElement;
