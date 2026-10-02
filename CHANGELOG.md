@@ -1,5 +1,13 @@
 # Changelog
 
+## web — 2026-10-02
+
+**Hover menu on albums, artists and playlists**
+- Hover an album, artist or playlist tile and a **⋮** appears in its corner — the same idea as the **⋮**
+  on a song, but for the whole set. Choose **Play**, **Shuffle**, **Play next**, **Add to queue**,
+  **Start radio**, or (on an album) **Go to artist** without opening the page first.
+- It respects your content filters: an artist or album they hide can't be played or queued from a tile.
+
 ## Desktop 1.2.4 — 2026-10-01
 
 **Why the bump:** closing the desktop app with **X** didn't close it — the window hid to the tray and
