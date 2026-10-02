@@ -4819,6 +4819,7 @@ function playIndex(i, dir) {
 // Start-of-track bookkeeping shared by playIndex and the gapless handoff: now-bar/Now-Playing UI,
 // recents, the shareable /song URL, the play-duration session, and the browser/OS media sessions.
 function trackStarted(t) {
+  bootResume = null;
   el("nowbar").classList.add("on");
   PB.fallbackDur = t.durationSec || 0; // catalog duration, used by PB.dur() iOS correction
   if (IS_IOS) { ensureIOSKeepAlive(); resumeIOSKeepAlive(); resetIOSAudioBase(); }
@@ -4921,12 +4922,30 @@ function refreshNowPlaying() {
     if (title) { if (on && !eq) title.insertAdjacentHTML("afterbegin", EQ); else if (!on && eq) eq.remove(); }
   });
 }
-function toggle() { if (!state.queue.length) return resumeOrRadio(); PB.paused() ? PB.play() : PB.pause(); }
-// Empty-queue Play: resume the last listen if it's fresh (≤ 20 min since it last ticked), otherwise
-// start the endless trending mix — the play button always does something musical.
+function toggle() { if (!state.queue.length) return resumeOrRadio(); if (PB.paused()) PB.play(); else { saveLastPlay(PB.cur(), true); PB.pause(); } }
+// Desktop app: after the app is quit and reopened it should land exactly where you left off —
+// the last track shown in the player bar, PAUSED at its saved position (nothing loads or plays until Play).
+// Cleared the moment any track actually starts (trackStarted), so a route that plays something wins.
+let bootResume = null;
+function restoreLastPlayPaused() {
+  if (!SK_NATIVE) return;
+  let saved = null; try { saved = JSON.parse(localStorage.getItem("zw_lastPlay") || "null"); } catch {}
+  if (!saved || !saved.t || !saved.t.videoId) return;
+  bootResume = saved;
+  const t = saved.t, art = t.kind ? (t.thumbnail || "") : yt(t.videoId, "hq"), small = t.kind ? art : yt(t.videoId);
+  el("nowbar").classList.add("on");
+  if (small) el("nbArt").src = small;
+  el("nbArt").classList.toggle("hide", !small); el("nbTitle").textContent = t.title || ""; el("nbArtist").textContent = t.artist || "";
+  if (art) el("npArt").src = art;
+  el("npArt").classList.toggle("hide", !art); el("npTitle").textContent = t.title || ""; el("npArtist").textContent = t.artist || "";
+  el("npBg").style.backgroundImage = art ? `url('${art}')` : "none";
+  setPlayIcons(); tick(); // the 300ms tick only starts on play, so paint the saved position once now
+}
+// Empty-queue Play: resume the last listen if it's fresh (≤ 20 min since it last ticked) or was restored
+// paused at launch, otherwise start the endless trending mix — the play button always does something musical.
 async function resumeOrRadio() {
   let saved = null; try { saved = JSON.parse(localStorage.getItem("zw_lastPlay") || "null"); } catch {}
-  if (saved && saved.t && saved.t.videoId && Date.now() - (saved.at || 0) <= 20 * 60 * 1000) {
+  if (saved && saved.t && saved.t.videoId && (bootResume || Date.now() - (saved.at || 0) <= 20 * 60 * 1000)) {
     // Re-gate before replaying: filters/parental policy may have changed since the track was saved
     // (a parent could have flipped a filter, or Sefira begun). Never resume a now-blocked track.
     await ensureFilters();
@@ -4948,9 +4967,9 @@ async function resumeOrRadio() {
   startRadio("shuffle", "");
 }
 let _lastPlaySavedAt = 0;
-function saveLastPlay(c) { // called from tick() ~every 5 s while something plays
+function saveLastPlay(c, force) { // called from tick() ~every 5 s while something plays, and on pause (force)
   const t = state.queue[state.qi]; if (!t || !t.videoId || !(c > 0)) return;
-  const nowT = Date.now(); if (nowT - _lastPlaySavedAt < 5000) return;
+  const nowT = Date.now(); if (!force && nowT - _lastPlaySavedAt < 5000) return;
   _lastPlaySavedAt = nowT;
   // A shiur needs its source URL and flags carried across the reload too — the saved shape is replayed
   // verbatim by resumeOrRadio(), and without `src` PB.load() would fall through to the YouTube engine.
@@ -5448,6 +5467,14 @@ let tickTimer = null, seeking = false, toastTimer, streamFails = 0;
 function startTick() { if (!tickTimer) tickTimer = setInterval(tick, 300); }
 function stopTick() { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } }
 function tick() {
+  if (bootResume && !state.queue.length) { // nothing loaded yet: show the paused resume point, not 0:00
+    const d = bootResume.t.durationSec || 0, c = bootResume.pos || 0, pct = d ? Math.min(1, c / d) : 0;
+    el("nbProgress").style.width = (pct * 100) + "%";
+    if (!seeking) { el("nbSeek").value = el("npSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); }
+    el("nbCur").textContent = el("npCur").textContent = fmt(c);
+    el("nbDur").textContent = el("npDur").textContent = d ? fmt(d) : "0:00";
+    return;
+  }
   const d = PB.dur(), c = PB.cur(), pct = d ? c / d : 0;
   el("nbProgress").style.width = (pct * 100) + "%";
   if (!seeking) { el("nbSeek").value = el("npSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); }
@@ -7075,7 +7102,7 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
       setInterval(() => reg.update(), 3600000);
     }).catch(() => {});
     // Reload once when a new SW takes over — but NEVER while the window is hidden. In the desktop app the
-    // window closes to the tray (webview stays alive, background-timer throttling is disabled), so a hidden
+    // window can sit minimized behind the mini player (webview alive, background-timer throttling off), so a hidden
     // reload would silently re-run boot, re-open the current /song/:id URL and AUTOPLAY it — audio starting on
     // its own an hour after the app was "closed". Defer the refresh until the window is visible again; an
     // already-playing track keeps playing until then.
@@ -7092,6 +7119,7 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   maybeShowRecovery(); // password-reset link (#type=recovery) → open the "Set a new password" form
   renderAcct(); if (loggedIn()) onLogin(); // accounts: load profile/likes/filters
   renderNav(); initSearch(); syncFilterUI(); setPlayIcons();
+  restoreLastPlayPaused(); // desktop: reopen on the last track, paused where it was left
   refreshStat(); setInterval(() => { if (document.visibilityState !== "hidden") refreshStat(); }, 30000); // the corpus stat is near-static; poll slowly and pause on hidden tabs (battery/requests)
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refreshStat(); });
   // Route from the URL: a shared /artists/:id (etc.) opens directly, with Home seeded underneath so Back works.
