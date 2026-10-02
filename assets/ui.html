@@ -356,7 +356,7 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .sechead .more:hover{color:var(--primary)}
 
 .rail{display:grid;grid-auto-flow:column;grid-auto-columns:172px;gap:18px;overflow-x:auto;overflow-y:hidden;
-  padding:4px 4px 14px;scroll-behavior:smooth;scrollbar-width:none;-ms-overflow-style:none}
+  padding:4px 4px 14px;scrollbar-width:none;-ms-overflow-style:none}
 .rail::-webkit-scrollbar{display:none}
 .rail.round{grid-auto-columns:150px}
 /* position:relative anchors .play-fab (absolute, centred) to its own card. It used to land there only
@@ -429,10 +429,10 @@ body.on-air .live-note{display:block}
 
 /* Quick Picks — 4-row horizontally paging grid */
 .qpgrid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(4,1fr);grid-auto-columns:min(94%,420px);
-  gap:6px 22px;overflow-x:auto;padding:4px 4px 12px;scroll-behavior:smooth;scrollbar-width:none;-ms-overflow-style:none}
+  gap:6px 22px;overflow-x:auto;padding:4px 4px 12px;scrollbar-width:none;-ms-overflow-style:none}
 .qpgrid::-webkit-scrollbar{display:none}
-/* .row keeps scroll-snap-align as a marker only — scroll-snap-type is off above, so it has no native
-   effect; the paging chevrons below read it via getComputedStyle to find each card/row's boundary. */
+/* .row (and .card) keep scroll-snap-align as a marker only — scroll-snap-type is off above, so it has
+   no native effect; the paging chevrons read it via getComputedStyle to find each boundary. */
 .qpgrid .row{scroll-snap-align:start}
 @media(min-width:1200px){.qpgrid{grid-auto-columns:minmax(360px,1fr)}}
 
@@ -3970,6 +3970,28 @@ async function smAlbum() {
 function smDownload() { const t = _menuTrack; if (!t || !t.videoId) return; if (SK_NATIVE) { skDownload(t.videoId, t.title, t.artist); } else { showToast("Downloads require the desktop app", 2000); } }
 function smShare() { const t = _menuTrack; if (t) shareSong(t, _menuRect ? rectAnchor(_menuRect) : null); }
 function smReport() { const t = _menuTrack; if (t) reportSong(t); }
+// A relay-sourced <audio> error means the RELAY refused us — the track itself is fine, so skipping
+// to the next one (which would fail identically) is exactly wrong. Retire the relay for this
+// session and resume the SAME track through the YouTube iframe, fetching the API first on iOS
+// where boot skipped it. Returns true if it took ownership of the error.
+function relayFailed(src) {
+  if (relayDead || !src || src.indexOf(RELAY_BASE) !== 0) return false;
+  relayDead = true;
+  console.warn("[relay] refused — falling back to the YouTube player for this session");
+  // Unconditionally, and BEFORE the track check: the iframe is now the only engine left, and on iOS
+  // boot never fetched the API. Skipping this when nothing happens to be queued would retire the relay
+  // and leave no engine at all — every later track would sit in PB.pending waiting for an API that was
+  // never requested.
+  ensureYT();
+  const t = state.queue[state.qi];
+  if (!t || t.kind || !t.videoId) return false; // nothing to resume; let the normal error path run
+  const at = PB.cur() || 0; // 0 when the relay 403'd before playing; a real position if it died mid-track
+  cancelSwap();
+  PB.nextStart = at;
+  PB.load(t.videoId, at); // relayOn() is false now, so this takes the iframe path (queues in `pending` until the API lands)
+  showToast("Switching player\u2026", 1800);
+  return true;
+}
 function smPlayNext() { enqueueMenuTrack(true); }
 function smAddToQueue() { enqueueMenuTrack(false); }
 // Insert the menu track into the live queue. "Play next" = right after the current track; "Add to
@@ -4206,7 +4228,35 @@ async function openArtist(id, fromRoute) {
   pushDetail({ path: "/artists/" + id, kind: "Artist", title: d.artist.name, sub: acOnly ? `<b>${num(n)}</b> Acapella songs` : `<b>${num(n)}</b> songs · <b>${num(d.albums?.length || 0)}</b> albums`, thumb: d.artist.thumbnail, round: true, artistName: d.artist.name, search: true, radio: acOnly ? null : { kind: "artist", seed: id }, follow: { channelId: id, name: d.artist.name }, sections: [
     { label: "Songs", tracks: songs, plays: true, collapse: 6 }, { label: "Albums", items: albums, render: albumCard }, { label: "Singles & EPs", items: singles, render: albumCard },
     { label: "Videos", tracks: videos, collapse: 6 }, { label: "Playlists", items: plists, render: playlistCard } ] }, fromRoute);
+  appendArtistTrending(id); // "Trending Songs" rail across the top, filled in after render
   if (!acOnly) appendSimilarArtists(id, nm); // "Fans also like" from the co-listening radio graph
+}
+// "Trending Songs" across the top of an artist page: this artist's songs ranked by combined SK Music +
+// Zemer-app listening (Worker /artist-trending), ordered by total listens like Home's rail. Inserted
+// after render so it never delays the page, and skipped when there's too little data for a real rail.
+// Memoized per session (successes only) so revisiting an artist costs no extra Worker request.
+const _artistTrend = new Map();
+async function appendArtistTrending(id) {
+  try {
+    let p = _artistTrend.get(id);
+    if (!p) {
+      p = fetch("/artist-trending?id=" + encodeURIComponent(id) + "&b=" + Math.floor(Date.now() / 600000)) // &b= busts filter-proxy caches, as on Home
+        .then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      _artistTrend.set(id, p);
+    }
+    const d = await p;
+    if (!d) { _artistTrend.delete(id); return; }
+    if (!Array.isArray(d.songs) || state.detailKind !== "artist" || state.detailPath !== "/artists/" + id) return;
+    await loadBlockedIds(); if (acapella()) await loadAcapella(); // per-song blocks + the Acapella set, same gates as Home's trending
+    const total = (x) => (x.plays || 0) + (x.appPlays || 0);
+    const songs = d.songs.slice().sort((a, b) => total(b) - total(a))
+      .map((x) => ({ videoId: x.videoId, title: x.title, artist: x.artist }))
+      .filter((x) => x.videoId && !blockedId(x.videoId) && songOK(x));
+    if (songs.length < 3) return;
+    const main = el("dMain");
+    if (!main || main.querySelector(".artist-trending")) return;
+    main.insertAdjacentHTML("afterbegin", section("Trending Songs", songCards(songs)).replace('class="section"', 'class="section artist-trending"'));
+  } catch {}
 }
 // Derive a "Similar artists" shelf from the artist's radio station: the distinct OTHER artists the
 // co-listening graph surfaces. Appended after render so it never delays the artist page.
@@ -4410,9 +4460,13 @@ const relayDownloadUrl = (id) => RELAY_BASE + "/download?v=" + encodeURIComponen
 // Every reader goes through relayOn(), which is true for either, so the engine choice, the
 // toggle UI and the analytics tag all just work.
 let relaySession = false;
+// Set when a relay-sourced <audio> errors: the relay is refusing this origin (403) or is down.
+// Session-only and one-way — a reload gives it another chance, but within a session we stop
+// re-trying an engine that just proved it cannot serve us and fall back to the iframe instead.
+let relayDead = false;
 // IS_IOS first: on iOS the iframe engine cannot play in the background at all, so the relay IS the
 // engine, not a fallback. The manual toggle is hidden there (syncFilterUI).
-const relayOn = () => IS_IOS || relaySession || LS.get("zw_relay", "") === "1";
+const relayOn = () => !relayDead && (IS_IOS || relaySession || LS.get("zw_relay", "") === "1");
 function setRelay(on, quiet, persist = true) {
   if (persist) { LS.set("zw_relay", on ? "1" : ""); relaySession = false; }
   else relaySession = !!on;
@@ -4430,8 +4484,11 @@ function setRelay(on, quiet, persist = true) {
 
 // Download the current track. Desktop keeps its own offline library (skdl:// + an index); the web
 // app has nowhere to put a library, so it just hands the file to the browser — the relay sends
-// `Content-Disposition: attachment` with a real "Artist - Title.m4a" name, so a plain link download
-// is all that is needed and no CORS grant is involved.
+// The relay sends `Content-Disposition: attachment` with a real "Artist - Title.m4a" name, so the
+// browser saves it rather than rendering it. It is a CROSS-ORIGIN URL (stream host ≠ this site), so the
+// `download` attribute is ignored — a same-tab click would NAVIGATE the SPA to the relay URL, wiping the
+// app state (and showing an error page if the relay refuses). Open it in a NEW tab instead: the download
+// fires there off the attachment header, that tab self-closes, and this tab's URL is never touched.
 function downloadCurrent() {
   const t = state.queue[state.qi];
   if (!t || !t.videoId) return;
@@ -4439,7 +4496,8 @@ function downloadCurrent() {
   if (typeof SK_NATIVE !== "undefined" && SK_NATIVE) return skToggleDownloadCurrent();
   const a = document.createElement("a");
   a.href = relayDownloadUrl(t.videoId);
-  a.rel = "noopener";
+  a.target = "_blank";                // download in a new tab so the app tab's URL never changes
+  a.rel = "noopener noreferrer";
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -4763,8 +4821,9 @@ window.onYouTubeIframeAPIReady = function () {
   PB.yt = mk("ytplayer", true);
   ytStandbyBoot = mk("ytplayer2", false); // promoted to ytStandby by its onReady OR by tick()'s readiness poll
 };
-(function loadYT() {
-  if (IS_IOS) return; // iOS never uses the iframe engine — do not load ~500 KB of YT script or arm the "slow player" warning
+let ytRequested = false;
+function ensureYT() {
+  if (ytRequested) return; ytRequested = true;
   const s = document.createElement("script"); s.src = "https://www.youtube.com/iframe_api"; s.onerror = () => ytUnavailable(true); // the script was REFUSED: a real block, not a slow load
   document.head.appendChild(s);
   // A SLOW load is not a blocked one. This used to flip PB.mode to "html5" after 9s — a ONE-WAY trapdoor onto
@@ -4777,7 +4836,10 @@ window.onYouTubeIframeAPIReady = function () {
   // relay auto-switch on unfiltered laptops that were merely slow to start, then persisted
   // that choice across reloads. Only s.onerror (the script actually refused) may switch.
   setTimeout(() => ytUnavailable(false), 9000);
-})();
+}
+// iOS boots on the relay (background audio is impossible through the iframe), so the iframe API is
+// not fetched up front there — relayFailed() calls ensureYT() if the relay lets us down.
+if (!IS_IOS) ensureYT();
 // The embed host is unreachable — a filtered network, nearly always. There is no server-side stream to fall
 // back to, so say so plainly and point at the diagnostic that identifies WHICH layer is blocked.
 let ytWarnedAt = 0, ytBlockReported = false;
@@ -4801,7 +4863,7 @@ function ytUnavailable(confirmed) {
   // Auto-switch to the relay ONLY on a confirmed block, and only for THIS session: an
   // automatic switch is never written to localStorage, so a one-off hiccup can't leave an
   // unfiltered user parked on the relay for good. A user's own toggle still persists.
-  if (confirmed && !relayOn()) {
+  if (confirmed && !relayOn() && !relayDead) {
     setRelay(true, true, /*persist*/ false);
     showToast('<b>Your filter blocks the normal player — switched to proxy streaming.</b> Music should play now. '
       + '<a href="/test" style="color:var(--primary);font-weight:700">Run the connection test</a> if anything is still wrong.', 10000);
@@ -4812,8 +4874,20 @@ function ytUnavailable(confirmed) {
       + '<a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a> — or turn on <b>Stream via proxy</b> in the filter menu.', 9000);
     return;
   }
+  if (relayDead) return noSourceToast();
   showToast('<b>Playback is blocked on this network.</b> Search &amp; browse still work — <a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a> to see what\'s blocking it.', 9000);
 }
+// Both engines are gone: the network refused the normal player AND the alternate source is unusable.
+// This is the end of the line for a filtered device, and pointing at the connection test would only
+// send someone to diagnose a problem that is not on their end — so say what is actually true.
+function noSourceToast() {
+  if (noSourceShown) return; noSourceShown = true;
+  track("filter_blocked", { stage: "no_source", desktop: !!SK_NATIVE });
+  showToast('<b>Playback on a filtered device is currently unsupported.</b> Getting music through a content '
+    + 'filter needs a streaming server that SK Music does not have the funding to run right now. '
+    + 'Search, browse and playlists still work.', 12000);
+}
+let noSourceShown = false;
 
 function playFrom(qid, i, source) { const q = queues.get(qid); if (!q) return; stStop(); state.queue = q; state.radio = null; state.playSource = source || (state.detailOpen ? (state.detailKind || "detail") : (state.tab || "home")); state.qi = i; if (state.shuffle) shuffleTail(); playIndex(state.qi); }
 // Play-duration tracking — measure REAL listen time (excludes pauses) and emit the `play` event on end/skip,
@@ -5677,6 +5751,7 @@ function onPlaybackError() {
     // one-per-session report as ytUnavailable so the Filter-Blocked panel counts
     // people, not failures.
     if (!ytBlockReported) { ytBlockReported = true; track("filter_blocked", { stage: "playback", desktop: !!SK_NATIVE }); }
+    if (relayDead) return noSourceToast(); // the alternate source is already gone, so this is not a per-track dud
     showToast('<b>Couldn\'t play these tracks.</b> Playback looks restricted on this network — <a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a> to see what\'s blocking it.', 9000);
     return;
   }
@@ -5695,7 +5770,7 @@ function onPlaybackError() {
   m.addEventListener("canplay", () => { if (m === PB.med()) setBuffering(false); });
   m.addEventListener("pause", () => { if (m !== PB.med()) return; stopTick(); setPlayIcons(); playAccrue(); });
   m.addEventListener("ended", () => { if (m !== PB.med()) return; setBuffering(false); stopTick(); playFinalize(); repeatOrNext(); });
-  m.addEventListener("error", () => { if (m !== PB.med() || !m.getAttribute("src")) return; if (PB.local) { const t = state.queue[state.qi]; if (t && t.videoId) skDL.bad.add(t.videoId); PB.local = false; onPlaybackError(); } else if (PB.direct || PB.mode === "html5") onPlaybackError(); }); // SK-OFFLINE: a bad local file → blacklist it for the session and skip. PB.direct: a dead upstream media URL must surface as a playback error, not silence
+  m.addEventListener("error", () => { if (m !== PB.med() || !m.getAttribute("src")) return; if (PB.direct && relayFailed(m.getAttribute("src"))) return; if (PB.local) { const t = state.queue[state.qi]; if (t && t.videoId) skDL.bad.add(t.videoId); PB.local = false; onPlaybackError(); } else if (PB.direct || PB.mode === "html5") onPlaybackError(); }); // SK-OFFLINE: a bad local file → blacklist it for the session and skip. PB.direct: a dead upstream media URL must surface as a playback error, not silence
 });
 // On iOS the keep-alive pumps "timeupdate" every ~100ms while locked; that is the only heartbeat that
 // survives the background JS freeze, so hang the end-of-track advance off it.
@@ -7240,9 +7315,8 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
     s.classList.remove("dragging");
     try { s.releasePointerCapture(id); } catch {}
     if (moved < SLOP) return;
-    // The rail stays exactly where the drag let go, mid-card or not — nothing here pulls it onto a
-    // snap point (scroll-snap-type is off on .rail/.qpgrid entirely now; only the paging chevrons
-    // below land on a card edge, deliberately).
+    // The rail stays exactly where the drag let go, mid-card or not — nothing pulls it onto a snap
+    // point (scroll-snap-type is off on .rail/.qpgrid); only the paging chevrons land on a card edge.
     // The click that follows this pointerup would open whatever card the drag ended on. Swallow it in
     // the capture phase (cards use inline onclick, which a bubble-phase guard can't reach in time).
     swallowClick = true;
@@ -7262,6 +7336,19 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   // over a rail — hijacking it into sideways rail motion trapped the cursor until a rail ran out of
   // room to scroll. Drag-to-scroll and the hover chevrons below already cover sideways mouse input;
   // an actual sideways gesture (trackpad swipe, tilt wheel) still scrolls the rail natively.
+  /* ---------------- wheel over a rail scrolls it sideways ---------------- */
+  addEventListener("wheel", (e) => {
+    const s = railAt(e.target);
+    if (!s || !overflows(s)) return;
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // tilt wheel or trackpad: already horizontal
+    const step = e.deltaMode === 1 ? e.deltaY * 18 : e.deltaMode === 2 ? e.deltaY * s.clientWidth : e.deltaY;
+    if (!step) return;
+    // At either end, hand the wheel back so the page keeps scrolling instead of trapping the cursor.
+    const max = s.scrollWidth - s.clientWidth;
+    if ((step < 0 && s.scrollLeft <= EDGE) || (step > 0 && s.scrollLeft >= max - EDGE)) return;
+    s.scrollLeft += step;
+    e.preventDefault();
+  }, { passive: false });
 
   /* ---------------- hover chevrons ---------------- */
   const CHEV = {
@@ -7282,6 +7369,17 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
     }
     const max = s.scrollWidth - s.clientWidth;
     target = Math.max(0, Math.min(max, target));
+    // Scroll-snap is off (see .rail/.qpgrid), so land on a card edge ourselves: aim roughly a page
+    // over, then go to whichever card/row starts closest to that point instead of stopping mid-card.
+    const by = s.clientWidth * (s.classList.contains("qpgrid") ? 1 : 0.85);
+    const approx = s.scrollLeft + dir * Math.max(120, by);
+    let target = approx, best = Infinity;
+    for (const k of s.children) {
+      if (getComputedStyle(k).scrollSnapAlign === "none") continue;
+      const d = Math.abs(k.offsetLeft - approx);
+      if (d < best) { best = d; target = k.offsetLeft; }
+    }
+    target = Math.max(0, Math.min(s.scrollWidth - s.clientWidth, target));
     s.scrollTo({ left: target, behavior: reduce() ? "auto" : "smooth" });
   };
   const sync = (s) => {

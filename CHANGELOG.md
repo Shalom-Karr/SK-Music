@@ -1,6 +1,6 @@
 # Changelog
 
-## web — 2026-10-02
+## 1.9.1 — 2026-10-01 (web; affects the desktop app)
 
 **Hover menu on every tile**
 - Hover any album, artist or playlist tile and a **⋮** appears in its corner — the same idea as the
@@ -20,6 +20,49 @@ the music kept playing in the background, so the app always seemed to still be r
   tray menu. Before, it only hid the window to the tray and the song carried on.
 - **Minimizing** is unchanged: the window minimizes and the mini player appears (while something is
   playing), so you can still keep music going with a small on-screen control.
+
+## 1.9.0 — 2026-10-01 (web)
+
+**Rows stop where you let go**
+- Dragging a row of songs, albums or artists sideways (or swiping it on a trackpad) and letting go
+  partway through a card used to make the row jump back to the nearest card edge. It now stays exactly
+  where you left it — no snap-back.
+- The arrow buttons on either end of a row still move a page at a time and land neatly on a card.
+- Applies to the card rows on the home and detail pages, and to Quick Picks.
+
+## 1.8.9 — 2026-10-01 (web)
+
+**Why the bump:** an artist's page opened straight into an alphabetical song list, with no way to see what
+people actually listen to from them.
+
+**Trending Songs on artist pages**
+- The top of every artist page now has a **Trending Songs** row of cards, scrolling sideways like the one on
+  Home. It ranks that artist's songs by how much they're being played over the last 30 days, **combining SK
+  Music listeners with Zemer app listeners**, most-played first.
+- It respects every filter the same way Home's trending does (blocked songs, Acapella mode). When an artist
+  doesn't have enough recent listening to fill a row, it simply isn't shown and the page opens on Songs as before.
+- It loads after the page appears, so artist pages are no slower to open.
+
+**Also**
+- **Downloading a song on the web no longer kicks you out of the app.** The download opens in its own tab
+  instead of navigating the page you were on, so the app and whatever was playing stay put.
+
+## 1.8.8 — 2026-09-29 (web)
+
+**Why the bump:** on iPad the app loaded, passed every connection test, and then played nothing at all.
+
+**Playback falls back instead of failing**
+- iPhone/iPad play through an alternate audio source so the music survives a screen lock. If that source
+  is unreachable, the app now **falls back to the normal player** and keeps going, instead of failing every
+  track in turn and reporting a restricted network. Background playback needs the alternate source, so it
+  is unavailable while running on the fallback — but the music plays.
+- The switch happens once per session, on the first failure, and resumes the **same song** at the position
+  it reached rather than skipping it. Reloading the app tries the preferred source again.
+- When **both** sources are unavailable — the network blocks the normal player *and* the alternate source
+  is unreachable — the app now says plainly that playback on a filtered device is unsupported right now,
+  for lack of the funding to run a streaming server, instead of sending people to a connection test that
+  can only confirm a problem that isn't on their end.
+- **Play next** and **Add to queue** are now in the ⋯ menu on any song, alongside Add to playlist.
 
 ## 1.8.7 — 2026-09-29 (web)
 
