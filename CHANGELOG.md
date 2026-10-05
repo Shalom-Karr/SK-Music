@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.9.3 — 2026-10-05 (web)
+
+**Why the bump:** the analytics page's **All** range failed — the summary timed out on the server, and the
+page then tried to download every event ever recorded into the browser.
+
+**Analytics: "All" works again**
+- The all-time summary is now computed on the server once an hour and kept ready, so **All** loads
+  instantly. It's exact, just up to an hour old — the "Activity over time" header shows when it was
+  last computed. 24h, 7d and 30d are unchanged and still live.
+- The first time All is opened from a new timezone, the page says the summary is being built instead
+  of hanging; it's ready after the next hourly run.
+- All never falls back to downloading the whole event table into the browser anymore.
+
 ## 1.9.2 — 2026-10-01 (web; affects the desktop app)
 
 **Why the bump:** music played as sound only everywhere — there was no way to see a music video.

@@ -316,6 +316,13 @@ async function load(incremental) {
     await loadSummary();
     console.log('[analytics] fast path: dashboard_summary RPC');
   } catch (e) {
+    // All-time must never take the client-side path: it downloads the ENTIRE events table into the
+    // browser, which is exactly what made "All" hang. Say what happened instead.
+    if (RANGE_H <= 0) {
+      console.warn('[analytics] all-time summary unavailable:', e && e.message);
+      $('content').innerHTML = '<div class="loading">The all-time summary isn’t available right now. It’s built once an hour on the server — try again shortly, or pick 30d.</div>';
+      return;
+    }
     console.warn('[analytics] RPC path unavailable — falling back to client-side aggregation:', e && e.message);
     await loadClientSide(incremental);
   }
@@ -324,6 +331,12 @@ async function load(incremental) {
 async function loadSummary() {
   const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'UTC';
   const S = await sbRpc('dashboard_summary', { p_hours: RANGE_H, p_tz: tz, p_top: 30 });
+  // All-time is served from an hourly server-side cache (supabase/dashboard-summary-cache.sql). The first
+  // request for a timezone queues it; the next hourly run fills it.
+  if (S && S.pending) {
+    $('content').innerHTML = '<div class="loading">Building the all-time summary for your timezone — it’s computed on the server once an hour, so check back shortly. 24h, 7d and 30d are live.</div>';
+    return;
+  }
   if (!S || typeof S !== 'object' || S.events == null || !Array.isArray(S.by_song) || !Array.isArray(S.by_artist)) throw new Error('Unexpected dashboard_summary shape');
   // dashboard_summary grew the signed-in/anonymous split after the rest of it. Against an older
   // deployed copy those keys are absent, which is what left the card reading "0 accounts · NaN%".
@@ -665,7 +678,7 @@ function modelFromSummary(S) {
     browserPairs: S.by_browser || [], osPairs: S.by_os || [], viewportPairs: S.by_viewport || [],
     newRet: (S.new_returning || []).map(([d, nw, rt]) => ({ day: d, nw, rt })),
     timeSamples: (S.hourly || []).map(([h, c]) => [new Date(h).getTime(), c]),
-    heatGrid: heatGridFromCells(S.heatmap || []), rangeLabel: RANGE_H ? RANGE_H + 'h' : 'all',
+    heatGrid: heatGridFromCells(S.heatmap || []), rangeLabel: RANGE_H ? RANGE_H + 'h' : (S.cached_at ? 'all · as of ' + new Date(S.cached_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'all'),
   };
 }
 
