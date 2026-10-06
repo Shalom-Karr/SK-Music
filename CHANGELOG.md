@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.9.10 + Desktop 1.2.5 — 2026-10-06 (web + desktop)
+
+**Why the bump:** a YouTube ad played in the middle of someone's listening. SK Music now makes sure you
+never hear or see one — the web app silences and hides anything that looks like an ad, and the desktop
+app never downloads ads at all. Also: minimizing the desktop app always opens the mini player, right away.
+
+**Web: no YouTube ads**
+- Every song starts silently for a split second until SK Music has confirmed it is really the song (its
+  video and its length match what the catalog expects). Real songs are confirmed straight away, so you
+  hear them from the start.
+- If YouTube plays an ad instead — before the song or in the middle of it — it is muted and kept off
+  screen while it runs, and the player shows **Skipping an ad…**. The song picks up again the moment the
+  ad is over, at your volume. Your volume and mute settings are never changed.
+- The next song, which is loaded in the background for gapless playback, gets the same treatment: any ad
+  plays out silently before the song is lined up, so the switch between songs stays seamless.
+- Music videos (desktop): the picture only appears once the real video is playing, never during an ad.
+- An ad that won't end: after 20 seconds the song is reloaded once, and if the ad comes back the song is
+  skipped.
+
+**Desktop 1.2.5: ads blocked at the source, instant mini player**
+- The app blocks YouTube's and Google's ad servers and ad-tracking addresses (doubleclick.net,
+  googlesyndication.com, googleadservices.com, the IMA ad SDK, and YouTube's ad endpoints), so ads are
+  never downloaded. Songs, music videos and thumbnails are not affected.
+- Minimizing now opens the mini player instantly, even when nothing is playing. Restoring the window
+  hides it again; **X** still quits.
+
 ## 1.9.9 — 2026-10-06 (web)
 
 **Why the bump:** build the "account required" switch for the catalog (off until the admin turns it on),

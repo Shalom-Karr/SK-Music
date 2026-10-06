@@ -342,6 +342,11 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .live-pill::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--primary);
   box-shadow:0 0 0 0 rgba(255,93,107,.7);animation:stpulse 1.8s infinite}
 body.on-air .live-pill{display:inline-flex}
+/* "Skipping an ad…" — shown by adPaint() while the ad guard holds the player on an ad it has detected. */
+.adnote{display:none;align-items:center;padding:2px 7px;border-radius:999px;background:rgba(176,154,147,.16);
+  color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.02em;white-space:nowrap;flex:none;width:max-content}
+.adnote.on{display:inline-flex}
+#npAd{margin-top:6px}
 body.on-air .rpt,body.on-air .shf{display:none}
 body.on-air .seek{pointer-events:none;opacity:.55;filter:grayscale(.4)}
 body.on-air .nb-controls .skip,body.on-air .np-controls .skip{display:none}
@@ -1226,7 +1231,7 @@ fill="url(#royal)" stroke="none">
     <div class="art"><img id="nbArt" alt=""><div class="ph" id="nbPh" aria-hidden="true"></div></div>
     <!-- The LIVE pill is a SIBLING of #nbArtist, never a child: the now-bar paints that line with
          textContent (setNow), which would wipe any nested markup on the next track change. -->
-    <div class="nb-meta"><div class="nb-t" id="nbTitle"></div><div class="nb-s" style="display:flex;align-items:center;gap:6px"><span class="live-pill">LIVE</span><span id="nbArtist"></span></div></div>
+    <div class="nb-meta"><div class="nb-t" id="nbTitle"></div><div class="nb-s" style="display:flex;align-items:center;gap:6px"><span class="live-pill">LIVE</span><span id="nbArtist"></span><span class="adnote" id="nbAd" role="status">Skipping an ad…</span></div></div>
   </div>
   <div class="nb-center">
     <div class="nb-controls">
@@ -1277,7 +1282,7 @@ fill="url(#royal)" stroke="none">
         only way out, which is not discoverable. Here it stays on screen and toggles both ways. -->
         <button id="npFull" onclick="toggleVidFullscreen()" title="Full screen" aria-label="Full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zM6 15v3h3v2H4v-5zm12 3v-3h2v5h-5v-2z"/></svg></button><img id="npArt" alt=""><div class="ph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg></div></div>
       <div class="np-info">
-        <div style="min-width:0"><div class="np-title" id="npTitle"></div><div class="np-artist" id="npArtist" role="button" tabindex="0" aria-label="Go to artist" onclick="npOpenArtist()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"></div></div>
+        <div style="min-width:0"><div class="np-title" id="npTitle"></div><div class="np-artist" id="npArtist" role="button" tabindex="0" aria-label="Go to artist" onclick="npOpenArtist()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"></div><div class="adnote" id="npAd" role="status">Skipping an ad…</div></div>
         <button class="iconbtn heart" id="npLike" onclick="toggleLikeCurrent()" title="Like" aria-label="Like" aria-pressed="false" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg></button>
         <!-- Watch / Listen — only shown for a track that actually has video (a filmed shiur), and only
              while the account allows video shiurim. See shToggleWatch / paintWatchUI. -->
@@ -1825,7 +1830,7 @@ function mvPaint() {
   const w = el("ytwrap"); if (!w) return;
   let playing = false; try { playing = PB.ready && PB.yt.getPlayerState() === 1; } catch {}
   const box = el("npArtBox"), r = box && box.getBoundingClientRect();
-  const show = state.nowOpen && mvWanted() && mvAllowed() && mvTrackOK(state.queue[state.qi]) && PB.useYt() && playing && r && r.width > 0;
+  const show = state.nowOpen && mvWanted() && mvAllowed() && mvTrackOK(state.queue[state.qi]) && PB.useYt() && playing && !adHeld(PB.yt) && r && r.width > 0; // held = possibly an ad: never on screen
   if (!show) { if (w.classList.contains("mv")) { w.classList.remove("mv"); w.removeAttribute("style"); } return; }
   w.classList.add("mv");
   w.style.left = r.left + "px"; w.style.top = r.top + "px"; w.style.width = r.width + "px"; w.style.height = r.height + "px";
@@ -4902,6 +4907,161 @@ const RATES = [1, 1.25, 1.5, 2, 0.75];
 function cycleRate() { PB.setRate(RATES[(RATES.indexOf(PB.rate) + 1) % RATES.length]); updateRateUI(); }
 function updateRateUI() { const l = (PB.rate === 1 ? "1×" : PB.rate + "×"); document.querySelectorAll(".rateBtn").forEach((b) => { b.textContent = l; b.classList.toggle("on", PB.rate !== 1); b.setAttribute("aria-label", "Playback speed " + l); }); }
 
+/* ---- Ad guard -----------------------------------------------------------------------------------
+   YouTube can put an ad in front of a song (or in the middle of one), and the IFrame API has no "an ad
+   is playing" signal. So a player is held MUTED — and, in watch mode, out of view — until it is
+   positively playing the video we asked for, and is held again the moment anything stops matching:
+     · identity — getVideoData().video_id, the v= of getVideoUrl() and getDebugText()'s debug_videoId
+       must be the requested id wherever the player reports one;
+     · duration — getDuration() must match the catalog duration within ±max(5s, 10%) (ads run seconds,
+       songs minutes); with no catalog duration, the duration first confirmed for this load must hold;
+     · state — only PLAYING confirms. UNSTARTED/CUED (how a switch to another video surfaces) re-hold a
+       confirmed player until it confirms again. BUFFERING does not: every seek and stall buffers, and
+       re-holding there would clip the start of a gapless hand-off.
+   Every load and cue arms the guard on that player (loadVideoById/cueVideoById are wrapped), so no path
+   can start a video unguarded. The hold is the player's OWN mute: PB.vol, the slider and the saved volume
+   are never touched, and the app's own mute()/unMute() calls are recorded rather than dropped while held,
+   so a release restores exactly the state the app last asked for.
+   The gapless standby warms MUTED, so it proves itself before the hand-off: it is only primed once
+   confirmed (an ad on it plays out silently first), which keeps the hand-off audible from its first frame.
+   "Skipping an ad…" shows only on positive evidence (a persistent identity/duration mismatch), so an
+   ordinary track change or buffer never flashes it.
+   An ad that won't end: after AD_GIVEUP_MS of playing-unconfirmed (or AD_ENDED_MS sitting ENDED after an
+   ad finished) the same video is reloaded once at the same position — a reload usually comes back without
+   the ad — and if that is held just as long, the track is skipped like an unplayable one. */
+const AD_POLL_MS = 100, AD_TOL_MIN = 5, AD_TOL_FRAC = 0.1, AD_NOID_MS = 1500, AD_MISMATCH_MS = 250, AD_GIVEUP_MS = 20000, AD_ENDED_MS = 4000;
+const adGuards = new WeakMap(); // YT.Player → guard state
+const adDurs = new Map();       // videoId → catalog duration from the engine (0 = looked up, none known)
+let adTimer = 0, adShown = false;
+function adCatalogDur(id) {
+  if (!id) return 0;
+  const q = state.queue, pick = (t) => (t && t.videoId === id && +t.durationSec > 0) ? +t.durationSec : 0;
+  return pick(q[state.qi]) || pick(q[cued.idx]) || (q.find((t) => pick(t)) || {}).durationSec || adDurs.get(id) || 0;
+}
+// Tracks without a catalog duration (some recents/radio rows) ask the in-browser engine — never the
+// network, which would spend the visitor's rate limit on every play.
+function adLookupDur(id) {
+  if (!id || adDurs.has(id) || !(STATIC && (ENGINE_WORKER || ENGINE))) return;
+  adDurs.set(id, 0);
+  getJSON("/track?v=" + encodeURIComponent(id)).then((r) => {
+    const d = r && +r.durationSec > 0 ? +r.durationSec : 0; if (!d) return;
+    adDurs.set(id, d);
+    for (const p of [PB.yt, ytStandby]) { const g = p && adGuards.get(p); if (g && g.id === id && !g.dur) g.dur = d; }
+  }).catch(() => {});
+}
+// Wrap a player's mute/unMute/loadVideoById/cueVideoById (idempotent; re-wraps if the API re-installs them).
+function adAttach(p) {
+  if (!p || typeof p.mute !== "function" || typeof p.unMute !== "function" || typeof p.loadVideoById !== "function" || typeof p.cueVideoById !== "function") return null;
+  let g = adGuards.get(p);
+  if (g && p.mute === g.w.mute && p.unMute === g.w.unMute && p.loadVideoById === g.w.load && p.cueVideoById === g.w.cue) return g;
+  if (!g) { g = { want: PB.muted, hold: true, id: null, dur: 0, start: 0, confD: 0, armedAt: 0, playMs: 0, lastAt: 0, ev: "", misAt: 0, tries: 0, retrying: false, endedAt: 0, w: {}, raw: {} }; adGuards.set(p, g); }
+  const cap = (k, wk) => (p[k] === g.w[wk] ? g.raw[wk] : p[k]);
+  g.raw = { mute: cap("mute", "mute"), unMute: cap("unMute", "unMute"), load: cap("loadVideoById", "load"), cue: cap("cueVideoById", "cue") };
+  g.w = {
+    mute(...a) { g.want = true; return g.raw.mute.apply(p, a); },
+    unMute(...a) { g.want = false; if (!g.hold) return g.raw.unMute.apply(p, a); },
+    load(...a) { adArm(p, a); return g.raw.load.apply(p, a); },
+    cue(...a) { adArm(p, a); return g.raw.cue.apply(p, a); },
+  };
+  p.mute = g.w.mute; p.unMute = g.w.unMute; p.loadVideoById = g.w.load; p.cueVideoById = g.w.cue;
+  try { g.raw.mute.call(p); } catch {}
+  return g;
+}
+function adArm(p, a) {
+  const g = adGuards.get(p); if (!g) return;
+  const x = a[0], id = typeof x === "string" ? x : (x && x.videoId) || null;
+  if (!g.retrying) g.tries = 0;
+  Object.assign(g, { id, dur: adCatalogDur(id), start: (x && typeof x === "object" ? +x.startSeconds : +a[1]) || 0, confD: 0, armedAt: performance.now(), playMs: 0, lastAt: 0, ev: "", misAt: 0, endedAt: 0 });
+  adHold(p, g, true);
+  if (!g.dur) adLookupDur(id);
+}
+function adHold(p, g, on) {
+  if (on) { try { g.raw.mute.call(p); } catch {} }
+  if (g.hold === on) return;
+  g.hold = on;
+  if (!on) { g.ev = ""; g.misAt = 0; g.playMs = 0; g.endedAt = 0; if (!g.want) try { g.raw.unMute.call(p); } catch {} }
+  if (p === PB.yt) { mvPaint(); adPaint(); }
+}
+const adHeld = (p) => { const g = p && adGuards.get(p); return !!(g && g.hold); };
+function adObserve(p) {
+  const o = { st: -9, vid: "", uvid: "", dvid: "", d: 0, ct: 0 };
+  try { o.st = p.getPlayerState(); } catch {}
+  try { o.vid = ((p.getVideoData() || {}).video_id) || ""; } catch {}
+  try { const m = /[?&]v=([\w-]{6,})/.exec(p.getVideoUrl() || ""); o.uvid = m ? m[1] : ""; } catch {}
+  try { const m = /"debug_videoId"\s*:\s*"([\w-]+)"/.exec((p.getDebugText && p.getDebugText()) || ""); o.dvid = m ? m[1] : ""; } catch {}
+  try { o.d = +p.getDuration() || 0; } catch {}
+  try { o.ct = +p.getCurrentTime() || 0; } catch {}
+  return o;
+}
+// "content" | "ad" | "unsure". Only a PLAYING observation is ever classified: right after a load the
+// cached getters still describe the previous video, which must not read as an ad.
+function adClassify(o, g) {
+  if (!g.id || o.st !== 1) return "unsure";
+  if ((o.vid && o.vid !== g.id) || (o.uvid && o.uvid !== g.id) || (o.dvid && o.dvid !== g.id)) return "ad";
+  if (!(o.d > 0)) return "unsure";
+  if (g.dur > 0) return Math.abs(o.d - g.dur) > Math.max(AD_TOL_MIN, g.dur * AD_TOL_FRAC) ? "ad" : "content";
+  if (g.confD > 0) return Math.abs(o.d - g.confD) > 2 ? "ad" : "content";
+  return o.vid === g.id ? "content" : "unsure";
+}
+// One evaluation of player p. Returns true when it is confirmed playing the requested content.
+function adCheck(p, now) {
+  const g = adAttach(p); if (!g || !g.id) return false;
+  const o = adObserve(p), c = adClassify(o, g), dt = g.lastAt ? Math.min(1000, now - g.lastAt) : 0;
+  g.lastAt = now;
+  if (!g.hold) {
+    if (c === "ad") { g.ev = "mismatch"; adHold(p, g, true); return false; }
+    if (c === "content" && !g.confD) g.confD = o.d;
+    return true;
+  }
+  if (c === "content") { g.confD = g.confD || o.d; adHold(p, g, false); return true; }
+  if (o.st === 1) g.playMs += dt;
+  // A mismatch only counts as evidence once it persists: for a moment after a load the getters can still
+  // describe the previous video, and that must not flash "Skipping an ad…" on every track change.
+  if (c === "ad") { if (!g.misAt) g.misAt = now; else if (now - g.misAt >= AD_MISMATCH_MS) g.ev = "mismatch"; } else g.misAt = 0;
+  // Nothing positive to go on (no reported id, no duration to compare) but nothing wrong either: never
+  // hold a real song for longer than AD_NOID_MS of actual playback on that basis alone.
+  if (c === "unsure" && o.st === 1 && o.d > 0 && !g.ev && g.playMs >= AD_NOID_MS) { g.confD = o.d; adHold(p, g, false); return true; }
+  if (p === PB.yt && (g.playMs >= AD_GIVEUP_MS || (g.endedAt && o.st === 0 && now - g.endedAt >= AD_ENDED_MS))) adGiveUp(p, g);
+  return false;
+}
+function adGiveUp(p, g) {
+  g.playMs = 0; g.endedAt = 0;
+  if (g.tries < 1) {
+    g.tries++; g.retrying = true;
+    try { p.loadVideoById({ videoId: g.id, startSeconds: g.start }); } catch {}
+    g.retrying = false; return;
+  }
+  console.warn("[ad-guard] an ad would not end — skipping", g.id);
+  showToast("Skipped a song that kept playing an ad.", 3200);
+  next();
+}
+// The player hit ENDED while held after showing an ad: that was the AD ending, not the song (the song
+// never confirmed), so the normal advance must not run. Returns true when onPlayback should ignore it.
+function adEndedIsAd(p) {
+  const g = adGuards.get(p); if (!g || !g.hold || !g.ev) return false;
+  if (!g.endedAt) g.endedAt = performance.now();
+  return true;
+}
+function adOnState(p, code) {
+  const g = adAttach(p); if (!g || !g.id) return;
+  if (!g.hold && (code === -1 || code === 5)) adHold(p, g, true);
+  if (code === 1) { g.endedAt = 0; adCheck(p, performance.now()); }
+}
+function adPaint() {
+  const g = adGuards.get(PB.yt);
+  const on = !!(g && g.hold && g.id && g.ev && PB.useYt());
+  if (on === adShown) return; adShown = on;
+  for (const id of ["nbAd", "npAd"]) { const e = el(id); if (e) e.classList.toggle("on", on); }
+}
+function adTick() {
+  const now = performance.now();
+  for (const p of [PB.yt, ytStandby || ytStandbyBoot]) {
+    if (!p || !adCheck(p, now) || p !== ytStandby) continue;
+    if (gapless && gapless.phase === "warm") onStandbyState(1); // a standby that was held while warming primes now
+  }
+  adPaint();
+}
+function adStart() { if (!adTimer) adTimer = setInterval(adTick, AD_POLL_MS); }
 /* ---- Gapless advance (double-buffer prime) ----
    The standby player pre-cues the next queue track and PRIMES it immediately: the moment the cue
    loads it plays MUTED just long enough to buffer (muted autoplay is always permitted), then pauses
@@ -4970,6 +5130,10 @@ function fireSwap() { // make the primed standby audible; the swap completes on 
 function onStandbyState(code) {
   if (code !== 1 || !gapless) return;
   if (gapless.phase === "warm") {
+    // Not confirmed as the song yet (an ad — which can report its own video id — or just too early): keep
+    // warming MUTED; adTick primes it on confirmation. Checked BEFORE the stale-video reset, which would
+    // otherwise stop the ad and re-warm straight into it again, round and round.
+    if (!adCheck(ytStandby, performance.now())) return;
     const vid = (() => { try { return (ytStandby.getVideoData() || {}).video_id; } catch { return null; } })();
     if (vid && cued.id && vid !== cued.id) { try { ytStandby.stopVideo(); } catch {} gapless = null; return; } // warmed a stale video — reset; the tick re-cues
     gapless.phase = "primed"; try { ytStandby.pauseVideo(); ytStandby.seekTo(0, true); } catch {}
@@ -5053,10 +5217,11 @@ window.onYouTubeIframeAPIReady = function () {
     playerVars: { autoplay: first ? 1 : 0, controls: 0, disablekb: 1, fs: 0, rel: 0, modestbranding: 1, iv_load_policy: 3, playsinline: 1, origin: location.origin },
     events: {
       onReady(e) {
+        adAttach(e.target); adStart();
         if (first) { PB.ready = true; PB.yt.setVolume(Math.round(PB.out() * 100)); if (PB.pending) { PB.yt.loadVideoById(PB.pending); PB.pending = null; } }
         else { ytStandby = e.target; standbyReady = true; cueNext(); } // may never fire for a videoless player — tick() also polls ytStandbyBoot into readiness
       },
-      onStateChange(e) { e.target === PB.yt ? onPlayback(e.data) : onStandbyState(e.data); },
+      onStateChange(e) { adOnState(e.target, e.data); e.target === PB.yt ? onPlayback(e.data) : onStandbyState(e.data); },
       onError(e) { if (e.target === PB.yt) onPlaybackError(); else { if (cued.id) cueDead.add(cued.id); cancelSwap(); } }, // 101/150 embed-disabled · 100 removed/private · 2/5 bad-id/html5; a dead cue is blacklisted so the handoff isn't retried against it
     },
   });
@@ -5873,11 +6038,11 @@ function tick() {
   // then FIRE near the end (re-validating that the cue still matches what playIndex would choose).
   if (PB.mode === "yt" && !PB.local && !PB.direct && !state.repeat && !seeking && !PB.paused() && !xf) { // !paused: a pause in the final 0.5s must NOT let the fire window un-pause playback; !xf: a fade owns the transition; !local/!direct: skip while a non-YouTube source plays
     if (!standbyReady && ytStandbyBoot) { // onReady is unreliable for a videoless player — probe it functional
-      try { ytStandbyBoot.getPlayerState(); ytStandby = ytStandbyBoot; standbyReady = true; } catch {}
+      try { ytStandbyBoot.getPlayerState(); adAttach(ytStandbyBoot); ytStandby = ytStandbyBoot; standbyReady = true; } catch {}
     }
     if (standbyReady && cued.idx < 0 && !gapless) cueNext(); // nothing cued (e.g. readiness arrived late) → cue now
     if (!gapless && cued.idx >= 0) beginWarm(); // no-op until the cued video is actually loaded
-    else if (gapless && gapless.phase === "primed" && d > 0 && c > 0
+    else if (gapless && gapless.phase === "primed" && d > 0 && c > 0 && !adHeld(PB.yt) // held = an ad (or unconfirmed): d/c may be the ad's, not the song's
         && cued.idx === nextPlayableIndex() && state.queue[cued.idx] && state.queue[cued.idx].videoId === cued.id) {
       if (state.crossfade > 0 && !PB.muted && d - c <= state.crossfade) startCrossfade(); // fade in over the tail
       else if (d - c <= GAPLESS_FIRE) fireSwap();                                          // else the seamless gapless handoff
@@ -5910,6 +6075,7 @@ function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing �
   } else if (code === 2) { playAccrue(); if (skSt) skSt.pausedAt = Date.now(); } // paused → bank the elapsed listen time
   else if (code === 0) { // ended: a primed/starting standby takes over instantly; anything else falls back to the normal path
     if (xf) return; // the active track finished mid-crossfade — the fade's own timer owns the advance
+    if (adEndedIsAd(PB.yt)) return; // an AD ended, not the song — the song starts next (or adCheck gives up and recovers)
     stopTick();
     const cueValid = gapless && cued.idx === nextPlayableIndex() && state.queue[cued.idx] && state.queue[cued.idx].videoId === cued.id;
     if (gapless && gapless.phase === "primed" && cueValid) fireSwap(); // completes on the standby's PLAYING event
