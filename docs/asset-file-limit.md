@@ -22,6 +22,10 @@ makes `wrangler deploy` reject the whole upload. The build counts files and guar
 | ~30 | dataset, home feeds, sitemaps, taggers, icons, `index.html`, `sw.js`, `_headers`, etc. |
 | **~18,950** | **total (as of this writing)** |
 
+In production (`SK_PRIVATE_DIR` set) the per-album and per-artist files sit under `dist/<SK_PRIVATE_DIR>/data/…`
+instead (served by the Worker, see `catalog-gate.md`). They still count toward the limit — the move changes
+nothing here.
+
 ## Deep-link OG shells
 
 `/artists/:id` and `/playlists/:id` are hit mostly by crawlers and social/link-preview bots, which need

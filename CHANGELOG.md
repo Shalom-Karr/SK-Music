@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.9.9 — 2026-10-06 (web)
+
+**Why the bump:** build the "account required" switch for the catalog (off until the admin turns it on),
+cap how much of the catalog one account can pull in a day, and make rate-limit blocks impossible to miss.
+
+**Catalog account gate (off by default)**
+- New switch on the Security tab: **Require an account for the catalog**. While it's on, signed-out visitors
+  who open an artist, album or playlist, search, or press Play get **Sign in to keep listening** with
+  **Create free account** and **Sign in**; after signing in, what they were opening loads (or the song
+  plays). The home page still loads for everyone. Google and Bing keep crawling; allowlisted IPs and emails
+  are never asked.
+- Artist, album and curated-playlist detail files are no longer public static files: the Worker serves them
+  from the private folder, behind the same limits and blocks as the full catalog file. The Acapella list
+  stays public.
+
+**Daily catalog limit**
+- Each account can open up to **400** artist/album/playlist pages (plus the search catalog) a day — set on
+  the Security tab, 0 turns it off. Signed-out visitors count per connection, except content-filter
+  networks (Techloq etc.), which carry many listeners each. Going over it pauses access with the usual
+  escalation (15 minutes, 1 hour, 24 hours, then permanent); an admin can lift it.
+- Opening pages quickly no longer counts against the per-minute request limit — only the 10-second one.
+- Hovering over tiles no longer pre-loads every one the pointer passes; only the tile it rests on.
+
+**Rate-limit notice → full-screen block**
+- Replaces the 1.9.6 toast. A rate limit or ban now covers the whole site with "Slow down — you're going too
+  fast", a large live countdown ("Opens again in 0:42"), and — when signed out — **Create a free account**
+  (free accounts get higher limits). It pauses the music, says "You have been blocked. Please slow down, or
+  create a free account" out loud once, blocks clicks and keys until the countdown ends, then closes itself
+  (music stays paused until you press play). Further blocks while it's open only extend it.
+- Bans use the same screen with the ban's countdown, or **Blocked** with **Contact us** when permanent.
+
+**Security tab**
+- **Catalog access** panel: the switch (with a confirmation before requiring accounts), the daily quota,
+  today's catalog use, and counts of `account_required` / `quota_exceeded` events.
+- Database: run `supabase/catalog-gate.sql` once in the Supabase SQL editor (after `security.sql`). See
+  `docs/catalog-gate.md`.
+
 ## 1.9.8 + Desktop 1.2.4 — 2026-10-06 (web + desktop)
 
 **Why the bump:** a ⋮ menu on every tile (contributed in PR #20), and the desktop app's **X** now really
