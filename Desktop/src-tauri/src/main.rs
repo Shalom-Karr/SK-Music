@@ -8,6 +8,7 @@
 // Hide the extra console window on Windows in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod adblock;
 mod connectivity;
 mod deeplink;
 mod download;
@@ -128,6 +129,11 @@ fn main() {
         ])
         .setup(|app| {
             let handle = app.handle();
+            // Block YouTube/Google ad requests in the main webview before the remote app (and its
+            // YouTube embed) loads — see src/adblock.rs.
+            if let Some(main) = app.get_webview_window("main") {
+                adblock::install(&main);
+            }
             // Settings first: the tray reads the persisted notify + autostart state when it builds.
             settings::init(handle)?;
             tray::init(handle)?;

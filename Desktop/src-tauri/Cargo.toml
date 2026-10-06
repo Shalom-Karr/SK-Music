@@ -1,6 +1,6 @@
 [package]
 name = "sk-music-desktop"
-version = "1.2.4"
+version = "1.2.5"
 description = "SK Music — native desktop shell (Tauri 2) for the kosher Jewish-music web client"
 authors = ["SK Music"]
 license = "GPL-3.0-or-later"
@@ -70,6 +70,9 @@ windows = { version = "0.61", features = [
   "Win32_Media_Audio_Endpoints",
   "Win32_System_Diagnostics_ToolHelp",
 ] }
+# Ad blocking (src/adblock.rs): the WebView2 WebResourceRequested hook. Already in the tree via
+# wry; the version must match the one wry/tauri use so the controller type lines up.
+webview2-com = "0.38"
 
 [profile.release]
 panic = "abort"
