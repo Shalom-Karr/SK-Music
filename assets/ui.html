@@ -1677,9 +1677,13 @@ function mvPaint() {
     return;
   }
   w.classList.add("mv");
-  // While #ytwrap is itself the fullscreen element, #ytwrap.mv:fullscreen owns its size (100vw/100vh) —
-  // an inline style here would win over that rule and fight it on every repaint.
+  // While #ytwrap is itself the fullscreen element, #ytwrap.mv:fullscreen owns its size (100vw/100vh).
+  // An inline style always outranks a class/pseudo-class selector regardless of specificity, so a STALE
+  // left/top/width/height left over from before fullscreen was requested would keep pinning the frame
+  // (and #mvSeek, anchored to its bottom edge) to the small pre-fullscreen box — clickable only in that
+  // tiny corner of the now-fullscreen black screen, not where the video visually fills it.
   if (fsNow() !== w) { w.style.left = r.left + "px"; w.style.top = r.top + "px"; w.style.width = r.width + "px"; w.style.height = r.height + "px"; }
+  else { w.style.removeProperty("left"); w.style.removeProperty("top"); w.style.removeProperty("width"); w.style.removeProperty("height"); }
   let live = null; try { live = PB.yt.getIframe(); } catch {}
   for (const f of w.querySelectorAll("iframe")) f.classList.toggle("mv-off", f !== live); // the gapless standby stays hidden
   const fb = el("mvFull");
