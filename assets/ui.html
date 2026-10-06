@@ -716,6 +716,28 @@ body.on-air .npx-clear{display:none}
 #toast a{pointer-events:auto;text-decoration:underline;text-underline-offset:2px}
 #toast b{color:var(--primary);font-weight:600}
 @media(max-width:899px){#toast{bottom:calc(var(--mini-h) + var(--tab-h) + 18px)}}
+
+/* ============================ Block overlay (rate limit / ban) ============================ */
+/* Full-site: above every modal, the player and the splash. Dialogs opened FROM it (sign-up, Contact us)
+   are lifted above it via body.sk-blocked. */
+#blkOverlay{display:none;position:fixed;inset:0;z-index:9600;background:rgba(6,4,5,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));overflow-y:auto;overscroll-behavior:contain}
+#blkOverlay.on{display:flex;animation:fade .2s var(--ease)}
+body.sk-blocked{overflow:hidden}
+body.sk-blocked .authmodal.on{z-index:9700}
+.blk-card{width:100%;max-width:560px;text-align:center;margin:auto;padding:36px 28px 30px;border-radius:28px;border:1px solid var(--line-2);
+  background:radial-gradient(130% 90% at 50% -10%,rgba(255,93,107,.18),var(--surface-2) 58%);box-shadow:0 30px 90px rgba(0,0,0,.65);animation:authpop .25s var(--ease)}
+.blk-ic{width:72px;height:72px;margin:0 auto 18px;border-radius:22px;display:flex;align-items:center;justify-content:center;background:linear-gradient(140deg,var(--primary),#b23145);box-shadow:0 14px 34px rgba(255,93,107,.42)}
+.blk-ic svg{width:38px;height:38px;fill:#fff}
+.blk-card h2{font-family:Fraunces,serif;font-weight:600;font-size:clamp(26px,5.4vw,38px);line-height:1.15;margin:0 0 10px;color:var(--text)}
+.blk-text{color:var(--muted);font-size:clamp(15px,3.6vw,18px);line-height:1.5;margin:0 auto;max-width:440px}
+.blk-lbl{margin:26px 0 2px;color:var(--faint);font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.blk-clock{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;font-weight:700;font-size:clamp(52px,14vw,72px);line-height:1.1;color:var(--text);letter-spacing:.02em}
+.blk-acct{margin-top:26px}
+.blk-acct .authbtn{height:56px;font-size:17px;border-radius:14px}
+.blk-note{margin:10px 0 0;color:var(--muted);font-size:14px}
+.blk-contact{margin-top:14px}
+.blk-contact .authbtn{height:48px}
 @media(max-width:899px){#now .np-upnext{display:flex;flex:1 1 auto;min-height:140px;margin-top:10px}}
 /* shared floating popup menu (sleep timer, queue/song actions, add-to-playlist, report) */
 #popmenu{position:fixed;z-index:95;min-width:200px;max-width:min(88vw,320px);max-height:70vh;overflow:auto;padding:6px;
@@ -1130,6 +1152,17 @@ fill="url(#royal)" stroke="none">
       </form>
     </div>
   </div>
+  <!-- catalog account gate: a catalog request answered 401 account_required, or Play while signed out with the gate on -->
+  <div class="authmodal" id="gateModal" role="dialog" aria-modal="true" aria-labelledby="gateTitle" aria-describedby="gateSub" onclick="if(event.target===this)gateClose()">
+    <div class="authcard" style="max-width:392px">
+      <button class="authclose" onclick="gateClose()" aria-label="Close">✕</button>
+      <div class="authlogo"><svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg></div>
+      <h2 id="gateTitle">Sign in to keep listening</h2>
+      <p class="authsub" id="gateSub">A free SK Music account is needed to browse and play music. It takes a few seconds, and your likes, playlists and filters sync across your devices.</p>
+      <button type="button" class="authbtn" id="gateUp" onclick="gateGo('up')">Create free account</button>
+      <button type="button" class="authbtn oauth" id="gateIn" style="margin-top:10px" onclick="gateGo('in')">Sign in</button>
+    </div>
+  </div>
 </div>
 
 <!-- content-filter menu -->
@@ -1276,6 +1309,17 @@ fill="url(#royal)" stroke="none">
 
 <div id="ytwrap" aria-hidden="true"><div id="ytplayer"></div><div id="ytplayer2"></div></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+<!-- rate-limit / ban overlay: covers the whole site until its countdown ends (blkOpen) -->
+<div id="blkOverlay" role="alertdialog" aria-modal="true" aria-labelledby="blkTitle" aria-describedby="blkText">
+  <div class="blk-card">
+    <div class="blk-ic"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20m0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16m.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7z"/></svg></div>
+    <h2 id="blkTitle"></h2>
+    <p class="blk-text" id="blkText"></p>
+    <div id="blkTimer"><div class="blk-lbl">Opens again in</div><div class="blk-clock" id="blkClock" role="timer" aria-live="off"></div></div>
+    <div class="blk-acct" id="blkAcct"><button type="button" class="authbtn" onclick="openAuth('up')">Create a free account</button><p class="blk-note">Free accounts get higher limits.</p></div>
+    <div class="blk-contact" id="blkContact"><button type="button" class="authbtn oauth" onclick="unblockRequest()">Contact us</button></div>
+  </div>
+</div>
 <div id="popmenu" role="menu" aria-hidden="true"></div>
 <!-- fullscreen statuses viewer (contents rendered per status by stsRender) -->
 <div id="stsView" role="dialog" aria-modal="true" aria-label="Statuses" aria-hidden="true"></div>
@@ -1293,8 +1337,15 @@ const esc = (s) => (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 const safeId = (s) => (typeof s === "string" && /^[A-Za-z0-9_-]+$/.test(s)) ? s : "";
 const yt = (id, q) => `https://i.ytimg.com/vi/${id}/${q || "mq"}default.jpg`;
 // Warm the prebuilt detail JSON on hover so the click opens instantly (the fetch is already a cache hit).
-const _pf = new Set();
-function pf(kind, id) { if (!STATIC || !id || _pf.has(id)) return; _pf.add(id); try { fetch("/data/" + kind + "/" + id + ".json").catch(() => {}); } catch {} }
+// Only after the pointer rests on a card (sweeping across a grid prefetches nothing): in production these files
+// are Worker requests that count toward the limits and the daily catalog quota. Never while the catalog would
+// refuse them (signed out behind the account gate).
+const _pf = new Set(); let _pfT = 0;
+function pf(kind, id) {
+  if (!STATIC || !id || _pf.has(id) || (catalogGateOn() && !loggedIn())) return;
+  clearTimeout(_pfT);
+  _pfT = setTimeout(() => { if (_pf.has(id)) return; _pf.add(id); try { fetch("/data/" + kind + "/" + id + ".json").catch(() => {}); } catch {} }, 250);
+}
 const num = (x) => (x || 0).toLocaleString();
 const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); const m = Math.floor(s / 60); return (m >= 60 ? Math.floor(m / 60) + ":" + String(m % 60).padStart(2, "0") : m) + ":" + String(s % 60).padStart(2, "0"); };
 const ago = (ms) => { if (!ms) return ""; const s = Math.max(0, (Date.now() - ms) / 1000); return s < 3600 ? Math.max(1, Math.round(s / 60)) + "m ago" : s < 86400 ? Math.round(s / 3600) + "h ago" : s < 604800 ? Math.round(s / 86400) + "d ago" : Math.round(s / 604800) + "w ago"; };
@@ -1324,32 +1375,141 @@ async function getJSON(url, opt) {
   return fetchJSON(url, opt);
 }
 // One backoff retry on a TRANSIENT failure (network reject or 5xx); never retry an abort or a 4xx.
-// The Worker's security layer answers 403/429 with {error:"datacenter"|"banned"|"rate_limited"}. Say so once,
-// plainly, instead of the page just quietly failing to load things.
+// The Worker's security layer answers 401/403/429 with {error:"account_required"|"datacenter"|"banned"|
+// "rate_limited"}; the edge rate limit answers 429 with Cloudflare's HTML page (Retry-After header, if any).
+// Rate limits and bans get the full-site block overlay, a catalog file that needs an account gets the sign-in
+// prompt, and a datacenter network gets a toast (once a minute).
 let _secNoticeAt = 0;
 function secNotice(j) {
-  if (!j || !j.error || Date.now() - _secNoticeAt < 60000) return;
+  if (!j || j.error !== "datacenter" || Date.now() - _secNoticeAt < 60000) return;
   _secNoticeAt = Date.now();
-  if (j.error === "datacenter") showToast('<b>SK Music is limited on this network</b> (a hosting provider or VPN). <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();openAuth(&#39;in&#39;)">Sign in</a> to keep listening, or <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();unblockRequest()">Contact us</a> if this is a mistake.', 12000);
-  else if (j.error === "banned") { const fin = j.until && isFinite(Date.parse(j.until)); showToast("<b>Too many requests from your connection.</b> Access is " + (fin ? "paused until " + new Date(j.until).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + "." : "blocked.") + ' <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();unblockRequest()">Contact us</a> if this is a mistake.', 12000); }
-  else if (j.error === "rate_limited") showToast("<b>You were blocked for a moment</b> — too many requests too fast. " + (loggedIn()
-    ? "Slow down and it clears in a few seconds."
-    : 'Slow down, or <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();openAuth(&#39;up&#39;)">create a free account</a> for higher limits.'), 9000);
+  showToast('<b>SK Music is limited on this network</b> (a hosting provider or VPN). <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();openAuth(&#39;in&#39;)">Sign in</a> to keep listening, or <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();unblockRequest()">Contact us</a> if this is a mistake.', 12000);
 }
-// Every same-origin request goes through here, so a 429/403 from the Worker (JSON body) or the edge rate
-// limit (Cloudflare's HTML page) shows a notice no matter which code path made it. The engine's Web Worker
-// reports its own through postMessage (engine-worker.mjs).
-function secStatus(status, j) {
-  if (j && j.error) return secNotice(j);
-  if (status === 429) secNotice({ error: "rate_limited" });
+// Seconds from a Retry-After header (delta-seconds or an HTTP date); 0 if absent/unreadable.
+function retryAfterSecs(ra) {
+  if (ra == null || ra === "") return 0;
+  if (/^\s*\d+\s*$/.test(ra)) return +ra;
+  const t = Date.parse(ra); return isFinite(t) ? Math.max(0, Math.ceil((t - Date.now()) / 1000)) : 0;
 }
+// Every same-origin request goes through here, so a block shows no matter which code path made the request.
+// The engine's Web Worker reports its own through postMessage (engine-worker.mjs).
+function secStatus(status, j, ra) {
+  const e = j && j.error;
+  if (e === "account_required") return gateNotice(gateRetryView);
+  if (e === "rate_limited") return blkOpen({ until: Date.now() + 1000 * (Math.max(+j.retryAfter || 0, retryAfterSecs(ra)) || 10) });
+  if (e === "banned") return blkOpen({ ban: true, until: j.permanent || j.until === "infinity" ? Infinity : (Date.parse(j.until) || Infinity) });
+  if (e === "datacenter") return secNotice(j);
+  if (status === 429) blkOpen({ until: Date.now() + 1000 * (retryAfterSecs(ra) || 10) });
+}
+
+// ── Block overlay: rate limited or banned. Covers the whole site with a live countdown and closes itself when
+// it runs out. A later block while it is open only ever extends it (never stacks, never re-announces). Music
+// is paused when it opens and stays paused afterwards — the listener presses play.
+let _blk = null; // { until, ban, timer }
+const fmtCountdown = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = s % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
+function blkPaint() {
+  if (!_blk) return;
+  const perm = _blk.until === Infinity, out = !loggedIn();
+  el("blkTitle").textContent = perm ? "Blocked" : _blk.ban ? "Access paused" : "Slow down — you're going too fast";
+  el("blkText").textContent = perm ? "Access from your connection is blocked. If this is a mistake, contact us and we'll review it."
+    : _blk.ban ? "Too many requests came from your connection, so access is paused for a while."
+    : "Browsing is paused for a moment.";
+  el("blkTimer").style.display = perm ? "none" : "";
+  el("blkAcct").style.display = out && !_blk.ban ? "" : "none";
+  el("blkContact").style.display = _blk.ban ? "" : "none";
+}
+function blkTick() {
+  if (!_blk || _blk.until === Infinity) return; // permanent: no countdown (the timer row is hidden)
+  const left = _blk.until - Date.now();
+  if (left <= 0) return blkClose();
+  el("blkClock").textContent = fmtCountdown(left);
+}
+function blkClose() {
+  if (!_blk) return;
+  clearInterval(_blk.timer); _blk = null;
+  el("blkOverlay").classList.remove("on"); document.body.classList.remove("sk-blocked");
+}
+function blkSpeak() {
+  try {
+    const ss = window.speechSynthesis;
+    if (!ss || typeof SpeechSynthesisUtterance !== "function") return;
+    const u = new SpeechSynthesisUtterance(loggedIn() ? "You have been blocked. Please slow down." : "You have been blocked. Please slow down, or create a free account.");
+    u.lang = "en-US"; u.rate = 0.95;
+    const us = (ss.getVoices() || []).filter((v) => /^en[-_]us$/i.test(v.lang || ""));
+    const v = us.find((x) => /natural|neural|google us english|samantha|aria|jenny/i.test(x.name || "")) || us.find((x) => x.localService) || us[0];
+    if (v) u.voice = v;
+    ss.cancel(); ss.speak(u);
+  } catch {}
+}
+function blkOpen({ until, ban }) {
+  if (!(until > Date.now())) return;
+  if (_blk) { _blk.until = Math.max(_blk.until, until); _blk.ban = _blk.ban || !!ban; blkPaint(); blkTick(); return; }
+  _blk = { until, ban: !!ban, timer: 0 };
+  blkPaint(); blkTick();
+  el("blkOverlay").classList.add("on"); document.body.classList.add("sk-blocked");
+  try { if (state.queue.length && !PB.paused()) { saveLastPlay(PB.cur(), true); PB.pause(); } } catch {}
+  blkSpeak();
+  _blk.timer = setInterval(blkTick, 250);
+}
+// The overlay blocks the mouse; this blocks the keyboard (media shortcuts, Space = play) for everything behind it.
+addEventListener("keydown", (e) => {
+  if (!_blk || (e.target && e.target.closest && e.target.closest("#blkOverlay, .authmodal.on"))) return;
+  e.stopImmediatePropagation(); if (e.key !== "Tab") e.preventDefault();
+}, true);
+
+// ── Catalog account gate (engine/security.mjs). The Worker stamps "<0|1>;<ms the setting was read>" on boot API
+// responses and on its 401; keep the newest reading so a browser-cached response can't roll it back. A reading
+// older than a day is ignored (the Worker fails open while it can't read the setting).
+const CG_KEY = "sk_cgate";
+let _cg = { on: false, at: 0 };
+try { const v = JSON.parse(localStorage.getItem(CG_KEY) || "null"); if (v && typeof v.on === "boolean" && typeof v.at === "number") _cg = v; } catch {}
+function catalogGateOn() { return _cg.on && Math.abs(Date.now() - _cg.at) < 864e5; }
+function cgNote(h) {
+  const m = /^([01]);(\d{1,16})$/.exec(h || ""); if (!m) return;
+  const at = +m[2]; if (!at || at < _cg.at) return;
+  _cg = { on: m[1] === "1", at };
+  try { localStorage.setItem(CG_KEY, JSON.stringify(_cg)); } catch {}
+  cgWarm();
+}
+// The engine worker pre-warms the dataset only when it would be allowed to fetch it.
+function cgWarm() { try { if (ENGINE_WORKER) ENGINE_WORKER.postMessage({ cfg: { warm: !(catalogGateOn() && !loggedIn()) } }); } catch {} }
+let _gateRetry = null, _gateAt = 0, _gateRefreshAt = 0;
+// Re-render whatever view the blocked catalog request was for (artist/album/playlist page, or the tab).
+function gateRetryView() { if (state.detailOpen) applyRoute(location.href); else reloadCurrent(); }
+// "Sign in to keep listening". retry runs once the visitor has signed in.
+function gateNotice(retry) {
+  if (loggedIn()) {
+    // Signed in here but the Worker saw no valid token (expired cookie): refresh once, then retry.
+    if (Date.now() - _gateRefreshAt > 30000) { _gateRefreshAt = Date.now(); acctRefresh().then((ok) => { if (ok && retry) retry(); }); }
+    return;
+  }
+  if (retry) _gateRetry = retry;
+  const m = el("gateModal");
+  if (m.classList.contains("on") || el("authModal").classList.contains("on") || el("askModal").classList.contains("on") || Date.now() - _gateAt < 1500) return;
+  _gateAt = Date.now();
+  try { localStorage.setItem(ACCT_NOTICE_KEY, String(Date.now())); } catch {} // this IS the account prompt — don't show the "soon" popup on top
+  m.classList.add("on");
+  setTimeout(() => el("gateUp").focus(), 60);
+}
+function gateClose() { el("gateModal").classList.remove("on"); }
+function gateGo(mode) { gateClose(); openAuth(mode); }
+// After any sign-in: retry what the gate stopped.
+function gateAfterLogin() { const f = _gateRetry; _gateRetry = null; cgWarm(); if (f && loggedIn()) try { f(); } catch {} }
+// Play while signed out with the gate on: ask first (true = go ahead).
+function playAllowed(retry) { if (!catalogGateOn() || loggedIn()) return true; gateNotice(retry); return false; }
+let _secQuiet = false; // set around a background pre-warm: its refusal must not pop a notice
 {
   const nativeFetch = window.fetch.bind(window);
   window.fetch = async (input, init) => {
+    const quiet = _secQuiet;
     const r = await nativeFetch(input, init);
-    if (r.status === 429 || r.status === 403) {
-      let same = false; try { same = new URL(r.url || String(input), location.href).origin === location.origin; } catch {}
-      if (same) r.clone().json().then((j) => secStatus(r.status, j), () => secStatus(r.status, null));
+    let same = false; try { same = new URL(r.url || String(input), location.href).origin === location.origin; } catch {}
+    if (same) {
+      cgNote(r.headers.get("X-SK-Catalog-Gate"));
+      if (!quiet && (r.status === 429 || r.status === 403 || r.status === 401)) {
+        const ra = r.headers.get("Retry-After");
+        r.clone().json().then((j) => secStatus(r.status, j, ra), () => secStatus(r.status, null, ra));
+      }
     }
     return r;
   };
@@ -3845,7 +4005,7 @@ const ACCT_NOTICE_KEY = "sk_acct_notice", ACCT_NOTICE_EVERY = 3 * 864e5;
 // sign-up form opened from it creates an account. The dashboard turns these into click-through rates.
 let _acctNoticeSignup = false;
 async function maybeShowAccountNotice() {
-  if (loggedIn() || document.querySelector(".authmodal.on")) return;
+  if (loggedIn() || catalogGateOn() || document.querySelector(".authmodal.on")) return; // gate on: its own "Sign in to keep listening" prompt replaces this
   let last = 0; try { last = +localStorage.getItem(ACCT_NOTICE_KEY) || 0; } catch {}
   if (Date.now() - last < ACCT_NOTICE_EVERY) return;
   try { localStorage.setItem(ACCT_NOTICE_KEY, String(Date.now())); } catch {}
@@ -4979,6 +5139,7 @@ addEventListener("visibilitychange", () => {
 addEventListener("pageshow", iosOnForeground); // PWA restored from bfcache
 function playIndex(i, dir) {
   if (i < 0 || i >= state.queue.length) return;
+  if (!playAllowed(() => playIndex(i, dir))) return; // catalog account gate: signed out ⇒ "Sign in to keep listening"
   // Acapella sets INSTRUMENTAL MUSIC aside; a shiur is speech, so the filter has nothing to say about
   // it. Without this, Sefira/the Three Weeks would refuse to play any shiur ("no more Acapella songs
   // in this queue") — acapellaTrack() tests membership of a curated MUSIC playlist it can never be in.
@@ -6857,6 +7018,7 @@ async function _onLogin() {
   acct.profile = prof || {};
   cachePolicy(); // persist the gating policy so it survives sign-out (only on a confirmed-good read)
   await syncLikesOnLogin(); applyProfileFilters(); mergeRecentsOnLogin(); renderAcct();
+  gateAfterLogin();
 }
 // --- recents sync (cross-device recently-played, stored in zemer_user.recents) ---
 let _recTimer;
@@ -7310,8 +7472,9 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
       STATIC = true; ENGINE = await import("/lib/engine.mjs"); // in-thread engine = the fallback (dataset loads lazily only if a fallback call happens)
       try { // primary: the engine in a Web Worker, so the dataset parse + search-index build never block the UI
         ENGINE_WORKER = new Worker("/lib/engine-worker.mjs", { type: "module" });
-        ENGINE_WORKER.onmessage = (e) => { if (e.data && e.data.sec) return secStatus(e.data.sec.status, e.data.sec.j); const { id, r, err } = e.data || {}; const res = _wReq.get(id); if (res) { _wReq.delete(id); res(err ? null : r); } };
+        ENGINE_WORKER.onmessage = (e) => { if (e.data && e.data.sec) return secStatus(e.data.sec.status, e.data.sec.j, e.data.sec.ra); const { id, r, err } = e.data || {}; const res = _wReq.get(id); if (res) { _wReq.delete(id); res(err ? null : r); } };
         ENGINE_WORKER.onerror = () => { ENGINE_WORKER = null; }; // worker failed to load → in-thread engine takes over
+        cgWarm(); // no dataset pre-warm while the catalog would refuse it (signed out behind the account gate)
       } catch { ENGINE_WORKER = null; }
     }
   } catch { /* server mode */ }
@@ -7363,7 +7526,7 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   if (STATIC) artistByName().catch(() => {}); // preload gender flags for the content filter
   // Warm the dataset in the background. The worker warms itself (see engine-worker.mjs); only warm the
   // in-thread engine when there's no worker, to avoid loading the dataset into memory twice.
-  if (STATIC && !ENGINE_WORKER && ENGINE && ENGINE.preload) { const warm = () => ENGINE.preload().catch(() => {}); "requestIdleCallback" in window ? requestIdleCallback(warm, { timeout: 1500 }) : setTimeout(warm, 800); }
+  if (STATIC && !ENGINE_WORKER && ENGINE && ENGINE.preload) { const warm = () => { if (catalogGateOn() && !loggedIn()) return; _secQuiet = true; try { ENGINE.preload().catch(() => {}); } finally { _secQuiet = false; } }; "requestIdleCallback" in window ? requestIdleCallback(warm, { timeout: 1500 }) : setTimeout(warm, 800); }
 })();
 
 /* ============================ Horizontal rails: drag, wheel, chevrons ============================
