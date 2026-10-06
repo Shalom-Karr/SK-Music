@@ -290,7 +290,7 @@ async function rpc(env, name, body, timeoutMs = 4000) {
 const STATE_TTL = 60e3;
 // Catalog gate + quota as last read from catalog_state. Never read (migration not applied, Supabase down) ⇒ gate
 // off and no quota: fail open.
-const CATALOG_OFF = { requiresAccount: false, dailyQuota: 0 };
+const CATALOG_OFF = { requiresAccount: false, dailyQuota: 0, blockIds: new Set(), blockIp: new Map(), blockUser: new Map() };
 const EMPTY_STATE = { allowIps: new Set(), allowEmails: new Set(), banIp: new Map(), banUser: new Map(), catalog: CATALOG_OFF };
 let state = { data: EMPTY_STATE, at: 0, loaded: false, p: null, failAt: 0 };
 
@@ -301,17 +301,30 @@ const parseUntil = (v) => {
   return Number.isFinite(t) ? t : Infinity;
 };
 
+// quota_blocks = active daily-quota bans (security_bans.catalog_only). They block catalog files only, so they
+// are kept apart from the site-wide ban maps (security_state lists them as ordinary bans).
 function buildCatalog(j) {
   if (!j || typeof j !== "object") return null;
   const q = Number(j.daily_quota);
-  return { requiresAccount: j.requires_account === true, dailyQuota: Number.isFinite(q) && q > 0 ? Math.floor(q) : 0 };
+  const c = { requiresAccount: j.requires_account === true, dailyQuota: Number.isFinite(q) && q > 0 ? Math.floor(q) : 0,
+    blockIds: new Set(), blockIp: new Map(), blockUser: new Map() };
+  for (const b of Array.isArray(j.quota_blocks) ? j.quota_blocks : []) {
+    if (!b || b.id == null) continue;
+    const until = parseUntil(b.until);
+    c.blockIds.add(String(b.id));
+    if (b.ip) c.blockIp.set(String(b.ip), Math.max(until, c.blockIp.get(String(b.ip)) || 0));
+    if (b.user_id) c.blockUser.set(String(b.user_id), Math.max(until, c.blockUser.get(String(b.user_id)) || 0));
+  }
+  return c;
 }
 
 function buildState(j, catalog) {
   const s = { allowIps: new Set(), allowEmails: new Set(), banIp: new Map(), banUser: new Map(), catalog: catalog || CATALOG_OFF };
   for (const ip of j?.allow_ips || []) if (ip) s.allowIps.add(String(ip).trim());
   for (const e of j?.allow_emails || []) if (e) s.allowEmails.add(String(e).trim().toLowerCase());
+  const quotaIds = s.catalog.blockIds;
   for (const b of j?.bans || []) {
+    if (quotaIds && b.id != null && quotaIds.has(String(b.id))) continue; // daily-quota ban: catalog only
     const until = parseUntil(b.until);
     if (b.ip) s.banIp.set(String(b.ip), Math.max(until, s.banIp.get(String(b.ip)) || 0));
     if (b.user_id) s.banUser.set(String(b.user_id), Math.max(until, s.banUser.get(String(b.user_id)) || 0));
@@ -422,12 +435,25 @@ async function flushQuota(env) {
       for (const r of Array.isArray(rows) ? rows : []) {
         if (!r || typeof r.key !== "string" || r.until == null) continue;
         const until = parseUntil(r.until);
-        if (until > now) localBans.set(r.key, Math.max(until, localBans.get(r.key) || 0));
+        if (until > now) localCatalogBlocks.set(r.key, { until, at: now });
       }
     })
     .catch(() => {})
     .finally(() => { quotaFlushing = null; });
   await quotaFlushing;
+}
+
+// Daily-quota blocks this isolate learned from its own flush, before security_state/catalog_state carry them.
+// A state read after the flush is authoritative (so an admin's unban takes effect within a minute here too).
+const localCatalogBlocks = new Map(); // key → { until, at }
+
+function catalogBlockUntil(st, ip, identity, now) {
+  const key = identity ? "u:" + identity.userId : "ip:" + ip;
+  let until = identity ? st.catalog.blockUser.get(identity.userId) || 0 : (ip && st.catalog.blockIp.get(ip)) || 0;
+  const l = localCatalogBlocks.get(key);
+  if (l && l.until > now && !(state.loaded && state.at > l.at)) until = Math.max(until, l.until);
+  else if (l) localCatalogBlocks.delete(key);
+  return until > now ? until : 0;
 }
 
 function countCatalog(env, ctx, key, email) {
@@ -544,6 +570,7 @@ const HTML_TEXT = {
   datacenter: ["Sign in to continue", "This connection looks like a server or hosting network rather than a home or mobile one. Sign in to SK Music to continue."],
   rate_limited: ["Slow down a little", "Too many requests in a short time. Please wait a few seconds and try again."],
   account_required: ["Sign in to keep listening", "A free SK Music account is needed to browse and play the catalog."],
+  daily_limit: ["Daily browsing limit reached", "This connection or account has opened more of the catalog today than the daily limit allows."],
 };
 const PAGE_CSS = "body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0f172a;color:#e2e8f0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px;box-sizing:border-box}main{max-width:460px;width:100%;box-sizing:border-box;background:#1e293b;border-radius:12px;padding:28px}h1{margin:0 0 8px;font-size:20px}h2{margin:20px 0 4px;font-size:16px}p{margin:8px 0}.m{color:#94a3b8;font-size:14px}a{color:#60a5fa}label{display:block;margin:10px 0 4px;font-size:14px;color:#cbd5e1}input,textarea{width:100%;box-sizing:border-box;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:8px;padding:8px;font:inherit}textarea{min-height:96px;resize:vertical}button{margin-top:12px;background:#2563eb;color:#fff;border:0;border-radius:8px;padding:9px 16px;font:inherit;cursor:pointer}";
 const page = (title, inner) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${title} · SK Music</title><style>${PAGE_CSS}</style></head><body><main><h1>${title}</h1>${inner}</main></body></html>`;
@@ -563,6 +590,7 @@ function blockResponse(request, status, body, retryAfter, extraHeaders) {
       ? `<p>This block is permanent unless it is lifted after review.</p>`
       : `<p class="m">Try again after ${new Date(body.until).toUTCString()}.</p>`) + CONTACT_FORM;
     else if (body.error === "account_required") extra = `<p><a href="/">Go to SK Music and sign in</a></p>`;
+    else if (body.error === "daily_limit") extra = (body.permanent ? "" : `<p class="m">It opens again ${new Date(body.until).toUTCString()}.</p>`) + CONTACT_FORM;
     else if (retryAfter) extra = `<p class="m">Try again in ${retryAfter} seconds.</p>`;
     headers["Content-Type"] = "text/html; charset=utf-8";
     return new Response(page(title, `<p>${msg}</p>${extra}`), { status, headers });
@@ -626,6 +654,16 @@ export async function securityGate(request, env, ctx, url) {
       logEvent(env, ctx, "account_required", who, ev);
       return blockResponse(request, 401, { error: "account_required", signIn: true }, 0,
         { [CATALOG_GATE_HEADER]: `1;${state.loaded ? state.at : 0}` });
+    }
+    // Over today's catalog quota: catalog files only, until the next 00:00 UTC (or the ban's end). Not logged
+    // per hit — catalog_usage_add wrote one quota_exceeded event for the ban.
+    const qUntil = catalog ? catalogBlockUntil(x.st, ip, identity, _t.now()) : 0;
+    if (qUntil) {
+      const perm = qUntil === Infinity, secs = perm ? 0 : Math.max(1, Math.ceil((qUntil - _t.now()) / 1000));
+      return blockResponse(request, 429, {
+        error: "daily_limit", until: perm ? "infinity" : new Date(qUntil).toISOString(), permanent: perm,
+        signIn: !identity, contact: CONTACT_PATH, ...(perm ? {} : { retryAfter: secs }),
+      }, secs);
     }
 
     if (UNCOUNTED_PATHS.has(pathname)) return null;
@@ -761,6 +799,6 @@ export function _resetSecurityState() {
   state = { data: EMPTY_STATE, at: 0, loaded: false, p: null, failAt: 0 };
   jwks = { base: "", at: 0, keys: new Map(), p: null, lastRefetch: 0 };
   tokenCache.clear(); logQ = []; logSeen.clear(); logTimer = false; logFlushing = null;
-  localBans.clear(); trips.clear(); lastTrip.clear(); crawlerRanges.clear();
+  localBans.clear(); localCatalogBlocks.clear(); trips.clear(); lastTrip.clear(); crawlerRanges.clear();
   quotaQ = new Map(); quotaEmail = new Map(); quotaTimer = false; quotaFlushing = null;
 }

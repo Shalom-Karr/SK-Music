@@ -738,6 +738,9 @@ body.sk-blocked .authmodal.on{z-index:9700}
 .blk-note{margin:10px 0 0;color:var(--muted);font-size:14px}
 .blk-contact{margin-top:14px}
 .blk-contact .authbtn{height:48px}
+.blk-dismiss{margin-top:12px}
+.blk-dismiss button{background:none;border:0;color:var(--muted);font:inherit;font-size:14px;font-weight:600;cursor:pointer;padding:8px 14px;border-radius:10px}
+.blk-dismiss button:hover{color:var(--text);background:rgba(255,255,255,.06)}
 @media(max-width:899px){#now .np-upnext{display:flex;flex:1 1 auto;min-height:140px;margin-top:10px}}
 /* shared floating popup menu (sleep timer, queue/song actions, add-to-playlist, report) */
 #popmenu{position:fixed;z-index:95;min-width:200px;max-width:min(88vw,320px);max-height:70vh;overflow:auto;padding:6px;
@@ -1316,8 +1319,9 @@ fill="url(#royal)" stroke="none">
     <h2 id="blkTitle"></h2>
     <p class="blk-text" id="blkText"></p>
     <div id="blkTimer"><div class="blk-lbl">Opens again in</div><div class="blk-clock" id="blkClock" role="timer" aria-live="off"></div></div>
-    <div class="blk-acct" id="blkAcct"><button type="button" class="authbtn" onclick="openAuth('up')">Create a free account</button><p class="blk-note">Free accounts get higher limits.</p></div>
+    <div class="blk-acct" id="blkAcct"><button type="button" class="authbtn" onclick="openAuth('up')">Create a free account</button><p class="blk-note" id="blkNote">Free accounts get higher limits.</p></div>
     <div class="blk-contact" id="blkContact"><button type="button" class="authbtn oauth" onclick="unblockRequest()">Contact us</button></div>
+    <div class="blk-dismiss" id="blkDismiss"><button type="button" onclick="blkClose()">Close</button></div>
   </div>
 </div>
 <div id="popmenu" role="menu" aria-hidden="true"></div>
@@ -1398,6 +1402,7 @@ function secStatus(status, j, ra) {
   if (e === "account_required") return gateNotice(gateRetryView);
   if (e === "rate_limited") return blkOpen({ until: Date.now() + 1000 * (Math.max(+j.retryAfter || 0, retryAfterSecs(ra)) || 10) });
   if (e === "banned") return blkOpen({ ban: true, until: j.permanent || j.until === "infinity" ? Infinity : (Date.parse(j.until) || Infinity) });
+  if (e === "daily_limit") return blkOpen({ daily: true, signIn: !!j.signIn, until: j.permanent || j.until === "infinity" ? Infinity : (Date.parse(j.until) || Date.now() + 1000 * (+j.retryAfter || 3600)) });
   if (e === "datacenter") return secNotice(j);
   if (status === 429) blkOpen({ until: Date.now() + 1000 * (retryAfterSecs(ra) || 10) });
 }
@@ -1410,13 +1415,21 @@ const fmtCountdown = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)), h = 
 function blkPaint() {
   if (!_blk) return;
   const perm = _blk.until === Infinity, out = !loggedIn();
-  el("blkTitle").textContent = perm ? "Blocked" : _blk.ban ? "Access paused" : "Slow down — you're going too fast";
-  el("blkText").textContent = perm ? "Access from your connection is blocked. If this is a mistake, contact us and we'll review it."
+  // daily = over today's catalog quota (Worker 429 daily_limit). Only the catalog is blocked, so this one can be
+  // closed — the rest of the site keeps working and the next artist/album/search shows it again.
+  const daily = _blk.daily && !_blk.ban;
+  el("blkTitle").textContent = daily ? (perm ? "Browsing blocked" : "Daily browsing limit reached") : perm ? "Blocked" : _blk.ban ? "Access paused" : "Slow down — you're going too fast";
+  el("blkText").textContent = daily
+    ? (perm ? "Browsing the catalog is blocked for this account or connection. If this is a mistake, contact us and we'll review it."
+      : "You've opened more of the catalog today than the daily limit allows. It opens again at " + new Date(_blk.until).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + ".")
+    : perm ? "Access from your connection is blocked. If this is a mistake, contact us and we'll review it."
     : _blk.ban ? "Too many requests came from your connection, so access is paused for a while."
     : "Browsing is paused for a moment.";
   el("blkTimer").style.display = perm ? "none" : "";
-  el("blkAcct").style.display = out && !_blk.ban ? "" : "none";
-  el("blkContact").style.display = _blk.ban ? "" : "none";
+  el("blkAcct").style.display = out && (daily ? _blk.signIn : !_blk.ban) ? "" : "none";
+  el("blkNote").textContent = daily ? "A free account gets its own daily limit." : "Free accounts get higher limits.";
+  el("blkContact").style.display = _blk.ban || daily ? "" : "none";
+  el("blkDismiss").style.display = daily ? "" : "none";
 }
 function blkTick() {
   if (!_blk || _blk.until === Infinity) return; // permanent: no countdown (the timer row is hidden)
@@ -1441,14 +1454,19 @@ function blkSpeak() {
     ss.cancel(); ss.speak(u);
   } catch {}
 }
-function blkOpen({ until, ban }) {
+let _blkDailyUntil = 0; // the daily-limit block already announced (closing + reopening it stays quiet)
+function blkOpen({ until, ban, daily, signIn }) {
   if (!(until > Date.now())) return;
-  if (_blk) { _blk.until = Math.max(_blk.until, until); _blk.ban = _blk.ban || !!ban; blkPaint(); blkTick(); return; }
-  _blk = { until, ban: !!ban, timer: 0 };
+  if (_blk) { _blk.until = Math.max(_blk.until, until); _blk.ban = _blk.ban || !!ban; _blk.daily = _blk.daily || !!daily; _blk.signIn = _blk.signIn || !!signIn; blkPaint(); blkTick(); return; }
+  _blk = { until, ban: !!ban, daily: !!daily, signIn: !!signIn, timer: 0 };
   blkPaint(); blkTick();
   el("blkOverlay").classList.add("on"); document.body.classList.add("sk-blocked");
-  try { if (state.queue.length && !PB.paused()) { saveLastPlay(PB.cur(), true); PB.pause(); } } catch {}
-  blkSpeak();
+  const repeat = !!daily && _blkDailyUntil === until;
+  if (daily) _blkDailyUntil = until;
+  if (!repeat) {
+    try { if (state.queue.length && !PB.paused()) { saveLastPlay(PB.cur(), true); PB.pause(); } } catch {}
+    blkSpeak();
+  }
   _blk.timer = setInterval(blkTick, 250);
 }
 // The overlay blocks the mouse; this blocks the keyboard (media shortcuts, Space = play) for everything behind it.

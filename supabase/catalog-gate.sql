@@ -9,18 +9,22 @@
 --        catalog files (the app then asks them to sign in). OFF by default; the admin flips it from the
 --        dashboard's Security tab.
 --     2. catalog_daily_quota — catalog files per key per UTC day (key = "u:<user id>" for accounts,
---        "ip:<ip>" for signed-out visitors while the gate is off). Going over bans the key through the
---        existing security_ban escalation (15 min, 1 h, 24 h, then permanent). 0 = no quota.
+--        "ip:<ip>" for signed-out visitors while the gate is off). Going over blocks the CATALOG for that key until the
+--        next 00:00 UTC — one ban per key per day, so a heavy listener can never escalate within a day. Only
+--        quota bans on separate days climb security_ban's ladder (level 3 = 24 h, 4+ = permanent). 0 = no quota.
 --
 -- WHAT
+--   security_bans    + catalog_only boolean: a daily-quota ban (blocks catalog files only)
 --   security_config  + catalog_requires_account boolean (default false), catalog_daily_quota int (default 400)
 --   catalog_usage    (key, day) → n requests; RLS on, no policies, no client privileges
 --   Worker RPCs (EXECUTE to anon; p_token checked exactly like security.sql's, else 'forbidden'):
---     catalog_state(p_token)                          -> {requires_account, daily_quota}
+--     catalog_state(p_token)                          -> {requires_account, daily_quota, quota_blocks}
 --     catalog_usage_add(p_token, p_counts, p_emails)  -> [{key, n, until, level}] for keys now over quota
 --       p_counts = {"u:<uuid>": 37, "ip:1.2.3.4": 5, …} (batched by the Worker), p_emails = {"u:<uuid>": email}.
---       A key over quota with no active ban is banned via security_ban (the ONE source of ban escalation)
---       and a `quota_exceeded` event is written. A quota ban an admin lifts is not re-imposed that day.
+--       The first time a key goes over quota on a UTC day (and no other ban covers it) it is banned via
+--       security_ban (the ONE source of levels), marked catalog_only, extended to at least the next 00:00 UTC,
+--       and a `quota_exceeded` event is written. Later overage that day never bans again; a quota ban an
+--       admin lifts stays lifted for the day.
 --   Admin RPCs (EXECUTE to authenticated; each requires public.is_zemer_admin()):
 --     catalog_gate_get(p_hours)                          -> {requires_account, daily_quota, today, events}
 --     catalog_gate_set(p_requires_account, p_daily_quota) -> same shape as catalog_state (null = keep)
@@ -59,6 +63,11 @@ alter table public.security_config drop constraint if exists security_config_cat
 alter table public.security_config add constraint security_config_catalog_daily_quota_check
   check (catalog_daily_quota between 0 and 1000000);
 
+-- A daily-quota ban blocks the CATALOG only (the Worker serves everything else as usual). It is still an
+-- ordinary security_bans row, so it shows on the Security tab, can be lifted there, and counts as one level
+-- in security_ban's escalation.
+alter table public.security_bans add column if not exists catalog_only boolean not null default false;
+
 create table if not exists public.catalog_usage (
   key        text not null,
   day        date not null,
@@ -86,7 +95,11 @@ begin
   perform public.security_require_token(p_token);
   select * into c from public.security_config where id = 1;
   return jsonb_build_object('requires_account', coalesce(c.catalog_requires_account, false),
-                            'daily_quota', coalesce(c.catalog_daily_quota, 400));
+                            'daily_quota', coalesce(c.catalog_daily_quota, 400),
+                            -- active catalog-only bans: the Worker keeps these out of its site-wide ban list
+                            'quota_blocks', coalesce((
+                              select jsonb_agg(jsonb_build_object('id', id, 'ip', ip, 'user_id', user_id, 'until', until) order by id)
+                              from public.security_bans where catalog_only and until > now()), '[]'::jsonb));
 end $$;
 
 -- Adds one batch of per-key counts to today's (UTC) totals and bans keys that are now over the quota.
@@ -103,6 +116,9 @@ declare
   v_uid   uuid;
   v_ban   jsonb;
   v_banid bigint;
+  v_until timestamptz;
+  v_mid   timestamptz := (v_day + 1)::timestamp at time zone 'utc'; -- next 00:00 UTC
+  b       public.security_bans;
   r       record;
 begin
   perform public.security_require_token(p_token);
@@ -132,24 +148,43 @@ begin
     returning cu.key, cu.n, cu.email, cu.ban_id
   loop
     continue when v_quota <= 0 or r.n <= v_quota;
-    -- An admin lifted today's quota ban for this key: a false positive, don't re-impose it today.
-    continue when r.ban_id is not null
-      and exists (select 1 from public.security_bans where id = r.ban_id and lifted_by_admin);
+
+    -- At most ONE quota ban per key per UTC day. Already banned today: report it while it is active (so the
+    -- flushing isolate enforces it at once), never ban again or escalate — and a ban an admin lifted stays lifted.
+    if r.ban_id is not null then
+      select * into b from public.security_bans where id = r.ban_id;
+      if found and b.until > now() and not b.lifted_by_admin then
+        v_out := v_out || jsonb_build_array(jsonb_build_object('key', r.key, 'n', r.n, 'until', b.until, 'level', b.level));
+      end if;
+      continue;
+    end if;
 
     v_ip  := case when r.key like 'ip:%' then substr(r.key, 4) end;
     v_uid := case when r.key like 'u:%' then substr(r.key, 3)::uuid end;
+    -- A ban already covers this key (a site-wide rate-limit ban, or an earlier day's quota ban that is still
+    -- running): leave it alone; if the key is still over quota once it ends, the next flush bans it for today.
+    continue when exists (select 1 from public.security_bans
+                           where until > now()
+                             and ((v_ip is not null and ip = v_ip) or (v_uid is not null and user_id = v_uid)));
+    -- security_ban picks the level (all earlier bans count) — the one escalation ladder.
     v_ban := public.security_ban(p_token, v_ip, v_uid, r.email,
                                  format('auto: daily catalog quota (%s/%s)', r.n, v_quota));
     v_banid := (v_ban ->> 'id')::bigint;
-    if v_banid is distinct from r.ban_id then
-      update public.catalog_usage set ban_id = v_banid where key = r.key and day = v_day;
-      insert into public.security_events (kind, ip, user_id, email, detail)
-      values ('quota_exceeded', v_ip, v_uid, r.email,
-              jsonb_build_object('n', r.n, 'quota', v_quota, 'ban_id', v_banid, 'level', v_ban -> 'level',
-                                 'until', v_ban -> 'until', 'day', v_day));
-    end if;
-    v_out := v_out || jsonb_build_array(jsonb_build_object('key', r.key, 'n', r.n,
-                                                           'until', v_ban -> 'until', 'level', v_ban -> 'level'));
+    select * into b from public.security_bans where id = v_banid;
+    -- Lost a race with another writer's ban (security_ban handed that one back): leave it alone too.
+    continue when not found or b.created_at <> now() or b.catalog_only;
+
+    -- Catalog-only, and at least until the next 00:00 UTC (the ladder's 24 h / permanent can be longer).
+    v_until := greatest(b.until, v_mid);
+    update public.security_bans set until = v_until, catalog_only = true where id = v_banid;
+    update public.security_events set detail = jsonb_set(detail, '{until}', to_jsonb(v_until))
+     where kind = 'auto_ban' and detail ->> 'ban_id' = v_banid::text;
+    update public.catalog_usage set ban_id = v_banid where key = r.key and day = v_day;
+    insert into public.security_events (kind, ip, user_id, email, detail)
+    values ('quota_exceeded', v_ip, v_uid, r.email,
+            jsonb_build_object('n', r.n, 'quota', v_quota, 'ban_id', v_banid, 'level', b.level,
+                               'until', v_until, 'day', v_day));
+    v_out := v_out || jsonb_build_array(jsonb_build_object('key', r.key, 'n', r.n, 'until', v_until, 'level', b.level));
   end loop;
 
   -- Retention: a few days is plenty (only today's totals matter). Opportunistic, ~1 in 50 calls.

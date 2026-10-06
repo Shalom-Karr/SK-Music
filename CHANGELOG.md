@@ -18,8 +18,12 @@ cap how much of the catalog one account can pull in a day, and make rate-limit b
 **Daily catalog limit**
 - Each account can open up to **400** artist/album/playlist pages (plus the search catalog) a day — set on
   the Security tab, 0 turns it off. Signed-out visitors count per connection, except content-filter
-  networks (Techloq etc.), which carry many listeners each. Going over it pauses access with the usual
-  escalation (15 minutes, 1 hour, 24 hours, then permanent); an admin can lift it.
+  networks (Techloq etc.), which carry many listeners each. Going over it blocks browsing the catalog (only)
+  until midnight UTC, with "Daily browsing limit reached — opens again at …", a countdown, **Contact us**,
+  and **Create a free account** for signed-out visitors (an account gets its own limit). One block per day:
+  going further over the same day never makes it longer. Only going over on separate days escalates (the
+  third time lasts 24 hours, the fourth is permanent). An admin can lift it from the Security tab, and it
+  stays lifted for that day.
 - Opening pages quickly no longer counts against the per-minute request limit — only the 10-second one.
 - Hovering over tiles no longer pre-loads every one the pointer passes; only the tile it rests on.
 
