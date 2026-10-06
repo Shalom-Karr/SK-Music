@@ -153,50 +153,99 @@
   /* admin modal */
   #adminModal{position:fixed;inset:0;background:rgba(4,7,15,.72);backdrop-filter:blur(4px);display:none;place-items:center;padding:20px;z-index:50}
   #adminModal.on{display:grid}
-  #adminModal .adm-mbox{width:min(880px,96vw);max-height:88vh;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);display:flex;flex-direction:column}
-  #adminModal .adm-idhead{display:flex;gap:14px;align-items:center;padding:20px 22px 16px;border-bottom:1px solid var(--line);background:linear-gradient(160deg,var(--card2),var(--card) 70%)}
-  #adminModal .adm-avatar{width:52px;height:52px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:19px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--accent),var(--violet));letter-spacing:.02em}
+  #adminModal .adm-mbox{width:min(920px,96vw);height:min(860px,90vh);overflow:hidden;background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);display:flex;flex-direction:column}
+  #adminModal .adm-idhead{flex:none;display:flex;gap:16px;align-items:center;padding:20px 22px 16px;background:linear-gradient(160deg,var(--card2),var(--card) 70%)}
+  #adminModal .adm-avatar{width:54px;height:54px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:19px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--accent),var(--violet));letter-spacing:.02em;box-shadow:0 0 0 3px rgba(255,255,255,.06),0 6px 18px rgba(167,139,250,.25)}
   #adminModal .adm-idmeta{min-width:0;flex:1}
-  #adminModal .adm-idmeta h2{margin:0;font-size:18px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #adminModal .adm-idmeta h2{margin:0;font-size:19px;font-weight:800;letter-spacing:-.2px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #adminModal .adm-sub{color:var(--muted);font-size:13px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #adminModal .adm-idtags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-  #adminModal .adm-x{margin-left:auto;background:transparent;border:0;color:var(--dim);font-size:19px;cursor:pointer;align-self:flex-start}
-  #adminModal .adm-tabs{display:flex;gap:4px;padding:10px 18px 0;border-bottom:1px solid var(--line);overflow-x:auto;position:sticky;top:0;background:var(--card);z-index:3}
-  #adminModal .adm-tabs button{background:transparent;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:9px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+  #adminModal .adm-idtags{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+  #adminModal .adm-x{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:transparent;border:1px solid transparent;color:var(--dim);font-size:16px;cursor:pointer;align-self:flex-start;transition:color .15s,background .15s,border-color .15s}
+  #adminModal .adm-x:hover{color:var(--text);background:var(--bg2);border-color:var(--line)}
+  #adminModal .adm-tabs{flex:none;display:flex;gap:2px;padding:0 16px;min-height:44px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,var(--card),var(--card));overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+  #adminModal .adm-tabs::-webkit-scrollbar{display:none}
+  #adminModal .adm-tabs button{flex:none;position:relative;display:inline-flex;align-items:center;background:transparent;border:0;color:var(--muted);padding:0 14px;height:44px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:color .15s}
+  #adminModal .adm-tabs button::after{content:"";position:absolute;left:10px;right:10px;bottom:-1px;height:2px;border-radius:2px 2px 0 0;background:transparent;transition:background .15s}
   #adminModal .adm-tabs button:hover{color:var(--text)}
-  #adminModal .adm-tabs button.on{color:var(--text);border-bottom-color:var(--accent)}
-  #adminModal .adm-tabs .n{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;background:var(--bg2);font-size:11px;color:var(--dim)}
-  #adminModal .adm-pane{display:none;padding:18px 22px}
+  #adminModal .adm-tabs button.on{color:var(--text)}
+  #adminModal .adm-tabs button.on::after{background:var(--accent)}
+  #adminModal .adm-tabs .n{display:inline-block;margin-left:7px;padding:1px 7px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);font-size:11px;font-weight:700;color:var(--muted)}
+  #adminModal #adm-mBody{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;background:var(--bg2);scrollbar-width:thin;scrollbar-color:#2a3a5e transparent}
+  #adminModal #adm-mBody::-webkit-scrollbar{width:10px}
+  #adminModal #adm-mBody::-webkit-scrollbar-track{background:transparent}
+  #adminModal #adm-mBody::-webkit-scrollbar-thumb{background:#2a3a5e;border-radius:10px;border:3px solid var(--bg2)}
+  #adminModal #adm-mBody::-webkit-scrollbar-thumb:hover{background:#3a4d78}
+  #adminModal .adm-pane{display:none;padding:20px 22px 24px}
   #adminModal .adm-pane.on{display:block}
-  #adminModal .adm-foot{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--line);position:sticky;bottom:0;background:var(--card);align-items:center}
-  #adminModal .adm-fieldrow{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  #adminModal .adm-foot{flex:none;display:flex;flex-wrap:wrap;gap:10px;padding:14px 22px;border-top:1px solid var(--line);background:var(--card);align-items:center}
+  #adminModal .adm-foot.off{display:none}
+  #adminModal .adm-foot .adm-btn{height:38px;padding:0 18px;display:inline-flex;align-items:center;gap:8px}
+  #adminModal .adm-foot .adm-danger-ghost{background:transparent;color:var(--accent);border:1px solid rgba(255,93,107,.38)}
+  #adminModal .adm-foot .adm-danger-ghost:hover:not(:disabled){background:rgba(255,93,107,.1);filter:none}
+  #adminModal .adm-foot .adm-danger-ghost:disabled{color:var(--dim);border-color:var(--line);opacity:.7}
+  #adminModal .adm-msgs{flex:1;min-width:0;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  #adminModal .adm-dirty{display:none;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--gold)}
+  #adminModal .adm-dirty.on{display:inline-flex}
+  #adminModal .adm-dirty::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px var(--gold)}
+  #adminModal .adm-card{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:14px;overflow:hidden}
+  #adminModal .adm-card-h{display:flex;align-items:baseline;gap:8px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;background:rgba(22,34,60,.5)}
+  #adminModal .adm-card-h span{color:var(--dim);font-weight:600;text-transform:none;letter-spacing:0;font-size:12px}
+  #adminModal .adm-fieldrow{display:flex;gap:16px;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid rgba(31,44,71,.7);min-height:58px}
   #adminModal .adm-fieldrow:last-child{border-bottom:0}
-  #adminModal .adm-lbl{font-size:13.5px}
-  #adminModal .adm-lbl small{display:block;color:var(--dim);font-size:11.5px;margin-top:2px}
-  #adminModal .adm-seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-  #adminModal .adm-seg button{background:var(--bg2);border:0;color:var(--muted);padding:7px 13px;font:inherit;font-size:12.5px;cursor:pointer}
-  #adminModal .adm-seg button.on{background:var(--accent);color:#fff;font-weight:700}
-  #adminModal .adm-list{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--bg2)}
+  #adminModal .adm-lbl{min-width:0;font-size:14px;font-weight:600;color:var(--text)}
+  #adminModal .adm-lbl small{display:block;color:var(--dim);font-size:12px;font-weight:500;margin-top:3px}
+  #adminModal .adm-seg{flex:none;display:inline-flex;gap:2px;padding:3px;background:var(--bg2);border:1px solid var(--line);border-radius:10px}
+  #adminModal .adm-seg button{min-width:64px;height:30px;padding:0 12px;background:transparent;border:0;border-radius:7px;color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+  #adminModal .adm-seg button:hover:not(.on){color:var(--text);background:rgba(91,140,255,.08)}
+  #adminModal .adm-seg button.on{background:var(--accent);color:#fff;font-weight:700;box-shadow:0 2px 10px rgba(255,93,107,.3)}
+  #adminModal .adm-list{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--card);scrollbar-width:thin;scrollbar-color:#2a3a5e transparent}
   #adminModal .adm-list .it{padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px;display:flex;gap:10px}
   #adminModal .adm-list .it:last-child{border-bottom:0}
-  #adminModal .adm-list .t{flex:1;overflow:hidden;text-overflow:ellipsis}
+  #adminModal .adm-list .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #adminModal .adm-list .d{color:var(--dim);font-size:11.5px;white-space:nowrap}
-  #adminModal .adm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:18px}
-  #adminModal .adm-kv{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
-  #adminModal .adm-kv .k{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
-  #adminModal .adm-kv .v{font-size:14px;margin-top:3px;word-break:break-word}
-  #adminModal h3.adm-sec{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:20px 0 10px}
-  #adminModal .adm-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid var(--line);background:var(--bg2);color:var(--muted)}
+  #adminModal .adm-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line)}
+  #adminModal .adm-kv{background:var(--card);padding:12px 16px;min-width:0}
+  #adminModal .adm-kv:last-child:nth-child(3n+2){grid-column:1/-1}
+  #adminModal .adm-kv.wide{grid-column:1/-1;display:flex;align-items:center;gap:12px}
+  #adminModal .adm-kv .k{font-size:11px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+  #adminModal .adm-kv .v{font-size:13.5px;margin-top:4px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #adminModal .adm-kv.wide>div:first-child{min-width:0;flex:1}
+  #adminModal .adm-kv .v.id{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12.5px;color:var(--muted)}
+  #adminModal .adm-copy{flex:none;height:30px;padding:0 12px;border-radius:8px;background:var(--bg2);border:1px solid var(--line);color:var(--muted);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+  #adminModal .adm-copy:hover{color:var(--text);border-color:#2c3d63}
+  #adminModal .adm-copy.ok{color:var(--good);border-color:rgba(52,211,153,.4)}
+  #adminModal h3.adm-sec{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:22px 0 10px}
+  #adminModal .adm-pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid var(--line);background:var(--bg2);color:var(--muted)}
   #adminModal .adm-pill.on{background:rgba(52,211,153,.14);color:var(--good);border-color:transparent}
   #adminModal .adm-pill.off{background:rgba(255,93,107,.13);color:var(--accent);border-color:transparent}
   #adminModal .adm-pill.warn{background:rgba(245,181,68,.14);color:var(--gold);border-color:transparent}
   #adminModal .adm-empty{color:var(--dim);font-size:13px;padding:14px 0}
-  #adminModal .adm-note{font-size:12px;color:var(--dim);line-height:1.6;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
-  #adminModal .adm-plcard{border:1px solid var(--line);border-radius:12px;background:var(--bg2);padding:12px 14px;margin-bottom:10px}
+  #adminModal .adm-note{font-size:12px;color:var(--dim);line-height:1.6;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+  #adminModal .adm-plcard{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:12px 14px;margin-bottom:10px}
   #adminModal .adm-vrow{display:flex;gap:12px;align-items:baseline;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13px}
   #adminModal .adm-vrow:last-child{border-bottom:0}
   #adminModal table{border-collapse:collapse;width:100%;font-size:13px}
   #adminModal th,#adminModal td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line)}
+  @media(max-width:640px){
+    #adminModal{padding:0;place-items:stretch}
+    #adminModal .adm-mbox{width:100%;height:100%;height:100dvh;border:0;border-radius:0}
+    #adminModal .adm-idhead{padding:16px 16px 14px;gap:12px}
+    #adminModal .adm-avatar{width:44px;height:44px;font-size:16px}
+    #adminModal .adm-idmeta h2{font-size:17px}
+    #adminModal .adm-tabs{padding:0 8px}
+    #adminModal .adm-tabs button{padding:0 11px}
+    #adminModal .adm-pane{padding:14px 12px 20px}
+    #adminModal .adm-fieldrow{flex-direction:column;align-items:stretch;gap:10px;padding:12px 14px}
+    #adminModal .adm-seg{display:flex}
+    #adminModal .adm-seg button{flex:1 1 0;min-width:0;padding:0 4px;font-size:12px}
+    #adminModal .adm-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    #adminModal .adm-kv{padding:11px 14px}
+    #adminModal .adm-kv:last-child:nth-child(3n+2){grid-column:auto}
+    #adminModal .adm-kv:last-child:nth-child(even){grid-column:1/-1}
+    #adminModal .adm-foot{padding:12px 14px calc(12px + env(safe-area-inset-bottom))}
+    #adminModal .adm-foot .adm-btn{flex:1 1 auto;justify-content:center}
+    #adminModal .adm-foot .adm-msgs{flex-basis:100%;order:-1}
+  }
   /* ---------- security view ---------- */
   .sec-pills{display:flex;gap:4px;flex-wrap:wrap}
   .spill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.2px;background:rgba(255,93,107,.14);color:var(--accent)}
@@ -310,15 +359,17 @@
         <div class="adm-sub" id="adm-mSub"></div>
         <div class="adm-idtags" id="adm-mTags"></div>
       </div>
-      <button class="adm-x" id="adm-mClose">✕</button>
+      <button class="adm-x" id="adm-mClose" aria-label="Close">✕</button>
     </div>
-    <div class="adm-tabs" id="adm-mTabs"></div>
+    <div class="adm-tabs" id="adm-mTabs" role="tablist"></div>
     <div id="adm-mBody"></div>
-    <div class="adm-foot">
+    <div class="adm-foot" id="adm-mFoot">
+      <div class="adm-msgs">
+        <span class="adm-dirty" id="adm-mDirty">Unsaved changes</span>
+        <span id="adm-mMsg" style="font-size:13px;color:var(--accent);margin:0"></span>
+      </div>
+      <button class="adm-btn adm-danger-ghost" id="adm-mClearPin">Clear PIN</button>
       <button class="adm-btn" id="adm-mSave">Save changes</button>
-      <button class="adm-btn adm-ghost" id="adm-mClearPin">Clear PIN</button>
-      <span style="flex:1"></span>
-      <span id="adm-mMsg" style="font-size:13px;color:var(--accent);min-height:18px;margin:0"></span>
     </div>
   </div>
 </div>
@@ -1531,14 +1582,24 @@ $('content').addEventListener('click', async (e) => {
   }
 
   /* ---- user modal ---- */
-  let CUR = null, CUR_TAB = 'settings';
+  let CUR = null, CUR_TAB = 'settings', ORIG = '';
+
+  const snapSettings = (u) => {
+    const f = (u && u.filters) || {}, out = {};
+    Object.keys(f).sort().forEach((k) => { if (f[k] !== false && f[k] !== '' && f[k] != null) out[k] = f[k]; });
+    return JSON.stringify([out, (u && u.artist_mode) || 'all', !!(u && u.kid_only)]);
+  };
+  const updateDirty = () => { const d = a$('mDirty'); if (d) d.classList.toggle('on', !!CUR && snapSettings(CUR) !== ORIG); };
 
   window.admOpenUser = async function (id) {
     const modal = document.getElementById('adminModal'); if (!modal) return;
-    modal.classList.add('on'); a$('mMsg').textContent = '';
+    modal.classList.add('on'); a$('mMsg').textContent = ''; CUR = null; ORIG = ''; updateDirty();
+    a$('mAv').textContent = '…'; a$('mSub').textContent = ''; a$('mTags').innerHTML = ''; a$('mTabs').innerHTML = '';
+    a$('mFoot').classList.add('off');
     a$('mTitle').textContent = 'Loading…'; a$('mBody').innerHTML = '<div class="adm-em" style="padding:18px 22px">Loading…</div>';
     try {
       CUR = await rpc('admin_user_detail', { p_user: id });
+      ORIG = snapSettings(CUR);
       renderUser();
       loadHistory(id); loadVisits(id); loadPlaylists(id);
     } catch (e) { a$('mBody').innerHTML = `<div class="adm-em" style="padding:18px 22px">${esc(e.message)}</div>`; }
@@ -1600,6 +1661,18 @@ $('content').addEventListener('click', async (e) => {
     document.querySelectorAll('#adm-mBody .adm-pane').forEach((p) => p.classList.toggle('on', p.dataset.t === t));
     a$('mSave').style.display = t === 'settings' ? '' : 'none';
     a$('mClearPin').style.display = t === 'settings' ? '' : 'none';
+    a$('mFoot').classList.toggle('off', t !== 'settings');
+    const body = a$('mBody'); if (body) body.scrollTop = 0;
+  };
+
+  window.admCopyId = function (btn) {
+    if (!CUR) return;
+    const done = () => { btn.textContent = 'Copied'; btn.classList.add('ok'); setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('ok'); }, 1400); };
+    const fallback = () => {
+      const ta = document.createElement('textarea'); ta.value = CUR.id; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch (_) {} ta.remove();
+    };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(String(CUR.id)).then(done, fallback); else fallback();
   };
 
   const initials = (s) => String(s || '?').trim().split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
@@ -1610,15 +1683,38 @@ $('content').addEventListener('click', async (e) => {
   const fieldRow = (label, sub, control) =>
     `<div class="adm-fieldrow"><div class="adm-lbl">${label}${sub ? `<small>${sub}</small>` : ''}</div>${control}</div>`;
 
-  function renderUser() {
-    const u = CUR, f = u.filters || {};
+  const admCard = (title, sub, body) =>
+    `<div class="adm-card"><div class="adm-card-h">${title}${sub ? `<span>${sub}</span>` : ''}</div>${body}</div>`;
+
+  function settingsHtml(u) {
+    const f = u.filters || {};
     const locked = u.pin_locked_until && new Date(u.pin_locked_until) > new Date();
-    const recents = Array.isArray(u.recents) ? u.recents : [];
-    const likes = Array.isArray(u.likes) ? u.likes : [];
-    const fs = filterSummary(f);
-    a$('mAv').textContent = initials(u.name || u.email);
-    a$('mTitle').textContent = u.name || u.email || 'User';
-    a$('mSub').textContent = u.name ? (u.email || '') : (u.provider ? 'via ' + u.provider : '');
+    return admCard('Content filters', '', [
+        fieldRow('Kol isha','Hide female singers', ADM_SEG('noFemale', f.noFemale ? '1' : '0', [['1','Hidden'],['0','Allowed']])),
+        fieldRow('Chasidish','', ADM_SEG('chasid', f.chasid || '', [['','All'],['only','Only'],['hide','Hide']])),
+        fieldRow('Israeli','', ADM_SEG('israeli', f.israeli || '', [['','All'],['only','Only'],['hide','Hide']])),
+        fieldRow('Acapella','Forced during Sefira / the Three Weeks', ADM_SEG('acapella', f.acapella || '', [['','All'],['only','Only'],['hide','Hide']])),
+        fieldRow('DJ sets','', ADM_SEG('noDJ', f.noDJ ? '1' : '0', [['1','Hidden'],['0','Allowed']])),
+        fieldRow('Videos','', ADM_SEG('blockVideos', f.blockVideos ? '1' : '0', [['1','Blocked'],['0','Allowed']])),
+      ].join(''))
+      + admCard('Home &amp; radio', '', fieldRow('Zemer Radio','Live stations on Home', ADM_SEG('zemerRadio', f.zemerRadio || '', [['','All'],['chasidish','Chassidish'],['israeli','Israeli'],['dj','DJ'],['off','Off']])))
+      + admCard('Parental', u.has_pin ? '· PIN set' : '· no PIN', [
+        fieldRow('Kid Zone only', u.kid_only ? `+${(u.kid_add||[]).length} added / −${(u.kid_remove||[]).length} hidden` : 'Restrict to the Kid Zone catalog', ADM_SEG('kid_only', u.kid_only ? '1' : '0', [['1','On'],['0','Off']])),
+        fieldRow('Artists',`${num((u.artist_ids || []).length)} picked`, ADM_SEG('artist_mode', u.artist_mode || 'all', [['all','All'],['only','Only these'],['except','Except these']])),
+      ].join(''))
+      + admCard('Account', '', `<div class="adm-grid">
+          <div class="adm-kv wide"><div><div class="k">User ID</div><div class="v id" title="${esc(u.id)}">${esc(u.id)}</div></div><button class="adm-copy" onclick="admCopyId(this)">Copy</button></div>
+          <div class="adm-kv"><div class="k">Created</div><div class="v">${dt(u.created_at)}</div></div>
+          <div class="adm-kv"><div class="k">Last sign-in</div><div class="v">${dt(u.last_sign_in_at)}</div></div>
+          <div class="adm-kv"><div class="k">Settings updated</div><div class="v">${dt(u.updated_at)}</div></div>
+          ${locked ? `<div class="adm-kv"><div class="k">PIN locked until</div><div class="v">${dt(u.pin_locked_until)}</div></div>` : ''}
+        </div>`)
+      + ((u.audit || []).length ? `<h3 class="adm-sec">Admin changes</h3><div class="adm-list">${u.audit.map((a) => `<div class="it"><span class="t">${esc(a.action)}</span><span class="d">${esc(a.admin)} \xb7 ${dt(a.at)}</span></div>`).join('')}</div>` : '');
+  }
+
+  function renderTags() {
+    const u = CUR, fs = filterSummary(u.filters || {});
+    const locked = u.pin_locked_until && new Date(u.pin_locked_until) > new Date();
     a$('mTags').innerHTML = [
       u.provider ? `<span class="adm-pill">${esc(u.provider)}</span>` : '',
       u.has_pin ? '<span class="adm-pill on">PIN set</span>' : '<span class="adm-pill">no PIN</span>',
@@ -1626,31 +1722,23 @@ $('content').addEventListener('click', async (e) => {
       u.kid_only ? '<span class="adm-pill warn">Kid Zone</span>' : '',
       fs.length ? `<span class="adm-pill on">${fs.length} filter${fs.length === 1 ? '' : 's'}</span>` : '<span class="adm-pill">no filters</span>',
     ].filter(Boolean).join('');
+  }
+
+  function renderUser() {
+    const u = CUR;
+    const recents = Array.isArray(u.recents) ? u.recents : [];
+    const likes = Array.isArray(u.likes) ? u.likes : [];
+    a$('mAv').textContent = initials(u.name || u.email);
+    a$('mTitle').textContent = u.name || u.email || 'User';
+    a$('mSub').textContent = u.name ? (u.email || '') : (u.provider ? 'via ' + u.provider : '');
+    renderTags();
     a$('mTabs').innerHTML = [
       ['settings','Settings',''], ['activity','Activity',''], ['playlists','Playlists',''],
       ['library','Library', num(recents.length + likes.length)],
     ].map(([t, label, n]) =>
-      `<button data-t="${t}" onclick="admSetTab('${t}')">${label}${n ? `<span class="n">${n}</span>` : ''}</button>`).join('');
+      `<button role="tab" data-t="${t}" onclick="admSetTab('${t}')">${label}${n ? `<span class="n">${n}</span>` : ''}</button>`).join('');
     a$('mBody').innerHTML = `
-      <div class="adm-pane" data-t="settings">
-        ${fieldRow('Kol isha','Hide female singers', ADM_SEG('noFemale', f.noFemale ? '1' : '0', [['1','Hidden'],['0','Allowed']]))}
-        ${fieldRow('Chasidish','', ADM_SEG('chasid', f.chasid || '', [['','All'],['only','Only'],['hide','Hide']]))}
-        ${fieldRow('Israeli','', ADM_SEG('israeli', f.israeli || '', [['','All'],['only','Only'],['hide','Hide']]))}
-        ${fieldRow('Acapella','Forced during Sefira / the Three Weeks', ADM_SEG('acapella', f.acapella || '', [['','All'],['only','Only'],['hide','Hide']]))}
-        ${fieldRow('DJ sets','', ADM_SEG('noDJ', f.noDJ ? '1' : '0', [['1','Hidden'],['0','Allowed']]))}
-        ${fieldRow('Videos','', ADM_SEG('blockVideos', f.blockVideos ? '1' : '0', [['1','Blocked'],['0','Allowed']]))}
-        ${fieldRow('Zemer Radio','Live stations on Home', ADM_SEG('zemerRadio', f.zemerRadio || '', [['','All'],['chasidish','Chassidish'],['israeli','Israeli'],['dj','DJ'],['off','Off']]))}
-        ${fieldRow('Kid Zone only', u.kid_only ? `+${(u.kid_add||[]).length} added / −${(u.kid_remove||[]).length} hidden` : '', ADM_SEG('kid_only', u.kid_only ? '1' : '0', [['1','On'],['0','Off']]))}
-        ${fieldRow('Artists',`${num((u.artist_ids || []).length)} picked`, ADM_SEG('artist_mode', u.artist_mode || 'all', [['all','All'],['only','Only these'],['except','Except these']]))}
-        <div class="adm-grid" style="margin-top:18px">
-          <div class="adm-kv"><div class="k">User ID</div><div class="v" style="font-family:ui-monospace,monospace;font-size:12px">${esc(u.id)}</div></div>
-          <div class="adm-kv"><div class="k">Created</div><div class="v">${dt(u.created_at)}</div></div>
-          <div class="adm-kv"><div class="k">Last sign-in</div><div class="v">${dt(u.last_sign_in_at)}</div></div>
-          <div class="adm-kv"><div class="k">Settings updated</div><div class="v">${dt(u.updated_at)}</div></div>
-          ${locked ? `<div class="adm-kv"><div class="k">PIN locked until</div><div class="v">${dt(u.pin_locked_until)}</div></div>` : ''}
-        </div>
-        ${(u.audit || []).length ? `<h3 class="adm-sec">Admin changes</h3><div class="adm-list">${u.audit.map((a) => `<div class="it"><span class="t">${esc(a.action)}</span><span class="d">${esc(a.admin)} \xb7 ${dt(a.at)}</span></div>`).join('')}</div>` : ''}
-      </div>
+      <div class="adm-pane" data-t="settings">${settingsHtml(u)}</div>
       <div class="adm-pane" data-t="activity">
         <h3 class="adm-sec" style="margin-top:0">Visits <span id="adm-visN" style="color:var(--dim);font-size:11px"></span></h3>
         <div id="adm-vis"><div class="adm-em">Loading…</div></div>
@@ -1667,6 +1755,13 @@ $('content').addEventListener('click', async (e) => {
         ${likes.length ? `<div class="adm-list">${likes.slice(0, 100).map((l) => `<div class="it"><span class="t">${esc(l.title || l.video_id)}</span><span class="d">${esc(l.artist || '')} \xb7 ${dshort(l.added_at)}</span></div>`).join('')}</div>` : '<div class="adm-empty">No likes yet.</div>'}
       </div>`;
     admSetTab(CUR_TAB);
+    syncFoot();
+  }
+
+  function syncFoot() {
+    const cp = a$('mClearPin');
+    if (cp) { cp.disabled = !(CUR && CUR.has_pin); cp.title = cp.disabled ? 'This user has no PIN' : ''; }
+    updateDirty();
   }
 
   window.admSetF = function (name, v) {
@@ -1679,8 +1774,9 @@ $('content').addEventListener('click', async (e) => {
       else if (v === '') delete CUR.filters[name];
       else CUR.filters[name] = v;
     }
-    renderUser();
-    a$('mMsg').style.color = 'var(--gold)'; a$('mMsg').textContent = 'Unsaved changes';
+    const pane = document.querySelector('#adm-mBody .adm-pane[data-t="settings"]');
+    if (pane) pane.innerHTML = settingsHtml(CUR);
+    renderTags(); a$('mMsg').textContent = ''; updateDirty();
   };
 
   /* ---- modal event listeners ---- */
@@ -1695,6 +1791,7 @@ $('content').addEventListener('click', async (e) => {
       a$('mSave').disabled = true; a$('mMsg').style.color = ''; a$('mMsg').textContent = 'Saving…';
       try {
         await rpc('admin_set_user', { p_user: CUR.id, p_patch: { filters: CUR.filters || {}, artist_mode: CUR.artist_mode, kid_only: !!CUR.kid_only } });
+        ORIG = snapSettings(CUR); updateDirty();
         a$('mMsg').style.color = 'var(--good)'; a$('mMsg').textContent = 'Saved';
         adminLoad();
       } catch (e) { a$('mMsg').style.color = 'var(--accent)'; a$('mMsg').textContent = e.message; }
@@ -1707,11 +1804,12 @@ $('content').addEventListener('click', async (e) => {
       a$('mClearPin').disabled = true; a$('mMsg').style.color = ''; a$('mMsg').textContent = 'Clearing…';
       try {
         await rpc('admin_clear_pin', { p_user: CUR.id });
-        CUR = await rpc('admin_user_detail', { p_user: CUR.id });
-        renderUser(); a$('mMsg').style.color = 'var(--good)'; a$('mMsg').textContent = 'PIN cleared';
+        CUR = await rpc('admin_user_detail', { p_user: CUR.id }); ORIG = snapSettings(CUR);
+        renderUser(); loadHistory(CUR.id); loadVisits(CUR.id); loadPlaylists(CUR.id);
+        a$('mMsg').style.color = 'var(--good)'; a$('mMsg').textContent = 'PIN cleared';
         adminLoad();
       } catch (e) { a$('mMsg').style.color = 'var(--accent)'; a$('mMsg').textContent = e.message; }
-      finally { a$('mClearPin').disabled = false; }
+      finally { syncFoot(); }
     });
   }
 
