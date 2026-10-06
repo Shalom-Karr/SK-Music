@@ -3809,17 +3809,25 @@ function _ask({ title, sub, value, placeholder, submit, cancel, danger, input })
 // Announcement: listening will soon need an account. Signed-out visitors only, at most once every 3 days,
 // and never over another open dialog.
 const ACCT_NOTICE_KEY = "sk_acct_notice", ACCT_NOTICE_EVERY = 3 * 864e5;
+// Analytics: one acct_notice event per step — shown, then signup | not_now | closed, then created if the
+// sign-up form opened from it creates an account. The dashboard turns these into click-through rates.
+let _acctNoticeSignup = false;
 async function maybeShowAccountNotice() {
   if (loggedIn() || document.querySelector(".authmodal.on")) return;
   let last = 0; try { last = +localStorage.getItem(ACCT_NOTICE_KEY) || 0; } catch {}
   if (Date.now() - last < ACCT_NOTICE_EVERY) return;
   try { localStorage.setItem(ACCT_NOTICE_KEY, String(Date.now())); } catch {}
+  track("acct_notice", { a: "shown" });
+  let notNow = false; const onCancel = () => { notNow = true; };
+  el("askCancel").addEventListener("click", onCancel, { once: true });
   const yes = await askConfirm({
     title: "Create your free SK Music account",
     sub: "Soon, listening on SK Music will need a free account. Sign up now so nothing changes for you: it takes a few seconds, and your likes, playlists and filters sync across all your devices.",
     submit: "Sign up", cancel: "Not now",
   });
-  if (yes && !loggedIn()) openAuth("up");
+  el("askCancel").removeEventListener("click", onCancel);
+  track("acct_notice", { a: yes ? "signup" : notNow ? "not_now" : "closed" });
+  if (yes && !loggedIn()) { _acctNoticeSignup = true; openAuth("up"); }
 }
 function askText(opts) { return _ask({ ...opts, input: true }); }   // resolves to the trimmed string, or null if cancelled
 function askConfirm(opts) { return _ask({ ...opts, input: false }); } // resolves to true, or null if cancelled
@@ -6896,6 +6904,7 @@ async function submitAuth(ev) {
   const r = up ? await acctSignUp(email, pw) : await acctSignIn(email, pw);
   btn.disabled = false; renderAuthMode();
   if (!r.ok) { msg.textContent = r.error; return; }
+  if (up && _acctNoticeSignup) { _acctNoticeSignup = false; track("acct_notice", { a: "created" }); flushEvents(); }
   if (r.needsConfirm) { el("authModal").dataset.mode = "in"; renderAuthMode(); msg.classList.add("ok"); msg.textContent = "Almost there — check your email to confirm, then sign in."; return; }
   closeAuth(); showToast("Signed in — welcome" + (acctEmail() ? ", " + esc(acctEmail().split("@")[0]) : "") + "!", 2600);
 }

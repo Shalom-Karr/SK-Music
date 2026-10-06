@@ -558,14 +558,14 @@ async function loadSummary() {
 async function loadFilterBlocked(range, usersTotal) {
   try {
     const rows = await sbSelect(
-      `select=event,session,ip,meta,created_at&event=in.(filter_blocked,conntest_run)&order=created_at.desc&limit=5000${range}`
+      `select=event,session,ip,meta,created_at&event=in.(filter_blocked,conntest_run,acct_notice)&order=created_at.desc&limit=5000${range}`
     ) || [];
     const m = filterBlockedModel(rows);
     // filterBlockedModel's own denominator is only these rows, which would read as 100%.
     // Use the range's real visitor count from the RPC when it gave us one.
     const total = Number.isFinite(+usersTotal) ? +usersTotal : null;
     m.fbPeoplePct = total && total > 0 ? (m.fbPeople / total) * 100 : null;
-    return m;
+    return Object.assign(m, acctNoticeModel(rows));
   } catch (e) {
     console.warn('[analytics] filter-blocked panel unavailable:', e && e.message);
     return { fbPeople: 0, fbPeoplePct: null, fbEvents: 0, fbTechloq: 0, ctRuns: 0, ctBlocked: 0, ctPartial: 0, ctClear: 0, ctTargets: [] };
@@ -743,6 +743,45 @@ function newRetChart(data) { // data: [{day, nw, rt}, ...] sorted asc
    `blockedPeople` counts anyone hit by either signal. The per-target tally answers the
    follow-up question — WHAT is being blocked — which is what you hand to whoever runs the
    filter. */
+// "Accounts are coming" popup (assets/ui.html maybeShowAccountNotice): one acct_notice row per step,
+// meta.a = shown | signup | not_now | closed | created. Rates are per showing.
+function acctNoticeCard(m) {
+  if (!m.anShown) return '';
+  const p = (x) => (m.anShown ? (x / m.anShown) * 100 : 0);
+  const noAnswer = Math.max(0, m.anShown - m.anSignup - m.anNotNow - m.anClosed);
+  const seg = (x, c) => `<div style="width:${p(x).toFixed(2)}%;background:${c}"></div>`;
+  const tile = (cls, k, x, s) => `<div class="stat ${cls}"><div class="k">${k}</div><div class="v mono">${p(x).toFixed(1)}%</div><div class="s">${num(x)} ${s}</div></div>`;
+  return `
+    <div class="grid stats">
+      <div class="stat b" style="grid-column:1/-1">
+        <div class="k">Account popup</div>
+        <div class="v mono">${num(m.anShown)}<span style="font-size:14px;color:var(--muted);font-weight:400"> times shown to ${num(m.anPeople)} signed-out visitors</span></div>
+        <div class="s">"Create your free SK Music account" — what people did when it appeared. Percentages are of times shown.</div>
+        <div style="margin-top:10px;height:8px;border-radius:999px;background:var(--card2);overflow:hidden;display:flex">
+          ${seg(m.anSignup, 'var(--good)')}${seg(m.anNotNow, 'var(--bad, #ff5d6b)')}${seg(m.anClosed, 'var(--dim)')}
+        </div>
+      </div>
+    </div>
+    <div class="grid stats">
+      ${tile('c', 'Sign up', m.anSignup, 'clicked Sign up')}
+      ${tile('a', 'Not now', m.anNotNow, 'clicked Not now')}
+      ${tile('d', 'Closed', m.anClosed, 'closed it (✕, outside, Esc)')}
+      ${tile('b', 'Accounts created', m.anCreated, `from the popup · ${noAnswer ? num(noAnswer) + ' left without answering' : 'all answered'}`)}
+    </div>`;
+}
+
+function acctNoticeModel(rows) {
+  const n = { shown: 0, signup: 0, not_now: 0, closed: 0, created: 0 };
+  const people = new Set();
+  for (const r of rows) {
+    if (r.event !== 'acct_notice') continue;
+    const a = r.meta && r.meta.a;
+    if (a in n) n[a]++;
+    if (a === 'shown') { const w = (r.meta && r.meta.vid) || r.session || r.ip; if (w) people.add(w); }
+  }
+  return { anShown: n.shown, anPeople: people.size, anSignup: n.signup, anNotNow: n.not_now, anClosed: n.closed, anCreated: n.created };
+}
+
 function filterBlockedModel(rows) {
   const who = (r) => (r.meta && r.meta.vid) || r.session || r.ip || null;
   const people = (rs) => new Set(rs.map(who).filter(Boolean)).size;
@@ -818,6 +857,7 @@ function modelFromRows(rows) {
   const zeroSearch = tally(rows.filter((r) => r.event === 'search' && (r.meta?.count === 0 || r.meta?.count === '0')), null, (r) => r.meta?.q);
   return {
     ...filterBlockedModel(rows),
+    ...acctNoticeModel(rows),
     events: rows.length, eventsToday: todayN,
     visitors: vs.visitors, visitorsReturning: vs.returning, returningPct: vs.returningPct,
     sessions: ss.count, plays: plays.length, likes: likes.length, playsTotal: plays.length,
@@ -958,6 +998,7 @@ function contentHTML(m) {
       <div class="stat b"><div class="k">Partly blocked</div><div class="v mono">${num(m.ctPartial)}</div><div class="s">plays, but degraded</div></div>
       <div class="stat c"><div class="k">All clear</div><div class="v mono">${num(m.ctClear)}</div><div class="s">nothing blocked</div></div>
     </div>
+${acctNoticeCard(m)}
 
     <div class="grid cols">
       <div class="panel"><h3>What their filter blocks <span class="n">from ${num(m.ctRuns)} connection test${m.ctRuns === 1 ? '' : 's'}</span></h3>${targetBars(m.ctTargets)}</div>

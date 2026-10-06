@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.9.6 — 2026-10-06 (web)
+
+**Why the bump:** measure how people answer the "Create your free SK Music account" popup before
+accounts become required.
+
+**Analytics**
+- New **Account popup** card on the Analytics tab: how many times it was shown and to how many
+  signed-out visitors, and what share clicked **Sign up**, **Not now**, or closed it, plus how many
+  accounts were actually created from it and how many left without answering. Follows the
+  Humans/Bots/All switch and the date range.
+- Recorded as `acct_notice` events (`meta.a` = `shown` · `signup` · `not_now` · `closed` · `created`).
+  Sign-ups through Google from the popup's form aren't counted as `created` (the redirect leaves the page).
+
 ## 1.9.5 — 2026-10-05 (web)
 
 **Why the bump:** scraping and bot protection — rate limits, automatic and permanent bans, a datacenter
