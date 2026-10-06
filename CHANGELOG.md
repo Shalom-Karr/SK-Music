@@ -14,6 +14,9 @@ only, even on a track that has a real video.
   own "more videos" panel — it drops straight back to album art. Nothing in the frame is clickable.
 - **New: full screen.** A full-screen button now sits on the video itself (matching the one shiurim
   already have), so a music video isn't stuck at album-art size.
+- **New: a way to skip around full screen.** Full screen covers the rest of Now Playing — including its
+  scrubber — so the video now carries its own seek bar and elapsed/total time, shown only while full
+  screen (otherwise Now Playing's own scrubber is already right there below the art box).
 
 ## 1.9.8 + Desktop 1.2.4 — 2026-10-06 (web + desktop)
 

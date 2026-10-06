@@ -811,6 +811,14 @@ body.on-air .npx-clear{display:none}
 #mvFull:hover{background:rgba(0,0,0,.78)}
 #mvFull svg{width:22px;height:22px;fill:currentColor}
 #ytwrap.mv>#mvFull{display:flex}
+/* Scrubber, shown only full screen: otherwise Now Playing's own #npSeek sits right below the art box
+   and is already visible (#ytwrap only covers the art box, not the whole panel) — a second one there
+   would just be a redundant duplicate. Full screen is the one state where #ytwrap covers everything
+   else on screen, so it's the only state that actually needs its own copy to skip around. */
+.mv-controls{position:absolute;left:0;right:0;bottom:0;z-index:2;display:none;flex-direction:column;gap:2px;
+  padding:10px 16px calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(0deg,rgba(0,0,0,.76),transparent);
+  pointer-events:auto}
+#ytwrap.mv:fullscreen .mv-controls,#ytwrap.mv:-webkit-full-screen .mv-controls{display:flex}
 .iconbtn.rateBtn{width:auto;min-width:40px;height:34px;padding:0 11px;border-radius:12px;font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums}
 .iconbtn.rateBtn.on{color:var(--primary)}
 
@@ -1285,7 +1293,7 @@ fill="url(#royal)" stroke="none">
   </div>
 </div>
 
-<div id="ytwrap" aria-hidden="true"><div id="ytplayer"></div><div id="ytplayer2"></div><button id="mvFull" onclick="mvToggleFullscreen()" title="Full screen" aria-label="Full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zM6 15v3h3v2H4v-5zm12 3v-3h2v5h-5v-2z"/></svg></button></div>
+<div id="ytwrap" aria-hidden="true"><div id="ytplayer"></div><div id="ytplayer2"></div><button id="mvFull" onclick="mvToggleFullscreen()" title="Full screen" aria-label="Full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zM6 15v3h3v2H4v-5zm12 3v-3h2v5h-5v-2z"/></svg></button><div class="mv-controls"><input type="range" class="seek" id="mvSeek" min="0" max="1000" value="0" aria-label="Seek"><div class="np-times"><span id="mvCur">0:00</span><span id="mvDur">0:00</span></div></div></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <div id="popmenu" role="menu" aria-hidden="true"></div>
 <!-- fullscreen statuses viewer (contents rendered per status by stsRender) -->
@@ -5715,16 +5723,16 @@ function tick() {
   if (bootResume && !state.queue.length) { // nothing loaded yet: show the paused resume point, not 0:00
     const d = bootResume.t.durationSec || 0, c = bootResume.pos || 0, pct = d ? Math.min(1, c / d) : 0;
     el("nbProgress").style.width = (pct * 100) + "%";
-    if (!seeking) { el("nbSeek").value = el("npSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); }
-    el("nbCur").textContent = el("npCur").textContent = fmt(c);
-    el("nbDur").textContent = el("npDur").textContent = d ? fmt(d) : "0:00";
+    if (!seeking) { el("nbSeek").value = el("npSeek").value = el("mvSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); paintSeek(el("mvSeek")); }
+    el("nbCur").textContent = el("npCur").textContent = el("mvCur").textContent = fmt(c);
+    el("nbDur").textContent = el("npDur").textContent = el("mvDur").textContent = d ? fmt(d) : "0:00";
     return;
   }
   const d = PB.dur(), c = PB.cur(), pct = d ? c / d : 0;
   el("nbProgress").style.width = (pct * 100) + "%";
-  if (!seeking) { el("nbSeek").value = el("npSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); }
-  el("nbCur").textContent = el("npCur").textContent = fmt(c);
-  el("nbDur").textContent = el("npDur").textContent = d ? fmt(d) : "0:00";
+  if (!seeking) { el("nbSeek").value = el("npSeek").value = el("mvSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); paintSeek(el("mvSeek")); }
+  el("nbCur").textContent = el("npCur").textContent = el("mvCur").textContent = fmt(c);
+  el("nbDur").textContent = el("npDur").textContent = el("mvDur").textContent = d ? fmt(d) : "0:00";
   // Gapless: WARM as soon as the standby's cue has loaded (polled here — see onStandbyState note),
   // then FIRE near the end (re-validating that the cue still matches what playIndex would choose).
   if (PB.mode === "yt" && !PB.local && !PB.direct && !state.repeat && !seeking && !PB.paused() && !xf) { // !paused: a pause in the final 0.5s must NOT let the fire window un-pause playback; !xf: a fade owns the transition; !local/!direct: skip while a non-YouTube source plays
@@ -5894,11 +5902,11 @@ function onPlaybackError() {
 // On iOS the keep-alive pumps "timeupdate" every ~100ms while locked; that is the only heartbeat that
 // survives the background JS freeze, so hang the end-of-track advance off it.
 audio.addEventListener("timeupdate", () => { if (IS_IOS && !PB.useYt()) iosMaybeForceEnd(); });
-["nbSeek", "npSeek"].forEach((id) => {
+["nbSeek", "npSeek", "mvSeek"].forEach((id) => {
   const s = el(id);
   // CSS already makes the bar non-interactive on a station; this is the belt to that braces, since
   // a range input can still be driven by the keyboard when focused.
-  s.addEventListener("input", () => { if (skSt) { paintSeek(s); return; } seeking = true; paintSeek(s); el("nbCur").textContent = el("npCur").textContent = fmt((s.value / 1000) * PB.dur()); });
+  s.addEventListener("input", () => { if (skSt) { paintSeek(s); return; } seeking = true; paintSeek(s); el("nbCur").textContent = el("npCur").textContent = el("mvCur").textContent = fmt((s.value / 1000) * PB.dur()); });
   s.addEventListener("change", () => { if (xf) abortCrossfade(); const d = PB.dur(); if (d) PB.seek((s.value / 1000) * d); seeking = false; });
 });
 el("vol").addEventListener("input", (e) => { PB.setVol(e.target.value / 100); paintSeek(e.target); });
