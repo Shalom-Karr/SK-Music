@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.9.8 + Desktop 1.2.4 — 2026-10-06 (web + desktop)
+
+**Why the bump:** a ⋮ menu on every tile (contributed in PR #20), and the desktop app's **X** now really
+closes it.
+
+**Web: ⋮ menu on every tile**
+- Every album, artist and playlist tile has a **⋮** in its corner — the same idea as the **⋮** on a song,
+  but for the whole set. Choose **Play**, **Shuffle**, **Play next**, **Add to queue**, **Start radio**, or
+  (on an album) **Go to artist** without opening the page first.
+- Song tiles (Trending Songs, New Songs, Keep Listening, and every other song rail) get the same **⋮**,
+  matching the one already on song rows.
+- On a computer it appears when you hover a tile; on phones and tablets it's always visible.
+- It respects your content filters: an artist or album they hide can't be played or queued from a tile.
+
+**Desktop 1.2.4: X closes, minimize opens the mini player**
+- The window's **X** now quits SK Music completely and stops playback, the same as **Quit** in the tray
+  menu. Before, it only hid the window to the tray and the song carried on.
+- **Minimizing** (**–**) is unchanged: the window minimizes and the mini player appears while something is
+  playing, so you can keep music going with a small on-screen control.
+
 ## 1.9.7 — 2026-10-06 (web)
 
 **Why the bump:** the Worker's rate limits weren't enforcing — Cloudflare's built-in Workers rate limiter
@@ -192,7 +212,6 @@ people actually listen to from them.
   for lack of the funding to run a streaming server, instead of sending people to a connection test that
   can only confirm a problem that isn't on their end.
 - **Play next** and **Add to queue** are now in the ⋯ menu on any song, alongside Add to playlist.
-
 ## 1.8.7 — 2026-09-29 (web)
 
 **Pop-up menus close on a second press**

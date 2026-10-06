@@ -1,8 +1,10 @@
-//! System tray + close-to-tray. Builds the tray icon and its menu (now-playing line, an "Up Next"
-//! queue submenu, transport + like/radio, mini-player, Show, Start-with-Windows / notify toggles,
-//! Check for updates, Quit) and intercepts the main window's close so the app hides to the tray
-//! instead of exiting — the webview (and therefore YouTube-IFrame audio) keeps running in the
-//! background. Left-click / double-click the tray icon, or pick "Show SK Music", to restore + focus.
+//! System tray. Builds the tray icon and its menu (now-playing line, an "Up Next" queue submenu,
+//! transport + like/radio, mini-player, Show, Start-with-Windows / notify toggles, Check for
+//! updates, Quit) and wires the main window's close button (X) to quit the app outright — same
+//! teardown as the tray's "Quit" item, so closing always actually stops playback. The tray icon
+//! stays up for quick controls and for restoring a merely-minimized window (see mini.rs, which parks
+//! a mini player on screen instead). Left-click / double-click the tray icon, or pick "Show SK
+//! Music", to restore + focus a minimized window.
 //!
 //! The now-playing line + tooltip + Play/Pause label + tray-icon badge are updated live from
 //! `media.rs` when the webview reports a track change (`set_now_playing`) or a play/pause
@@ -57,7 +59,7 @@ static HANDLES: OnceLock<Mutex<TrayHandles>> = OnceLock::new();
 
 pub fn init(app: &tauri::AppHandle) -> tauri::Result<()> {
     build_tray(app)?;
-    hook_close_to_tray(app);
+    hook_close_quits(app);
     Ok(())
 }
 
@@ -176,15 +178,7 @@ fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
                 "autostart_toggle" => toggle_autostart(app),
                 "notify_toggle" => toggle_notify(),
                 "auto_mini_toggle" => toggle_auto_mini(),
-                // The only real exit path: close-to-tray means the window's X never quits.
-                // Destroy the webviews FIRST so WebView2 tears down its profile locks cleanly —
-                // a hard process exit leaves them lingering and a fast relaunch hangs on them.
-                "quit" => {
-                    for (_, win) in app.webview_windows() {
-                        let _ = win.destroy();
-                    }
-                    app.exit(0);
-                }
+                "quit" => quit(app),
                 // "Up Next" entries: id is `upnext_<absoluteIndex>` -> jump the queue there.
                 other => {
                     if let Some(idx) = other.strip_prefix("upnext_") {
@@ -529,19 +523,27 @@ fn in_triangle(p: (f32, f32), a: (f32, f32), b: (f32, f32), c: (f32, f32)) -> bo
     !(has_neg && has_pos)
 }
 
-/// Intercept the main window's close request: hide instead of destroy, so playback
-/// (and the whole webview) survives in the background until the user picks Quit.
-fn hook_close_to_tray(app: &tauri::AppHandle) {
+/// Fully quit: destroy the webviews FIRST so WebView2 tears down its profile locks cleanly — a hard
+/// process exit leaves them lingering and a fast relaunch hangs on them — then exit the process.
+/// Reached from the tray's "Quit" item and from the main window's close button (see
+/// `hook_close_quits`); either way playback stops immediately because nothing is left running.
+fn quit(app: &tauri::AppHandle) {
+    for (_, win) in app.webview_windows() {
+        let _ = win.destroy();
+    }
+    app.exit(0);
+}
+
+/// The main window's close button (X) quits the app outright — it used to hide to the tray and keep
+/// playing in the background, which read as "the app never actually closes". Minimizing still parks
+/// a mini player on screen (see mini.rs); closing is the one unambiguous way to stop playback.
+fn hook_close_quits(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
-        let win = window.clone();
         let handle = app.clone();
         window.on_window_event(move |event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = win.hide();
-                // Hiding doesn't emit a Focused(false) the mini's hook could see — surface the mini
-                // explicitly so close-to-tray keeps a control on screen while playing.
-                crate::mini::auto_show(&handle);
+                api.prevent_close(); // we quit ourselves below so every window tears down together
+                quit(&handle);
             }
         });
     }
