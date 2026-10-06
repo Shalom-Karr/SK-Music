@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.9.9 — 2026-10-06 (web)
+
+**Why the bump:** music videos only played their picture in the desktop app — everyone else got audio
+only, even on a track that has a real video.
+
+**Watch music videos on the web too**
+- The **Watch** button in Now Playing (the one that swaps album art for the music video's picture) now
+  works on the website and PWA, not just the desktop app. Same gates as before: off in Kid Zone, and a
+  parent can turn it off for an account from Parental Controls.
+- It's exactly as safe as the desktop version: the picture only ever shows while the video is actually
+  **playing**. The instant it pauses, buffers or ends — which is when YouTube would otherwise draw its
+  own "more videos" panel — it drops straight back to album art. Nothing in the frame is clickable.
+- **New: full screen.** A full-screen button now sits on the video itself (matching the one shiurim
+  already have), so a music video isn't stuck at album-art size.
+
 ## 1.9.8 + Desktop 1.2.4 — 2026-10-06 (web + desktop)
 
 **Why the bump:** a ⋮ menu on every tile (contributed in PR #20), and the desktop app's **X** now really
