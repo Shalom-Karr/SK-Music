@@ -30,12 +30,22 @@
 //! `<audio>` element at that URL when a download exists — allowed by the site CSP's
 //! `media-src` once the scheme is whitelisted (see engine/build-static.mjs).
 //!
+//! ## Save for offline
+//! The ⋮ "Save for offline" and the tray's "Save for offline" are the SAME pipeline as a plain
+//! Download — one single-worker queue, one extraction strategy (native first, the streaming relay
+//! as a last resort), one `<id>.<ext>.part` temp file per id. The only difference is the `Job` carries
+//! extra metadata (album, artwork URLs) that the SPA already knows, so the finished `Entry` can be
+//! grouped by album/artist with artwork in the offline player. Artwork itself is fetched with
+//! `reqwest` after the song lands — small HTTPS images from the CDNs the site itself uses, not a
+//! reason to spin up a browser window.
+//!
 //! ## Event contract (all `core:event`, the only channel remote origins get)
 //! SPA (main window) -> Rust:
 //!   * `sk-dl-request`      `{ videoId, title, artist }`  — download this song
 //!   * `sk-dl-delete`       `{ videoId }`                 — remove a download
 //!   * `sk-dl-list-request` `{}`                          — send the current library
 //!   * `sk-dl-reveal`       `{ videoId }`                 — show the saved file in the OS file manager
+//!   * `sk-offline-save`    `{ videoId, title, artist, ...SaveMeta }` — save for offline (⋮ menu)
 //! Rust -> SPA (main window):
 //!   * `sk-dl-progress`       `{ videoId, phase, received, total }`  phase = extracting|downloading
 //!   * `sk-dl-done`           `{ videoId, item }`                    item = library entry (+ src)
@@ -173,6 +183,14 @@ struct Job {
     video_id: String,
     title: String,
     artist: String,
+    /// Set for a "Save for offline" job: extra metadata the SPA (or the native now-playing
+    /// snapshot) already knows, so the finished entry can be grouped by album/artist with
+    /// artwork. `None` for a plain Download — same pipeline, nothing extra to attach.
+    extras: Option<SaveMeta>,
+    /// True for a tray/right-click save, which has no in-page UI to report back to — so process()
+    /// shows OS notifications for it. A plain Download and an SPA-triggered save show none; the
+    /// SPA already renders its own toasts off `sk-dl-done` / `sk-dl-error`.
+    native_notices: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -202,7 +220,7 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
                 return;
             }
             if let Some(q) = QUEUE.get() {
-                let _ = q.send(Job { video_id: r.video_id, title: r.title, artist: r.artist });
+                let _ = q.send(Job { video_id: r.video_id, title: r.title, artist: r.artist, extras: None, native_notices: false });
             }
         }
     });
@@ -219,15 +237,16 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
     app.listen("sk-offline-save", move |ev| {
         if let Ok(meta) = serde_json::from_str::<SaveMeta>(ev.payload()) {
             let h = h.clone();
-            // Off the event thread: building a window from a synchronous handler can deadlock on Windows,
-            // and the lookup below is network. The page normally sends everything; this fills any gap.
+            // Off the event thread: the lookup below is network. The page normally sends everything;
+            // this fills any gap. Queuing (not a direct call) is what gives every save the same
+            // single-worker serialization as a plain Download.
             tauri::async_runtime::spawn(async move {
                 let meta = if valid_id(&meta.video_id) && (meta.album_id.is_none() || meta.artist_photo_url.is_none()) {
                     enrich_meta(meta).await
                 } else {
                     meta
                 };
-                save_offline(&h, meta, false);
+                enqueue_save(&h, meta, false);
             });
         }
     });
@@ -270,12 +289,20 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
 
 async fn process(app: &AppHandle, job: Job) {
     let id = job.video_id.clone();
+    let native_notices = job.native_notices;
+    let name = if job.title.is_empty() { "This song".to_string() } else { job.title.clone() };
 
-    // Already have it: just re-affirm to the SPA.
+    // Already have it: just re-affirm to the SPA (and the tray, if this was a save).
     if load_index(app).contains_key(&id) {
+        if native_notices {
+            notify(app, "Already saved for offline", &name);
+        }
         emit_done(app, &id);
         emit_list(app);
         return;
+    }
+    if native_notices {
+        notify(app, "Saving for offline…", &name);
     }
 
     emit_progress(app, &id, "extracting", 0, None);
@@ -308,7 +335,9 @@ async fn process(app: &AppHandle, job: Job) {
             match relay_extract(app, &id, &job).await {
                 Some(x) => x,
                 None => {
-                    emit_error(app, &id, &format!("could not read the audio stream: {reason}"));
+                    let msg = format!("could not read the audio stream: {reason}");
+                    emit_error(app, &id, &msg);
+                    if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: {msg}")); }
                     return;
                 }
             }
@@ -320,6 +349,7 @@ async fn process(app: &AppHandle, job: Job) {
                 Some(x) => x,
                 None => {
                     emit_error(app, &id, "timed out reading the audio stream");
+                    if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: timed out reading the audio stream")); }
                     return;
                 }
             }
@@ -334,7 +364,9 @@ async fn process(app: &AppHandle, job: Job) {
     };
     let dir = downloads_dir(app);
     if let Err(e) = fs::create_dir_all(&dir) {
-        emit_error(app, &id, &format!("cannot create downloads folder: {e}"));
+        let msg = format!("cannot create downloads folder: {e}");
+        emit_error(app, &id, &msg);
+        if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: {msg}")); }
         return;
     }
     let part = dir.join(format!("{id}.{ext}.part"));
@@ -346,27 +378,45 @@ async fn process(app: &AppHandle, job: Job) {
         Ok(n) => n,
         Err(e) => {
             let _ = fs::remove_file(&part);
-            emit_error(app, &id, &format!("download failed: {e}"));
+            let msg = format!("download failed: {e}");
+            emit_error(app, &id, &msg);
+            if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: {msg}")); }
             return;
         }
     };
     if written == 0 {
         let _ = fs::remove_file(&part);
         emit_error(app, &id, "download produced an empty file");
+        if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: download produced an empty file")); }
         return;
     }
     if let Err(e) = fs::rename(&part, &final_path) {
         let _ = fs::remove_file(&part);
-        emit_error(app, &id, &format!("could not finalize file: {e}"));
+        let msg = format!("could not finalize file: {e}");
+        emit_error(app, &id, &msg);
+        if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: {msg}")); }
         return;
     }
 
     let title = pick(&job.title, &extracted.title, &id);
     let artist = pick(&job.artist, &extracted.author, "");
-    let entry = Entry { video_id: id.clone(), title, artist, ext, mime, bytes: written, added: now_ms(), ..Default::default() };
+    let mut entry = Entry { video_id: id.clone(), title, artist, ext, mime, bytes: written, added: now_ms(), ..Default::default() };
+    if let Some(meta) = &job.extras {
+        entry.duration_sec = meta.duration_sec.as_ref().and_then(json_u64);
+        entry.album_id = meta.album_id.clone().filter(|s| !s.is_empty());
+        entry.album = meta.album.clone().filter(|s| !s.is_empty());
+        entry.album_year = meta.album_year.as_ref().and_then(json_u64).and_then(|y| u32::try_from(y).ok());
+        entry.cover = cover_name(meta);
+        entry.album_cover = album_cover_name(meta);
+        entry.artist_photo = artist_photo_name(meta);
+        spawn_art_fetch(app, meta);
+    }
     upsert_index(app, entry);
     emit_done(app, &id);
     emit_list(app);
+    if native_notices {
+        notify(app, "Saved for offline", &name);
+    }
 }
 
 /// Download `url` to `path` using a pool of concurrent ranged requests. Returns bytes written.
@@ -855,24 +905,16 @@ pub fn offline_library(app: AppHandle) -> Vec<serde_json::Value> {
 }
 
 // ---------------------------------------------------------------------------
-// "Save for offline" — fetched by the WEBVIEW, not by reqwest
+// "Save for offline" — queues onto the SAME pipeline as a plain Download
 // ---------------------------------------------------------------------------
 //
-// The Download pipeline above fetches with reqwest, i.e. Windows' own TLS stack. Behind a
-// TLS-intercepting filter (Techloq, Bitdefender web scan…) that path fails where the webview —
-// Chromium's network stack — streams music through the same filter fine. So a save runs in a hidden
-// window on a LOCAL page (frontend/saver.html): it asks `offline_saver_job` what to fetch, pulls the
-// cover / album cover / artist photo with fetch() and hands them back through `offline_store_image`,
-// then navigates to the relay's /download URL. That answers `Content-Disposition: attachment`, so the
-// webview's own download manager writes the song wherever `on_download` points it. Images the webview
-// couldn't get (a host without CORS, a filter) are retried with reqwest once the song has landed; an
-// image that still fails just leaves the placeholder. The song and its details join the same library
-// as Download, so the full app plays it locally and the offline player lists it — grouped by artist
-// and album, with artwork.
+// A save is a download with extra metadata attached: the audio comes from the same native-extraction-
+// first, relay-as-last-resort pipeline `process()` already uses, through the same single-worker queue
+// (so a save can never collide with a Download's temp file, and only one of either ever runs at a
+// time). `enqueue_save()` builds a `Job` with `extras: Some(meta)` and sends it; `process()` reads
+// `job.extras` once the song has landed to fill in album/artwork and to kick off `spawn_art_fetch()`.
+// Everything downstream — the library index, `sk-dl-done`, the offline player — is the same as Download.
 
-/// How long a save may take before the hidden window is torn down and the save reported failed
-/// (covers a relay that answers with a page instead of a file, or a filter that silently drops it).
-const SAVE_TIMEOUT: Duration = Duration::from_secs(180);
 /// Images are small; anything bigger than this isn't the thumbnail we asked for.
 const MAX_IMAGE_BYTES: usize = 3 << 20;
 
@@ -891,18 +933,6 @@ pub struct SaveMeta {
     cover_url: Option<String>,
     album_cover_url: Option<String>,
     artist_photo_url: Option<String>,
-}
-
-/// One pending save, keyed by its hidden window's label, so `offline_saver_job` /
-/// `offline_store_image` only ever act for the window that owns the job.
-#[derive(Clone)]
-struct SaveJob {
-    relay: String,
-    images: Vec<(String, String)>, // (file name under downloads/art, https url)
-}
-static SAVE_JOBS: OnceLock<Mutex<HashMap<String, SaveJob>>> = OnceLock::new();
-fn save_jobs() -> &'static Mutex<HashMap<String, SaveJob>> {
-    SAVE_JOBS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 /// Tray / right-click "Save for offline": let the page do it when it can — it knows the album and
@@ -947,8 +977,8 @@ fn save_from_snapshot(app: &AppHandle) {
     };
     let h = app.clone();
     tauri::async_runtime::spawn(async move {
-        let meta = enrich_meta(meta).await; // album + artist photo, looked up natively
-        save_offline(&h, meta, true);
+        let meta = enrich_meta(meta).await; // artist photo, looked up natively
+        enqueue_save(&h, meta, true);
     });
 }
 
@@ -986,34 +1016,26 @@ async fn site_json(client: &reqwest::Client, path_and_query: &str) -> Option<ser
     serde_json::from_str(&resp.text().await.ok()?).ok()
 }
 
-/// Fill in what the page didn't send — album (id/title/year/cover) and the artist's photo — from the
-/// site's own /track, /album and /artists endpoints. Best effort: any failure leaves the field empty
-/// and the song still saves, just with a placeholder in that spot.
+/// Fill in what the page didn't send — the artist's photo — from the site's static `/data/artists.json`
+/// (the same file the web app's own artist-photo lookups use; it's a real deployed asset, unlike
+/// `/track` and `/album`, which only exist as routes inside the client-side search engine and 404 to
+/// the app shell on a direct server request). Best effort: any failure leaves the field empty and the
+/// song still saves, just with a placeholder in that spot.
+///
+/// There's no server-side way to resolve a bare videoId to its album (that needs the full corpus, which
+/// only the browser's search engine holds) — so album fields stay whatever the page already sent, and a
+/// save with no album context just doesn't get album grouping in the offline player.
 async fn enrich_meta(mut meta: SaveMeta) -> SaveMeta {
     let Ok(client) = reqwest::Client::builder().timeout(Duration::from_secs(8)).user_agent(UA).build() else {
         return meta;
     };
-    if meta.album_id.is_none() {
-        let album_id = site_json(&client, &format!("/track?v={}", meta.video_id))
-            .await
-            .and_then(|t| t.get("albumId").and_then(|v| v.as_str()).map(str::to_string))
-            .filter(|a| !a.is_empty() && a.len() <= 64 && a.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-'));
-        if let Some(aid) = album_id {
-            if let Some(al) = site_json(&client, &format!("/album?id={aid}")).await.and_then(|v| v.get("album").cloned()) {
-                meta.album = al.get("title").and_then(|v| v.as_str()).map(str::to_string);
-                meta.album_year = al.get("year").filter(|v| !v.is_null()).cloned();
-                meta.album_cover_url = al.get("thumbnail").and_then(|v| v.as_str()).map(|u| sized_art(u, 480));
-                meta.album_id = Some(aid);
-            }
-        }
-    }
     if meta.artist_photo_url.is_none() && !meta.artist.trim().is_empty() {
         let cached = ARTIST_THUMBS.get_or_init(|| Mutex::new(None)).lock().unwrap().clone();
         let map = match cached {
             Some(m) => m,
             None => {
                 let mut m = HashMap::new();
-                if let Some(list) = site_json(&client, "/artists").await {
+                if let Some(list) = site_json(&client, "/data/artists.json").await {
                     for a in list.get("artists").and_then(|v| v.as_array()).into_iter().flatten() {
                         if let (Some(n), Some(t)) = (a.get("name").and_then(|v| v.as_str()), a.get("thumbnail").and_then(|v| v.as_str())) {
                             m.insert(n.to_lowercase(), sized_art(t, 480));
@@ -1033,77 +1055,57 @@ async fn enrich_meta(mut meta: SaveMeta) -> SaveMeta {
 
 /// `native_notices`: true from the tray / right-click menu (no in-page UI to report back), false from
 /// the SPA, which shows its own toasts off `sk-dl-done` / `sk-dl-error`.
-pub fn save_offline(app: &AppHandle, meta: SaveMeta, native_notices: bool) {
+fn enqueue_save(app: &AppHandle, meta: SaveMeta, native_notices: bool) {
     let id = meta.video_id.clone();
-    let name = if meta.title.is_empty() { "This song".to_string() } else { meta.title.clone() };
     if !valid_id(&id) {
-        if native_notices { notify(app, "Can't save this one", "Only songs can be saved for offline, not shiurim or podcasts."); }
-        return;
-    }
-    let dir = downloads_dir(app);
-    if let Some(e) = load_index(app).get(&id) {
-        if dir.join(format!("{}.{}", e.video_id, e.ext)).is_file() {
-            if native_notices { notify(app, "Already saved for offline", &name); }
-            emit_done(app, &id);
-            return;
+        if native_notices {
+            notify(app, "Can't save this one", "Only songs can be saved for offline, not shiurim or podcasts.");
         }
-    }
-    let label = format!("sk-offline-{id}");
-    if app.get_webview_window(&label).is_some() {
-        return; // this song is already being saved
-    }
-    let _ = fs::create_dir_all(dir.join("art"));
-    let part = dir.join(format!("{id}.m4a.part"));
-    let _ = fs::remove_file(&part);
-
-    // Only fetch artwork we don't already have (album covers and artist photos are shared).
-    let images: Vec<(String, String)> = art_plan(&meta)
-        .into_iter()
-        .filter(|(file, _)| !dir.join("art").join(file).is_file())
-        .collect();
-    save_jobs().lock().unwrap().insert(
-        label.clone(),
-        SaveJob { relay: format!("{RELAY_DOWNLOAD}?v={id}"), images },
-    );
-
-    let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let (h, meta_s, part_s, label_s, done_s) = (app.clone(), meta.clone(), part.clone(), label.clone(), done.clone());
-    let built = WebviewWindowBuilder::new(app, &label, WebviewUrl::App("saver.html".into()))
-        .title("SK Music — saving for offline")
-        .visible(false)
-        .focused(false)
-        .skip_taskbar(true)
-        .on_download(move |_webview, event| match event {
-            tauri::webview::DownloadEvent::Requested { destination, .. } => {
-                *destination = part_s.clone();
-                true
-            }
-            tauri::webview::DownloadEvent::Finished { success, .. } => {
-                if !done_s.swap(true, std::sync::atomic::Ordering::SeqCst) {
-                    finish_offline_save(&h, &meta_s, &part_s, success, native_notices);
-                    end_save_job(&h, &label_s);
-                }
-                true
-            }
-            _ => true,
-        })
-        .build();
-    if let Err(e) = built {
-        save_jobs().lock().unwrap().remove(&label);
-        emit_error(app, &id, "couldn't start saving for offline");
-        if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: {e}")); }
         return;
     }
-    if native_notices { notify(app, "Saving for offline…", &name); }
+    let job = Job {
+        video_id: id,
+        title: meta.title.clone(),
+        artist: meta.artist.clone(),
+        extras: Some(meta),
+        native_notices,
+    };
+    if let Some(q) = QUEUE.get() {
+        let _ = q.send(job);
+    }
+}
 
-    let (h, label_s) = (app.clone(), label);
+/// Fetch a save's artwork (cover / album cover / artist photo) with `reqwest`, in the background — the
+/// song is already indexed and playable by the time this runs, so it can only add artwork, never hold
+/// up the next queued job. Only fetches what isn't already on disk (album covers and artist photos are
+/// shared across songs); a failure here just leaves that spot as a placeholder.
+fn spawn_art_fetch(app: &AppHandle, meta: &SaveMeta) {
+    let art_dir = downloads_dir(app).join("art");
+    let images: Vec<(String, String)> = art_plan(meta)
+        .into_iter()
+        .filter(|(file, _)| !art_dir.join(file).is_file())
+        .collect();
+    if images.is_empty() {
+        return;
+    }
+    let h = app.clone();
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(SAVE_TIMEOUT).await;
-        if !done.swap(true, std::sync::atomic::Ordering::SeqCst) {
-            let _ = fs::remove_file(downloads_dir(&h).join(format!("{id}.m4a.part")));
-            end_save_job(&h, &label_s);
-            emit_error(&h, &id, "the song didn't start downloading. Check your connection and try again");
-            if native_notices { notify(&h, "Couldn't save for offline", &format!("{name}: the download didn't start. Check your connection and try again.")); }
+        let dir = downloads_dir(&h).join("art");
+        let _ = fs::create_dir_all(&dir);
+        let Ok(client) = reqwest::Client::builder().timeout(Duration::from_secs(15)).user_agent(UA).build() else {
+            return;
+        };
+        for (name, url) in images {
+            if dir.join(&name).is_file() {
+                continue;
+            }
+            if let Ok(resp) = client.get(&url).send().await {
+                if resp.status().is_success() {
+                    if let Ok(bytes) = resp.bytes().await {
+                        let _ = store_art(&h, &name, &bytes);
+                    }
+                }
+            }
         }
     });
 }
@@ -1182,124 +1184,11 @@ fn store_art(app: &AppHandle, name: &str, bytes: &[u8]) -> bool {
     fs::write(dir.join(name), bytes).is_ok()
 }
 
-/// saver.html: "what am I fetching?" — answered only for the hidden window that owns the job.
-#[tauri::command]
-pub fn offline_saver_job(window: tauri::WebviewWindow) -> Option<serde_json::Value> {
-    let job = save_jobs().lock().unwrap().get(window.label()).cloned()?;
-    Some(serde_json::json!({
-        "relay": job.relay,
-        "images": job.images.iter().map(|(n, u)| serde_json::json!({ "name": n, "url": u })).collect::<Vec<_>>(),
-    }))
-}
-
-/// saver.html hands back one fetched image as a raw body, named by the `x-sk-name` header. Accepted
-/// only for a name its own job asked for, and only if the bytes really are an image.
-#[tauri::command]
-pub fn offline_store_image(app: AppHandle, window: tauri::WebviewWindow, request: tauri::ipc::Request<'_>) -> Result<(), String> {
-    let name = request
-        .headers()
-        .get("x-sk-name")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-    let wanted = save_jobs()
-        .lock()
-        .unwrap()
-        .get(window.label())
-        .map(|j| j.images.iter().any(|(n, _)| *n == name))
-        .unwrap_or(false);
-    if !wanted {
-        return Err("not part of this save".into());
-    }
-    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
-        return Err("expected raw image bytes".into());
-    };
-    if store_art(&app, &name, bytes) { Ok(()) } else { Err("not a usable image".into()) }
-}
-
-/// Close the hidden window and, in the background, retry with reqwest any image the webview couldn't
-/// fetch — the song is already saved by then, so this can only add artwork, never hold anything up.
-fn end_save_job(app: &AppHandle, label: &str) {
-    let job = save_jobs().lock().unwrap().remove(label);
-    close_window_later(app, label);
-    let Some(job) = job else { return };
-    let h = app.clone();
-    tauri::async_runtime::spawn(async move {
-        let dir = downloads_dir(&h).join("art");
-        let Ok(client) = reqwest::Client::builder().timeout(Duration::from_secs(15)).user_agent(UA).build() else { return };
-        for (name, url) in job.images {
-            if dir.join(&name).is_file() {
-                continue;
-            }
-            if let Ok(resp) = client.get(&url).send().await {
-                if resp.status().is_success() {
-                    if let Ok(bytes) = resp.bytes().await {
-                        let _ = store_art(&h, &name, &bytes);
-                    }
-                }
-            }
-        }
-    });
-}
-
-/// Move the finished `.part` into the library — but only if it's really audio. A relay error, or a
-/// filter's block page, would also "download" successfully as a few KB of HTML.
-fn finish_offline_save(app: &AppHandle, meta: &SaveMeta, part: &PathBuf, success: bool, native_notices: bool) {
-    let id = meta.video_id.as_str();
-    let name = if meta.title.is_empty() { "This song" } else { meta.title.as_str() };
-    let looks_like_m4a = || {
-        let mut head = [0u8; 8];
-        File::open(part).and_then(|mut f| f.read_exact(&mut head)).is_ok() && &head[4..8] == b"ftyp"
-    };
-    let bytes = fs::metadata(part).map(|m| m.len()).unwrap_or(0);
-    if !success || bytes < 16 * 1024 || !looks_like_m4a() {
-        let _ = fs::remove_file(part);
-        emit_error(app, id, "the song couldn't be fetched for offline. Try again later");
-        if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: the song couldn't be fetched. Try again later.")); }
-        return;
-    }
-    let dest = downloads_dir(app).join(format!("{id}.m4a"));
-    if fs::rename(part, &dest).is_err() {
-        let _ = fs::remove_file(part);
-        emit_error(app, id, "the saved song couldn't be stored");
-        if native_notices { notify(app, "Couldn't save for offline", name); }
-        return;
-    }
-    upsert_index(app, Entry {
-        video_id: id.to_string(),
-        title: meta.title.clone(),
-        artist: meta.artist.clone(),
-        ext: "m4a".into(),
-        mime: "audio/mp4".into(),
-        bytes,
-        added: now_ms(),
-        duration_sec: meta.duration_sec.as_ref().and_then(json_u64),
-        album_id: meta.album_id.clone().filter(|s| !s.is_empty()),
-        album: meta.album.clone().filter(|s| !s.is_empty()),
-        album_year: meta.album_year.as_ref().and_then(json_u64).and_then(|y| u32::try_from(y).ok()),
-        cover: cover_name(meta),
-        album_cover: album_cover_name(meta),
-        artist_photo: artist_photo_name(meta),
-    });
-    emit_done(app, id); // the full app's Downloads list + local playback pick it up live
-    if native_notices { notify(app, "Saved for offline", name); }
-}
-
 /// A number the page may send as a number or a numeric string ("2019").
 fn json_u64(v: &serde_json::Value) -> Option<u64> {
     v.as_u64()
         .or_else(|| v.as_f64().filter(|f| *f >= 0.0).map(|f| f.round() as u64))
         .or_else(|| v.as_str().and_then(|s| s.trim().parse().ok()))
-}
-
-/// Destroy a hidden save window outside of its own event callback.
-fn close_window_later(app: &AppHandle, label: &str) {
-    let (h, label) = (app.clone(), label.to_string());
-    tauri::async_runtime::spawn(async move {
-        if let Some(w) = h.get_webview_window(&label) {
-            let _ = w.destroy();
-        }
-    });
 }
 
 fn notify(app: &AppHandle, title: &str, body: &str) {

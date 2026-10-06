@@ -2,19 +2,20 @@
 
 ## Desktop 1.2.6 + web — 2026-10-02
 
-**Why the bump:** **Download** fails behind a network filter — Windows' own connection code rejects the
-filter's certificate, so saving a song for offline listening timed out. There was also no way to save a
-song without it landing as a download.
+**Why the bump:** there was no way to save a song for offline without it landing as a plain Download —
+no album/artwork grouping, nothing to do it from the ⋮ menu or the tray.
 
 **Save for offline** (new, desktop only)
 - On any song's **⋮** menu, choose **Save for offline** (desktop app only; this part arrives with the
   website update). Or right-click inside the app, or right-click the tray icon, and choose **Save for
   offline** to keep the song that's playing. Saved songs show up in the offline player and in Downloads.
 - Saving also keeps the song's album and artwork, so the offline player can group by album and artist.
-  The app looks the album and the artist's photo up itself, so right-click and tray saves get them too.
-- It fetches the song the same way the player streams it, so it works behind filters (Techloq,
-  Bitdefender web protection and the like) where **Download** can fail.
-- **Download** is unchanged.
+  The app looks the artist's photo up itself (from the site's own artist list) when the page didn't
+  already send it, so right-click and tray saves get it too.
+- A save goes through the exact same pipeline as **Download** — one worker, one audio source (YouTube's
+  own player first, the streaming proxy only as a last resort, same as Download already did), one temp
+  file per song — so a save can never collide with a Download, and the two can never run in parallel
+  against the same id. **Download** itself is unchanged.
 
 ## Desktop 1.2.5 — 2026-10-01
 
