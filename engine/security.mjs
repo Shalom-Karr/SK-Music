@@ -5,7 +5,13 @@
  * header) + datacenter flag, then allowlist → ban → datacenter block → rate limit → escalation.
  * Rate limiting and datacenter blocking need only the `ratelimit` bindings; allowlist, bans and event
  * logging need Supabase (SUPABASE_URL / SUPABASE_KEY / SEC_TOKEN) and fail OPEN when it is unreachable.
- * Contract: security_state / security_log / security_ban RPCs (supabase/), bindings in wrangler.jsonc.
+ * Contract: security_state / security_log / security_ban RPCs (supabase/security.sql), catalog_state /
+ * catalog_usage_add (supabase/catalog-gate.sql), bindings in wrangler.jsonc.
+ *
+ * Catalog files (the dataset + per-entity artist/album/curated-playlist JSON, see isCatalogPath) get two extra
+ * controls, both read from catalog_state and both OFF while it can't be read: the account gate (signed-out ⇒
+ * 401 account_required, when the admin switched it on) and a daily per-key quota (over it ⇒ security_ban's
+ * escalation). They count against the burst limiter only, never the per-minute one.
  */
 
 // Test seam: the clock and the log-flush delay. Production never touches these.
@@ -282,7 +288,10 @@ async function rpc(env, name, body, timeoutMs = 4000) {
 
 // security_state: 60s per isolate, stale-while-revalidate, fail open (last good copy; never loaded ⇒ empty).
 const STATE_TTL = 60e3;
-const EMPTY_STATE = { allowIps: new Set(), allowEmails: new Set(), banIp: new Map(), banUser: new Map() };
+// Catalog gate + quota as last read from catalog_state. Never read (migration not applied, Supabase down) ⇒ gate
+// off and no quota: fail open.
+const CATALOG_OFF = { requiresAccount: false, dailyQuota: 0 };
+const EMPTY_STATE = { allowIps: new Set(), allowEmails: new Set(), banIp: new Map(), banUser: new Map(), catalog: CATALOG_OFF };
 let state = { data: EMPTY_STATE, at: 0, loaded: false, p: null, failAt: 0 };
 
 // Ban end time in ms. Permanent bans arrive as Postgres 'infinity'; anything unparseable is treated as
@@ -292,8 +301,14 @@ const parseUntil = (v) => {
   return Number.isFinite(t) ? t : Infinity;
 };
 
-function buildState(j) {
-  const s = { allowIps: new Set(), allowEmails: new Set(), banIp: new Map(), banUser: new Map() };
+function buildCatalog(j) {
+  if (!j || typeof j !== "object") return null;
+  const q = Number(j.daily_quota);
+  return { requiresAccount: j.requires_account === true, dailyQuota: Number.isFinite(q) && q > 0 ? Math.floor(q) : 0 };
+}
+
+function buildState(j, catalog) {
+  const s = { allowIps: new Set(), allowEmails: new Set(), banIp: new Map(), banUser: new Map(), catalog: catalog || CATALOG_OFF };
   for (const ip of j?.allow_ips || []) if (ip) s.allowIps.add(String(ip).trim());
   for (const e of j?.allow_emails || []) if (e) s.allowEmails.add(String(e).trim().toLowerCase());
   for (const b of j?.bans || []) {
@@ -306,8 +321,10 @@ function buildState(j) {
 
 function refreshState(env) {
   if (state.p) return state.p;
-  state.p = rpc(env, "security_state", {}, 2500)
-    .then((j) => { state = { data: buildState(j), at: _t.now(), loaded: true, p: null, failAt: 0 }; })
+  // catalog_state rides along; if only it fails, keep the catalog settings this isolate last had.
+  const cat = rpc(env, "catalog_state", {}, 2500).then(buildCatalog, () => null);
+  state.p = Promise.all([rpc(env, "security_state", {}, 2500), cat])
+    .then(([j, c]) => { state = { data: buildState(j, c || state.data.catalog), at: _t.now(), loaded: true, p: null, failAt: 0 }; })
     .catch(() => { state.p = null; state.failAt = _t.now(); });
   return state.p;
 }
@@ -323,6 +340,19 @@ async function getState(env, ctx) {
     else await p; // first load in this isolate
   }
   return state.data;
+}
+
+// The app learns whether the catalog needs an account from this header on a few Worker responses it fetches
+// at boot anyway (no extra request). "<0|1>;<ms the setting was read>": the client keeps the newest reading,
+// so a browser-cached response can't roll a newer setting back.
+export const CATALOG_GATE_HEADER = "X-SK-Catalog-Gate";
+export async function catalogGateValue(env, ctx) {
+  try {
+    const st = await getState(env, ctx);
+    return `${st.catalog.requiresAccount ? 1 : 0};${state.loaded ? state.at : 0}`;
+  } catch {
+    return "0;0";
+  }
 }
 
 // ─── Event log (batched, deduped) ─────────────────────────────────────────────
@@ -359,6 +389,57 @@ function logEvent(env, ctx, kind, key, ev) {
     // then, so a quiet isolate can't sit on events indefinitely.
     logTimer = true;
     ctx?.waitUntil?.(_t.sleep(LOG_FLUSH_MS).then(() => { logTimer = false; return flushLog(env); }));
+  }
+}
+
+// ─── Catalog files: which paths, daily quota counting (batched) ───────────────
+
+const CATALOG_ENTITY_RX = /^\/data\/(artist|album|zemer-playlist)\/[A-Za-z0-9_-]+\.json$/;
+// The dataset and the per-entity detail files. zemer-playlist/acapella.json stays a public static file (the
+// Acapella filter needs it signed out), so in production it never reaches the Worker.
+export const isCatalogPath = (pathname) => pathname === "/data/dataset.json.gz" || CATALOG_ENTITY_RX.test(pathname);
+
+// key → requests since the last flush. Flushed like the event log: ~10s after the first count, or as soon as
+// QUOTA_BATCH keys are waiting. A failed flush drops its counts (fail open).
+const QUOTA_FLUSH_MS = 10e3, QUOTA_BATCH = 200, QUOTA_MAX_KEYS = 1000; // 1000 = catalog_usage_add's per-call cap
+let quotaQ = new Map();
+let quotaEmail = new Map();
+let quotaTimer = false;
+let quotaFlushing = null;
+
+async function flushQuota(env) {
+  if (quotaFlushing) await quotaFlushing;
+  if (!quotaQ.size) return;
+  const counts = Object.fromEntries(quotaQ);
+  const emails = Object.fromEntries(quotaEmail);
+  quotaQ = new Map();
+  quotaEmail = new Map();
+  quotaFlushing = rpc(env, "catalog_usage_add", { p_counts: counts, p_emails: emails })
+    .then((rows) => {
+      // Keys now over quota come back with the ban security_ban gave them: enforce it here at once (other
+      // isolates pick it up from security_state within a minute).
+      const now = _t.now();
+      for (const r of Array.isArray(rows) ? rows : []) {
+        if (!r || typeof r.key !== "string" || r.until == null) continue;
+        const until = parseUntil(r.until);
+        if (until > now) localBans.set(r.key, Math.max(until, localBans.get(r.key) || 0));
+      }
+    })
+    .catch(() => {})
+    .finally(() => { quotaFlushing = null; });
+  await quotaFlushing;
+}
+
+function countCatalog(env, ctx, key, email) {
+  if (!supabaseReady(env)) return;
+  if (!quotaQ.has(key) && quotaQ.size >= QUOTA_MAX_KEYS) return;
+  quotaQ.set(key, (quotaQ.get(key) || 0) + 1);
+  if (email && key.startsWith("u:")) quotaEmail.set(key, email);
+  if (quotaQ.size >= QUOTA_BATCH) {
+    ctx?.waitUntil?.(flushQuota(env));
+  } else if (!quotaTimer) {
+    quotaTimer = true;
+    ctx?.waitUntil?.(_t.sleep(QUOTA_FLUSH_MS).then(() => { quotaTimer = false; return flushQuota(env); }));
   }
 }
 
@@ -462,6 +543,7 @@ const HTML_TEXT = {
   banned: ["Access paused", "Too many requests came from your connection, so access is paused for a while."],
   datacenter: ["Sign in to continue", "This connection looks like a server or hosting network rather than a home or mobile one. Sign in to SK Music to continue."],
   rate_limited: ["Slow down a little", "Too many requests in a short time. Please wait a few seconds and try again."],
+  account_required: ["Sign in to keep listening", "A free SK Music account is needed to browse and play the catalog."],
 };
 const PAGE_CSS = "body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0f172a;color:#e2e8f0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px;box-sizing:border-box}main{max-width:460px;width:100%;box-sizing:border-box;background:#1e293b;border-radius:12px;padding:28px}h1{margin:0 0 8px;font-size:20px}h2{margin:20px 0 4px;font-size:16px}p{margin:8px 0}.m{color:#94a3b8;font-size:14px}a{color:#60a5fa}label{display:block;margin:10px 0 4px;font-size:14px;color:#cbd5e1}input,textarea{width:100%;box-sizing:border-box;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:8px;padding:8px;font:inherit}textarea{min-height:96px;resize:vertical}button{margin-top:12px;background:#2563eb;color:#fff;border:0;border-radius:8px;padding:9px 16px;font:inherit;cursor:pointer}";
 const page = (title, inner) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${title} · SK Music</title><style>${PAGE_CSS}</style></head><body><main><h1>${title}</h1>${inner}</main></body></html>`;
@@ -470,8 +552,8 @@ const wantsHtml = (request) => (request.headers.get("Accept") || "").includes("t
 // Plain HTML form (no script) so a blocked person can ask for a review.
 const CONTACT_FORM = `<h2>Think this is a mistake?</h2><p class="m">Tell us and we'll review it.</p><form method="post" action="${CONTACT_PATH}"><label for="e">Email (optional, so we can reply)</label><input id="e" name="email" type="email" maxlength="320" autocomplete="email"><label for="msg">Message</label><textarea id="msg" name="message" required maxlength="2000"></textarea><button type="submit">Send</button></form>`;
 
-function blockResponse(request, status, body, retryAfter) {
-  const headers = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" };
+function blockResponse(request, status, body, retryAfter, extraHeaders) {
+  const headers = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex", ...extraHeaders };
   if (retryAfter) headers["Retry-After"] = String(retryAfter);
   if (wantsHtml(request)) {
     const [title, msg] = HTML_TEXT[body.error];
@@ -480,6 +562,7 @@ function blockResponse(request, status, body, retryAfter) {
     else if (body.error === "banned") extra = (body.permanent
       ? `<p>This block is permanent unless it is lifted after review.</p>`
       : `<p class="m">Try again after ${new Date(body.until).toUTCString()}.</p>`) + CONTACT_FORM;
+    else if (body.error === "account_required") extra = `<p><a href="/">Go to SK Music and sign in</a></p>`;
     else if (retryAfter) extra = `<p class="m">Try again in ${retryAfter} seconds.</p>`;
     headers["Content-Type"] = "text/html; charset=utf-8";
     return new Response(page(title, `<p>${msg}</p>${extra}`), { status, headers });
@@ -505,7 +588,7 @@ async function inspect(request, env, ctx) {
   const until = allowed ? 0 : banUntil(st, ip, identity, _t.now());
   const dcWhy = datacenterReason(cf);
   const crawler = async () => ((dcWhy || !identity) ? isVerifiedCrawler(cf, ua, ip) : false);
-  return { ip, cf, ua, identity, allowed, who, until, dcWhy, crawler };
+  return { st, ip, cf, ua, identity, allowed, who, until, dcWhy, crawler };
 }
 
 const banBody = (until) => until === Infinity
@@ -536,11 +619,28 @@ export async function securityGate(request, env, ctx, url) {
       return blockResponse(request, 403, { error: "datacenter", signIn: true, contact: CONTACT_PATH });
     }
 
+    // Catalog files (GET/HEAD): account gate, burst limiter only, daily quota. Allowlisted visitors and verified
+    // search crawlers returned above, so they are never gated or counted.
+    const catalog = (request.method === "GET" || request.method === "HEAD") && isCatalogPath(pathname);
+    if (catalog && !identity && x.st.catalog.requiresAccount) {
+      logEvent(env, ctx, "account_required", who, ev);
+      return blockResponse(request, 401, { error: "account_required", signIn: true }, 0,
+        { [CATALOG_GATE_HEADER]: `1;${state.loaded ? state.at : 0}` });
+    }
+
     if (UNCOUNTED_PATHS.has(pathname)) return null;
     if (!identity && !ip) return null; // no attributable key (local dev); production always sets CF-Connecting-IP
     const cls = identity ? (dcWhy ? "dc" : "account") : "anon";
-    const tripped = await checkLimits(env, cls, who);
-    if (!tripped) return null;
+    // A person opening artists quickly also spends 1–2 API calls per page, so catalog files skip the per-minute
+    // tier; the daily quota is the slow-scraper control.
+    const tripped = await checkLimits(env, cls, who, catalog ? { skipMinute: true } : undefined);
+    if (!tripped) {
+      // Quota key: the account, else the IP — except content-filter proxies (FILTER_ASNS), whose IPs carry
+      // many listeners each.
+      if (catalog && x.st.catalog.dailyQuota > 0 && (identity || !FILTER_ASNS.has(Number(cf?.asn))))
+        countCatalog(env, ctx, who, identity?.email || null);
+      return null;
+    }
     const [binding, period] = tripped;
     logEvent(env, ctx, "rate_limited", who, { ...ev, detail: { limiter: binding, class: cls } });
     recordTrip(env, ctx, who, binding, ip, identity, period);
@@ -662,4 +762,5 @@ export function _resetSecurityState() {
   jwks = { base: "", at: 0, keys: new Map(), p: null, lastRefetch: 0 };
   tokenCache.clear(); logQ = []; logSeen.clear(); logTimer = false; logFlushing = null;
   localBans.clear(); trips.clear(); lastTrip.clear(); crawlerRanges.clear();
+  quotaQ = new Map(); quotaEmail = new Map(); quotaTimer = false; quotaFlushing = null;
 }

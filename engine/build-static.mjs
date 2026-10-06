@@ -82,6 +82,13 @@ const emitBulk = (name, buf) => {
   if (!PRIVATE) ensureWrite(path.join(DATA, name), buf);
   console.log(`  ${PRIVATE ? "private" : "data"}/${name}  ${(buf.length / 1024 / 1024).toFixed(2)} MB${PRIVATE ? " (no public URL)" : ""}`);
 };
+// Per-entity catalog files (/data/artist|album|zemer-playlist/<id>.json) move into <PRIVATE>/data/… under
+// the same relative path, so the Worker serves them behind the security gate (catalog account gate + daily
+// quota, engine/security.mjs). Moved, never duplicated: the 20,000-asset budget counts both trees.
+// acapella.json stays public: the Acapella filter and the public /charts page read it for signed-out visitors.
+const CATALOG = PRIVATE ? path.join(PRIVATE, "data") : DATA;
+const entityFile = (kind, id) =>
+  path.join(kind === "zemer-playlist" && id === "acapella" ? DATA : CATALOG, kind, id + ".json");
 const emitGz = (name, obj) => {
   const gz = zlib.gzipSync(JSON.stringify(obj), { level: 9 });
   console.log(`  data/${name}  ${(gz.length / 1024 / 1024).toFixed(2)} MB gzipped`);
@@ -418,13 +425,13 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
           for (const r of detail.singles) r.artist = detail.artist.name;
           for (const r of detail.playlists) r.artist = detail.artist.name;
         }
-        ensureWrite(path.join(DATA, "artist", a.id + ".json"), JSON.stringify(detail));
+        ensureWrite(entityFile("artist", a.id), JSON.stringify(detail));
         artistCount++;
         // Links to the duplicate are already out there — shared, bookmarked, indexed. Serve the
         // merged page at the old id too, tagged so the client can quietly correct the URL, rather
         // than 404ing someone who followed a link that worked yesterday.
         for (const alias of aliases) {
-          ensureWrite(path.join(DATA, "artist", alias + ".json"), JSON.stringify({ ...detail, mergedInto: a.id }));
+          ensureWrite(entityFile("artist", alias), JSON.stringify({ ...detail, mergedInto: a.id }));
           aliasCount++;
         }
       }
@@ -433,7 +440,7 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
     for (const al of albums) {
       const detail = albumDetail(db, al.id);
       if (detail) {
-        ensureWrite(path.join(DATA, "album", al.id + ".json"), JSON.stringify(detail));
+        ensureWrite(entityFile("album", al.id), JSON.stringify(detail));
         albumCount++;
       }
     }
@@ -586,7 +593,7 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
       try {
         const detail = await fetchJSON("/zemer-playlists?id=" + encodeURIComponent(entry.id));
         if (detail.playlist) detail.playlist.thumbnail = coverPath(entry.id);
-        ensureWrite(path.join(DATA, "zemer-playlist", entry.id + ".json"), JSON.stringify(detail));
+        ensureWrite(entityFile("zemer-playlist", entry.id), JSON.stringify(detail));
 
         try {
           const coverRes = await fetchWithRetry("/zemer-playlists/cover?id=" + encodeURIComponent(entry.id));
@@ -605,7 +612,7 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
     // upstream dropped the playlist (seasonal 404) bake the committed last-known-good copy instead,
     // and give it a list entry so it stays reachable from the Curated Playlists rail.
     if (!successfulPlaylists.some((p) => p.id === "acapella") && acapellaFallback) {
-      ensureWrite(path.join(DATA, "zemer-playlist", "acapella.json"), JSON.stringify(acapellaFallback));
+      ensureWrite(entityFile("zemer-playlist", "acapella"), JSON.stringify(acapellaFallback));
       try { fs.copyFileSync(path.join(ROOT, "data/acapella-fallback.svg"), path.join(DATA, "zemer-playlist", "acapella.svg")); } catch { /* card falls back to placeholder */ }
       const meta = acapellaFallback.playlist || {};
       successfulPlaylists.push({ id: "acapella", title: meta.title || "Acapella", trackCount: (acapellaFallback.tracks || []).length, thumbnail: coverPath("acapella") });
