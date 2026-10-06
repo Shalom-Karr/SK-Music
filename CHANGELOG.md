@@ -2,8 +2,31 @@
 
 ## 1.9.5 — 2026-10-05 (web)
 
-**Why the bump:** the analytics dashboard now covers security monitoring and user admin in a single
-page, with all three tabs protected by the same sign-in.
+**Why the bump:** scraping and bot protection — rate limits, automatic and permanent bans, a datacenter
+block, no bulk catalog download — plus one dashboard (Analytics · Security · Admin) to watch and manage it.
+
+**Protection (Worker, `engine/security.mjs`)**
+- Per-IP and per-account rate limits on every Worker route. Visitors without an account get limits 3×
+  stricter than signed-in accounts; requests from datacenter networks get stricter limits still.
+- Datacenter, hosting, Tor and location-less (`XX`) networks are blocked unless signed in. Signing in
+  gives them limited access. Verified Googlebot and Bingbot still get through.
+- Tripping the limits 3 times in 10 minutes triggers an automatic ban: 15 minutes, then 1 hour, then
+  24 hours, and the **4th ban is permanent**. Any ban can be lifted from the Security tab.
+- Allowlisted IPs and emails skip every limit and ban.
+- Blocked and banned visitors see a message with a **Contact us** box; requests show up on the Security tab.
+- The full catalog file (`dataset.json.gz`) and the song preview map are no longer public static files.
+  They live in a random, unlinked folder that changes on every deploy, and the Worker serves the dataset
+  only behind the limits and the datacenter block.
+- Reports are capped per account (10 an hour, 30 a day, 3 a day for new accounts), so bots can't
+  mass-flag songs. Bot traffic no longer counts toward trending.
+- Edge (WAF) rules for the static catalog are in `docs/security-edge-rules.md`.
+
+**Site**
+- A one-time notice (every 3 days, signed-out visitors only) that listening will soon need a free
+  account, with a **Sign up** button.
+- **Lyrics** are back, and the tab now appears only when the current song has lyrics (LRCLIB, never Zemer).
+- Fixed: near the end of a song with lyrics, the Now Playing view could jump up and cut off its tabs.
+- Fixed: pressing Save or Enter in in-app dialogs (new playlist, rename) reloaded the page instead of saving.
 
 **Security tab (new)**
 - Stat tiles: rate-limit events, datacenter blocks, auto-bans, banned hits, report blocks, open
@@ -41,10 +64,6 @@ spike) were being counted as visitors, sessions and plays.
   number on the page now counts people; **Bots** shows crawler traffic on its own. The choice is remembered.
 - A new **Bot traffic** card shows what share of the range was bots and which crawlers they were.
 - The recent-events table and the filter-blocked panel follow the switch too.
-
-**Lyrics removed**
-- The **Lyrics** tab in Now Playing is gone for now. Lyrics are copyrighted text from a third-party
-  database, served through our own server; until that is settled, it is switched off.
 
 ## 1.9.3 — 2026-10-05 (web)
 

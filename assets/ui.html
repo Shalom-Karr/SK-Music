@@ -604,7 +604,7 @@ body.on-air .live-note{display:block}
 
 /* ============================ Fullscreen now-playing ============================ */
 #now{position:fixed;inset:0;z-index:80;transform:translateY(101%);transition:transform .4s var(--ease);
-  display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+  display:flex;flex-direction:column;overflow:hidden;overflow:clip;background:var(--bg)}
 #now.on{transform:none}
 #now .np-bg{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(90px) saturate(1.5) brightness(.5);transform:scale(1.4);z-index:-2}
 #now::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(14,10,11,.5),rgba(14,10,11,.86))}
@@ -1111,10 +1111,10 @@ fill="url(#royal)" stroke="none">
       <button class="authclose" onclick="askClose(null)" aria-label="Close">✕</button>
       <h2 id="askTitle" style="margin-top:4px"></h2>
       <p class="authsub" id="askSub"></p>
-      <form onsubmit="askSubmit(event)" autocomplete="off">
+      <form onsubmit="window.askSubmit(event)" autocomplete="off">
         <div class="authfield" id="askField"><input id="askInput" type="text" maxlength="80" autocomplete="off" data-1p-ignore data-lpignore="true" placeholder="" onkeydown="if(event.key==='Escape'){event.preventDefault();askClose(null)}"></div>
         <div class="authmsg" id="askMsg"></div>
-        <div style="display:flex;gap:10px;margin-top:2px"><button type="button" class="authbtn oauth" style="flex:1" onclick="askClose(null)">Cancel</button><button class="authbtn" id="askSubmit" type="submit" style="flex:1">Save</button></div>
+        <div style="display:flex;gap:10px;margin-top:2px"><button type="button" class="authbtn oauth" id="askCancel" style="flex:1" onclick="askClose(null)">Cancel</button><button class="authbtn" id="askSubmit" type="submit" style="flex:1">Save</button></div>
       </form>
     </div>
   </div>
@@ -1312,11 +1312,36 @@ async function getJSON(url, opt) {
   return fetchJSON(url, opt);
 }
 // One backoff retry on a TRANSIENT failure (network reject or 5xx); never retry an abort or a 4xx.
+// The Worker's security layer answers 403/429 with {error:"datacenter"|"banned"|"rate_limited"}. Say so once,
+// plainly, instead of the page just quietly failing to load things.
+let _secNoticeAt = 0;
+function secNotice(j) {
+  if (!j || !j.error || Date.now() - _secNoticeAt < 60000) return;
+  _secNoticeAt = Date.now();
+  if (j.error === "datacenter") showToast('<b>SK Music is limited on this network</b> (a hosting provider or VPN). <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();openAuth(&#39;in&#39;)">Sign in</a> to keep listening, or <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();unblockRequest()">Contact us</a> if this is a mistake.', 12000);
+  else if (j.error === "banned") { const fin = j.until && isFinite(Date.parse(j.until)); showToast("<b>Too many requests from your connection.</b> Access is " + (fin ? "paused until " + new Date(j.until).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + "." : "blocked.") + ' <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();unblockRequest()">Contact us</a> if this is a mistake.', 12000); }
+  else if (j.error === "rate_limited") showToast("<b>Slow down a little</b> — too many requests in a short time. Try again in a moment.", 5000);
+}
+// Blocked people can always reach this: the Worker exempts /unblock-request from bans and the datacenter
+// block, records the real IP, and caps it per IP. It lands on the Security tab of the admin dashboard.
+async function unblockRequest() {
+  const msg = await askText({ title: "Contact us", sub: "Tell us what happened and we'll review the block. Include an email if you'd like a reply.", placeholder: "Your message (and email, optional)", submit: "Send" });
+  if (!msg) return;
+  const email = (acctEmail() || (msg.match(/[^\s@]+@[^\s@]+\.[^\s@]+/) || [""])[0]).toLowerCase();
+  let ok = false, reason = "";
+  try { const r = await fetch("/unblock-request", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ message: msg.slice(0, 2000), email }) }); const j = await r.json().catch(() => ({})); ok = r.ok && j.ok !== false; reason = j.reason || (r.status === 429 ? "limit" : ""); } catch {}
+  showToast(ok ? "<b>Thanks — we got your message</b> and will review the block."
+    : reason === "limit" ? "You've already sent a few messages — we'll review them."
+    : reason === "invalid_email" ? "That email doesn't look right — send it again without it, or fix it."
+    : reason === "invalid_message" ? "Please write a short message (up to 2,000 characters)."
+    : "Couldn't send that right now. Try again in a little while.", 6000);
+}
 async function fetchJSON(url, opt) {
   for (let attempt = 0; ; attempt++) {
     try {
       const r = await fetch(url, opt);
       if (r.ok) return await r.json();
+      if (r.status === 403 || r.status === 429) { try { secNotice(await r.clone().json()); } catch {} }
       if (r.status >= 500 && attempt < 1) { await new Promise((z) => setTimeout(z, 350)); continue; }
       throw new Error(r.status);
     } catch (e) {
@@ -3767,7 +3792,7 @@ async function loadMyPlaylists(force) {
 function requirePlaylistLogin() { if (loggedIn()) return true; showToast("<b>Sign in to create playlists.</b> They sync across your devices.", 4000); openAuth("in"); return false; }
 /* ---- reusable text-input / confirm modal (replaces browser prompt()/confirm()) ---- */
 let _askResolve = null;
-function _ask({ title, sub, value, placeholder, submit, danger, input }) {
+function _ask({ title, sub, value, placeholder, submit, cancel, danger, input }) {
   return new Promise((resolve) => {
     _askResolve = resolve;
     el("askTitle").textContent = title || "";
@@ -3776,9 +3801,25 @@ function _ask({ title, sub, value, placeholder, submit, danger, input }) {
     const inp = el("askInput"); inp.value = value || ""; inp.placeholder = placeholder || "";
     el("askMsg").textContent = "";
     const btn = el("askSubmit"); btn.textContent = submit || (input ? "Save" : "Confirm"); btn.classList.toggle("danger", !!danger);
+    el("askCancel").textContent = cancel || "Cancel";
     el("askModal").classList.add("on");
     setTimeout(() => { if (input) { inp.focus(); inp.select(); } else btn.focus(); }, 60);
   });
+}
+// Announcement: listening will soon need an account. Signed-out visitors only, at most once every 3 days,
+// and never over another open dialog.
+const ACCT_NOTICE_KEY = "sk_acct_notice", ACCT_NOTICE_EVERY = 3 * 864e5;
+async function maybeShowAccountNotice() {
+  if (loggedIn() || document.querySelector(".authmodal.on")) return;
+  let last = 0; try { last = +localStorage.getItem(ACCT_NOTICE_KEY) || 0; } catch {}
+  if (Date.now() - last < ACCT_NOTICE_EVERY) return;
+  try { localStorage.setItem(ACCT_NOTICE_KEY, String(Date.now())); } catch {}
+  const yes = await askConfirm({
+    title: "Create your free SK Music account",
+    sub: "Soon, listening on SK Music will need a free account. Sign up now so nothing changes for you: it takes a few seconds, and your likes, playlists and filters sync across all your devices.",
+    submit: "Sign up", cancel: "Not now",
+  });
+  if (yes && !loggedIn()) openAuth("up");
 }
 function askText(opts) { return _ask({ ...opts, input: true }); }   // resolves to the trimmed string, or null if cancelled
 function askConfirm(opts) { return _ask({ ...opts, input: false }); } // resolves to true, or null if cancelled
@@ -4897,7 +4938,7 @@ function trackStarted(t) {
   // neither of which can handle a track that isn't on YouTube. A shiur keeps its own resume point
   // (shSavePos) and is reachable from the Shiurim tab, so it stays out of the library entirely.
   if (!t.kind) saveRecent(t);
-  paintQueue(); refreshLikeUI(t.videoId); refreshNowPlaying(); if (lyricsOpen()) loadLyrics(); if (typeof skUpdateNpButton === "function") skUpdateNpButton(); // SK-OFFLINE: reflect this track's downloaded state
+  paintQueue(); refreshLikeUI(t.videoId); refreshNowPlaying(); if (state.nowOpen) loadLyrics(); if (typeof skUpdateNpButton === "function") skUpdateNpButton(); // SK-OFFLINE: reflect this track's downloaded state
   pushURL(trackPath(t), true); // shareable per-track URL reflecting what's playing (no history spam)
   playBegin(t); // start a play-duration session — the `play` event fires on end/skip with real listen time
   if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: t.title || "", artist: t.artist || "", album: "SK Music", artwork: art ? [{ src: art, sizes: "480x360", type: "image/jpeg" }] : [] });
@@ -5092,9 +5133,17 @@ function seekBy(d) {
 // sorted [{t,text}] parsed from LRC; .plain is unsynced text; .none means the fetch found nothing.
 let _ly = { key: "", synced: null, plain: "", loading: false, none: false, cur: -1 };
 function lyKey(t) { return t ? (t.artist || "") + "\n" + (t.title || "") : ""; }
-// Lyrics are switched OFF (the tab above is hidden and the Worker's /lyrics returns 404). Set true and remove
-// the tab's `hidden` attribute to restore.
-const LYRICS_ENABLED = false;
+// Lyrics (LRCLIB via the Worker's /lyrics — never Zemer). The tab starts hidden and paintLyricsTab() shows it
+// only for a song that actually has lyrics. They're looked up only while Now Playing is open (where the tab
+// lives), so songs played in the background cost no lyrics request. Set false to switch the feature off.
+const LYRICS_ENABLED = true;
+function paintLyricsTab() {
+  const tab = document.querySelector('.npx-tab[data-p="lyrics"]'); if (!tab) return;
+  const t = state.queue[state.qi];
+  const has = LYRICS_ENABLED && !!t && !t.kind && _ly.key === lyKey(t) && !_ly.loading && !_ly.none;
+  tab.hidden = !has;
+  if (!has && lyricsOpen() && !_ly.loading) npxTab("queue"); // the next song has none — don't strand them on an empty pane
+}
 function npxTab(p) {
   if (p === "lyrics" && !LYRICS_ENABLED) p = "queue";
   document.querySelectorAll(".npx-tab").forEach((b) => b.classList.toggle("on", b.dataset.p === p));
@@ -5117,14 +5166,16 @@ function parseLRC(text) {
   return out.sort((a, b) => a.t - b.t);
 }
 async function loadLyrics(force) {
+  if (!LYRICS_ENABLED) return;
   const box = el("npLyrics"); if (!box) return;
   const t = state.queue[state.qi];
-  if (!t) { _ly = { key: "", synced: null, plain: "", loading: false, none: false, cur: -1 }; box.innerHTML = '<div class="ly-msg">Nothing playing.</div>'; return; }
+  if (!t) { _ly = { key: "", synced: null, plain: "", loading: false, none: false, cur: -1 }; box.innerHTML = '<div class="ly-msg">Nothing playing.</div>'; paintLyricsTab(); return; }
   // A shiur has no lyrics, and /lyrics is a Worker route — asking it would spend a request to be told so.
-  if (t.kind) { _ly = { key: "", synced: null, plain: "", loading: false, none: true, cur: -1 }; box.innerHTML = '<div class="ly-msg">No lyrics for a shiur.</div>'; return; }
+  if (t.kind) { _ly = { key: "", synced: null, plain: "", loading: false, none: true, cur: -1 }; box.innerHTML = '<div class="ly-msg">No lyrics for a shiur.</div>'; paintLyricsTab(); return; }
   const key = lyKey(t);
-  if (key === _ly.key && !force) { renderLyrics(); return; }
+  if (key === _ly.key && !force) { renderLyrics(); paintLyricsTab(); return; }
   _ly = { key, synced: null, plain: "", loading: true, none: false, cur: -1 };
+  paintLyricsTab(); // hidden until we know this song has lyrics
   box.innerHTML = '<div class="ly-msg">Loading lyrics…</div>';
   const qs = "artist=" + encodeURIComponent(t.artist || "") + "&title=" + encodeURIComponent(t.title || "") + (t.durationSec ? "&duration=" + Math.round(t.durationSec) : "");
   let d = null; try { d = await fetchJSON("/lyrics?" + qs); } catch {}
@@ -5133,7 +5184,7 @@ async function loadLyrics(force) {
   if (d && d.synced) _ly.synced = parseLRC(d.synced);
   if (d && d.plain) _ly.plain = String(d.plain).trim();
   _ly.none = !(_ly.synced && _ly.synced.length) && !_ly.plain;
-  renderLyrics();
+  renderLyrics(); paintLyricsTab();
 }
 function renderLyrics() {
   const box = el("npLyrics"); if (!box) return;
@@ -5157,7 +5208,10 @@ function paintLyricLine(c) {
   _ly.cur = idx;
   const rows = box.querySelectorAll(".ly-line");
   rows.forEach((r, i) => r.classList.toggle("cur", i === idx));
-  if (idx >= 0 && rows[idx]) rows[idx].scrollIntoView({ block: "center", behavior: "smooth" });
+  // Scroll only the lyrics box. scrollIntoView() would also scroll every ancestor — including #now, whose
+  // scaled blurred backdrop gives it overflow — so a line it can't center (the last ones) shoves the view up.
+  const r = rows[idx];
+  if (r) box.scrollTo({ top: box.scrollTop + r.getBoundingClientRect().top - box.getBoundingClientRect().top - (box.clientHeight - r.offsetHeight) / 2, behavior: "smooth" });
 }
 // Drop the upcoming queue, keeping the track that's playing. cueNext() re-primes gapless off the new tail.
 function clearQueue() {
@@ -5167,7 +5221,7 @@ function clearQueue() {
   if (state.nowOpen) paintQueue();
   showToast("Cleared what was coming up.", 1800);
 }
-function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); const au = el("npAuto"); if (au) au.checked = radioAutoplay(); paintShuffleUI(); paintSleepUI(); paintCrossfadeUI(); paintQueue(); if (lyricsOpen()) loadLyrics(); paintMVButton(); mvPaint(); }
+function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); const au = el("npAuto"); if (au) au.checked = radioAutoplay(); paintShuffleUI(); paintSleepUI(); paintCrossfadeUI(); paintQueue(); loadLyrics(); paintMVButton(); mvPaint(); }
 function closeNow() { state.nowOpen = false; el("now").classList.remove("on"); mvPaint(); }
 function saveRecent(t) { try { const h = readRecent().filter((x) => x.videoId !== t.videoId); h.unshift({ videoId: t.videoId, title: t.title, artist: t.artist, explicit: t.explicit, isVideo: t.isVideo }); localStorage.setItem("zw_recent", JSON.stringify(h.slice(0, 80))); } catch {} acctSyncRecents(); }
 function toggleMute() { PB.setMuted(!PB.muted); el("vol").value = PB.muted ? 0 : Math.round(PB.vol * 100); paintSeek(el("vol")); }
@@ -6613,8 +6667,19 @@ async function sbRpc(fn, args) { try { const body = JSON.stringify(args || {}); 
 // catch and returned null, i.e. reported success as failure. Callers can now trust a null.
 
 // --- session persistence ---
-function saveSession() { try { acct.session ? localStorage.setItem("zw_sb", JSON.stringify(acct.session)) : localStorage.removeItem("zw_sb"); } catch {} }
-function restoreSession() { try { acct.session = JSON.parse(localStorage.getItem("zw_sb") || "null"); } catch { acct.session = null; } }
+function saveSession() { try { acct.session ? localStorage.setItem("zw_sb", JSON.stringify(acct.session)) : localStorage.removeItem("zw_sb"); } catch {} syncAuthCookie(); }
+function restoreSession() { try { acct.session = JSON.parse(localStorage.getItem("zw_sb") || "null"); } catch { acct.session = null; } syncAuthCookie(); }
+// The Worker's security layer (engine/security.mjs) reads who is signed in from this cookie: it verifies the
+// Supabase token's signature itself, so a signed-in account gets the higher rate limit and is let in from a
+// datacenter/VPN network that blocks anonymous traffic. Same-origin only; it lives exactly as long as the token.
+function syncAuthCookie() {
+  try {
+    const at = acct.session && acct.session.access_token;
+    let ttl = 0;
+    if (at) { try { const b = at.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"); const c = JSON.parse(atob(b + "===".slice((b.length + 3) % 4))); ttl = Math.max(0, (c.exp || 0) - Math.floor(Date.now() / 1000)); } catch { ttl = 0; } }
+    document.cookie = ttl > 0 ? `sk_at=${at}; Path=/; Max-Age=${ttl}; Secure; SameSite=Lax` : "sk_at=; Path=/; Max-Age=0; Secure; SameSite=Lax";
+  } catch {}
+}
 // Email-confirmation / magic-link / OAuth deliver the session in the URL hash (#access_token=…&refresh_token=…).
 // Consume it into a session, decode the user from the JWT, and strip it from the address bar.
 function consumeAuthHash() {
@@ -7198,6 +7263,7 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   else if (path === "/" || PATH_TAB[path]) { go(PATH_TAB[path] || "home", true); }
   else { history.replaceState({}, "", "/"); go("home", true); history.pushState({}, "", path + qs); applyRoute(location.href); }
   track("load"); // first pageview
+  setTimeout(maybeShowAccountNotice, 4000);
   setTimeout(maybeShowInstallTip, 3500); // iOS-only Add-to-Home-Screen tip, after the app has settled
   setTimeout(function(){ window.__appReady && window.__appReady(); }, 4500); // safety: never let the splash stick
   // Warm the search/detail dataset in the background so the first artist/song click is instant.
