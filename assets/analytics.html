@@ -134,7 +134,24 @@
   .nr-col{flex:1;display:flex;flex-direction:column;min-height:3px;border-radius:4px 4px 0 0;overflow:hidden}
   .nr-new{background:var(--accent2)}
   .nr-ret{background:var(--good)}
-  @media(max-width:860px){.stats{grid-template-columns:1fr 1fr}.cols,.cols3{grid-template-columns:1fr}.legend{grid-template-columns:1fr}}
+  /* ---------- security view ---------- */
+  .sec-pills{display:flex;gap:4px;flex-wrap:wrap}
+  .spill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.2px;background:rgba(255,93,107,.14);color:var(--accent)}
+  .spill.rl{background:rgba(245,181,68,.16);color:var(--gold)}
+  .spill.dc{background:rgba(251,146,60,.18);color:#fb923c}
+  .spill.ab{background:rgba(167,139,250,.16);color:var(--violet)}
+  .sec-form{display:flex;flex-direction:column;gap:10px;margin-top:0}
+  .sec-form .row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}
+  .sec-form select{flex:0 0 90px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:9px 10px;font-size:13px;outline:none;cursor:pointer}
+  .sec-form select:focus{border-color:var(--accent2)}
+  .sec-form .err{color:var(--accent);font-size:12px;min-height:16px}
+  .abtn{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .abtn:hover{color:var(--text);border-color:#2c3d63}
+  .abtn.danger{border-color:rgba(255,93,107,.4);color:var(--accent)}
+  .abtn.danger:hover{background:rgba(255,93,107,.1)}
+  .abtn.primary{background:var(--accent2);border-color:var(--accent2);color:#fff}
+  .abtn.primary:hover{filter:brightness(1.1)}
+  @media(max-width:860px){.stats{grid-template-columns:1fr 1fr}.cols,.cols3{grid-template-columns:1fr}.legend{grid-template-columns:1fr}.sec-form .row{flex-direction:column}}
 </style>
 </head>
 <body>
@@ -166,6 +183,10 @@
     <div class="t"><span class="brand"><span class="dot" style="width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 16px var(--accent);display:inline-block"></span></span>
       <h1>Analytics</h1><span class="who" id="who"></span></div>
     <div class="spacer"></div>
+    <div class="seg" id="viewSeg">
+      <button data-v="analytics" class="on">Analytics</button>
+      <button data-v="security">Security</button>
+    </div>
     <div class="seg" id="range">
       <button data-h="24">24h</button>
       <button data-h="168" class="on">7d</button>
@@ -242,6 +263,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 const num = (n) => (n ?? 0).toLocaleString('en-US');
 let RANGE_H = 168, timer = null;
+let VIEW = (() => { try { const v = localStorage.getItem('sk_an_view'); return v === 'security' ? 'security' : 'analytics'; } catch { return 'analytics'; } })();
 // Which traffic the page counts: 'human' (default) | 'bot' | 'all'. Remembered per browser.
 let TRAFFIC = (() => { try { const t = localStorage.getItem('sk_an_traffic'); return ['human', 'bot', 'all'].includes(t) ? t : 'human'; } catch { return 'human'; } })();
 // Mirror of public.is_bot_ua() in supabase/analytics-bot-split.sql — keep the two lists in step. Used only on
@@ -318,6 +340,8 @@ $('range').addEventListener('click', (e) => {
   b.classList.add('on'); RANGE_H = +b.dataset.h; load();
 });
 [...$('traffic').children].forEach((b) => b.classList.toggle('on', b.dataset.t === TRAFFIC));
+[...$('viewSeg').children].forEach((b) => b.classList.toggle('on', b.dataset.v === VIEW));
+if (VIEW === 'security') $('traffic').style.display = 'none';
 $('traffic').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b || b.dataset.t === TRAFFIC) return;
   [...$('traffic').children].forEach((x) => x.classList.toggle('on', x === b));
@@ -325,6 +349,13 @@ $('traffic').addEventListener('click', (e) => {
   load();
 });
 $('refreshBtn').addEventListener('click', () => load(true)); // incremental (new rows only)
+$('viewSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b || b.dataset.v === VIEW) return;
+  [...$('viewSeg').children].forEach((x) => x.classList.toggle('on', x === b));
+  VIEW = b.dataset.v; try { localStorage.setItem('sk_an_view', VIEW); } catch {}
+  $('traffic').style.display = VIEW === 'security' ? 'none' : 'inline-flex';
+  load();
+});
 
 /* ---------- data ---------- */
 // Fast path: one server-side aggregation RPC (dashboard_summary) returns every stat/panel as compact JSONB in a
@@ -332,6 +363,7 @@ $('refreshBtn').addEventListener('click', () => load(true)); // incremental (new
 // shape, a throw while mapping/rendering), aggregate client-side (loadClientSide) exactly as before. Net: output
 // is identical to today, and fast once supabase/dashboard-summary.sql is applied.
 async function load(incremental) {
+  if (VIEW === 'security') { await loadSecurity(); return; }
   try {
     await loadSummary();
     console.log('[analytics] fast path: dashboard_summary RPC');
@@ -865,6 +897,239 @@ function renderTable() {
       <thead><tr><th>Time</th><th>Event</th><th>Who</th><th>Path / detail</th><th>Browser</th><th>Device</th><th>Location</th><th>IP</th></tr></thead>
       <tbody>${recent}</tbody></table>` : '<div class="empty">No matching events. Browse the site (hard-refresh once so the latest code loads), then Refresh.</div>'}</div>`;
 }
+
+/* ---------- security view ---------- */
+function secKindClass(k) {
+  if (k === 'rate_limited') return 'rl';
+  if (k === 'datacenter_block') return 'dc';
+  if (k === 'auto_ban' || k === 'banned_hit') return 'ab';
+  return '';
+}
+function secKindPills(kinds) {
+  if (!kinds || !kinds.length) return '<span style="color:var(--dim)">—</span>';
+  return '<div class="sec-pills">' + kinds.map((k) => '<span class="spill ' + secKindClass(k) + '">' + esc(k) + '</span>').join('') + '</div>';
+}
+
+async function loadSecurity() {
+  $('content').innerHTML = '<div class="loading">Loading security data…</div>';
+  try {
+    const data = await sbRpc('security_overview', { p_hours: RANGE_H });
+    paintSecurity(data);
+  } catch (e) {
+    const msg = (e && e.message) || '';
+    if (/could not find the function|schema cache/i.test(msg)) {
+      $('content').innerHTML = '<div class="panel" style="margin-top:24px"><div class="empty" style="padding:40px">Security tables aren’t set up yet — run <code style="font-family:monospace;background:var(--bg2);padding:2px 6px;border-radius:4px">supabase/security.sql</code> to deploy them.</div></div>';
+    } else {
+      $('content').innerHTML = '<div class="empty" style="padding:60px">' + esc(msg) + '</div>';
+    }
+  }
+}
+
+function paintSecurity(data) {
+  const ebk = new Map((data.events_by_kind || []).map(([k, n]) => [k, n]));
+  const rl = ebk.get('rate_limited') || 0;
+  const dc = ebk.get('datacenter_block') || 0;
+  const ab = ebk.get('auto_ban') || 0;
+  const bh = ebk.get('banned_hit') || 0;
+  const bans = data.active_bans || [];
+  const rb = +(data.report_blocks) || 0;
+  const hl = RANGE_H > 0 ? RANGE_H + 'h' : 'all time';
+  const hourSamples = (data.events_hourly || []).map(([h, n]) => [new Date(h).getTime(), n]);
+
+  const tiles = `<div class="grid stats">
+  <div class="stat d"><div class="k">Rate-limit events</div><div class="v mono">${num(rl)}</div><div class="s">requests throttled \xb7 ${hl}</div></div>
+  <div class="stat" style="border-top:2px solid #fb923c"><div class="k">Datacenter blocks</div><div class="v mono">${num(dc)}</div><div class="s">anon datacenter IPs blocked</div></div>
+  <div class="stat" style="border-top:2px solid var(--violet)"><div class="k">Auto-bans issued</div><div class="v mono">${num(ab)}</div><div class="s">escalation bans triggered</div></div>
+  <div class="stat b"><div class="k">Active bans</div><div class="v mono">${num(bans.length)}</div><div class="s">currently blocked</div></div>
+  <div class="stat a"><div class="k">Report blocks</div><div class="v mono">${num(rb)}</div><div class="s">cap hit this window</div></div>
+</div>`;
+
+  const charts = `<div class="grid cols" style="margin-top:14px">
+  <div class="panel"><h3>Security events over time <span class="n">${hl}</span></h3>${timeChart(hourSamples)}</div>
+  <div class="panel"><h3>Events by kind</h3>${barList(data.events_by_kind || [], 'rose')}</div>
+</div>`;
+
+  const fips = data.flagged_ips || [];
+  const ipRows = fips.length
+    ? fips.map((r) => `<tr>
+  <td class="mono" style="color:var(--text)">${esc(r.ip || '—')}</td>
+  <td class="mono">${num(r.events)}</td>
+  <td>${secKindPills(r.kinds)}</td>
+  <td class="mono">${r.asn != null ? esc(String(r.asn)) : '—'}</td>
+  <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${esc(r.as_org || '—')}</td>
+  <td class="mono">${r.last_seen ? esc(new Date(r.last_seen).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—'}</td>
+  <td><button class="abtn primary" data-action="allowlist-ip" data-value="${esc(r.ip || '')}">Allowlist</button></td>
+</tr>`).join('')
+    : `<tr><td colspan="7" class="empty" style="padding:24px">No flagged IPs in this window</td></tr>`;
+
+  const flaggedIpTable = `<div class="tablewrap" style="margin-top:14px">
+  <h3>Flagged IPs <span style="color:var(--dim);font-weight:600;font-size:11px">top 50 by events</span></h3>
+  <div class="scroll"><table>
+    <thead><tr><th>IP</th><th>Events</th><th>Kinds</th><th>ASN</th><th>Org</th><th>Last seen</th><th></th></tr></thead>
+    <tbody>${ipRows}</tbody>
+  </table></div>
+</div>`;
+
+  const faccts = data.flagged_accounts || [];
+  const acctRows = faccts.length
+    ? faccts.map((r) => `<tr>
+  <td style="color:var(--text)">${esc(r.email || '—')}</td>
+  <td class="mono">${num(r.events)}</td>
+  <td>${secKindPills(r.kinds)}</td>
+  <td class="mono">${r.last_seen ? esc(new Date(r.last_seen).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—'}</td>
+  <td><button class="abtn primary" data-action="allowlist-email" data-value="${esc(r.email || '')}">Allowlist</button></td>
+</tr>`).join('')
+    : `<tr><td colspan="5" class="empty" style="padding:24px">No flagged accounts in this window</td></tr>`;
+
+  const flaggedAcctTable = `<div class="tablewrap" style="margin-top:14px">
+  <h3>Flagged accounts <span style="color:var(--dim);font-weight:600;font-size:11px">top 50 by events</span></h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Email</th><th>Events</th><th>Kinds</th><th>Last seen</th><th></th></tr></thead>
+    <tbody>${acctRows}</tbody>
+  </table></div>
+</div>`;
+
+  const banRows = bans.length
+    ? bans.map((r) => `<tr>
+  <td class="mono" style="color:var(--muted)">${esc(String(r.id))}</td>
+  <td class="mono" style="color:var(--text)">${esc(r.ip || '—')}</td>
+  <td>${esc(r.email || (r.user_id ? String(r.user_id).slice(0, 8) + '…' : '—'))}</td>
+  <td>${esc(r.reason || '—')}</td>
+  <td class="mono">${esc(String(r.level || 1))}</td>
+  <td class="mono">${r.until ? esc(new Date(r.until).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—'}</td>
+  <td><button class="abtn danger" data-action="unban" data-id="${esc(String(r.id))}">Unban</button></td>
+</tr>`).join('')
+    : `<tr><td colspan="7" class="empty" style="padding:24px">No active bans</td></tr>`;
+
+  const bansTable = `<div class="tablewrap" style="margin-top:14px">
+  <h3>Active bans</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>ID</th><th>IP</th><th>Account</th><th>Reason</th><th>Level</th><th>Until</th><th></th></tr></thead>
+    <tbody>${banRows}</tbody>
+  </table></div>
+</div>`;
+
+  const revts = data.recent_events || [];
+  const revRows = revts.length
+    ? revts.slice(0, 100).map((r) => `<tr>
+  <td class="mono">${r.created_at ? esc(new Date(r.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—'}</td>
+  <td><span class="pill ev-blocked">${esc(r.kind || '—')}</span></td>
+  <td class="mono">${esc(r.ip || '—')}</td>
+  <td>${esc(r.email || '—')}</td>
+  <td class="mono">${r.asn != null ? esc(String(r.asn)) : '—'}</td>
+  <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">${esc(r.as_org || '—')}</td>
+  <td class="path">${esc(r.path || '—')}</td>
+  <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;color:var(--dim)">${esc((r.ua || '').slice(0, 80))}</td>
+</tr>`).join('')
+    : `<tr><td colspan="8" class="empty" style="padding:24px">No recent security events</td></tr>`;
+
+  const recentTable = `<div class="tablewrap" style="margin-top:14px">
+  <h3>Recent security events <span style="color:var(--dim);font-weight:600;font-size:11px">latest 100</span></h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Time</th><th>Kind</th><th>IP</th><th>Email</th><th>ASN</th><th>Org</th><th>Path</th><th>User-agent</th></tr></thead>
+    <tbody>${revRows}</tbody>
+  </table></div>
+</div>`;
+
+  const allist = data.allowlist || [];
+  const alRows = allist.length
+    ? allist.map((r) => `<tr>
+  <td><span class="pill" style="background:rgba(52,211,153,.14);color:var(--good)">${esc(r.kind || '—')}</span></td>
+  <td class="mono" style="color:var(--text)">${esc(r.value || '—')}</td>
+  <td style="color:var(--muted)">${esc(r.note || '')}</td>
+  <td class="mono">${r.created_at ? esc(new Date(r.created_at).toLocaleString([], { month: 'short', day: 'numeric' })) : '—'}</td>
+  <td><button class="abtn danger" data-action="allow-remove" data-id="${esc(String(r.id))}" data-value="${esc(r.value || '')}">Remove</button></td>
+</tr>`).join('')
+    : `<tr><td colspan="5" class="empty" style="padding:24px">Allowlist is empty</td></tr>`;
+
+  const allowlistPanel = `<div class="tablewrap" style="margin-top:14px">
+  <h3>Allowlist</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Kind</th><th>Value</th><th>Note</th><th>Added</th><th></th></tr></thead>
+    <tbody>${alRows}</tbody>
+  </table></div>
+  <div style="padding:16px 18px;border-top:1px solid var(--line)">
+    <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Add to allowlist</div>
+    <div class="sec-form">
+      <div class="row">
+        <select data-field="kind"><option value="ip">IP</option><option value="email">Email</option></select>
+        <input data-field="value" type="text" placeholder="1.2.3.4 or user@example.com" autocomplete="off" spellcheck="false" style="flex:1;min-width:160px" />
+        <input data-field="note" type="text" placeholder="Note (optional)" autocomplete="off" style="flex:1;min-width:120px" />
+        <button class="abtn primary" data-action="allowlist-submit">Add</button>
+      </div>
+      <div class="err"></div>
+    </div>
+  </div>
+</div>`;
+
+  $('content').innerHTML = tiles + charts + flaggedIpTable + flaggedAcctTable + bansTable + recentTable + allowlistPanel;
+}
+
+/* ---------- security action listener (delegated on #content) ---------- */
+$('content').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn || btn.disabled) return;
+  const action = btn.dataset.action;
+
+  if (action === 'allowlist-ip' || action === 'allowlist-email') {
+    const kind = action === 'allowlist-ip' ? 'ip' : 'email';
+    const value = btn.dataset.value || '';
+    if (!value) return;
+    if (!confirm('Add ' + kind + ' “' + value + '” to the allowlist?')) return;
+    btn.disabled = true;
+    try {
+      await sbRpc('security_allow_add', { p_kind: kind, p_value: value, p_note: '' });
+      await loadSecurity();
+    } catch (err) { alert('Error: ' + ((err && err.message) || 'unknown')); btn.disabled = false; }
+    return;
+  }
+
+  if (action === 'unban') {
+    const id = +btn.dataset.id;
+    if (!confirm('End this ban now?')) return;
+    btn.disabled = true;
+    try {
+      await sbRpc('security_unban', { p_id: id });
+      await loadSecurity();
+    } catch (err) { alert('Error: ' + ((err && err.message) || 'unknown')); btn.disabled = false; }
+    return;
+  }
+
+  if (action === 'allow-remove') {
+    const id = +btn.dataset.id;
+    const value = btn.dataset.value || '';
+    if (!confirm('Remove “' + value + '” from the allowlist?')) return;
+    btn.disabled = true;
+    try {
+      await sbRpc('security_allow_remove', { p_id: id });
+      await loadSecurity();
+    } catch (err) { alert('Error: ' + ((err && err.message) || 'unknown')); btn.disabled = false; }
+    return;
+  }
+
+  if (action === 'allowlist-submit') {
+    const form = btn.closest('.sec-form');
+    if (!form) return;
+    const kind = form.querySelector('[data-field="kind"]').value;
+    const value = (form.querySelector('[data-field="value"]').value || '').trim();
+    const note = (form.querySelector('[data-field="note"]').value || '').trim();
+    const errEl = form.querySelector('.err');
+    if (!value) { errEl.textContent = 'Enter a value.'; return; }
+    if (kind === 'ip') {
+      const ok4 = /^(\d{1,3}\.){3}\d{1,3}$/.test(value) && value.split('.').every((p) => +p <= 255);
+      const ok6 = value.includes(':') && /^[0-9a-fA-F:]+$/.test(value);
+      if (!ok4 && !ok6) { errEl.textContent = 'Not a valid IPv4 or IPv6 address.'; return; }
+    } else {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) { errEl.textContent = 'Not a valid email address.'; return; }
+    }
+    errEl.textContent = '';
+    btn.disabled = true;
+    try {
+      await sbRpc('security_allow_add', { p_kind: kind, p_value: value, p_note: note });
+      await loadSecurity();
+    } catch (err) { errEl.textContent = 'Error: ' + esc((err && err.message) || 'unknown'); btn.disabled = false; }
+  }
+});
 
 boot();
 </script>
