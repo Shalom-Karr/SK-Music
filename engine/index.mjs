@@ -1355,6 +1355,7 @@ async function handleRadio(request, url) {
 // are immutable per song, so a hit is edge-cached for a week. A miss (404 upstream) is a normal
 // outcome, not an error — it returns nulls at 200 and is only cached briefly, since a song not yet
 // on LRCLIB today may be synced there tomorrow.
+const LYRICS_ENABLED = false;
 async function handleLyrics(request, url, ctx) {
   if (request.method !== "GET")
     return Response.json({ error: "method not allowed" }, { status: 405, headers: { "Cache-Control": "no-store" } });
@@ -1819,7 +1820,8 @@ export default {
     if (pathname === "/stations") return handleStations(request, url, ctx);
     if (pathname === "/station") return handleStation(request, url);
     if (pathname === "/stations/cover") return handleStationCover(request, url, ctx);
-    if (pathname === "/lyrics") return handleLyrics(request, url, ctx);
+    // Lyrics are switched OFF (copyrighted third-party text, and an open proxy to LRCLIB). Flip to true to restore.
+    if (pathname === "/lyrics") return LYRICS_ENABLED ? handleLyrics(request, url, ctx) : new Response("Not found", { status: 404 });
     if (pathname.startsWith("/statuses/")) return handleStatuses(request, url, ctx);
     if (pathname === "/trending") {
       // Content negotiation: browser navigations (Accept: text/html) get the human-readable charts

@@ -1255,7 +1255,7 @@ fill="url(#royal)" stroke="none">
       </div>
     </div>
     <div class="np-upnext">
-      <div class="npx-head"><button class="npx-tab on" data-p="queue" onclick="npxTab('queue')">Up Next</button><button class="npx-tab" data-p="lyrics" onclick="npxTab('lyrics')">Lyrics</button><label class="np-auto" title="Keep playing similar songs when the queue ends"><input type="checkbox" id="npAuto" onchange="setRadioAutoplay(this.checked)"><span>Autoplay</span></label><button class="npx-clear" onclick="clearQueue()" title="Clear the upcoming queue" aria-label="Clear the upcoming queue">Clear</button></div>
+      <div class="npx-head"><button class="npx-tab on" data-p="queue" onclick="npxTab('queue')">Up Next</button><button class="npx-tab" data-p="lyrics" onclick="npxTab('lyrics')" hidden>Lyrics</button><label class="np-auto" title="Keep playing similar songs when the queue ends"><input type="checkbox" id="npAuto" onchange="setRadioAutoplay(this.checked)"><span>Autoplay</span></label><button class="npx-clear" onclick="clearQueue()" title="Clear the upcoming queue" aria-label="Clear the upcoming queue">Clear</button></div>
       <div class="npx-pane on" id="npPaneQueue"><div class="rows" id="npQueue"></div></div>
       <div class="npx-pane" id="npPaneLyrics"><div class="lyrics" id="npLyrics"></div></div>
     </div>
@@ -5092,7 +5092,11 @@ function seekBy(d) {
 // sorted [{t,text}] parsed from LRC; .plain is unsynced text; .none means the fetch found nothing.
 let _ly = { key: "", synced: null, plain: "", loading: false, none: false, cur: -1 };
 function lyKey(t) { return t ? (t.artist || "") + "\n" + (t.title || "") : ""; }
+// Lyrics are switched OFF (the tab above is hidden and the Worker's /lyrics returns 404). Set true and remove
+// the tab's `hidden` attribute to restore.
+const LYRICS_ENABLED = false;
 function npxTab(p) {
+  if (p === "lyrics" && !LYRICS_ENABLED) p = "queue";
   document.querySelectorAll(".npx-tab").forEach((b) => b.classList.toggle("on", b.dataset.p === p));
   el("npPaneQueue").classList.toggle("on", p === "queue");
   el("npPaneLyrics").classList.toggle("on", p === "lyrics");

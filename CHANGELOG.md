@@ -11,6 +11,10 @@ spike) were being counted as visitors, sessions and plays.
 - A new **Bot traffic** card shows what share of the range was bots and which crawlers they were.
 - The recent-events table and the filter-blocked panel follow the switch too.
 
+**Lyrics removed**
+- The **Lyrics** tab in Now Playing is gone for now. Lyrics are copyrighted text from a third-party
+  database, served through our own server; until that is settled, it is switched off.
+
 ## 1.9.3 — 2026-10-05 (web)
 
 **Why the bump:** the analytics page's **All** range failed — the summary timed out on the server, and the
