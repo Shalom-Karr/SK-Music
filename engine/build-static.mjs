@@ -51,7 +51,15 @@ const CANON_JS = `<script>(function(){try{var c=${JSON.stringify(CANON_HOST)},h=
   + `location.replace("https://"+c+location.pathname+location.search+location.hash);}catch(e){}})();</script>`;
 
 // ── file helpers ──────────────────────────────────────────────────────────────
-const rmrf = (p) => fs.rmSync(p, { recursive: true, force: true });
+// Windows refuses to delete a directory some process holds open (a local `wrangler dev`, an editor's file
+// watcher) with EPERM/EBUSY, even once it is empty; emptying it in place gives the same clean slate.
+const rmrf = (p) => {
+  try { fs.rmSync(p, { recursive: true, force: true }); }
+  catch (e) {
+    if (!["EPERM", "EBUSY"].includes(e.code) || !fs.existsSync(p) || !fs.statSync(p).isDirectory()) throw e;
+    for (const n of fs.readdirSync(p)) fs.rmSync(path.join(p, n), { recursive: true, force: true });
+  }
+};
 
 // Recursive file count under a dir — used to keep the build under Cloudflare's 20,000-asset limit.
 const countFiles = (dir) => fs.readdirSync(dir, { withFileTypes: true })
