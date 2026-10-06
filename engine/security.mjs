@@ -385,14 +385,13 @@ function banUntil(st, ip, identity, now) {
   return until;
 }
 
-// A "trip" is one limit-exceeded episode, not every rejected request: further 429s for the same key
-// within 10s (from either limiter — a flood that trips the burst limiter usually trips the minute one
-// too) belong to the same episode. Sustained hammering therefore trips once per 10s (ban after ~30s),
-// while one over-eager page load trips once.
-const TRIP_EPISODE = 10e3;
-function recordTrip(env, ctx, key, binding, ip, identity) {
+// A "trip" is one limit-exceeded episode, not every rejected request: further 429s for the same key within
+// the tripped limiter's own window belong to the same episode. A flood keeps re-tripping the 10s burst
+// limiter (ban after ~30s); a person clicking past the per-minute limit trips at most once a minute, so
+// it takes three separate over-limit minutes inside 10 minutes to ban them.
+function recordTrip(env, ctx, key, binding, ip, identity, period) {
   const now = _t.now();
-  if (now - (lastTrip.get(key) || 0) < TRIP_EPISODE) return;
+  if (now - (lastTrip.get(key) || 0) < (period || 10) * 1000) return;
   lastTrip.set(key, now);
   prune(lastTrip, TRIP_WINDOW, now);
   const list = (trips.get(key) || []).filter((t) => now - t < TRIP_WINDOW);
@@ -523,7 +522,7 @@ export async function securityGate(request, env, ctx, url) {
     if (!tripped) return null;
     const [binding, period] = tripped;
     logEvent(env, ctx, "rate_limited", who, { ...ev, detail: { limiter: binding, class: cls } });
-    recordTrip(env, ctx, who, binding, ip, identity);
+    recordTrip(env, ctx, who, binding, ip, identity, period);
     return blockResponse(request, 429, { error: "rate_limited", retryAfter: period }, period);
   } catch {
     return null; // fail open: a bug or infrastructure error here must never take the site down

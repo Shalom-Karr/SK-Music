@@ -28,8 +28,8 @@
     { "name": "RL_ACCT_BURST", "namespace_id": "7101", "simple": { "limit": 45, "period": 10 } },
     { "name": "RL_ACCT_MIN", "namespace_id": "7102", "simple": { "limit": 120, "period": 60 } },
     { "name": "RL_ANON_BURST", "namespace_id": "7103", "simple": { "limit": 15, "period": 10 } },
-    { "name": "RL_ANON_MIN", "namespace_id": "7104", "simple": { "limit": 40, "period": 60 } },
-    { "name": "RL_DC_MIN", "namespace_id": "7105", "simple": { "limit": 15, "period": 60 } },
+    { "name": "RL_ANON_MIN", "namespace_id": "7104", "simple": { "limit": 20, "period": 60 } },
+    { "name": "RL_DC_MIN", "namespace_id": "7105", "simple": { "limit": 10, "period": 60 } },
     // POST /unblock-request (blocked visitors asking for review), per IP.
     { "name": "RL_CONTACT", "namespace_id": "7106", "simple": { "limit": 3, "period": 60 } }
   ],

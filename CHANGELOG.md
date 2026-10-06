@@ -19,6 +19,13 @@ accounts become required.
   every request — the Worker's limits, the edge limit on catalog files, and the catalog engine's background
   thread — where before only some API calls showed anything and the rest failed silently.
 
+**Stricter limits without an account**
+- Without an account: 20 requests a minute (was 40). On a datacenter network, even signed in: 10 a minute
+  (was 15). A normal visit uses about 6 at load and 1–2 per page, so real listeners stay well under.
+- Going over the per-minute limit counts as at most one "trip" a minute, so someone clicking quickly isn't
+  banned within seconds; it takes three separate over-limit minutes in 10 minutes. Floods still trip the
+  10-second limit and are banned in about 30 seconds.
+
 **Security: fewer false positives**
 - Content-filter proxies (Techloq US/UK, NetFree-style CloudWebManage, DataVerge, PV-Hosted, PureVoltage)
   carry many real listeners per IP and are never treated as datacenter traffic.
