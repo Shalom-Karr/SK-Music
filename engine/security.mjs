@@ -40,6 +40,18 @@ const DC_ASNS = new Set([
   203020, // HostRoyale
   7979, // Servers.com
   199524, // G-Core
+  20081, // Net2Atlanta (vulnerability scanner seen in production)
+  209366, // Semrush crawler
+]);
+
+// Content-filter proxies (Techloq, NetFree, …). Each egress IP carries many real listeners, and several sit
+// on hosting networks — CLOUDWEBMANAGE-IL would match DC_ORG_RX — so they are never treated as datacenter.
+// From Radar lookups of the busiest production IPs (Oct 2026); add new ones from the Security tab.
+const FILTER_ASNS = new Set([
+  402239, 397263, 211476, // Techloq US / US-02 / UK
+  44709, // CloudWebManage IL
+  395383, // DataVerge (Brooklyn)
+  208172, 26548, // PV-Hosted, PureVoltage
 ]);
 const DC_ORG_RX = /hosting|datacenter|data center|cloud|server|vps|colo/i;
 const DC_ORG_EXCLUDE_RX = /cloudflare|akamai|fastly|apple|comcast|verizon|t-mobile|at&t|charter|spectrum|cox|frontier|bezeq|partner|hot-net|cellcom|vodafone|bt |sky|virgin|orange|telekom/i;
@@ -50,6 +62,7 @@ const DC_ORG_EXCLUDE_RX = /cloudflare|akamai|fastly|apple|comcast|verizon|t-mobi
 export function datacenterReason(cf) {
   if (!cf) return null;
   const asn = Number(cf.asn);
+  if (FILTER_ASNS.has(asn)) return null;
   if (asn && DC_ASNS.has(asn)) return { reason: "hosting_asn", asn };
   const org = typeof cf.asOrganization === "string" ? cf.asOrganization : "";
   if (org && DC_ORG_RX.test(org) && !DC_ORG_EXCLUDE_RX.test(org)) return { reason: "hosting_org", as_org: org.slice(0, 200) };
@@ -143,12 +156,15 @@ function loadCrawlerRanges(url) {
 
 async function isVerifiedCrawler(cf, ua, ip) {
   if (cf && (cf.botManagement?.verifiedBot === true || cf.verifiedBotCategory)) return true;
-  const c = CRAWLERS.find((x) => x.rx.test(ua));
+  // No UA claim still counts from the engine's own ASN when the IP is in its published ranges: Bing renders
+  // pages with a plain "HeadlessChrome" UA from bingbot IPs.
+  const claimed = CRAWLERS.find((x) => x.rx.test(ua));
+  const c = claimed || CRAWLERS.find((x) => x.asn === Number(cf?.asn));
   if (!c) return false;
   const ipBytes = parseIp(ip);
   const nets = ipBytes ? await loadCrawlerRanges(c.url) : null;
   if (nets) return nets.some((n) => inNet(ipBytes, n));
-  return Number(cf?.asn) === c.asn;
+  return !!claimed && Number(cf?.asn) === c.asn;
 }
 
 // ─── Identity (Supabase ES256 access token) ───────────────────────────────────

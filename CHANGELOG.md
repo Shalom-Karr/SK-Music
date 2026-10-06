@@ -13,6 +13,15 @@ accounts become required.
 - Recorded as `acct_notice` events (`meta.a` = `shown` · `signup` · `not_now` · `closed` · `created`).
   Sign-ups through Google from the popup's form aren't counted as `created` (the redirect leaves the page).
 
+**Security: fewer false positives**
+- Content-filter proxies (Techloq US/UK, NetFree-style CloudWebManage, DataVerge, PV-Hosted, PureVoltage)
+  carry many real listeners per IP and are never treated as datacenter traffic.
+- Bing renders pages with a plain `HeadlessChrome` user agent from its crawler IPs; those requests are
+  now recognised as Bing (by its published IP ranges) instead of being blocked as datacenter traffic.
+- Net2Atlanta (a vulnerability scanner) and Semrush are treated as datacenter traffic.
+- Edge rules are live (`docs/security-edge-rules.md`), scoped to `skmusic.shalomkarr.com` only. Sitemaps
+  stay public.
+
 ## 1.9.5 — 2026-10-05 (web)
 
 **Why the bump:** scraping and bot protection — rate limits, automatic and permanent bans, a datacenter

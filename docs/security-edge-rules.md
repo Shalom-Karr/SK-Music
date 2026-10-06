@@ -5,7 +5,10 @@ Cloudflare's asset layer and **never run the Worker**, so the Worker's rate limi
 block (`engine/security.mjs`) cannot see them. These zone rules protect them at the edge, before anything
 costs a Worker request. They are configured once in the dashboard (the deploy token has no WAF permission).
 
-Dashboard: **skmusic.shalomkarr.com zone → Security → WAF**. All fields used here are available on the
+The zone is all of `shalomkarr.com`, so every rule starts with `http.host eq "skmusic.shalomkarr.com"` — without it the rules would
+hit the other subdomains too.
+
+Dashboard: **shalomkarr.com zone → Security → WAF**. All fields used here are available on the
 Free plan (`ip.src.asnum` and `cf.client.bot` are all-plan fields).
 
 ## 1. Custom rule — block datacenters for anonymous traffic
@@ -16,10 +19,12 @@ Free plan (`ip.src.asnum` and `cf.client.bot` are all-plan fields).
 - Expression (Edit expression → paste):
 
 ```txt
-((ip.src.asnum in {16509 14618 8987 396982 19527 15169 8075 8068 14061 24940 213230 16276 63949 20473 31898 45102 37963 132203 45090 51167 40021 12876 60781 28753 9009 60068 40676 8100 47583 8560 36007 41436 203020 7979 199524})
+http.host eq "skmusic.shalomkarr.com"
+and ((ip.src.asnum in {16509 14618 8987 396982 19527 15169 8075 8068 14061 24940 213230 16276 63949 20473 31898 45102 37963 132203 45090 51167 40021 12876 60781 28753 9009 60068 40676 8100 47583 8560 36007 41436 203020 7979 199524 20081 209366})
   or ip.src.country in {"XX" "T1"})
 and starts_with(http.request.uri.path, "/data/")
 and not cf.client.bot
+and not ip.src in {<Bing crawler prefixes from https://www.bing.com/toolbox/bingbot.json>}
 and not http.cookie contains "sk_at="
 ```
 
@@ -48,7 +53,7 @@ Why each clause:
 **Rate limiting rules → Create rule** (the Free plan allows one)
 
 - Name: `Catalog files — per-IP rate limit`
-- If incoming requests match: `starts_with(http.request.uri.path, "/data/")`
+- If incoming requests match: `http.host eq "skmusic.shalomkarr.com" and starts_with(http.request.uri.path, "/data/")`
 - Characteristics: **IP**
 - When rate exceeds: **40 requests per 10 seconds**
 - Action: **Block** for **10 seconds** (the Free plan's fixed duration)
@@ -65,6 +70,7 @@ still counts as a Worker request. Blocking them at the edge is free.
 - Expression:
 
 ```txt
+http.host eq "skmusic.shalomkarr.com" and (
 lower(http.user_agent) contains "meta-externalagent" or lower(http.user_agent) contains "meta-externalfetcher"
 or lower(http.user_agent) contains "facebookbot" or lower(http.user_agent) contains "gptbot"
 or lower(http.user_agent) contains "oai-searchbot" or lower(http.user_agent) contains "chatgpt-user"
@@ -72,27 +78,29 @@ or lower(http.user_agent) contains "claudebot" or lower(http.user_agent) contain
 or lower(http.user_agent) contains "ccbot" or lower(http.user_agent) contains "bytespider"
 or lower(http.user_agent) contains "amazonbot" or lower(http.user_agent) contains "perplexitybot"
 or lower(http.user_agent) contains "diffbot" or lower(http.user_agent) contains "omgilibot"
+or lower(http.user_agent) contains "semrushbot" or lower(http.user_agent) contains "ahrefsbot"
+or lower(http.user_agent) contains "mj12bot" or lower(http.user_agent) contains "dotbot"
+or lower(http.user_agent) contains "dataforseobot" or lower(http.user_agent) contains "blexbot"
+or lower(http.user_agent) contains "petalbot" or lower(http.user_agent) contains "msie 6.0"
+)
 ```
 
 - Action: **Block**
 
-## 4. Custom rule — sitemaps for search engines only
+## Sitemaps stay public
 
-The sitemaps (`/sitemap.xml`, `/sitemap-songs-*.xml`, `/sitemap-albums.xml`, …) list every song, album and
-artist URL — ~6.4 MB that turns enumerating the whole catalog into one download. They exist for Google and
-Bing, so only verified crawlers get them.
+An earlier draft limited `/sitemap*` to verified crawlers. Dropped: the sitemaps hold only URLs, no song
+metadata, so they give a scraper nothing the site itself does not.
 
-- Name: `Sitemaps: verified crawlers only`
-- Expression:
+## Deployed state (Oct 2026)
 
-```txt
-starts_with(http.request.uri.path, "/sitemap") and not cf.client.bot
-```
-
-- Action: **Block**
-
-`robots.txt` still advertises the sitemap; Googlebot and Bingbot are `cf.client.bot` and fetch it as before.
-Search Console keeps working.
+All rules were created through the API (zone `767452491406ba434ab32ce820db1d78`): custom rules
+`SK Music: block datacenter / location-less networks on /data/ (anonymous)` and
+`SK Music: block AI / SEO crawlers and scanners`, rate-limit rule `SK Music: catalog files per-IP rate limit`.
+Bing renders pages with a plain `HeadlessChrome` UA from its crawler IPs and is not always `cf.client.bot`,
+hence the Bing prefix exclusion in rule 1. Content-filter proxies (Techloq ASNs 402239 / 397263 / 211476,
+CloudWebManage 44709, DataVerge 395383, PV-Hosted 208172, PureVoltage 26548) are not in the ASN set and
+are exempted in `engine/security.mjs` (`FILTER_ASNS`) — never add them.
 
 ## Checking it works
 
