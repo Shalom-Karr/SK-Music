@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.9.5 — 2026-10-05 (web)
+
+**Why the bump:** the analytics dashboard now covers security monitoring and user admin in a single
+page, with all three tabs protected by the same sign-in.
+
+**Security tab (new)**
+- Stat tiles: rate-limit events, datacenter blocks, auto-bans, banned hits, report blocks, open
+  contact requests.
+- Events-over-time chart, flagged IPs table (ASN + org), flagged accounts table.
+- Active bans table — shows "Permanent" when a ban has no expiry.
+- Contact requests panel — unblock requests from banned users, with Unban / Allowlist / Mark handled
+  actions.
+- Allowlist manager: add or remove IP and email allowlist entries with inline validation.
+- Graceful fallback if the security RPCs are not yet deployed to Supabase.
+- All untrusted data is `esc()`-escaped before insertion into the DOM — no XSS vectors.
+
+**Admin tab (new)**
+- User list with sortable columns, filter summary pills, PIN and Kid Zone status.
+- Click any row to open a user detail modal: Settings (all filter toggles), Activity (visits + play
+  history), Playlists, and Library (recents + likes).
+- Save user settings or clear a parental PIN without leaving the page.
+- Duplicate artist detector (name and thumbnail matching) with merge-and-undo workflow.
+- All admin markup is ID-prefixed `adm-` and wrapped in an IIFE — no name collisions with analytics
+  or security globals.
+- Deep link: `/admin` path opens the Admin tab directly; `#analytics` / `#security` / `#admin`
+  hashes are linkable and remembered across sessions.
+
+**Navigation**
+- Three-tab segmented control: Analytics · Security · Admin.
+- Range and Humans/Bots/All controls show only where they apply.
+
 ## 1.9.4 — 2026-10-05 (web)
 
 **Why the bump:** crawlers that run the app (Meta's crawler above all — about a third of the mid-August

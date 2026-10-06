@@ -69,6 +69,19 @@ const emitJSON = (name, obj) => {
   return ensureWrite(path.join(DATA, name), s);
 };
 
+// Bulk files that must not have a public URL: the whole-catalog dataset and the videoId → [title, artist] map.
+// In production CI sets SK_PRIVATE_DIR to a random name per deploy and passes the same value to the Worker
+// as PRIVATE_DIR; the files are written ONLY there, and the Worker serves /data/dataset.json.gz itself
+// (behind the security gate) and reads og.json from there. Nothing links to the folder and the asset layer
+// has no directory listing. Without SK_PRIVATE_DIR (local dev) the public /data copies are kept too, so a
+// plain static server still works.
+const PRIVATE_DIR = (process.env.SK_PRIVATE_DIR || "").replace(/[^A-Za-z0-9_-]/g, "");
+const PRIVATE = PRIVATE_DIR ? path.join(DIST, PRIVATE_DIR) : null;
+const emitBulk = (name, buf) => {
+  if (PRIVATE) ensureWrite(path.join(PRIVATE, name), buf);
+  if (!PRIVATE) ensureWrite(path.join(DATA, name), buf);
+  console.log(`  ${PRIVATE ? "private" : "data"}/${name}  ${(buf.length / 1024 / 1024).toFixed(2)} MB${PRIVATE ? " (no public URL)" : ""}`);
+};
 const emitGz = (name, obj) => {
   const gz = zlib.gzipSync(JSON.stringify(obj), { level: 9 });
   console.log(`  data/${name}  ${(gz.length / 1024 / 1024).toFixed(2)} MB gzipped`);
@@ -356,7 +369,7 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
     albumTracks: albumTracksMap,
     playlists:   playlists.map((p) => { const c = playlistCounts.get(p.id); return [p.id, p.title, artistIndex.get(p.artistId) ?? -1, p.thumbnail || "", c ? c.wl : -1, c ? c.aca : 0]; }),
   };
-  emitGz("dataset.json.gz", internedDataset);
+  emitBulk("dataset.json.gz", zlib.gzipSync(JSON.stringify(internedDataset), { level: 9 }));
 
   // OG lookup for the Worker's server-rendered link previews: videoId → [title, artistName].
   // Keeps the Worker's ogShell lean — it doesn't need the full 4 MB dataset.
@@ -364,7 +377,7 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
   for (const t of tracks) {
     ogLookup[t.videoId] = [t.title, artists[artistIndex.get(t.artistId)]?.name || ""];
   }
-  emitJSON("og.json", ogLookup);
+  emitBulk("og.json", Buffer.from(JSON.stringify(ogLookup)));
 
   // ── per-entity static detail files ────────────────────────────────────────
   // Each artist and album gets a small JSON identical to the live /artist and /album
@@ -1066,11 +1079,13 @@ fs.copyFileSync(path.join(ROOT, "assets/favicon.ico"), path.join(DIST, "favicon.
 fs.copyFileSync(path.join(ROOT, "redirector/youtube-to-skmusic.user.js"), path.join(DIST, "redirector.user.js"));
 for (const png of ["chrome.png", "edge.png"]) fs.copyFileSync(path.join(ROOT, "redirector", png), path.join(DIST, "assets", "rd-" + png));
 
-// Admin analytics dashboard — Supabase auth + zemer_admin role required; noindex.
-ensureWrite(path.join(DIST, "analytics.html"), fs.readFileSync(path.join(ROOT, "assets/analytics.html"), "utf8"));
-// Admin console — same zemer_admin gate; every read/write goes through the admin_* SECURITY DEFINER
-// RPCs, which re-check membership server-side (the anon key is public, so the UI gates nothing).
-ensureWrite(path.join(DIST, "admin.html"), fs.readFileSync(path.join(ROOT, "assets/admin.html"), "utf8"));
+// Admin dashboard (Analytics / Security / Admin tabs) — Supabase auth + zemer_admin role required; noindex.
+// Every read/write goes through SECURITY DEFINER RPCs that re-check membership server-side (the anon key is
+// public, so the UI gates nothing). Written as admin.html too: the asset layer serves /admin from that file
+// before the Worker runs, so it must be the same dashboard.
+const DASHBOARD = fs.readFileSync(path.join(ROOT, "assets/analytics.html"), "utf8");
+ensureWrite(path.join(DIST, "analytics.html"), DASHBOARD);
+ensureWrite(path.join(DIST, "admin.html"), DASHBOARD);
 
 // Network connectivity test page — diagnoses filter/whitelist blocks and a real playback test.
 ensureWrite(path.join(DIST, "test.html"), fs.readFileSync(path.join(ROOT, "assets/connectivity.html"), "utf8"));

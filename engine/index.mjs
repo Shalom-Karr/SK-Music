@@ -6,6 +6,8 @@
  * Static assets are served via env.ASSETS; KV page overrides via env.PAGES.
  */
 
+import { securityGate, handleUnblockRequest } from "./security.mjs";
+
 // YouTube Music internal API base + context payload used for every browse call.
 const YTM_BASE = "https://music.youtube.com/youtubei/v1";
 const YTM_CTX = {
@@ -134,7 +136,7 @@ async function resolveEntityPreview(env, baseUrl, request, entityType, entityId)
     if (entityType === "song") {
       // The song map is a compact flat blob — cache it in the isolate after the first fetch.
       if (!songOgCache) {
-        const res = await fetchDataFile("/data/og.json");
+        const res = await fetchDataFile(bulkPath(env, "og.json"));
         if (res.ok) songOgCache = await res.json();
       }
       const entry = songOgCache && songOgCache[entityId];
@@ -750,6 +752,10 @@ const EXT_TRENDING_KEY = "ext-trending-v1";
 
 // Fetch a dist/data JSON through the assets binding (routes purely on pathname, so a synthetic
 // origin is fine — scheduled() has no incoming request to derive one from).
+// Bulk build files (dataset.json.gz, og.json) live in a random, unlinked folder when the deploy sets
+// PRIVATE_DIR (see engine/build-static.mjs emitBulk); local builds keep them under /data/.
+const bulkPath = (env, file) => (env.PRIVATE_DIR ? `/${env.PRIVATE_DIR}/${file}` : `/data/${file}`);
+
 async function fetchAssetJSON(env, path) {
   try {
     const res = await env.ASSETS.fetch("https://assets" + path);
@@ -859,7 +865,7 @@ async function refreshExternalTrending(env) {
   if (!stats || (!Array.isArray(stats.topPlays) && !Array.isArray(stats.topArtists))) return;
 
   const [og, artistsFile] = await Promise.all([
-    fetchAssetJSON(env, "/data/og.json"),
+    fetchAssetJSON(env, bulkPath(env, "og.json")),
     fetchAssetJSON(env, "/data/artists.json"),
   ]);
   if (!og) return;
@@ -1355,7 +1361,7 @@ async function handleRadio(request, url) {
 // are immutable per song, so a hit is edge-cached for a week. A miss (404 upstream) is a normal
 // outcome, not an error — it returns nulls at 200 and is only cached briefly, since a song not yet
 // on LRCLIB today may be synced there tomorrow.
-const LYRICS_ENABLED = false;
+const LYRICS_ENABLED = true;
 async function handleLyrics(request, url, ctx) {
   if (request.method !== "GET")
     return Response.json({ error: "method not allowed" }, { status: 405, headers: { "Cache-Control": "no-store" } });
@@ -1753,6 +1759,19 @@ export default {
     const moved = canonicalRedirect(url);
     if (moved) return moved;
 
+    // Blocked visitors' review request — reachable even when banned / datacenter-blocked (own limiter).
+    if (pathname === "/unblock-request") return handleUnblockRequest(request, env, ctx);
+
+    // Abuse gate (engine/security.mjs): allowlist, bans, datacenter block, per-identity rate limits.
+    const blocked = await securityGate(request, env, ctx, url);
+    if (blocked) return blocked;
+
+    // The catalog dataset is not a static file in production (it sits in the private folder), so the
+    // asset layer misses and the request lands here — behind the gate's limits and datacenter block.
+    if (pathname === "/data/dataset.json.gz" && env.PRIVATE_DIR) {
+      return env.ASSETS.fetch(new Request(new URL(bulkPath(env, "dataset.json.gz"), url), request));
+    }
+
     // Sitemaps + robots.txt: large, static SEO files hit by crawlers. Serve them straight from assets,
     // edge-cached via the Cache API with a real TTL, and skip the KV-override lookup below. Without this
     // every Googlebot fetch was a Worker call + KV read + a full, uncached transfer of the ~1 MB file,
@@ -1820,7 +1839,7 @@ export default {
     if (pathname === "/stations") return handleStations(request, url, ctx);
     if (pathname === "/station") return handleStation(request, url);
     if (pathname === "/stations/cover") return handleStationCover(request, url, ctx);
-    // Lyrics are switched OFF (copyrighted third-party text, and an open proxy to LRCLIB). Flip to true to restore.
+    // Lyrics on/off switch: LYRICS_ENABLED (false ⇒ 404).
     if (pathname === "/lyrics") return LYRICS_ENABLED ? handleLyrics(request, url, ctx) : new Response("Not found", { status: 404 });
     if (pathname.startsWith("/statuses/")) return handleStatuses(request, url, ctx);
     if (pathname === "/trending") {
@@ -1845,7 +1864,10 @@ export default {
     if (pathname === "/csp-report" && request.method === "POST") return handleCspReport(request);
 
     // Admin / tool pages — KV override always wins; never cache these responses.
-    if (pathname === "/analytics" || pathname === "/analytics/") {
+    // /admin is the same dashboard (Analytics / Security / Admin tabs); the page opens its Admin tab when
+    // location.pathname starts with /admin, so old /admin links keep working. Serving the page is not an
+    // authorization decision — access is enforced by the admin RPCs from the verified JWT.
+    if (pathname === "/analytics" || pathname === "/analytics/" || pathname === "/admin" || pathname === "/admin/") {
       const override = await tryKvOverride(env, "/analytics.html");
       if (override) return override;
       const asset = await env.ASSETS.fetch(
@@ -1853,16 +1875,6 @@ export default {
       );
       const headers = new Headers(asset.headers);
       headers.set("Cache-Control", "no-store");
-      return new Response(asset.body, { status: asset.status, headers });
-    }
-    // Admin console. Serving the page is not an authorization decision — the page is public HTML and
-    // the anon key inside it is public too. Access is enforced entirely by the admin_* RPCs, which
-    // re-check zemer_admin membership from the verified JWT on every call.
-    if (pathname === "/admin" || pathname === "/admin/") {
-      const asset = await env.ASSETS.fetch(new Request(new URL("/admin.html", url), request));
-      const headers = new Headers(asset.headers);
-      headers.set("Cache-Control", "no-store");
-      headers.set("X-Robots-Tag", "noindex, nofollow");
       return new Response(asset.body, { status: asset.status, headers });
     }
     if (pathname === "/test" || pathname === "/test/") {

@@ -134,6 +134,69 @@
   .nr-col{flex:1;display:flex;flex-direction:column;min-height:3px;border-radius:4px 4px 0 0;overflow:hidden}
   .nr-new{background:var(--accent2)}
   .nr-ret{background:var(--good)}
+  /* ---------- admin view ---------- */
+  #adminView table{min-width:1080px;border-collapse:collapse;width:100%;font-size:13px}
+  #adminView th,#adminView td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  #adminView th{color:var(--dim);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;position:sticky;top:0;background:var(--card2);z-index:1}
+  #adminView tbody tr{cursor:pointer}
+  #adminView tbody tr:hover{background:var(--card2)}
+  #adminView .adm-em{color:var(--dim);font-size:13px}
+  #adminView .adm-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid var(--line);background:var(--bg2);color:var(--muted)}
+  #adminView .adm-pill.on{background:rgba(52,211,153,.14);color:var(--good);border-color:transparent}
+  #adminView .adm-pill.off{background:rgba(255,93,107,.13);color:var(--accent);border-color:transparent}
+  #adminView .adm-pill.warn{background:rgba(245,181,68,.14);color:var(--gold);border-color:transparent}
+  #adminView .adm-btn,#adminModal .adm-btn{padding:8px 16px;border-radius:10px;background:var(--accent);color:#fff;font-size:13px;font-weight:700;border:0;cursor:pointer}
+  #adminView .adm-btn:hover,#adminModal .adm-btn:hover{filter:brightness(1.08)}
+  #adminView .adm-btn:disabled,#adminModal .adm-btn:disabled{opacity:.6;cursor:default}
+  #adminView .adm-ghost,#adminModal .adm-ghost{background:var(--card2);color:var(--text);border:1px solid var(--line)}
+  #adminView .adm-danger,#adminModal .adm-danger{background:#7f1d2b}
+  /* admin modal */
+  #adminModal{position:fixed;inset:0;background:rgba(4,7,15,.72);backdrop-filter:blur(4px);display:none;place-items:center;padding:20px;z-index:50}
+  #adminModal.on{display:grid}
+  #adminModal .adm-mbox{width:min(880px,96vw);max-height:88vh;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);display:flex;flex-direction:column}
+  #adminModal .adm-idhead{display:flex;gap:14px;align-items:center;padding:20px 22px 16px;border-bottom:1px solid var(--line);background:linear-gradient(160deg,var(--card2),var(--card) 70%)}
+  #adminModal .adm-avatar{width:52px;height:52px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:19px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--accent),var(--violet));letter-spacing:.02em}
+  #adminModal .adm-idmeta{min-width:0;flex:1}
+  #adminModal .adm-idmeta h2{margin:0;font-size:18px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #adminModal .adm-sub{color:var(--muted);font-size:13px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #adminModal .adm-idtags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  #adminModal .adm-x{margin-left:auto;background:transparent;border:0;color:var(--dim);font-size:19px;cursor:pointer;align-self:flex-start}
+  #adminModal .adm-tabs{display:flex;gap:4px;padding:10px 18px 0;border-bottom:1px solid var(--line);overflow-x:auto;position:sticky;top:0;background:var(--card);z-index:3}
+  #adminModal .adm-tabs button{background:transparent;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:9px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+  #adminModal .adm-tabs button:hover{color:var(--text)}
+  #adminModal .adm-tabs button.on{color:var(--text);border-bottom-color:var(--accent)}
+  #adminModal .adm-tabs .n{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;background:var(--bg2);font-size:11px;color:var(--dim)}
+  #adminModal .adm-pane{display:none;padding:18px 22px}
+  #adminModal .adm-pane.on{display:block}
+  #adminModal .adm-foot{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--line);position:sticky;bottom:0;background:var(--card);align-items:center}
+  #adminModal .adm-fieldrow{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  #adminModal .adm-fieldrow:last-child{border-bottom:0}
+  #adminModal .adm-lbl{font-size:13.5px}
+  #adminModal .adm-lbl small{display:block;color:var(--dim);font-size:11.5px;margin-top:2px}
+  #adminModal .adm-seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  #adminModal .adm-seg button{background:var(--bg2);border:0;color:var(--muted);padding:7px 13px;font:inherit;font-size:12.5px;cursor:pointer}
+  #adminModal .adm-seg button.on{background:var(--accent);color:#fff;font-weight:700}
+  #adminModal .adm-list{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--bg2)}
+  #adminModal .adm-list .it{padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px;display:flex;gap:10px}
+  #adminModal .adm-list .it:last-child{border-bottom:0}
+  #adminModal .adm-list .t{flex:1;overflow:hidden;text-overflow:ellipsis}
+  #adminModal .adm-list .d{color:var(--dim);font-size:11.5px;white-space:nowrap}
+  #adminModal .adm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:18px}
+  #adminModal .adm-kv{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+  #adminModal .adm-kv .k{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+  #adminModal .adm-kv .v{font-size:14px;margin-top:3px;word-break:break-word}
+  #adminModal h3.adm-sec{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:20px 0 10px}
+  #adminModal .adm-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid var(--line);background:var(--bg2);color:var(--muted)}
+  #adminModal .adm-pill.on{background:rgba(52,211,153,.14);color:var(--good);border-color:transparent}
+  #adminModal .adm-pill.off{background:rgba(255,93,107,.13);color:var(--accent);border-color:transparent}
+  #adminModal .adm-pill.warn{background:rgba(245,181,68,.14);color:var(--gold);border-color:transparent}
+  #adminModal .adm-empty{color:var(--dim);font-size:13px;padding:14px 0}
+  #adminModal .adm-note{font-size:12px;color:var(--dim);line-height:1.6;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+  #adminModal .adm-plcard{border:1px solid var(--line);border-radius:12px;background:var(--bg2);padding:12px 14px;margin-bottom:10px}
+  #adminModal .adm-vrow{display:flex;gap:12px;align-items:baseline;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13px}
+  #adminModal .adm-vrow:last-child{border-bottom:0}
+  #adminModal table{border-collapse:collapse;width:100%;font-size:13px}
+  #adminModal th,#adminModal td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line)}
   /* ---------- security view ---------- */
   .sec-pills{display:flex;gap:4px;flex-wrap:wrap}
   .spill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.2px;background:rgba(255,93,107,.14);color:var(--accent)}
@@ -186,6 +249,7 @@
     <div class="seg" id="viewSeg">
       <button data-v="analytics" class="on">Analytics</button>
       <button data-v="security">Security</button>
+      <button data-v="admin">Admin</button>
     </div>
     <div class="seg" id="range">
       <button data-h="24">24h</button>
@@ -203,7 +267,61 @@
   </header>
 
   <div id="content"><div class="loading">Loading events…</div></div>
+
+  <!-- =============== ADMIN VIEW =============== -->
+  <div id="adminView" style="display:none">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <input id="adm-q" placeholder="Search name or email…" autocomplete="off"
+        style="flex:1;min-width:200px;background:var(--card);border:1px solid var(--line);border-radius:11px;color:var(--text);padding:10px 14px;font-size:13px;outline:none" />
+      <button class="iconbtn" id="adm-refreshBtn">↻ Refresh</button>
+      <span style="flex:1"></span>
+      <button class="iconbtn" id="adm-prevBtn">‹ Prev</button>
+      <button class="iconbtn" id="adm-nextBtn">Next ›</button>
+      <span id="adm-count" style="color:var(--dim);font-size:12px"></span>
+    </div>
+    <div class="tablewrap" style="overflow-x:auto">
+      <table style="min-width:1080px">
+        <thead><tr id="adm-head">
+          <th>Name</th><th>Email</th><th>Filters</th><th>PIN</th><th>Kid Zone</th>
+          <th>Artists</th><th>PIN fails</th><th>Created</th><th>Last sign-in</th><th>ID</th>
+        </tr></thead>
+        <tbody id="adm-rows"><tr><td colspan="10" style="padding:40px;text-align:center;color:var(--dim)">Loading…</td></tr></tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:32px 0 14px">
+      <h2 style="font-size:18px;font-weight:800;margin:0">Duplicate artists</h2>
+      <span id="adm-dupCount" style="color:var(--dim);font-size:12px"></span>
+      <span style="flex:1"></span>
+      <button class="iconbtn" id="adm-dupRefresh">Rescan</button>
+    </div>
+    <div class="panel" id="adm-dupCard">Loading the catalog…</div>
+    <div class="panel" id="adm-mergeCard" style="margin-top:14px">Loading merges…</div>
+  </div>
 </main>
+
+<!-- =============== ADMIN MODAL =============== -->
+<div id="adminModal">
+  <div class="adm-mbox">
+    <div class="adm-idhead">
+      <div class="adm-avatar" id="adm-mAv">?</div>
+      <div class="adm-idmeta">
+        <h2 id="adm-mTitle">User</h2>
+        <div class="adm-sub" id="adm-mSub"></div>
+        <div class="adm-idtags" id="adm-mTags"></div>
+      </div>
+      <button class="adm-x" id="adm-mClose">✕</button>
+    </div>
+    <div class="adm-tabs" id="adm-mTabs"></div>
+    <div id="adm-mBody"></div>
+    <div class="adm-foot">
+      <button class="adm-btn" id="adm-mSave">Save changes</button>
+      <button class="adm-btn adm-ghost" id="adm-mClearPin">Clear PIN</button>
+      <span style="flex:1"></span>
+      <span id="adm-mMsg" style="font-size:13px;color:var(--accent);min-height:18px;margin:0"></span>
+    </div>
+  </div>
+</div>
 
 <script>
 // Self-contained: talks to Supabase's Auth + REST endpoints with plain fetch (no CDN import), so this file
@@ -263,7 +381,13 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 const num = (n) => (n ?? 0).toLocaleString('en-US');
 let RANGE_H = 168, timer = null;
-let VIEW = (() => { try { const v = localStorage.getItem('sk_an_view'); return v === 'security' ? 'security' : 'analytics'; } catch { return 'analytics'; } })();
+let VIEW = (() => {
+  if (location.pathname.startsWith('/admin')) return 'admin';
+  const h = location.hash.slice(1);
+  if (h === 'analytics' || h === 'security' || h === 'admin') return h;
+  try { const v = localStorage.getItem('sk_an_view'); if (['analytics','security','admin'].includes(v)) return v; } catch {}
+  return 'analytics';
+})();
 // Which traffic the page counts: 'human' (default) | 'bot' | 'all'. Remembered per browser.
 let TRAFFIC = (() => { try { const t = localStorage.getItem('sk_an_traffic'); return ['human', 'bot', 'all'].includes(t) ? t : 'human'; } catch { return 'human'; } })();
 // Mirror of public.is_bot_ua() in supabase/analytics-bot-split.sql — keep the two lists in step. Used only on
@@ -341,7 +465,8 @@ $('range').addEventListener('click', (e) => {
 });
 [...$('traffic').children].forEach((b) => b.classList.toggle('on', b.dataset.t === TRAFFIC));
 [...$('viewSeg').children].forEach((b) => b.classList.toggle('on', b.dataset.v === VIEW));
-if (VIEW === 'security') $('traffic').style.display = 'none';
+if (VIEW !== 'analytics') $('traffic').style.display = 'none';
+if (VIEW === 'admin') { $('range').style.display = 'none'; $('content').style.display = 'none'; const _av = document.getElementById('adminView'); if (_av) _av.style.display = ''; }
 $('traffic').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b || b.dataset.t === TRAFFIC) return;
   [...$('traffic').children].forEach((x) => x.classList.toggle('on', x === b));
@@ -352,8 +477,11 @@ $('refreshBtn').addEventListener('click', () => load(true)); // incremental (new
 $('viewSeg').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b || b.dataset.v === VIEW) return;
   [...$('viewSeg').children].forEach((x) => x.classList.toggle('on', x === b));
-  VIEW = b.dataset.v; try { localStorage.setItem('sk_an_view', VIEW); } catch {}
-  $('traffic').style.display = VIEW === 'security' ? 'none' : 'inline-flex';
+  VIEW = b.dataset.v; try { localStorage.setItem('sk_an_view', VIEW); history.replaceState(null, '', '#' + VIEW); } catch {}
+  $('traffic').style.display = VIEW === 'analytics' ? 'inline-flex' : 'none';
+  $('range').style.display = VIEW === 'admin' ? 'none' : '';
+  $('content').style.display = VIEW === 'admin' ? 'none' : '';
+  const av = document.getElementById('adminView'); if (av) av.style.display = VIEW === 'admin' ? '' : 'none';
   load();
 });
 
@@ -364,6 +492,7 @@ $('viewSeg').addEventListener('click', (e) => {
 // is identical to today, and fast once supabase/dashboard-summary.sql is applied.
 async function load(incremental) {
   if (VIEW === 'security') { await loadSecurity(); return; }
+  if (VIEW === 'admin') { if (typeof window._adminActivate === 'function') window._adminActivate(); return; }
   try {
     await loadSummary();
     console.log('[analytics] fast path: dashboard_summary RPC');
@@ -933,8 +1062,10 @@ function paintSecurity(data) {
   const bh = ebk.get('banned_hit') || 0;
   const bans = data.active_bans || [];
   const rb = +(data.report_blocks) || 0;
+  const co = +(data.contacts_open) || 0;
   const hl = RANGE_H > 0 ? RANGE_H + 'h' : 'all time';
   const hourSamples = (data.events_hourly || []).map(([h, n]) => [new Date(h).getTime(), n]);
+  const activeBanIds = new Set(bans.map((b) => b.id));
 
   const tiles = `<div class="grid stats">
   <div class="stat d"><div class="k">Rate-limit events</div><div class="v mono">${num(rl)}</div><div class="s">requests throttled \xb7 ${hl}</div></div>
@@ -942,6 +1073,7 @@ function paintSecurity(data) {
   <div class="stat" style="border-top:2px solid var(--violet)"><div class="k">Auto-bans issued</div><div class="v mono">${num(ab)}</div><div class="s">escalation bans triggered</div></div>
   <div class="stat b"><div class="k">Active bans</div><div class="v mono">${num(bans.length)}</div><div class="s">currently blocked</div></div>
   <div class="stat a"><div class="k">Report blocks</div><div class="v mono">${num(rb)}</div><div class="s">cap hit this window</div></div>
+  <div class="stat" style="border-top:2px solid var(--good)"><div class="k">Contact requests</div><div class="v mono">${num(co)}</div><div class="s">open unblock requests</div></div>
 </div>`;
 
   const charts = `<div class="grid cols" style="margin-top:14px">
@@ -996,7 +1128,7 @@ function paintSecurity(data) {
   <td>${esc(r.email || (r.user_id ? String(r.user_id).slice(0, 8) + '…' : '—'))}</td>
   <td>${esc(r.reason || '—')}</td>
   <td class="mono">${esc(String(r.level || 1))}</td>
-  <td class="mono">${r.until ? esc(new Date(r.until).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—'}</td>
+  <td class="mono">${r.permanent ? '<span class="spill ab">Permanent</span>' : (r.until ? esc(new Date(r.until).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—')}</td>
   <td><button class="abtn danger" data-action="unban" data-id="${esc(String(r.id))}">Unban</button></td>
 </tr>`).join('')
     : `<tr><td colspan="7" class="empty" style="padding:24px">No active bans</td></tr>`;
@@ -1062,7 +1194,38 @@ function paintSecurity(data) {
   </div>
 </div>`;
 
-  $('content').innerHTML = tiles + charts + flaggedIpTable + flaggedAcctTable + bansTable + recentTable + allowlistPanel;
+  const contacts = data.contacts || [];
+  const ctRows = contacts.length
+    ? contacts.map((r) => {
+        const isOpen = r.status === 'open';
+        const hasBan = r.ban_id != null && activeBanIds.has(r.ban_id);
+        return `<tr style="${isOpen ? '' : 'opacity:.55'}">
+  <td class="mono">${r.created_at ? esc(new Date(r.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—'}</td>
+  <td class="mono">${esc(r.ip || '—')}</td>
+  <td>${esc(r.email || '—')}</td>
+  <td><span class="spill">${esc(r.block_reason || '—')}</span></td>
+  <td style="max-width:260px;white-space:normal;word-break:break-word">${esc(r.message || '—')}</td>
+  <td class="mono">${r.ban_id != null ? esc(String(r.ban_id)) : '—'}</td>
+  <td><span class="pill ${isOpen ? 'ev-blocked' : 'ev-other'}">${esc(r.status)}</span></td>
+  <td style="display:flex;gap:5px;flex-wrap:wrap;padding:8px 14px">
+    ${hasBan ? `<button class="abtn danger" data-action="contact-unban" data-ban-id="${esc(String(r.ban_id))}">Unban</button>` : ''}
+    ${r.ip ? `<button class="abtn primary" data-action="allowlist-ip" data-value="${esc(r.ip)}">+IP</button>` : ''}
+    ${r.email ? `<button class="abtn primary" data-action="allowlist-email" data-value="${esc(r.email)}">+Email</button>` : ''}
+    ${isOpen ? `<button class="abtn" data-action="contact-resolve" data-id="${esc(String(r.id))}">Mark handled</button>` : ''}
+  </td>
+</tr>`;
+      }).join('')
+    : `<tr><td colspan="8" class="empty" style="padding:24px">No contact requests</td></tr>`;
+
+  const contactsPanel = `<div class="tablewrap" style="margin-top:14px">
+  <h3>Contact requests <span style="color:var(--dim);font-weight:600;font-size:11px">${co} open</span></h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Time</th><th>IP</th><th>Email</th><th>Reason</th><th>Message</th><th>Ban ID</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${ctRows}</tbody>
+  </table></div>
+</div>`;
+
+  $('content').innerHTML = tiles + charts + contactsPanel + flaggedIpTable + flaggedAcctTable + bansTable + recentTable + allowlistPanel;
 }
 
 /* ---------- security action listener (delegated on #content) ---------- */
@@ -1084,12 +1247,23 @@ $('content').addEventListener('click', async (e) => {
     return;
   }
 
-  if (action === 'unban') {
-    const id = +btn.dataset.id;
+  if (action === 'unban' || action === 'contact-unban') {
+    const id = action === 'contact-unban' ? +btn.dataset.banId : +btn.dataset.id;
     if (!confirm('End this ban now?')) return;
     btn.disabled = true;
     try {
       await sbRpc('security_unban', { p_id: id });
+      await loadSecurity();
+    } catch (err) { alert('Error: ' + ((err && err.message) || 'unknown')); btn.disabled = false; }
+    return;
+  }
+
+  if (action === 'contact-resolve') {
+    const id = +btn.dataset.id;
+    if (!confirm('Mark this contact request as handled?')) return;
+    btn.disabled = true;
+    try {
+      await sbRpc('security_contact_resolve', { p_id: id });
       await loadSecurity();
     } catch (err) { alert('Error: ' + ((err && err.message) || 'unknown')); btn.disabled = false; }
     return;
@@ -1130,6 +1304,392 @@ $('content').addEventListener('click', async (e) => {
     } catch (err) { errEl.textContent = 'Error: ' + esc((err && err.message) || 'unknown'); btn.disabled = false; }
   }
 });
+
+/* ============================================================
+   ADMIN TAB — IIFE to avoid any name collision with analytics
+   Reuses: SESSION (outer let), esc, num, sbRpc (all outer scope)
+   ============================================================ */
+;(function () {
+  const a$ = (id) => document.getElementById('adm-' + id);
+  const rpc = (fn, body) => sbRpc(fn, body == null ? {} : body);
+  const dt = (s) => s ? new Date(s).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+  const dshort = (s) => s ? new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '—';
+
+  /* ---- duplicate artists ---- */
+  let DUPES = [], MERGED = new Set();
+  function normName(s) { return String(s || '').toLowerCase().replace(/['']/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }
+
+  async function loadDupes() {
+    const card = a$('dupCard'); if (!card) return;
+    try {
+      const r = await fetch('/data/artists.json', { cache: 'no-store' });
+      const list = ((await r.json()) || {}).artists || [];
+      const byName = new Map(), byThumb = new Map();
+      for (const a of list) {
+        if (!a || !a.id) continue;
+        const n = normName(a.name); if (n) { if (!byName.has(n)) byName.set(n, []); byName.get(n).push(a); }
+        if (a.thumbnail) { if (!byThumb.has(a.thumbnail)) byThumb.set(a.thumbnail, []); byThumb.get(a.thumbnail).push(a); }
+      }
+      const groups = new Map();
+      for (const [, g] of [...byName, ...byThumb]) {
+        if (g.length < 2) continue;
+        const key = g.map((x) => x.id).sort().join('|');
+        if (!groups.has(key)) groups.set(key, g);
+      }
+      DUPES = [...groups.values()].sort((a, b) => (a[0].name || '').localeCompare(b[0].name || ''));
+      const dc = a$('dupCount'); if (dc) dc.textContent = `${DUPES.length} group${DUPES.length === 1 ? '' : 's'} \xb7 ${DUPES.reduce((n, g) => n + g.length, 0)} channels \xb7 of ${list.length} artists`;
+      renderDupes();
+    } catch (e) { if (card) card.innerHTML = `<div class="adm-em">⚠️ ${esc(e.message)}</div>`; }
+  }
+
+  function renderDupes() {
+    const card = a$('dupCard'); if (!card) return;
+    const open = DUPES.filter((g) => g.filter((x) => !MERGED.has(x.id)).length >= 2);
+    if (!open.length) { card.innerHTML = `<div class="adm-em">No unmerged duplicates. ${DUPES.length ? 'Everything found has been merged.' : 'Nothing looks duplicated.'}</div>`; return; }
+    card.innerHTML = open.map((g, gi) => {
+      const live = g.filter((a) => !MERGED.has(a.id));
+      const rows = live.map((a, i) => `
+        <label style="display:flex;align-items:center;gap:10px;padding:7px 0;cursor:pointer">
+          <input type="radio" name="admdup${gi}" value="${esc(a.id)}"${i === 0 ? ' checked' : ''}>
+          ${a.thumbnail ? `<img src="${esc(a.thumbnail)}" alt="" width="34" height="34" style="border-radius:50%;object-fit:cover">` : '<span style="width:34px"></span>'}
+          <span><b>${esc(a.name)}</b><br><span style="font-family:ui-monospace,monospace;font-size:11px;color:var(--dim)">${esc(a.id)}</span></span>
+        </label>`).join('');
+      return `<div style="padding:12px 0;border-top:${gi ? '1px solid var(--line)' : '0'}">
+        <div style="margin-bottom:6px"><b>${esc(live[0].name)}</b> <span style="color:var(--dim)"> — ${live.length} channels. Pick the one to KEEP:</span></div>
+        ${rows}
+        <button class="abtn primary" style="margin-top:8px" onclick="admMergeGroup(${gi})">Merge the rest into selected</button>
+        <span id="adm-dupMsg${gi}" style="margin-left:10px;font-size:13px;color:var(--accent)"></span>
+      </div>`;
+    }).join('');
+  }
+
+  window.admMergeGroup = async (gi) => {
+    const open = DUPES.filter((g) => g.filter((x) => !MERGED.has(x.id)).length >= 2);
+    const g = (open[gi] || []).filter((a) => !MERGED.has(a.id));
+    const msg = a$('dupMsg' + gi);
+    const picked = document.querySelector(`input[name="admdup${gi}"]:checked`);
+    if (!g.length || !picked) return;
+    const canonical = g.find((a) => a.id === picked.value);
+    const aliases = g.filter((a) => a.id !== picked.value);
+    if (!canonical || !aliases.length) return;
+    if (!confirm(`Merge ${aliases.length} channel${aliases.length === 1 ? '' : 's'} into "${canonical.name}"?\n\nApplies on the next build.`)) return;
+    if (msg) msg.textContent = 'Merging…';
+    try {
+      for (const a of aliases) {
+        await rpc('admin_merge_artists', { p_alias: a.id, p_canonical: canonical.id, p_alias_name: a.name, p_canonical_name: canonical.name });
+        MERGED.add(a.id);
+      }
+      if (msg) msg.textContent = 'Merged. Applies on the next build.';
+      renderDupes(); loadMerges();
+    } catch (e) { if (msg) msg.textContent = e.message; }
+  };
+
+  async function loadMerges() {
+    const card = a$('mergeCard'); if (!card) return;
+    try {
+      const d = await rpc('admin_list_merges');
+      const rows = (d && d.merges) || [];
+      MERGED = new Set(rows.map((m) => m.alias_id));
+      card.innerHTML = `<div style="margin-bottom:8px"><b>Merged</b> <span style="color:var(--dim)">— ${rows.length} duplicate${rows.length === 1 ? '' : 's'} folded in.</span></div>`
+        + (rows.length ? rows.map((m) => `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line)">
+            <span style="flex:1"><b>${esc(m.alias_name || m.alias_id)}</b> <span style="color:var(--dim)">→ ${esc(m.canonical_name || m.canonical_id)}</span><br>
+              <span style="font-family:ui-monospace,monospace;font-size:11px;color:var(--dim)">${esc(m.alias_id)} → ${esc(m.canonical_id)}</span></span>
+            <span style="color:var(--dim);font-size:12px">${dt(m.merged_at)} \xb7 ${esc(m.merged_by || '')}</span>
+            <button class="abtn" onclick="admUnmerge('${esc(m.alias_id)}')">Undo</button>
+          </div>`).join('') : '<div class="adm-em">Nothing merged yet.</div>');
+      renderDupes();
+    } catch (e) {
+      if (card) card.innerHTML = `<div class="adm-em">⚠️ ${esc(e.message)}</div>`;
+    }
+  }
+
+  window.admUnmerge = async (alias) => {
+    if (!confirm('Undo this merge? The artist reappears separately on the next build.')) return;
+    try { await rpc('admin_unmerge_artist', { p_alias: alias }); MERGED.delete(alias); loadMerges(); }
+    catch (e) { alert(e.message); }
+  };
+
+  /* ---- user list ---- */
+  let ADM_TIMER = null, OFFSET = 0, TOTAL = 0, SORT = { key: 'created_at', dir: -1 }, PAGE_USERS = [];
+  const PAGE = 100;
+  const SORTABLE = { name: 1, email: 1, created_at: 1, last_sign_in_at: 1, pin_fails: 1 };
+
+  const filterSummary = (f) => {
+    f = f || {}; const on = [];
+    if (f.noFemale) on.push('Kol isha');
+    if (f.chasid === 'only') on.push('Chasidish only'); else if (f.chasid === 'hide' || f.noChasid) on.push('No Chasidish');
+    if (f.israeli === 'only') on.push('Israeli only'); else if (f.israeli === 'hide') on.push('No Israeli');
+    if (f.acapella === 'only') on.push('Acapella only'); else if (f.acapella === 'hide') on.push('No Acapella');
+    if (f.noDJ) on.push('No DJ'); if (f.blockVideos) on.push('No videos');
+    if (f.zemerRadio === 'off') on.push('Radio off'); else if (f.zemerRadio) on.push('Radio: ' + f.zemerRadio);
+    if (f.sefira === false) on.push('Sefira lifted');
+    return on;
+  };
+
+  window.admSortBy = (key) => {
+    if (!SORTABLE[key]) return;
+    SORT = SORT.key === key ? { key, dir: -SORT.dir } : { key, dir: key === 'name' || key === 'email' ? 1 : -1 };
+    renderRows();
+  };
+  const sortArrow = (key) => SORT.key === key ? (SORT.dir > 0 ? ' ▲' : ' ▼') : '';
+
+  async function adminLoad() {
+    const qEl = a$('q'); const q = qEl ? qEl.value.trim() : '';
+    try {
+      const d = await rpc('admin_list_users', { p_q: q || null, p_limit: PAGE, p_offset: OFFSET });
+      PAGE_USERS = (d && d.users) || [];
+      TOTAL = (d && d.total) || 0;
+      const from = TOTAL ? OFFSET + 1 : 0, to = OFFSET + PAGE_USERS.length;
+      const cnt = a$('count'); if (cnt) cnt.textContent = `${num(from)}–${num(to)} of ${num(TOTAL)}`;
+      const prev = a$('prevBtn'), next = a$('nextBtn');
+      if (prev) prev.disabled = OFFSET === 0;
+      if (next) next.disabled = OFFSET + PAGE >= TOTAL;
+      renderRows();
+    } catch (e) {
+      const body = a$('rows'); if (body) body.innerHTML = `<tr><td colspan="10" style="padding:24px;color:var(--dim)">${esc(e.message)}</td></tr>`;
+    }
+  }
+  window._adminLoad = adminLoad;
+
+  function renderRows() {
+    const body = a$('rows'); if (!body) return;
+    const head = a$('head');
+    if (head) head.innerHTML = `
+      <th onclick="admSortBy('name')" style="cursor:pointer">Name${sortArrow('name')}</th>
+      <th onclick="admSortBy('email')" style="cursor:pointer">Email${sortArrow('email')}</th>
+      <th>Filters</th><th>PIN</th><th>Kid Zone</th><th>Artists</th>
+      <th onclick="admSortBy('pin_fails')" style="cursor:pointer">PIN fails${sortArrow('pin_fails')}</th>
+      <th onclick="admSortBy('created_at')" style="cursor:pointer">Created${sortArrow('created_at')}</th>
+      <th onclick="admSortBy('last_sign_in_at')" style="cursor:pointer">Last sign-in${sortArrow('last_sign_in_at')}</th>
+      <th>ID</th>`;
+    if (!PAGE_USERS.length) { body.innerHTML = '<tr><td colspan="10" class="adm-em" style="padding:24px">No users match.</td></tr>'; return; }
+    const k = SORT.key;
+    const users = PAGE_USERS.slice().sort((a, b) => {
+      let x = a[k], y = b[k];
+      if (k === 'created_at' || k === 'last_sign_in_at') { x = x ? Date.parse(x) : 0; y = y ? Date.parse(y) : 0; }
+      else if (k === 'pin_fails') { x = x || 0; y = y || 0; }
+      else { x = String(x || '').toLowerCase(); y = String(y || '').toLowerCase(); }
+      return x < y ? -SORT.dir : x > y ? SORT.dir : 0;
+    });
+    body.innerHTML = users.map((u) => {
+      const fs = filterSummary(u.filters);
+      const locked = u.pin_locked_until && new Date(u.pin_locked_until) > new Date();
+      return `<tr onclick="admOpenUser('${esc(u.id)}')">
+        <td>${esc(u.name || '—')}</td>
+        <td>${esc(u.email || '—')}</td>
+        <td>${fs.length ? `<span class="adm-pill on">${fs.length} on</span> <span class="adm-em">${esc(fs.slice(0,2).join(', '))}${fs.length>2?'…':''}</span>` : '<span class="adm-pill">none</span>'}</td>
+        <td>${u.has_pin ? '<span class="adm-pill on">set</span>' : '<span class="adm-pill">no</span>'}</td>
+        <td>${u.kid_only ? '<span class="adm-pill warn">on</span>' : '<span class="adm-pill">off</span>'}</td>
+        <td>${u.artist_mode === 'all' ? '<span class="adm-em">all</span>' : `<span class="adm-pill">${esc(u.artist_mode)} \xb7 ${num(u.artist_count)}</span>`}</td>
+        <td>${u.pin_fails ? `<span class="adm-pill ${locked ? 'off' : 'warn'}">${num(u.pin_fails)}${locked ? ' \xb7 locked' : ''}</span>` : '<span class="adm-em">0</span>'}</td>
+        <td class="adm-em">${dshort(u.created_at)}</td>
+        <td class="adm-em">${dshort(u.last_sign_in_at)}</td>
+        <td class="adm-em" style="font-family:ui-monospace,monospace;font-size:11px">${esc(String(u.id).slice(0, 8))}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  /* ---- user modal ---- */
+  let CUR = null, CUR_TAB = 'settings';
+
+  window.admOpenUser = async function (id) {
+    const modal = document.getElementById('adminModal'); if (!modal) return;
+    modal.classList.add('on'); a$('mMsg').textContent = '';
+    a$('mTitle').textContent = 'Loading…'; a$('mBody').innerHTML = '<div class="adm-em" style="padding:18px 22px">Loading…</div>';
+    try {
+      CUR = await rpc('admin_user_detail', { p_user: id });
+      renderUser();
+      loadHistory(id); loadVisits(id); loadPlaylists(id);
+    } catch (e) { a$('mBody').innerHTML = `<div class="adm-em" style="padding:18px 22px">${esc(e.message)}</div>`; }
+  };
+
+  async function loadHistory(id) {
+    const box = document.getElementById('adm-hist'); if (!box) return;
+    try {
+      const d = await rpc('admin_user_history', { p_user: id, p_days: 90, p_limit: 300 });
+      const plays = (d && d.plays) || [];
+      if (!CUR || CUR.id !== id) return;
+      const n = document.getElementById('adm-histN'); if (n) n.textContent = `\xb7 ${num(plays.length)} plays, last ${d.days} days`;
+      box.innerHTML = plays.length
+        ? `<div class="adm-list">${plays.slice(0, 300).map((p) => `<div class="it"><span class="t">${esc(p.title || p.videoId || '—')}</span><span class="d">${esc(p.artist || '')} \xb7 ${dt(p.at)}</span></div>`).join('')}</div>`
+        : `<div class="adm-note">No plays recorded for this account in the last ${d.days} days.</div>`;
+    } catch (e) { box.innerHTML = `<div class="adm-note">${esc(e.message)}</div>`; }
+  }
+
+  async function loadVisits(id) {
+    const box = document.getElementById('adm-vis'); if (!box) return;
+    try {
+      const d = await rpc('admin_user_visits', { p_user: id, p_days: 90, p_limit: 100 });
+      const v = (d && d.visits) || [];
+      if (!CUR || CUR.id !== id) return;
+      const n = document.getElementById('adm-visN'); if (n) n.textContent = `\xb7 ${num(v.length)} in the last ${d.days} days`;
+      box.innerHTML = v.length
+        ? `<div class="adm-list">${v.map((s) => {
+            const mins = s.minutes >= 1 ? `${s.minutes}m` : '<1m';
+            const where = [s.city, s.country].filter(Boolean).join(', ');
+            return `<div class="it"><span class="t">${dt(s.started)}</span><span class="d">${mins} \xb7 ${num(s.events)} events${s.plays ? ` \xb7 ${num(s.plays)} plays` : ''} \xb7 ${esc(s.device || '?')}${s.browser ? ' / ' + esc(s.browser) : ''}${where ? ' \xb7 ' + esc(where) : ''}</span></div>`;
+          }).join('')}</div>`
+        : `<div class="adm-note">No signed-in activity recorded in the last ${d.days} days.</div>`;
+    } catch (e) { box.innerHTML = `<div class="adm-note">${esc(e.message)}</div>`; }
+  }
+
+  async function loadPlaylists(id) {
+    const box = document.getElementById('adm-pl'); if (!box) return;
+    try {
+      const d = await rpc('admin_user_playlists', { p_user: id });
+      const pls = (d && d.playlists) || [];
+      if (!CUR || CUR.id !== id) return;
+      const n = document.getElementById('adm-plN'); if (n) n.textContent = `\xb7 ${num(pls.length)}`;
+      box.innerHTML = pls.length
+        ? pls.map((p) => `<div class="adm-plcard">
+            <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+              <b>${esc(p.name)}</b>
+              <span class="adm-pill ${p.is_public ? 'on' : ''}">${p.is_public ? 'public' : 'private'}</span>
+              <span class="adm-em">${num(p.count)} song${p.count === 1 ? '' : 's'} \xb7 updated ${dshort(p.updated_at)}</span>
+            </div>
+            ${(p.tracks || []).length ? `<div class="adm-list">${p.tracks.slice(0, 60).map((t) => `<div class="it"><span class="t">${esc(t.title || t.videoId)}</span><span class="d">${esc(t.artist || '')}</span></div>`).join('')}</div>` : '<div class="adm-em">Empty.</div>'}
+          </div>`).join('')
+        : '<div class="adm-em">No playlists.</div>';
+    } catch (e) { box.innerHTML = `<div class="adm-note">${esc(e.message)}</div>`; }
+  }
+
+  window.admSetTab = (t) => {
+    CUR_TAB = t;
+    document.querySelectorAll('#adm-mTabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
+    document.querySelectorAll('#adm-mBody .adm-pane').forEach((p) => p.classList.toggle('on', p.dataset.t === t));
+    a$('mSave').style.display = t === 'settings' ? '' : 'none';
+    a$('mClearPin').style.display = t === 'settings' ? '' : 'none';
+  };
+
+  const initials = (s) => String(s || '?').trim().split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
+
+  const ADM_SEG = (name, val, opts) => `<div class="adm-seg">${opts.map(([v, l]) =>
+    `<button class="${val === v ? 'on' : ''}" onclick="admSetF('${name}','${v}')">${esc(l)}</button>`).join('')}</div>`;
+
+  const fieldRow = (label, sub, control) =>
+    `<div class="adm-fieldrow"><div class="adm-lbl">${label}${sub ? `<small>${sub}</small>` : ''}</div>${control}</div>`;
+
+  function renderUser() {
+    const u = CUR, f = u.filters || {};
+    const locked = u.pin_locked_until && new Date(u.pin_locked_until) > new Date();
+    const recents = Array.isArray(u.recents) ? u.recents : [];
+    const likes = Array.isArray(u.likes) ? u.likes : [];
+    const fs = filterSummary(f);
+    a$('mAv').textContent = initials(u.name || u.email);
+    a$('mTitle').textContent = u.name || u.email || 'User';
+    a$('mSub').textContent = u.name ? (u.email || '') : (u.provider ? 'via ' + u.provider : '');
+    a$('mTags').innerHTML = [
+      u.provider ? `<span class="adm-pill">${esc(u.provider)}</span>` : '',
+      u.has_pin ? '<span class="adm-pill on">PIN set</span>' : '<span class="adm-pill">no PIN</span>',
+      locked ? '<span class="adm-pill off">PIN locked</span>' : (u.pin_fails ? `<span class="adm-pill warn">${num(u.pin_fails)} failed</span>` : ''),
+      u.kid_only ? '<span class="adm-pill warn">Kid Zone</span>' : '',
+      fs.length ? `<span class="adm-pill on">${fs.length} filter${fs.length === 1 ? '' : 's'}</span>` : '<span class="adm-pill">no filters</span>',
+    ].filter(Boolean).join('');
+    a$('mTabs').innerHTML = [
+      ['settings','Settings',''], ['activity','Activity',''], ['playlists','Playlists',''],
+      ['library','Library', num(recents.length + likes.length)],
+    ].map(([t, label, n]) =>
+      `<button data-t="${t}" onclick="admSetTab('${t}')">${label}${n ? `<span class="n">${n}</span>` : ''}</button>`).join('');
+    a$('mBody').innerHTML = `
+      <div class="adm-pane" data-t="settings">
+        ${fieldRow('Kol isha','Hide female singers', ADM_SEG('noFemale', f.noFemale ? '1' : '0', [['1','Hidden'],['0','Allowed']]))}
+        ${fieldRow('Chasidish','', ADM_SEG('chasid', f.chasid || '', [['','All'],['only','Only'],['hide','Hide']]))}
+        ${fieldRow('Israeli','', ADM_SEG('israeli', f.israeli || '', [['','All'],['only','Only'],['hide','Hide']]))}
+        ${fieldRow('Acapella','Forced during Sefira / the Three Weeks', ADM_SEG('acapella', f.acapella || '', [['','All'],['only','Only'],['hide','Hide']]))}
+        ${fieldRow('DJ sets','', ADM_SEG('noDJ', f.noDJ ? '1' : '0', [['1','Hidden'],['0','Allowed']]))}
+        ${fieldRow('Videos','', ADM_SEG('blockVideos', f.blockVideos ? '1' : '0', [['1','Blocked'],['0','Allowed']]))}
+        ${fieldRow('Zemer Radio','Live stations on Home', ADM_SEG('zemerRadio', f.zemerRadio || '', [['','All'],['chasidish','Chassidish'],['israeli','Israeli'],['dj','DJ'],['off','Off']]))}
+        ${fieldRow('Kid Zone only', u.kid_only ? `+${(u.kid_add||[]).length} added / −${(u.kid_remove||[]).length} hidden` : '', ADM_SEG('kid_only', u.kid_only ? '1' : '0', [['1','On'],['0','Off']]))}
+        ${fieldRow('Artists',`${num((u.artist_ids || []).length)} picked`, ADM_SEG('artist_mode', u.artist_mode || 'all', [['all','All'],['only','Only these'],['except','Except these']]))}
+        <div class="adm-grid" style="margin-top:18px">
+          <div class="adm-kv"><div class="k">User ID</div><div class="v" style="font-family:ui-monospace,monospace;font-size:12px">${esc(u.id)}</div></div>
+          <div class="adm-kv"><div class="k">Created</div><div class="v">${dt(u.created_at)}</div></div>
+          <div class="adm-kv"><div class="k">Last sign-in</div><div class="v">${dt(u.last_sign_in_at)}</div></div>
+          <div class="adm-kv"><div class="k">Settings updated</div><div class="v">${dt(u.updated_at)}</div></div>
+          ${locked ? `<div class="adm-kv"><div class="k">PIN locked until</div><div class="v">${dt(u.pin_locked_until)}</div></div>` : ''}
+        </div>
+        ${(u.audit || []).length ? `<h3 class="adm-sec">Admin changes</h3><div class="adm-list">${u.audit.map((a) => `<div class="it"><span class="t">${esc(a.action)}</span><span class="d">${esc(a.admin)} \xb7 ${dt(a.at)}</span></div>`).join('')}</div>` : ''}
+      </div>
+      <div class="adm-pane" data-t="activity">
+        <h3 class="adm-sec" style="margin-top:0">Visits <span id="adm-visN" style="color:var(--dim);font-size:11px"></span></h3>
+        <div id="adm-vis"><div class="adm-em">Loading…</div></div>
+        <h3 class="adm-sec">Play history <span id="adm-histN" style="color:var(--dim);font-size:11px"></span></h3>
+        <div id="adm-hist"><div class="adm-em">Loading…</div></div>
+      </div>
+      <div class="adm-pane" data-t="playlists">
+        <div id="adm-pl"><div class="adm-em">Loading…</div></div>
+      </div>
+      <div class="adm-pane" data-t="library">
+        <h3 class="adm-sec" style="margin-top:0">Recently played \xb7 ${num(recents.length)}</h3>
+        ${recents.length ? `<div class="adm-list">${recents.slice(0, 100).map((t) => `<div class="it"><span class="t">${esc(t.title || t.videoId || '—')}</span><span class="d">${esc(t.artist || '')}</span></div>`).join('')}</div>` : '<div class="adm-empty">Nothing in the synced recently-played list.</div>'}
+        <h3 class="adm-sec">Likes \xb7 ${num(likes.length)}</h3>
+        ${likes.length ? `<div class="adm-list">${likes.slice(0, 100).map((l) => `<div class="it"><span class="t">${esc(l.title || l.video_id)}</span><span class="d">${esc(l.artist || '')} \xb7 ${dshort(l.added_at)}</span></div>`).join('')}</div>` : '<div class="adm-empty">No likes yet.</div>'}
+      </div>`;
+    admSetTab(CUR_TAB);
+  }
+
+  window.admSetF = function (name, v) {
+    if (!CUR) return;
+    if (name === 'kid_only') CUR.kid_only = v === '1';
+    else if (name === 'artist_mode') CUR.artist_mode = v;
+    else {
+      CUR.filters = CUR.filters || {};
+      if (name === 'noFemale' || name === 'noDJ' || name === 'blockVideos') CUR.filters[name] = v === '1';
+      else if (v === '') delete CUR.filters[name];
+      else CUR.filters[name] = v;
+    }
+    renderUser();
+    a$('mMsg').style.color = 'var(--gold)'; a$('mMsg').textContent = 'Unsaved changes';
+  };
+
+  /* ---- modal event listeners ---- */
+  const modal = document.getElementById('adminModal');
+  if (modal) {
+    a$('mClose').addEventListener('click', () => modal.classList.remove('on'));
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('on'); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal.classList.contains('on')) modal.classList.remove('on'); });
+
+    a$('mSave').addEventListener('click', async () => {
+      if (!CUR) return;
+      a$('mSave').disabled = true; a$('mMsg').style.color = ''; a$('mMsg').textContent = 'Saving…';
+      try {
+        await rpc('admin_set_user', { p_user: CUR.id, p_patch: { filters: CUR.filters || {}, artist_mode: CUR.artist_mode, kid_only: !!CUR.kid_only } });
+        a$('mMsg').style.color = 'var(--good)'; a$('mMsg').textContent = 'Saved';
+        adminLoad();
+      } catch (e) { a$('mMsg').style.color = 'var(--accent)'; a$('mMsg').textContent = e.message; }
+      finally { a$('mSave').disabled = false; }
+    });
+
+    a$('mClearPin').addEventListener('click', async () => {
+      if (!CUR || !CUR.has_pin) { a$('mMsg').textContent = 'No PIN set.'; return; }
+      if (!confirm('Clear this user’s parental PIN?')) return;
+      a$('mClearPin').disabled = true; a$('mMsg').style.color = ''; a$('mMsg').textContent = 'Clearing…';
+      try {
+        await rpc('admin_clear_pin', { p_user: CUR.id });
+        CUR = await rpc('admin_user_detail', { p_user: CUR.id });
+        renderUser(); a$('mMsg').style.color = 'var(--good)'; a$('mMsg').textContent = 'PIN cleared';
+        adminLoad();
+      } catch (e) { a$('mMsg').style.color = 'var(--accent)'; a$('mMsg').textContent = e.message; }
+      finally { a$('mClearPin').disabled = false; }
+    });
+  }
+
+  /* ---- admin view event listeners ---- */
+  let admInited = false;
+  window._adminActivate = function () {
+    if (!admInited) {
+      admInited = true;
+      const qEl = a$('q');
+      if (qEl) qEl.addEventListener('input', () => { clearTimeout(ADM_TIMER); ADM_TIMER = setTimeout(() => { OFFSET = 0; adminLoad(); }, 250); });
+      const rb = a$('refreshBtn'); if (rb) rb.addEventListener('click', () => adminLoad());
+      const pb = a$('prevBtn'); if (pb) pb.addEventListener('click', () => { if (OFFSET > 0) { OFFSET = Math.max(0, OFFSET - PAGE); adminLoad(); } });
+      const nb = a$('nextBtn'); if (nb) nb.addEventListener('click', () => { if (OFFSET + PAGE < TOTAL) { OFFSET += PAGE; adminLoad(); } });
+      const dr = a$('dupRefresh'); if (dr) dr.addEventListener('click', () => { loadDupes(); loadMerges(); });
+    }
+    adminLoad(); loadDupes(); loadMerges();
+  };
+  window._adminLoad = adminLoad;
+})();
 
 boot();
 </script>
