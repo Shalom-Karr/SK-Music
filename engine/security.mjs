@@ -424,14 +424,35 @@ const LIMITS = {
   anon: [["RL_ANON_BURST", 10], ["RL_ANON_MIN", 60]],
   dc: [["RL_DC_MIN", 60]],
 };
+// Requests allowed per tier and window. The exact counter is the RateLimiter Durable Object
+// (engine/limiter.mjs); the matching wrangler `ratelimits` bindings are only the fallback when it is absent.
+const LIMIT_COUNTS = { RL_ACCT_BURST: 45, RL_ACCT_MIN: 120, RL_ANON_BURST: 15, RL_ANON_MIN: 20, RL_DC_MIN: 10 };
+const LIMITER_TIMEOUT = 1500;
 
-// Returns the first tripped [binding, period], or null. Missing binding / limiter error ⇒ not limited.
-async function checkLimits(env, cls, key) {
-  const tiers = LIMITS[cls].filter(([b]) => env[b] && typeof env[b].limit === "function");
+// Returns the first tripped [tier, period], or null. Limiter missing / slow / erroring ⇒ not limited.
+// opts.skipMinute counts only the burst tier (for requests that must not use up the per-minute budget).
+async function checkLimits(env, cls, key, opts) {
+  const tiers = LIMITS[cls].filter(([, period]) => !(opts && opts.skipMinute && period === 60));
   if (!tiers.length) return null;
-  const res = await Promise.all(tiers.map(([b]) => env[b].limit({ key }).then((r) => r?.success !== false, () => true)));
+  if (env.LIMITER && typeof env.LIMITER.idFromName === "function") {
+    try {
+      const stub = env.LIMITER.get(env.LIMITER.idFromName(key));
+      const r = await stub.fetch("https://limiter/", {
+        method: "POST",
+        body: JSON.stringify({ tiers: tiers.map(([b, period]) => [b, LIMIT_COUNTS[b], period]) }),
+        signal: AbortSignal.timeout(LIMITER_TIMEOUT),
+      });
+      const { tripped } = await r.json();
+      return tiers.find(([b]) => b === tripped) || null;
+    } catch {
+      return null;
+    }
+  }
+  const bound = tiers.filter(([b]) => env[b] && typeof env[b].limit === "function");
+  if (!bound.length) return null;
+  const res = await Promise.all(bound.map(([b]) => env[b].limit({ key }).then((r) => r?.success !== false, () => true)));
   const i = res.indexOf(false);
-  return i === -1 ? null : tiers[i];
+  return i === -1 ? null : bound[i];
 }
 
 // ─── Responses ────────────────────────────────────────────────────────────────

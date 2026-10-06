@@ -7,6 +7,7 @@
  */
 
 import { securityGate, handleUnblockRequest } from "./security.mjs";
+export { RateLimiter } from "./limiter.mjs"; // Durable Object class: exact per-IP/account rate limits
 
 // YouTube Music internal API base + context payload used for every browse call.
 const YTM_BASE = "https://music.youtube.com/youtubei/v1";

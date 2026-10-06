@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.9.7 — 2026-10-06 (web)
+
+**Why the bump:** the Worker's rate limits weren't enforcing — Cloudflare's built-in Workers rate limiter
+counts per machine and syncs loosely, and in production it let 56 requests a minute through a 20-a-minute
+limit without a single 429.
+
+**Rate limits that actually hold**
+- Every IP and account now gets an exact counter of its own (a Durable Object in the Cloudflare location
+  nearest to it). The limits are unchanged — 20 a minute and 15 per 10 seconds without an account, 120 and
+  45 signed in, 10 a minute on datacenter networks — and the 16th request in 10 seconds or the 21st in a
+  minute is now really refused. If the counter is ever unreachable, requests go through rather than
+  breaking the site.
+
 ## 1.9.6 — 2026-10-06 (web)
 
 **Why the bump:** measure how people answer the "Create your free SK Music account" popup before
