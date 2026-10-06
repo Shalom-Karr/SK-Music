@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.9.4 — 2026-10-05 (web)
+
+**Why the bump:** crawlers that run the app (Meta's crawler above all — about a third of the mid-August
+spike) were being counted as visitors, sessions and plays.
+
+**Analytics: humans and bots, separately**
+- A **Humans · Bots · All traffic** switch next to the date range. **Humans** is the default, so every
+  number on the page now counts people; **Bots** shows crawler traffic on its own. The choice is remembered.
+- A new **Bot traffic** card shows what share of the range was bots and which crawlers they were.
+- The recent-events table and the filter-blocked panel follow the switch too.
+
 ## 1.9.3 — 2026-10-05 (web)
 
 **Why the bump:** the analytics page's **All** range failed — the summary timed out on the server, and the
