@@ -13,6 +13,12 @@ accounts become required.
 - Recorded as `acct_notice` events (`meta.a` = `shown` · `signup` · `not_now` · `closed` · `created`).
   Sign-ups through Google from the popup's form aren't counted as `created` (the redirect leaves the page).
 
+**Rate-limit notice**
+- Hitting a rate limit now always says so: "You were blocked for a moment — too many requests too fast.
+  Slow down, or create a free account for higher limits" (signed-in users just get "slow down"). It covers
+  every request — the Worker's limits, the edge limit on catalog files, and the catalog engine's background
+  thread — where before only some API calls showed anything and the rest failed silently.
+
 **Security: fewer false positives**
 - Content-filter proxies (Techloq US/UK, NetFree-style CloudWebManage, DataVerge, PV-Hosted, PureVoltage)
   carry many real listeners per IP and are never treated as datacenter traffic.

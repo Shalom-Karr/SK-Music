@@ -1320,7 +1320,27 @@ function secNotice(j) {
   _secNoticeAt = Date.now();
   if (j.error === "datacenter") showToast('<b>SK Music is limited on this network</b> (a hosting provider or VPN). <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();openAuth(&#39;in&#39;)">Sign in</a> to keep listening, or <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();unblockRequest()">Contact us</a> if this is a mistake.', 12000);
   else if (j.error === "banned") { const fin = j.until && isFinite(Date.parse(j.until)); showToast("<b>Too many requests from your connection.</b> Access is " + (fin ? "paused until " + new Date(j.until).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + "." : "blocked.") + ' <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();unblockRequest()">Contact us</a> if this is a mistake.', 12000); }
-  else if (j.error === "rate_limited") showToast("<b>Slow down a little</b> — too many requests in a short time. Try again in a moment.", 5000);
+  else if (j.error === "rate_limited") showToast("<b>You were blocked for a moment</b> — too many requests too fast. " + (loggedIn()
+    ? "Slow down and it clears in a few seconds."
+    : 'Slow down, or <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();openAuth(&#39;up&#39;)">create a free account</a> for higher limits.'), 9000);
+}
+// Every same-origin request goes through here, so a 429/403 from the Worker (JSON body) or the edge rate
+// limit (Cloudflare's HTML page) shows a notice no matter which code path made it. The engine's Web Worker
+// reports its own through postMessage (engine-worker.mjs).
+function secStatus(status, j) {
+  if (j && j.error) return secNotice(j);
+  if (status === 429) secNotice({ error: "rate_limited" });
+}
+{
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = async (input, init) => {
+    const r = await nativeFetch(input, init);
+    if (r.status === 429 || r.status === 403) {
+      let same = false; try { same = new URL(r.url || String(input), location.href).origin === location.origin; } catch {}
+      if (same) r.clone().json().then((j) => secStatus(r.status, j), () => secStatus(r.status, null));
+    }
+    return r;
+  };
 }
 // Blocked people can always reach this: the Worker exempts /unblock-request from bans and the datacenter
 // block, records the real IP, and caps it per IP. It lands on the Security tab of the admin dashboard.
@@ -1341,7 +1361,6 @@ async function fetchJSON(url, opt) {
     try {
       const r = await fetch(url, opt);
       if (r.ok) return await r.json();
-      if (r.status === 403 || r.status === 429) { try { secNotice(await r.clone().json()); } catch {} }
       if (r.status >= 500 && attempt < 1) { await new Promise((z) => setTimeout(z, 350)); continue; }
       throw new Error(r.status);
     } catch (e) {
@@ -7226,7 +7245,7 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
       STATIC = true; ENGINE = await import("/lib/engine.mjs"); // in-thread engine = the fallback (dataset loads lazily only if a fallback call happens)
       try { // primary: the engine in a Web Worker, so the dataset parse + search-index build never block the UI
         ENGINE_WORKER = new Worker("/lib/engine-worker.mjs", { type: "module" });
-        ENGINE_WORKER.onmessage = (e) => { const { id, r, err } = e.data || {}; const res = _wReq.get(id); if (res) { _wReq.delete(id); res(err ? null : r); } };
+        ENGINE_WORKER.onmessage = (e) => { if (e.data && e.data.sec) return secStatus(e.data.sec.status, e.data.sec.j); const { id, r, err } = e.data || {}; const res = _wReq.get(id); if (res) { _wReq.delete(id); res(err ? null : r); } };
         ENGINE_WORKER.onerror = () => { ENGINE_WORKER = null; }; // worker failed to load → in-thread engine takes over
       } catch { ENGINE_WORKER = null; }
     }
