@@ -1715,19 +1715,35 @@ function paintMVButton() {
 // far shorter than the catalog's length for this song (a 15s or 30s clip for a 3-minute song), or the
 // player reports a video id that isn't this song's, an ad is on screen and the frame gets covered with
 // "Playing ad". A heuristic, not a guarantee: before the player knows its duration (the first instant of
-// playback) there's nothing to compare, and a song shorter than a minute isn't judged at all.
-function mvAdOnScreen(t, id) {
+// playback) there's nothing to compare, and a song shorter than a minute isn't judged at all. Only judged
+// while PLAYING — an ad reports PLAYING, but a track that's still loading can briefly report the PREVIOUS
+// song's id and length, which would otherwise read as an ad on every skip.
+function mvAdOnScreen(t, id, ytState) {
+  if (ytState !== 1 || !t || t.kind || !PB.useYt()) return false;
   let ytDur = 0, ytVid = "";
   try { ytDur = PB.yt.getDuration() || 0; } catch {}
   try { ytVid = (PB.yt.getVideoData() || {}).video_id || ""; } catch {}
   const expected = (t && t.durationSec) || 0;
   return !!id && ((!!ytVid && ytVid !== id) || (expected > 60 && ytDur > 0 && ytDur < expected * 0.5 && expected - ytDur > 20));
 }
+// An ad's audio plays through the same player whether or not watch mode is on, so the mute is driven from
+// mvPaint (tick() calls it every 300ms during playback), ahead of the watch-mode checks. PB.muted is the
+// user's own mute and is never undone here.
+let _mvAdMuted = false;
+function mvAdMute(on) {
+  if (on === _mvAdMuted) return;
+  _mvAdMuted = on;
+  try { if (on) PB.yt.mute(); else if (!PB.muted) PB.yt.unMute(); } catch {}
+  if (on && !PB.muted) showToast("Ad playing — muted until the song starts.", 2600);
+}
 function mvPaint() {
   const w = el("ytwrap"); if (!w) return;
   const t = state.queue[state.qi], id = (t && t.videoId) || "";
   let ytState = -1; try { ytState = PB.ready ? PB.yt.getPlayerState() : -1; } catch {}
-  const ad = mvAdOnScreen(t, id);
+  // Sticky until the player is PLAYING the song itself again, so pausing (or buffering) mid-ad keeps the
+  // ad covered and muted instead of revealing its frozen frame.
+  const ad = mvAdOnScreen(t, id, ytState) || (_mvAdMuted && ytState !== 1);
+  mvAdMute(ad);
   const box = el("npArtBox"), r = box && box.getBoundingClientRect();
   const active = state.nowOpen && mvWanted() && mvAllowed() && mvTrackOK(t) && PB.useYt() && r && r.width > 0;
   if (!active) {

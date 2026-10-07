@@ -25,8 +25,10 @@ only, even on a track that has a real video.
 - **New: "Playing ad".** YouTube doesn't tell the embedding page when an ad is playing, but an ad reports
   its own length — so when the player's duration is far shorter than the song's (a 15- or 30-second clip
   for a 3-minute song), or it reports a different video, the frame is covered with the song's art and a
-  "Playing ad" label until the song itself starts. It's a heuristic: the first instant before the player
-  knows its length can't be judged, and songs under a minute aren't checked.
+  "Playing ad" label until the song itself starts — and the ad is **muted** (with a short notice), whether
+  or not you're watching the video, unmuting the moment the song plays. Your own mute is never undone. It's
+  a heuristic: the first instant before the player knows its length can't be judged, and songs under a
+  minute aren't checked.
 
 ## 1.9.8 + Desktop 1.2.4 — 2026-10-06 (web + desktop)
 
