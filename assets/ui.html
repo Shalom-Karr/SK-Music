@@ -2909,6 +2909,7 @@ const shFromPos = (id, e) => ({ videoId: "ta-" + id, kind: "shiur", shId: +id, s
 // stick to the shared track object a rendered list is still holding.
 function playShiur(t, watch) {
   if (!t || (!t.src && !t.vsrc && !t.hsrc)) { showToast("This shiur has no audio.", 2600); return; }
+  shHidePic = false; // a fresh shiur always starts showing its picture (if it has one) — see shToggleWatch
   if (watch && !t.vsrc && !t.hsrc) watch = false;
   const q = { ...t, watch: !!watch || (!t.src && !!(t.vsrc || t.hsrc)) }; // video-only lectures have nowhere else to go
   const at = (shPos()[q.shId] || {}).pos || 0;
@@ -5064,16 +5065,21 @@ function toggleVidFullscreen() {
 for (const ev of ["fullscreenchange", "webkitfullscreenchange"]) addEventListener(ev, () => { try { video.controls = !!fsNow() || vidControlsOn(); } catch {} paintWatchUI(); });
 function paintWatchUI() {
   const t = state.queue[state.qi], can = !!(t && (t.vsrc || t.hsrc) && podcastVideosOn());
+  // watching = the picture is actually on screen. Usually that's just "is the video element active"
+  // (PB.vid), but a video-only lecture (no t.src) has nowhere else to send the audio, so shHidePic lets
+  // it keep playing through the SAME video element while only the frame's visibility is toggled off —
+  // see shToggleWatch.
+  const watching = !!PB.vid && !shHidePic;
   const b = el("npWatch");
   if (b) {
     b.style.display = can ? "" : "none";
-    b.classList.toggle("on", can && !!PB.vid);
-    const lbl = PB.vid ? "Listen to the audio" : "Watch the video";
-    b.title = lbl; b.setAttribute("aria-label", lbl); b.setAttribute("aria-pressed", String(can && !!PB.vid));
+    b.classList.toggle("on", can && watching);
+    const lbl = watching ? "Listen to the audio" : "Watch the video";
+    b.title = lbl; b.setAttribute("aria-label", lbl); b.setAttribute("aria-pressed", String(can && watching));
   }
   // The two video-only buttons appear only once something is actually on screen — offering "full
   // screen" next to an audio track would be a dead control.
-  const watching = !!PB.vid, ctl = el("npVidCtl"), fs = el("npFull");
+  const ctl = el("npVidCtl"), fs = el("npFull");
   if (ctl) {
     ctl.style.display = watching ? "" : "none";
     ctl.classList.toggle("on", vidControlsOn());
@@ -5084,19 +5090,32 @@ function paintWatchUI() {
   // survives fullscreen, and an inline display here would fight that rule. Only the label is ours.
   if (fs) { const l = fsNow() ? "Exit full screen" : "Full screen"; fs.title = l; fs.setAttribute("aria-label", l); }
   try { video.controls = watching && (!!fsNow() || vidControlsOn()); } catch {}
-  const box = el("npArtBox"); if (box) box.classList.toggle("watching", !!PB.vid);
+  const box = el("npArtBox"); if (box) box.classList.toggle("watching", watching);
 }
+// Lets a video-only lecture's picture be hidden without touching playback: a <video> element keeps
+// decoding (and keeps its audio) even while display:none, same as the YouTube iframe sits off-screen
+// for audio-only playback (see the desktop download pipeline's own comment on the same property).
+// Reset on every new playShiur() so a fresh track always starts showing its picture.
+let shHidePic = false;
 // Flip the CURRENT track between its video and its audio, in place and at the same position — the
-// resume point, the queue entry and the play-duration session all survive, because only the media
-// element changes. Video-only lectures can't flip back (there is no audio to flip to).
+// resume point, the queue entry and the play-duration session all survive either way.
 function shToggleWatch() {
   const t = state.queue[state.qi]; if (!t || (!t.vsrc && !t.hsrc)) return;
   if (!podcastVideosOn()) { showToast("<b>Video shiurim are turned off</b> for this account — a parent can enable them in Parental Controls.", 4600); return; }
+  if (!t.src) {
+    // Video-only lecture: there's no separate audio file to switch the media element to, but its audio
+    // track plays regardless of whether the picture is shown — so "listen" just hides the frame, with
+    // the exact same source still loaded. No PB.load, no reload, no lost position.
+    shHidePic = !shHidePic;
+    paintWatchUI();
+    showToast(shHidePic ? "Back to audio only." : "Watching the video.", 1800);
+    return;
+  }
   const to = !t.watch;
   if (to && !t.vsrc && !t.hsrc) { showToast("This shiur has no video.", 2600); return; }
-  if (!to && !t.src) { showToast("This shiur is video only.", 2600); return; }
   const at = PB.cur() || 0;
   t.watch = to;
+  shHidePic = false;
   PB.load(t.videoId, at, to ? t.vsrc : t.src, to, to ? t.hsrc : "");
   paintWatchUI(); setPlayIcons();
   showToast(to ? "Watching the video." : "Back to audio only.", 1800);

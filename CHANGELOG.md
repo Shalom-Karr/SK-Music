@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.9.9 — 2026-10-07 (web)
+
+**Why the bump:** a video-only shiur (no separate audio file) couldn't be switched to audio-only at
+all — pressing Listen just showed "This shiur is video only." and refused, even though the lecture's
+own audio track plays fine regardless of whether its picture is on screen.
+
+**Listen to a video-only shiur without watching it**
+- A `<video>` element keeps decoding — and keeps its audio — even while hidden (`display:none`), the
+  same reason the YouTube player can sit off-screen for audio-only playback elsewhere in the app. Video-
+  only lectures now use that: pressing Listen just hides the picture, with the exact same video still
+  loaded and playing underneath. No reload, no lost position.
+- Shiurim with a real separate audio file are unaffected — switching those still swaps the actual media
+  element, exactly as before.
+
 ## 1.9.8 + Desktop 1.2.4 — 2026-10-06 (web + desktop)
 
 **Why the bump:** a ⋮ menu on every tile (contributed in PR #20), and the desktop app's **X** now really
