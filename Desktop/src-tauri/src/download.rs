@@ -5,19 +5,15 @@
 //! shell: one module, one custom URI scheme, one capability. Nothing here runs for
 //! the web-only PWA — the SPA gates every hook behind `SK_NATIVE`.
 //!
-//! ## How the audio URL is obtained (no signature forging, no yt-dlp)
-//! We reuse the SK Video Downloader trick: let YouTube's OWN player produce the
-//! signed, PoToken'd stream URL and capture it. SK Music's main webview plays via a
-//! cross-origin youtube-nocookie iframe it can't script, so we spin up a SEPARATE
-//! hidden Tauri webview navigated to `https://www.youtube.com/watch?v=<id>`. An
-//! initialization script (see `EXTRACTOR_JS`) runs on that youtube.com page, reads
-//! `ytInitialPlayerResponse` (or the InnerTube player endpoint), picks the best
-//! audio-only adaptive format (itag 140 / AAC preferred), deciphers the signature
-//! eval-free, and ALSO monkeypatches fetch/XHR to capture the player's own
-//! `videoplayback` request (which carries a valid, un-throttled `n`). It hands the
-//! resulting URL back by EMITTING `sk-yt-extracted` — a `core:event`, because the
-//! youtube webview is remote content and (like the main SPA) can only use events,
-//! never app commands.
+//! ## How the audio URL is obtained (no browser window, no yt-dlp binary)
+//! `native_extract()` calls YouTube's Innertube API through `rustypipe`
+//! (<https://codeberg.org/ThetaDev/rustypipe>), a from-scratch Rust client. It picks the best
+//! audio-only adaptive format and deciphers its signature/`n`-param by running the actual
+//! extracted cipher function from YouTube's player JS through a bundled QuickJS engine
+//! (`rquickjs`) — not a real browser, just a small embedded JS interpreter — so the whole thing
+//! is a plain async network call on the download worker. Nothing opens, visibly or hidden, and
+//! nothing here re-derives YouTube's cipher algorithm by hand (that was the previous approach's
+//! fragility; rustypipe tracks player-JS changes as its own maintenance burden instead of ours).
 //!
 //! ## Download + playback
 //! Rust fetches the signed URL with `reqwest` using a small number of concurrent ranged requests
@@ -52,9 +48,6 @@
 //!   * `sk-dl-error`          `{ videoId, message }`
 //!   * `sk-dl-list`           `{ items: [entry, ...] }`
 //!   * `sk-dl-reveal-failed`  `{ videoId, message }`
-//! Hidden extractor webview -> Rust:
-//!   * `sk-yt-extracted`      `{ videoId, url, mime, itag, contentLength, title, author }`
-//!   * `sk-yt-extract-failed` `{ videoId, reason }`
 
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -63,13 +56,13 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use rustypipe::client::RustyPipe;
+use rustypipe::param::StreamFilter;
 use serde::{Deserialize, Serialize};
 use tauri::http::{header, Request, Response, StatusCode};
-use tauri::{AppHandle, Emitter, Listener, Manager, Url, WebviewUrl, WebviewWindowBuilder};
-use tokio::sync::{mpsc, oneshot};
+use tauri::{AppHandle, Emitter, Listener, Manager, Url};
+use tokio::sync::mpsc;
 
-/// Label of the reused hidden extractor window.
-const EXTRACTOR_LABEL: &str = "sk-yt-extractor";
 /// Ranged download chunk size — keeps each request small enough to stay under YouTube's
 /// per-request throttle window while still being large enough to amortise round-trip latency.
 const CHUNK: u64 = 2 << 20; // 2 MiB
@@ -78,8 +71,6 @@ const CHUNK: u64 = 2 << 20; // 2 MiB
 const PARALLEL: usize = 3;
 /// Per-chunk retry limit before aborting the whole download.
 const CHUNK_RETRIES: u32 = 2;
-/// How long to wait for the extractor webview to hand back a stream URL.
-const EXTRACT_TIMEOUT: Duration = Duration::from_secs(30);
 /// Browser-ish UA — googlevideo can 403 an obviously-headless client.
 const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36";
 
@@ -124,14 +115,13 @@ struct Entry {
 
 /// Serialize index writes across the download worker + delete handler.
 static INDEX_LOCK: Mutex<()> = Mutex::new(());
-/// videoId -> waiting extractor result channel (one in flight, but keyed for safety).
-static PENDING: OnceLock<Mutex<HashMap<String, oneshot::Sender<Result<Extracted, String>>>>> =
-    OnceLock::new();
 /// The single-worker download queue.
 static QUEUE: OnceLock<mpsc::UnboundedSender<Job>> = OnceLock::new();
-
-fn pending() -> &'static Mutex<HashMap<String, oneshot::Sender<Result<Extracted, String>>>> {
-    PENDING.get_or_init(|| Mutex::new(HashMap::new()))
+/// The Innertube client used by `native_extract()`. Cheap to clone/reuse (internally Arc'd), so
+/// one instance lives for the app's lifetime instead of being rebuilt per download.
+static RP: OnceLock<RustyPipe> = OnceLock::new();
+fn rp() -> &'static RustyPipe {
+    RP.get_or_init(RustyPipe::new)
 }
 
 // ---------------------------------------------------------------------------
@@ -169,14 +159,6 @@ struct Extracted {
     title: String,
     #[serde(default)]
     author: String,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ExtractFailed {
-    video_id: String,
-    #[serde(default)]
-    reason: String,
 }
 
 struct Job {
@@ -260,26 +242,6 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
         }
     });
 
-    // Hidden extractor webview -> Rust
-    app.listen("sk-yt-extracted", move |ev| {
-        if let Ok(x) = serde_json::from_str::<Extracted>(ev.payload()) {
-            if let Some(tx) = pending().lock().unwrap().remove(&x.video_id) {
-                let _ = tx.send(Ok(x));
-            }
-        }
-    });
-    app.listen("sk-yt-extract-failed", move |ev| {
-        if let Ok(f) = serde_json::from_str::<ExtractFailed>(ev.payload()) {
-            if let Some(tx) = pending().lock().unwrap().remove(&f.video_id) {
-                let _ = tx.send(Err(if f.reason.is_empty() {
-                    "extraction failed".into()
-                } else {
-                    f.reason
-                }));
-            }
-        }
-    });
-
     Ok(())
 }
 
@@ -307,53 +269,24 @@ async fn process(app: &AppHandle, job: Job) {
 
     emit_progress(app, &id, "extracting", 0, None);
 
-    let (tx, rx) = oneshot::channel();
-    pending().lock().unwrap().insert(id.clone(), tx);
-    open_extractor(app, &id);
-
-    // The hidden extractor loads youtube.com/watch and tries three ways to find an audio
-    // URL: the embedded player response, a sniffed googlevideo request from the hidden
-    // player, and the InnerTube API. All three need YouTube itself to be reachable, and
-    // for a large share of this audience it isn't: a kosher filter blocks youtube.com and
-    // googlevideo.com outright, the extractor gets a block page, and every strategy comes
-    // up empty — that is the "no audio format found" report.
-    //
-    // The web app already handles exactly this case by streaming and downloading through
-    // the streaming proxy (see RELAY_BASE in assets/ui.html). This
-    // gives the desktop downloader the same fallback: when YouTube extraction fails for
-    // ANY reason — filter block, timeout, or a YouTube-side change that breaks the
-    // scraper — try the relay before giving up. Everything downstream (ranged download,
-    // index entry, done event) is unchanged: the relay simply yields an `Extracted`.
-    let extracted = match tokio::time::timeout(EXTRACT_TIMEOUT, rx).await {
-        Ok(Ok(Ok(x))) => {
-            park_extractor(app);
-            x
-        }
-        Ok(Ok(Err(reason))) => {
-            pending().lock().unwrap().remove(&id);
-            park_extractor(app);
-            match relay_extract(app, &id, &job).await {
-                Some(x) => x,
-                None => {
-                    let msg = format!("could not read the audio stream: {reason}");
-                    emit_error(app, &id, &msg);
-                    if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: {msg}")); }
-                    return;
-                }
+    // native_extract() is a plain Innertube network call — no window opens. It fails whenever
+    // YouTube itself isn't reachable (a kosher filter blocking youtube.com/googlevideo.com
+    // outright is the common case for this audience) or YouTube changes something rustypipe
+    // hasn't caught up with yet. Either way, fall back to the same streaming relay the web app
+    // already uses when a filter blocks YouTube (see RELAY_BASE in assets/ui.html) before giving
+    // up. Everything downstream (ranged download, index entry, done event) is unchanged: the
+    // relay simply yields an `Extracted` too.
+    let extracted = match native_extract(&id).await {
+        Ok(x) => x,
+        Err(reason) => match relay_extract(app, &id, &job).await {
+            Some(x) => x,
+            None => {
+                let msg = format!("could not read the audio stream: {reason}");
+                emit_error(app, &id, &msg);
+                if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: {msg}")); }
+                return;
             }
-        }
-        _ => {
-            pending().lock().unwrap().remove(&id);
-            park_extractor(app);
-            match relay_extract(app, &id, &job).await {
-                Some(x) => x,
-                None => {
-                    emit_error(app, &id, "timed out reading the audio stream");
-                    if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: timed out reading the audio stream")); }
-                    return;
-                }
-            }
-        }
+        },
     };
 
     let ext = ext_for(&extracted.mime, extracted.itag);
@@ -678,44 +611,32 @@ fn reveal(app: &AppHandle, id: &str) {
 }
 
 // ---------------------------------------------------------------------------
-// Hidden extractor webview
+// Native YouTube extraction (no browser window — see the module doc comment)
 // ---------------------------------------------------------------------------
 
-/// Create (or reuse + re-navigate) the hidden youtube.com extractor webview for `id`.
-fn open_extractor(app: &AppHandle, id: &str) {
-    let target = format!("https://www.youtube.com/watch?v={id}");
-    let app = app.clone();
-    let _ = app.clone().run_on_main_thread(move || {
-        let url = match Url::parse(&target) {
-            Ok(u) => u,
-            Err(_) => return,
-        };
-        if let Some(win) = app.get_webview_window(EXTRACTOR_LABEL) {
-            let _ = win.navigate(url);
-        } else {
-            let _ = WebviewWindowBuilder::new(&app, EXTRACTOR_LABEL, WebviewUrl::External(url))
-                .title("SK Music helper")
-                .visible(false)
-                .focused(false)
-                .skip_taskbar(true)
-                .inner_size(400.0, 300.0)
-                .initialization_script(EXTRACTOR_JS)
-                .build();
-        }
-    });
-}
-
-/// Send the extractor to about:blank between jobs so the youtube player stops
-/// buffering/using the network while a download runs (and while idle).
-fn park_extractor(app: &AppHandle) {
-    let app = app.clone();
-    let _ = app.clone().run_on_main_thread(move || {
-        if let Some(win) = app.get_webview_window(EXTRACTOR_LABEL) {
-            if let Ok(url) = Url::parse("about:blank") {
-                let _ = win.navigate(url);
-            }
-        }
-    });
+/// Resolve `id` to a deciphered, downloadable audio stream URL via rustypipe's Innertube client.
+/// A plain async network call: nothing opens a window, visible or hidden. Errors (video blocked
+/// in-region, DRM, no audio format, the Innertube call itself failing) all fall through to
+/// `relay_extract()` in `process()` — this function only needs to say what went wrong, not
+/// distinguish why, since the caller treats every failure the same way.
+async fn native_extract(id: &str) -> Result<Extracted, String> {
+    let player = rp()
+        .query()
+        .player(id)
+        .await
+        .map_err(|e| format!("youtube lookup failed: {e}"))?;
+    let stream = player
+        .select_audio_stream(&StreamFilter::default())
+        .ok_or_else(|| "no audio format found".to_string())?;
+    Ok(Extracted {
+        video_id: id.to_string(),
+        url: stream.url.clone(),
+        mime: stream.mime.clone(),
+        itag: stream.itag,
+        content_length: Some(stream.size).filter(|&n| n > 0),
+        title: player.details.name.clone().unwrap_or_default(),
+        author: player.details.channel_name.clone().unwrap_or_default(),
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -1368,187 +1289,3 @@ fn now_ms() -> u64 {
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
 }
-
-// ---------------------------------------------------------------------------
-// Extractor init script (runs in the MAIN world on youtube.com)
-// ---------------------------------------------------------------------------
-
-/// Injected into the hidden youtube.com webview. Reads the player response, picks
-/// the best audio-only format, deciphers signatures eval-free (YouTube's CSP forbids
-/// eval), monkeypatches fetch/XHR to prefer the player's own valid-`n` stream URL,
-/// and hands the result back over `core:event`. Adapted (audio-only) from the SK
-/// Video Downloader content script.
-const EXTRACTOR_JS: &str = r#"
-(function () {
-  "use strict";
-  var VID = null;
-  try { VID = new URLSearchParams(location.search).get("v"); } catch (e) {}
-  if (!VID || !/^[\w-]{11}$/.test(VID)) return;
-  if (window.__skDlDone === VID) return;
-
-  var AUDIO_ITAGS = { 139:1,140:1,141:1,149:1,150:1,256:1,258:1,327:1,328:1,251:1,250:1,249:1 };
-  var captured = null;
-  function scoreCap(itag, mime) {
-    if (itag === 140 || /audio\/mp4/.test(mime)) return 3;
-    if (AUDIO_ITAGS[itag] || /audio/.test(mime)) return 2;
-    return 0;
-  }
-  function noteUrl(u) {
-    try {
-      if (!u || u.indexOf("googlevideo.com/videoplayback") < 0) return;
-      var url = new URL(u, location.href);
-      var itag = parseInt(url.searchParams.get("itag"), 10);
-      var mime = url.searchParams.get("mime") || "";
-      var s = scoreCap(itag, mime);
-      if (!s) return;
-      ["range","rn","rbuf","ump","srfvp","sq","alr"].forEach(function (p) { url.searchParams.delete(p); });
-      var clen = parseInt(url.searchParams.get("clen"), 10) || null;
-      if (!captured || s > captured.pri) {
-        captured = { url: url.toString(), itag: itag, mime: (mime || (s === 3 ? "audio/mp4" : "audio/webm")).split(";")[0], clen: clen, pri: s };
-      }
-    } catch (e) {}
-  }
-  try {
-    var of = window.fetch;
-    if (of) window.fetch = function (a) { try { noteUrl(typeof a === "string" ? a : (a && a.url) || ""); } catch (e) {} return of.apply(this, arguments); };
-  } catch (e) {}
-  try {
-    var ox = XMLHttpRequest.prototype.open;
-    XMLHttpRequest.prototype.open = function (m, u) { try { noteUrl(u); } catch (e) {} return ox.apply(this, arguments); };
-  } catch (e) {}
-
-  var cipherCache = null;
-  function getBaseJs() {
-    var path = null;
-    try { if (window.ytcfg && ytcfg.get) path = ytcfg.get("PLAYER_JS_URL"); } catch (e) {}
-    if (!path) { var m = document.documentElement.innerHTML.match(/"(\/s\/player\/[^"]+base\.js)"/); if (m) path = m[1]; }
-    if (!path) return Promise.resolve(null);
-    var url = path.indexOf("http") === 0 ? path : "https://www.youtube.com" + path;
-    return fetch(url).then(function (r) { return r.ok ? r.text() : null; }).catch(function () { return null; });
-  }
-  var DEC_RE = [
-    /\b([a-zA-Z0-9$]{2,})\s*=\s*function\(\s*([a-zA-Z0-9$]+)\s*\)\s*\{\s*\2\s*=\s*\2\.split\(\s*""\s*\)\s*;[\s\S]+?return\s+\2\.join\(\s*""\s*\)\s*\}/,
-    /(?:\b|[^a-zA-Z0-9$])([a-zA-Z0-9$]{2,})\s*=\s*function\(\s*a\s*\)\s*\{\s*a\s*=\s*a\.split\(\s*""\s*\)[\s\S]+?return a\.join\(\s*""\s*\)\s*\}/
-  ];
-  function buildCipher(body) {
-    var name = null;
-    for (var i = 0; i < DEC_RE.length; i++) { var m = body.match(DEC_RE[i]); if (m) { name = m[1]; break; } }
-    if (!name) return null;
-    var esc = name.replace(/[$]/g, "\\$&");
-    var fnMatch = body.match(new RegExp(esc + "=function\\(\\s*[a-zA-Z0-9$]+\\s*\\)\\{([\\s\\S]+?)\\}"));
-    if (!fnMatch) return null;
-    var fnBody = fnMatch[1];
-    var objMatch = fnBody.match(/;\s*([a-zA-Z0-9$]+)\./);
-    if (!objMatch) return null;
-    var objEsc = objMatch[1].replace(/[$]/g, "\\$&");
-    var objBody = (body.match(new RegExp("var " + objEsc + "=\\{([\\s\\S]+?)\\};")) || [])[1];
-    if (!objBody) return null;
-    var ops = {};
-    objBody.split(/,\s*(?=[a-zA-Z0-9$]+:function)/).forEach(function (part) {
-      var nm = (part.match(/^([a-zA-Z0-9$]+):/) || [])[1];
-      if (!nm) return;
-      if (/reverse\(\)/.test(part)) ops[nm] = { t: "reverse" };
-      else if (/splice\(/.test(part)) ops[nm] = { t: "splice" };
-      else if (/var\s+c=/.test(part) || /\[0\]/.test(part)) ops[nm] = { t: "swap" };
-    });
-    var seq = [], callRe = new RegExp(objEsc + "\\.([a-zA-Z0-9$]+)\\([a-zA-Z0-9$]+,(\\d+)\\)", "g"), c;
-    while ((c = callRe.exec(fnBody))) { var op = ops[c[1]]; if (op) seq.push({ t: op.t, n: parseInt(c[2], 10) }); }
-    if (!seq.length) return null;
-    return function (sig) {
-      var arr = sig.split("");
-      for (var k = 0; k < seq.length; k++) {
-        var st = seq[k];
-        if (st.t === "reverse") arr.reverse();
-        else if (st.t === "splice") arr.splice(0, st.n);
-        else if (st.t === "swap") { var tmp = arr[0]; arr[0] = arr[st.n % arr.length]; arr[st.n % arr.length] = tmp; }
-      }
-      return arr.join("");
-    };
-  }
-  function getCipher() {
-    if (cipherCache !== null) return Promise.resolve(cipherCache);
-    return getBaseJs().then(function (body) { cipherCache = body ? buildCipher(body) : null; return cipherCache; }).catch(function () { cipherCache = null; return null; });
-  }
-  function resolveUrl(fmt) {
-    if (fmt.url) return Promise.resolve(fmt.url);
-    var cipher = fmt.signatureCipher || fmt.cipher;
-    if (!cipher) return Promise.resolve(null);
-    var params = new URLSearchParams(cipher);
-    var url = params.get("url"), s = params.get("s"), sp = params.get("sp") || "signature";
-    if (!url) return Promise.resolve(null);
-    if (!s) return Promise.resolve(url);
-    return getCipher().then(function (c) { return c ? url + "&" + sp + "=" + encodeURIComponent(c(s)) : null; });
-  }
-
-  function grabPlayerResponse() {
-    try { if (window.ytInitialPlayerResponse && window.ytInitialPlayerResponse.streamingData) return window.ytInitialPlayerResponse; } catch (e) {}
-    try {
-      var args = window.ytplayer && window.ytplayer.config && window.ytplayer.config.args;
-      if (args) {
-        if (args.raw_player_response && args.raw_player_response.streamingData) return args.raw_player_response;
-        if (typeof args.player_response === "string") { var p = JSON.parse(args.player_response); if (p && p.streamingData) return p; }
-      }
-    } catch (e) {}
-    return null;
-  }
-  function ytCfg(key, fb) { try { if (window.ytcfg && ytcfg.get) { var v = ytcfg.get(key); if (v) return v; } } catch (e) {} return fb; }
-  function fetchInnertube(id) {
-    var key = ytCfg("INNERTUBE_API_KEY", "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8");
-    var cv = ytCfg("INNERTUBE_CLIENT_VERSION", "2.20240401.00.00");
-    return fetch("/youtubei/v1/player?key=" + encodeURIComponent(key) + "&prettyPrint=false", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ videoId: id, context: { client: { clientName: "WEB", clientVersion: cv, hl: "en" } }, contentCheckOk: true, racyCheckOk: true })
-    }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { return j && j.streamingData ? j : null; }).catch(function () { return null; });
-  }
-
-  function pickAudio(pr) {
-    var af = (pr.streamingData && pr.streamingData.adaptiveFormats) || [];
-    var audios = af.filter(function (f) { return /audio/i.test(f.mimeType || ""); });
-    audios.sort(function (a, b) {
-      var am = /audio\/mp4/i.test(a.mimeType || "") ? 1 : 0, bm = /audio\/mp4/i.test(b.mimeType || "") ? 1 : 0;
-      if (am !== bm) return bm - am;
-      return (b.bitrate || 0) - (a.bitrate || 0);
-    });
-    if (audios.length) return audios[0];
-    var prog = (pr.streamingData && pr.streamingData.formats) || [];
-    var m18 = prog.filter(function (f) { return f.itag === 18; });
-    return m18.length ? m18[0] : null;
-  }
-  function mimeOf(f) { return ((f.mimeType || "").split(";")[0]) || "audio/mp4"; }
-
-  function emitResult(url, mime, itag, clen, meta) {
-    window.__skDlDone = VID;
-    try { window.__TAURI__.event.emit("sk-yt-extracted", { videoId: VID, url: url, mime: mime, itag: itag || 0, contentLength: clen || null, title: (meta && meta.title) || "", author: (meta && meta.author) || "" }); } catch (e) {}
-  }
-  function emitFail(reason) {
-    window.__skDlDone = VID;
-    try { window.__TAURI__.event.emit("sk-yt-extract-failed", { videoId: VID, reason: String(reason || "") }); } catch (e) {}
-  }
-
-  function run() {
-    try { var v = document.querySelector("video"); if (v) { v.muted = true; var pp = v.play && v.play(); if (pp && pp.catch) pp.catch(function () {}); } } catch (e) {}
-    var pr = grabPlayerResponse(), tries = 0;
-    (function poll() {
-      pr = pr || grabPlayerResponse();
-      if (!pr && tries++ < 12) { setTimeout(poll, 400); return; }
-      (pr ? Promise.resolve(pr) : fetchInnertube(VID)).then(function (resp) {
-        var meta = resp && resp.videoDetails ? { title: resp.videoDetails.title, author: resp.videoDetails.author } : {};
-        var fmt = resp ? pickAudio(resp) : null;
-        (fmt ? resolveUrl(fmt) : Promise.resolve(null)).then(function (prUrl) {
-          var waited = 0;
-          (function waitCap() {
-            if ((captured && captured.pri >= 3) || waited >= 4500) {
-              if (captured && (!prUrl || captured.pri >= 2)) return emitResult(captured.url, captured.mime, captured.itag, captured.clen, meta);
-              if (prUrl) return emitResult(prUrl, fmt ? mimeOf(fmt) : "audio/mp4", fmt ? fmt.itag : 0, (fmt && fmt.contentLength) ? parseInt(fmt.contentLength, 10) : null, meta);
-              if (captured) return emitResult(captured.url, captured.mime, captured.itag, captured.clen, meta);
-              return emitFail("no audio format found");
-            }
-            waited += 300; setTimeout(waitCap, 300);
-          })();
-        });
-      });
-    })();
-  }
-  run();
-})();
-"#;

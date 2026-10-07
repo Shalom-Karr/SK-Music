@@ -1,5 +1,18 @@
 # Changelog
 
+## Desktop 1.2.7 — 2026-10-06
+
+**Why the bump:** extracting a song's audio needed a real hidden browser window navigating to
+youtube.com per download — that's the thing that was making Download and Save for offline feel
+slow, not the lack of an HLS manifest to decode (YouTube doesn't expose one for on-demand videos).
+
+**Download / Save for offline no longer open a browser window**
+- Resolving a song's audio stream now goes through `rustypipe`, a Rust YouTube client that
+  deciphers the signed stream URL itself (via a small embedded QuickJS engine, not a real
+  browser) instead of SK Music spinning up its own hidden webview on youtube.com.
+- Same fallback as before when that fails (a filter blocking YouTube, or any other reason): the
+  streaming relay. Download and Save for offline behave exactly the same otherwise.
+
 ## Desktop 1.2.6 + web — 2026-10-02
 
 **Why the bump:** there was no way to save a song for offline without it landing as a plain Download —
