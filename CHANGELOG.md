@@ -17,6 +17,10 @@ only, even on a track that has a real video.
 - **New: a way to skip around full screen.** Full screen covers the rest of Now Playing — including its
   scrubber — so the video now carries its own seek bar and elapsed/total time, shown only while full
   screen (otherwise Now Playing's own scrubber is already right there below the art box).
+- The picture now waits for playback to hold **PLAYING** for a couple of seconds before it shows, instead
+  of showing the instant playback starts. YouTube doesn't expose whether an ad is playing to the page
+  embedding its player, so this is a mitigation against a player that stutters before settling — not a
+  guarantee against a clean ad that plays straight through its own duration.
 
 ## 1.9.8 + Desktop 1.2.4 — 2026-10-06 (web + desktop)
 

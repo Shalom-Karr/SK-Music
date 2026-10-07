@@ -1669,11 +1669,22 @@ function paintMVButton() {
   const lbl = on ? "Show the album art" : "Watch the music video";
   b.title = lbl; b.setAttribute("aria-label", lbl); b.setAttribute("aria-pressed", String(on));
 }
+// How long PLAYING has to hold before the picture is trusted enough to show. YouTube's public player
+// state API reports PLAYING identically for an ad and for the real video — there's no official way to
+// tell them apart from the embedding page — so this is a mitigation, not a guarantee: it only helps
+// against a player that flickers/buffers before settling, not a clean pre-roll ad that plays straight
+// through for its own duration. _mvPlayingSince resets on anything but a held PLAYING state, so a pause,
+// buffer, or track change (which passes through CUED/UNSTARTED/BUFFERING first) re-arms it.
+const MV_SETTLE_MS = 2500;
+let _mvPlayingSince = 0;
 function mvPaint() {
   const w = el("ytwrap"); if (!w) return;
-  let playing = false; try { playing = PB.ready && PB.yt.getPlayerState() === 1; } catch {}
+  let ytState = -1; try { ytState = PB.ready ? PB.yt.getPlayerState() : -1; } catch {}
+  if (ytState === 1) { if (!_mvPlayingSince) _mvPlayingSince = Date.now(); }
+  else { _mvPlayingSince = 0; }
+  const settled = _mvPlayingSince && (Date.now() - _mvPlayingSince >= MV_SETTLE_MS);
   const box = el("npArtBox"), r = box && box.getBoundingClientRect();
-  const show = state.nowOpen && mvWanted() && mvAllowed() && mvTrackOK(state.queue[state.qi]) && PB.useYt() && playing && r && r.width > 0;
+  const show = state.nowOpen && mvWanted() && mvAllowed() && mvTrackOK(state.queue[state.qi]) && PB.useYt() && settled && r && r.width > 0;
   if (!show) {
     if (w.classList.contains("mv")) {
       w.classList.remove("mv"); w.removeAttribute("style");
