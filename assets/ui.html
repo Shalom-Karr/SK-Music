@@ -1656,11 +1656,16 @@ function mvToggle() {
   mvPaint(); paintMVButton();
   showToast(mvWanted() ? "Watching music videos." : "Back to the album art.", 1800);
 }
+// Shows what pressing it does: a video camera while showing album art (press to watch), the same note
+// used elsewhere (auth logo, the art placeholder) while watching (press to go back to audio).
+const MV_VIDEO_ICON = '<svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M4 5h11a2 2 0 0 1 2 2v2.4l4-2.6v10.4l-4-2.6V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/></svg>';
+const MV_NOTE_ICON = '<svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg>';
 function paintMVButton() {
   const b = el("npMV"); if (!b) return;
   const can = mvAllowed() && mvTrackOK(state.queue[state.qi]), on = can && mvWanted();
   b.style.display = can ? "" : "none";
   b.classList.toggle("on", on);
+  b.innerHTML = on ? MV_NOTE_ICON : MV_VIDEO_ICON;
   const lbl = on ? "Show the album art" : "Watch the music video";
   b.title = lbl; b.setAttribute("aria-label", lbl); b.setAttribute("aria-pressed", String(on));
 }
