@@ -811,13 +811,19 @@ body.on-air .npx-clear{display:none}
 #mvFull:hover{background:rgba(0,0,0,.78)}
 #mvFull svg{width:22px;height:22px;fill:currentColor}
 #ytwrap.mv>#mvFull{display:flex}
-/* Cover over the frame whenever it can't be shown (paused/ended, or a new video that hasn't settled yet —
-   see mvPaint): the song's art on black, plus a play glyph while paused. Keeps watch mode (and full
-   screen) through a pause instead of dropping out of it. */
-#mvHold{position:absolute;inset:0;z-index:1;display:none;align-items:center;justify-content:center;background:#000 center/contain no-repeat}
+/* Cover over the frame whenever it can't be shown (an ad, or an ended/cued embed — see mvPaint): the song's
+   art on black, with "Playing ad" during an ad. Keeps watch mode (and full screen) instead of dropping out
+   of it. On a pause of the song's own video the frame stays frozen in view and #mvHold shows only the
+   play glyph over a light tint (the !important beats the inline art background). */
+#mvHold{position:absolute;inset:0;z-index:1;display:none;flex-direction:column;gap:10px;align-items:center;justify-content:center;background:#000 center/contain no-repeat}
 #ytwrap.mv.mv-hold>#mvHold{display:flex}
+#ytwrap.mv.mv-paused:not(.mv-hold)>#mvHold{display:flex;background:rgba(0,0,0,.18)!important}
 #mvHold svg{width:76px;height:76px;fill:#fff;opacity:0;filter:drop-shadow(0 4px 14px rgba(0,0,0,.6));transition:opacity .15s}
 #ytwrap.mv-paused #mvHold svg{opacity:.92}
+#mvHold .mv-msg{display:none;padding:6px 14px;border-radius:999px;background:rgba(0,0,0,.72);color:#fff;font-size:13px;font-weight:700;letter-spacing:.02em}
+#ytwrap.mv-ad #mvHold .mv-msg{display:block}
+#ytwrap.mv-ad #mvHold svg{display:none}
+#ytwrap.mv.mv-ad:fullscreen #mvHold .mv-msg,#ytwrap.mv.mv-ad:-webkit-full-screen #mvHold .mv-msg{font-size:17px}
 /* Tap the picture to pause/resume. A transparent layer over the iframe and #mvHold (same z-index, later
    in the DOM — under #mvFull and the full-screen controls at 2) takes the press, so the embed itself
    still never gets a click. */
@@ -1328,7 +1334,7 @@ fill="url(#royal)" stroke="none">
   </div>
 </div>
 
-<div id="ytwrap" aria-hidden="true"><div id="ytplayer"></div><div id="ytplayer2"></div><div id="mvHold" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></div><div id="mvTap" onclick="mvTap(event)" aria-hidden="true"></div><div id="mvSkipFx" aria-hidden="true"><div class="fx l"><div class="arr"><i></i><i></i><i></i></div><b></b></div><div class="fx r"><div class="arr"><i></i><i></i><i></i></div><b></b></div></div><button id="mvFull" onclick="mvToggleFullscreen()" title="Full screen" aria-label="Full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zM6 15v3h3v2H4v-5zm12 3v-3h2v5h-5v-2z"/></svg></button><div class="mv-controls"><input type="range" class="seek" id="mvSeek" min="0" max="1000" value="0" aria-label="Seek"><div class="np-times"><span id="mvCur">0:00</span><span id="mvDur">0:00</span></div></div></div>
+<div id="ytwrap" aria-hidden="true"><div id="ytplayer"></div><div id="ytplayer2"></div><div id="mvHold" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><b class="mv-msg">Playing ad</b></div><div id="mvTap" onclick="mvTap(event)" aria-hidden="true"></div><div id="mvSkipFx" aria-hidden="true"><div class="fx l"><div class="arr"><i></i><i></i><i></i></div><b></b></div><div class="fx r"><div class="arr"><i></i><i></i><i></i></div><b></b></div></div><button id="mvFull" onclick="mvToggleFullscreen()" title="Full screen" aria-label="Full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zM6 15v3h3v2H4v-5zm12 3v-3h2v5h-5v-2z"/></svg></button><div class="mv-controls"><input type="range" class="seek" id="mvSeek" min="0" max="1000" value="0" aria-label="Seek"><div class="np-times"><span id="mvCur">0:00</span><span id="mvDur">0:00</span></div></div></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <div id="popmenu" role="menu" aria-hidden="true"></div>
 <!-- fullscreen statuses viewer (contents rendered per status by stsRender) -->
@@ -1704,41 +1710,43 @@ function paintMVButton() {
   const lbl = on ? "Show the album art" : "Watch the music video";
   b.title = lbl; b.setAttribute("aria-label", lbl); b.setAttribute("aria-pressed", String(on));
 }
-// How long PLAYING has to hold at the START of a video before its picture is trusted. YouTube's public
-// player state API reports PLAYING identically for an ad and for the real video — there's no official way
-// to tell them apart from the embedding page — so this is a mitigation, not a guarantee: it only helps
-// against a player that flickers/buffers before settling, not a clean pre-roll ad that plays straight
-// through for its own duration. It's checked once per video (_mvSettledFor holds the videoId that passed),
-// so a later pause, buffer or skip within the same video never re-arms it; the next video re-checks.
-const MV_SETTLE_MS = 2500;
-let _mvPlayingSince = 0, _mvSettledFor = "";
+// Ad detection. YouTube's public player API never says "this is an ad" — it reports PLAYING identically
+// for an ad and for the real video — but an ad reports its OWN length. So when the player's duration is
+// far shorter than the catalog's length for this song (a 15s or 30s clip for a 3-minute song), or the
+// player reports a video id that isn't this song's, an ad is on screen and the frame gets covered with
+// "Playing ad". A heuristic, not a guarantee: before the player knows its duration (the first instant of
+// playback) there's nothing to compare, and a song shorter than a minute isn't judged at all.
+function mvAdOnScreen(t, id) {
+  let ytDur = 0, ytVid = "";
+  try { ytDur = PB.yt.getDuration() || 0; } catch {}
+  try { ytVid = (PB.yt.getVideoData() || {}).video_id || ""; } catch {}
+  const expected = (t && t.durationSec) || 0;
+  return !!id && ((!!ytVid && ytVid !== id) || (expected > 60 && ytDur > 0 && ytDur < expected * 0.5 && expected - ytDur > 20));
+}
 function mvPaint() {
   const w = el("ytwrap"); if (!w) return;
   const t = state.queue[state.qi], id = (t && t.videoId) || "";
   let ytState = -1; try { ytState = PB.ready ? PB.yt.getPlayerState() : -1; } catch {}
-  if (id && _mvSettledFor !== id) {
-    if (ytState !== 1) _mvPlayingSince = 0;
-    else if (!_mvPlayingSince) _mvPlayingSince = Date.now();
-    else if (Date.now() - _mvPlayingSince >= MV_SETTLE_MS) { _mvSettledFor = id; _mvPlayingSince = 0; }
-  }
+  const ad = mvAdOnScreen(t, id);
   const box = el("npArtBox"), r = box && box.getBoundingClientRect();
   const active = state.nowOpen && mvWanted() && mvAllowed() && mvTrackOK(t) && PB.useYt() && r && r.width > 0;
   if (!active) {
     if (w.classList.contains("mv")) {
-      w.classList.remove("mv", "mv-hold", "mv-paused"); w.removeAttribute("style");
+      w.classList.remove("mv", "mv-hold", "mv-paused", "mv-ad"); w.removeAttribute("style");
       if (fsNow() === w) { const x = document.exitFullscreen || document.webkitExitFullscreen; if (x) try { x.call(document); } catch {} }
     }
     return;
   }
-  // Only a settled video that's PLAYING (or just BUFFERING — a seek or a stall, which shows the frame with
-  // YouTube's spinner) leaves the frame uncovered. Paused, ended or cued, YouTube draws its own "more
-  // videos" panel over the embed, which is outside the whitelist — and before a video has settled its
-  // picture isn't trusted yet. In those states the frame is covered with the song's art (#mvHold) rather
-  // than leaving watch mode, so a pause stays put — and stays full screen — instead of closing the video.
-  const reveal = _mvSettledFor === id && (ytState === 1 || ytState === 3);
+  // The song's own video stays uncovered while PLAYING, BUFFERING (a seek or a stall — the frame with
+  // YouTube's spinner) or PAUSED, where it freezes on the current frame with a play glyph over it. An ad,
+  // or an ended/cued embed (YouTube's end-screen suggestions, outside the whitelist), is covered with the
+  // song's art (#mvHold) — plus "Playing ad" for an ad — rather than leaving watch mode, so the video
+  // stays put and stays full screen.
+  const reveal = !ad && (ytState === 1 || ytState === 2 || ytState === 3);
   w.classList.add("mv");
   w.classList.toggle("mv-hold", !reveal);
-  w.classList.toggle("mv-paused", ytState === 2);
+  w.classList.toggle("mv-ad", ad);
+  w.classList.toggle("mv-paused", ytState === 2 && !ad);
   const hold = el("mvHold"), art = el("npArt");
   if (hold && !reveal && art && art.currentSrc) hold.style.backgroundImage = "url(" + JSON.stringify(art.currentSrc) + ")";
   // While #ytwrap is itself the fullscreen element, #ytwrap.mv:fullscreen owns its size (100vw/100vh).
