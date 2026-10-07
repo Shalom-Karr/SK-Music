@@ -811,6 +811,11 @@ body.on-air .npx-clear{display:none}
 #mvFull:hover{background:rgba(0,0,0,.78)}
 #mvFull svg{width:22px;height:22px;fill:currentColor}
 #ytwrap.mv>#mvFull{display:flex}
+/* Tap the picture to pause. A transparent layer over the iframe (z-index 1 — under #mvFull and the
+   full-screen controls at 2) takes the press, so the embed itself still never gets a click. Pausing
+   drops straight back to album art via mvPaint, same as pausing from any other control. */
+#mvTap{position:absolute;inset:0;z-index:1;display:none;cursor:pointer;pointer-events:auto}
+#ytwrap.mv>#mvTap{display:block}
 /* Scrubber, shown only full screen: otherwise Now Playing's own #npSeek sits right below the art box
    and is already visible (#ytwrap only covers the art box, not the whole panel) — a second one there
    would just be a redundant duplicate. Full screen is the one state where #ytwrap covers everything
@@ -1293,7 +1298,7 @@ fill="url(#royal)" stroke="none">
   </div>
 </div>
 
-<div id="ytwrap" aria-hidden="true"><div id="ytplayer"></div><div id="ytplayer2"></div><button id="mvFull" onclick="mvToggleFullscreen()" title="Full screen" aria-label="Full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zM6 15v3h3v2H4v-5zm12 3v-3h2v5h-5v-2z"/></svg></button><div class="mv-controls"><input type="range" class="seek" id="mvSeek" min="0" max="1000" value="0" aria-label="Seek"><div class="np-times"><span id="mvCur">0:00</span><span id="mvDur">0:00</span></div></div></div>
+<div id="ytwrap" aria-hidden="true"><div id="ytplayer"></div><div id="ytplayer2"></div><div id="mvTap" onclick="mvTap(event)" aria-hidden="true"></div><button id="mvFull" onclick="mvToggleFullscreen()" title="Full screen" aria-label="Full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zM6 15v3h3v2H4v-5zm12 3v-3h2v5h-5v-2z"/></svg></button><div class="mv-controls"><input type="range" class="seek" id="mvSeek" min="0" max="1000" value="0" aria-label="Seek"><div class="np-times"><span id="mvCur">0:00</span><span id="mvDur">0:00</span></div></div></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <div id="popmenu" role="menu" aria-hidden="true"></div>
 <!-- fullscreen statuses viewer (contents rendered per status by stsRender) -->
@@ -1677,11 +1682,19 @@ function paintMVButton() {
 // buffer, or track change (which passes through CUED/UNSTARTED/BUFFERING first) re-arms it.
 const MV_SETTLE_MS = 2500;
 let _mvPlayingSince = 0;
+// A double-tap skip (mvTap) seeks the same video, which passes through BUFFERING. Re-arming the settle
+// timer for that would flash album art for ~3s on every skip, so for a few seconds after our own seek a
+// BUFFERING state keeps the picture up and the next PLAYING counts as already settled. A seek-buffer only
+// shows the frame with YouTube's spinner — the "more videos" panel this guard exists for appears on
+// pause/end, which still drop to album art immediately.
+const MV_SEEK_GRACE_MS = 4000;
+let _mvSeekAt = 0;
 function mvPaint() {
   const w = el("ytwrap"); if (!w) return;
   let ytState = -1; try { ytState = PB.ready ? PB.yt.getPlayerState() : -1; } catch {}
-  if (ytState === 1) { if (!_mvPlayingSince) _mvPlayingSince = Date.now(); }
-  else { _mvPlayingSince = 0; }
+  const seekGrace = _mvSeekAt && Date.now() - _mvSeekAt < MV_SEEK_GRACE_MS;
+  if (ytState === 1) { if (!_mvPlayingSince) _mvPlayingSince = seekGrace ? Date.now() - MV_SETTLE_MS : Date.now(); }
+  else if (!(seekGrace && ytState === 3)) { _mvPlayingSince = 0; }
   const settled = _mvPlayingSince && (Date.now() - _mvPlayingSince >= MV_SETTLE_MS);
   const box = el("npArtBox"), r = box && box.getBoundingClientRect();
   const show = state.nowOpen && mvWanted() && mvAllowed() && mvTrackOK(state.queue[state.qi]) && PB.useYt() && settled && r && r.width > 0;
@@ -1717,6 +1730,27 @@ function mvToggleFullscreen() {
   if (fsNow()) { const x = document.exitFullscreen || document.webkitExitFullscreen; if (x) try { x.call(document); } catch {} return; }
   const req = w.requestFullscreen || w.webkitRequestFullscreen;
   if (req) { try { req.call(w); } catch {} }
+}
+// Tapping the picture (#mvTap): one tap pauses; double-tap skips YouTube-style — right half +15s, left
+// half −10s — and further quick taps keep skipping. The single tap waits out the double-tap window, so
+// a skip never pauses first.
+const MV_DBL_MS = 280;
+let _mvTapT = 0, _mvTapAt = 0, _mvSkipping = false;
+function mvTap(e) {
+  const now = Date.now(), quick = now - _mvTapAt < MV_DBL_MS;
+  _mvTapAt = now;
+  if (quick && (_mvTapT || _mvSkipping)) {
+    clearTimeout(_mvTapT); _mvTapT = 0; _mvSkipping = true;
+    const r = e.currentTarget.getBoundingClientRect(), fwd = e.clientX >= r.left + r.width / 2;
+    const d = PB.dur(), to = Math.max(0, PB.cur() + (fwd ? 15 : -10));
+    if (xf) abortCrossfade();
+    _mvSeekAt = Date.now();
+    PB.seek(d ? Math.min(to, d - 1) : to);
+    showToast(fwd ? "+15 seconds" : "−10 seconds", 700);
+    return;
+  }
+  _mvSkipping = false;
+  _mvTapT = setTimeout(() => { _mvTapT = 0; toggle(); }, MV_DBL_MS);
 }
 async function pcSetMusicVideos() {
   if (!(await pcGuard())) return;

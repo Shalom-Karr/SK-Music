@@ -17,6 +17,9 @@ only, even on a track that has a real video.
 - **New: a way to skip around full screen.** Full screen covers the rest of Now Playing — including its
   scrubber — so the video now carries its own seek bar and elapsed/total time, shown only while full
   screen (otherwise Now Playing's own scrubber is already right there below the art box).
+- **New: tap the video to pause, double-tap to skip.** One tap on the picture pauses it (and, as with any
+  pause, it goes back to the album art). Double-tap the right side to jump ahead 15 seconds, the left side
+  to go back 10 — keep tapping to keep skipping. Taps land on SK Music's own layer, never on YouTube's player.
 - The picture now waits for playback to hold **PLAYING** for a couple of seconds before it shows, instead
   of showing the instant playback starts. YouTube doesn't expose whether an ad is playing to the page
   embedding its player, so this is a mitigation against a player that stutters before settling — not a
