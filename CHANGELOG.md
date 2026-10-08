@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.9.12 — 2026-10-08 (web)
+
+**Why the bump:** music videos only played their picture in the desktop app — everyone else got audio
+only, even on a track that has a real video.
+
+**Watch music videos on the web too**
+- The **Watch** button in Now Playing (the one that swaps album art for the music video's picture) now
+  works on the website and PWA, not just the desktop app. Same gates as before: off in Kid Zone, and a
+  parent can turn it off for an account from Parental Controls.
+- The picture shows while the song's video is **playing**, buffering, or **paused** (a pause freezes on the
+  current frame). When it ends — where YouTube draws its own end-screen suggestions — the frame is covered
+  with the song's art. Nothing in the frame is clickable.
+- **New: full screen.** A full-screen button now sits on the video itself (matching the one shiurim
+  already have), so a music video isn't stuck at album-art size.
+- **New: a way to skip around full screen.** Full screen covers the rest of Now Playing — including its
+  scrubber — so the video now carries its own seek bar and elapsed/total time, shown only while full
+  screen (otherwise Now Playing's own scrubber is already right there below the art box).
+- **New: tap the video to pause, double-tap to skip.** One tap pauses — the video freezes on the current
+  frame (and stays full screen) with a play button over it; tap again to resume. Double-tap the right side
+  to jump ahead 15 seconds, the left side to go back 10, YouTube-style: the tapped side lights up with the
+  running total ("30 seconds"), and quick repeated taps add up into one smooth jump. Taps land on SK
+  Music's own layer, never on YouTube's player.
+- **New: "Playing ad".** When the video turns out to be an ad instead of the song — a different video, or a
+  length that doesn't match the song's (a 15- or 30-second clip for a 3-minute song) — the frame is
+  covered with the song's art and a "Playing ad" label until the song itself plays. The sound is handled by
+  the ad guard from 1.9.10: every song starts silent until it is confirmed, so an ad is never heard
+  whether or not you're watching. The picture likewise only appears once the song is confirmed.
+
 ## 1.9.11 — 2026-10-07 (web)
 
 **Why the bump:** a video-only shiur (no separate audio file) couldn't be switched to audio-only at
