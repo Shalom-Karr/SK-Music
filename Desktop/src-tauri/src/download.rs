@@ -147,7 +147,6 @@ struct IdOnly {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Extracted {
-    video_id: String,
     url: String,
     #[serde(default)]
     mime: String,
@@ -629,7 +628,6 @@ async fn native_extract(id: &str) -> Result<Extracted, String> {
         .select_audio_stream(&StreamFilter::default())
         .ok_or_else(|| "no audio format found".to_string())?;
     Ok(Extracted {
-        video_id: id.to_string(),
         url: stream.url.clone(),
         mime: stream.mime.clone(),
         itag: stream.itag,
@@ -1238,7 +1236,6 @@ async fn relay_extract(app: &AppHandle, id: &str, job: &Job) -> Option<Extracted
     drop(resp);
 
     Some(Extracted {
-        video_id: id.to_string(),
         url,
         mime,
         itag: 0,
@@ -1288,4 +1285,43 @@ fn now_ms() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
+}
+
+// Manual network checks for native_extract() — not run by default (#[ignore]), since they hit
+// real YouTube and shouldn't be part of a normal `cargo test` / CI run. Exist so "does extraction
+// still work" is a one-line check instead of launching the app and watching a real download.
+//   cargo test --release native_extract_reliability -- --ignored --nocapture
+#[cfg(test)]
+mod reliability_check {
+    use super::native_extract;
+
+    /// Resolves a handful of catalog-style ids and prints what came back — itag/mime/size/url
+    /// length are enough to tell a real signed stream from something broken.
+    #[tokio::test]
+    #[ignore]
+    async fn native_extract_reliability() {
+        let ids = ["aZNY-dObZOY", "bl89NV3UN64", "dQw4w9WgXcQ"];
+        for id in ids {
+            match native_extract(id).await {
+                Ok(x) => println!("OK {id}: itag={} mime={} len={:?} url_len={}", x.itag, x.mime, x.content_length, x.url.len()),
+                Err(e) => println!("FAIL {id}: {e}"),
+            }
+        }
+    }
+
+    /// Goes one step further: actually fetches a ranged chunk from the extracted URL, the same
+    /// way download_ranged() does, to rule out a well-formed but non-functional signature.
+    #[tokio::test]
+    #[ignore]
+    async fn native_extract_stream_is_fetchable() {
+        let x = native_extract("aZNY-dObZOY").await.expect("extract failed");
+        let client = reqwest::Client::builder().user_agent(super::UA).build().unwrap();
+        let resp = client.get(&x.url).header(reqwest::header::RANGE, "bytes=0-65535").send().await.expect("request failed");
+        let status = resp.status();
+        let ct = resp.headers().get(reqwest::header::CONTENT_TYPE).and_then(|v| v.to_str().ok()).unwrap_or("").to_string();
+        let bytes = resp.bytes().await.expect("body read failed");
+        println!("status={status} content-type={ct} bytes_received={}", bytes.len());
+        assert!(status.is_success() || status.as_u16() == 206, "unexpected status {status}");
+        assert!(bytes.len() > 1000, "suspiciously small body: {} bytes", bytes.len());
+    }
 }
