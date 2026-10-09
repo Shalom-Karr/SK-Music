@@ -134,7 +134,136 @@
   .nr-col{flex:1;display:flex;flex-direction:column;min-height:3px;border-radius:4px 4px 0 0;overflow:hidden}
   .nr-new{background:var(--accent2)}
   .nr-ret{background:var(--good)}
-  @media(max-width:860px){.stats{grid-template-columns:1fr 1fr}.cols,.cols3{grid-template-columns:1fr}.legend{grid-template-columns:1fr}}
+  /* ---------- admin view ---------- */
+  #adminView table{min-width:1080px;border-collapse:collapse;width:100%;font-size:13px}
+  #adminView th,#adminView td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  #adminView th{color:var(--dim);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;position:sticky;top:0;background:var(--card2);z-index:1}
+  #adminView tbody tr{cursor:pointer}
+  #adminView tbody tr:hover{background:var(--card2)}
+  #adminView .adm-em{color:var(--dim);font-size:13px}
+  #adminView .adm-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid var(--line);background:var(--bg2);color:var(--muted)}
+  #adminView .adm-pill.on{background:rgba(52,211,153,.14);color:var(--good);border-color:transparent}
+  #adminView .adm-pill.off{background:rgba(255,93,107,.13);color:var(--accent);border-color:transparent}
+  #adminView .adm-pill.warn{background:rgba(245,181,68,.14);color:var(--gold);border-color:transparent}
+  #adminView .adm-btn,#adminModal .adm-btn{padding:8px 16px;border-radius:10px;background:var(--accent);color:#fff;font-size:13px;font-weight:700;border:0;cursor:pointer}
+  #adminView .adm-btn:hover,#adminModal .adm-btn:hover{filter:brightness(1.08)}
+  #adminView .adm-btn:disabled,#adminModal .adm-btn:disabled{opacity:.6;cursor:default}
+  #adminView .adm-ghost,#adminModal .adm-ghost{background:var(--card2);color:var(--text);border:1px solid var(--line)}
+  #adminView .adm-danger,#adminModal .adm-danger{background:#7f1d2b}
+  /* admin modal */
+  #adminModal{position:fixed;inset:0;background:rgba(4,7,15,.72);backdrop-filter:blur(4px);display:none;place-items:center;padding:20px;z-index:50}
+  #adminModal.on{display:grid}
+  #adminModal .adm-mbox{width:min(920px,96vw);height:min(860px,90vh);overflow:hidden;background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);display:flex;flex-direction:column}
+  #adminModal .adm-idhead{flex:none;display:flex;gap:16px;align-items:center;padding:20px 22px 16px;background:linear-gradient(160deg,var(--card2),var(--card) 70%)}
+  #adminModal .adm-avatar{width:54px;height:54px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:19px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--accent),var(--violet));letter-spacing:.02em;box-shadow:0 0 0 3px rgba(255,255,255,.06),0 6px 18px rgba(167,139,250,.25)}
+  #adminModal .adm-idmeta{min-width:0;flex:1}
+  #adminModal .adm-idmeta h2{margin:0;font-size:19px;font-weight:800;letter-spacing:-.2px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #adminModal .adm-sub{color:var(--muted);font-size:13px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #adminModal .adm-idtags{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+  #adminModal .adm-x{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:transparent;border:1px solid transparent;color:var(--dim);font-size:16px;cursor:pointer;align-self:flex-start;transition:color .15s,background .15s,border-color .15s}
+  #adminModal .adm-x:hover{color:var(--text);background:var(--bg2);border-color:var(--line)}
+  #adminModal .adm-tabs{flex:none;display:flex;gap:2px;padding:0 16px;min-height:44px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,var(--card),var(--card));overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+  #adminModal .adm-tabs::-webkit-scrollbar{display:none}
+  #adminModal .adm-tabs button{flex:none;position:relative;display:inline-flex;align-items:center;background:transparent;border:0;color:var(--muted);padding:0 14px;height:44px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:color .15s}
+  #adminModal .adm-tabs button::after{content:"";position:absolute;left:10px;right:10px;bottom:-1px;height:2px;border-radius:2px 2px 0 0;background:transparent;transition:background .15s}
+  #adminModal .adm-tabs button:hover{color:var(--text)}
+  #adminModal .adm-tabs button.on{color:var(--text)}
+  #adminModal .adm-tabs button.on::after{background:var(--accent)}
+  #adminModal .adm-tabs .n{display:inline-block;margin-left:7px;padding:1px 7px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);font-size:11px;font-weight:700;color:var(--muted)}
+  #adminModal #adm-mBody{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;background:var(--bg2);scrollbar-width:thin;scrollbar-color:#2a3a5e transparent}
+  #adminModal #adm-mBody::-webkit-scrollbar{width:10px}
+  #adminModal #adm-mBody::-webkit-scrollbar-track{background:transparent}
+  #adminModal #adm-mBody::-webkit-scrollbar-thumb{background:#2a3a5e;border-radius:10px;border:3px solid var(--bg2)}
+  #adminModal #adm-mBody::-webkit-scrollbar-thumb:hover{background:#3a4d78}
+  #adminModal .adm-pane{display:none;padding:20px 22px 24px}
+  #adminModal .adm-pane.on{display:block}
+  #adminModal .adm-foot{flex:none;display:flex;flex-wrap:wrap;gap:10px;padding:14px 22px;border-top:1px solid var(--line);background:var(--card);align-items:center}
+  #adminModal .adm-foot.off{display:none}
+  #adminModal .adm-foot .adm-btn{height:38px;padding:0 18px;display:inline-flex;align-items:center;gap:8px}
+  #adminModal .adm-foot .adm-danger-ghost{background:transparent;color:var(--accent);border:1px solid rgba(255,93,107,.38)}
+  #adminModal .adm-foot .adm-danger-ghost:hover:not(:disabled){background:rgba(255,93,107,.1);filter:none}
+  #adminModal .adm-foot .adm-danger-ghost:disabled{color:var(--dim);border-color:var(--line);opacity:.7}
+  #adminModal .adm-msgs{flex:1;min-width:0;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  #adminModal .adm-dirty{display:none;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--gold)}
+  #adminModal .adm-dirty.on{display:inline-flex}
+  #adminModal .adm-dirty::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px var(--gold)}
+  #adminModal .adm-card{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:14px;overflow:hidden}
+  #adminModal .adm-card-h{display:flex;align-items:baseline;gap:8px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;background:rgba(22,34,60,.5)}
+  #adminModal .adm-card-h span{color:var(--dim);font-weight:600;text-transform:none;letter-spacing:0;font-size:12px}
+  #adminModal .adm-fieldrow{display:flex;gap:16px;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid rgba(31,44,71,.7);min-height:58px}
+  #adminModal .adm-fieldrow:last-child{border-bottom:0}
+  #adminModal .adm-lbl{min-width:0;font-size:14px;font-weight:600;color:var(--text)}
+  #adminModal .adm-lbl small{display:block;color:var(--dim);font-size:12px;font-weight:500;margin-top:3px}
+  #adminModal .adm-seg{flex:none;display:inline-flex;gap:2px;padding:3px;background:var(--bg2);border:1px solid var(--line);border-radius:10px}
+  #adminModal .adm-seg button{min-width:64px;height:30px;padding:0 12px;background:transparent;border:0;border-radius:7px;color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+  #adminModal .adm-seg button:hover:not(.on){color:var(--text);background:rgba(91,140,255,.08)}
+  #adminModal .adm-seg button.on{background:var(--accent);color:#fff;font-weight:700;box-shadow:0 2px 10px rgba(255,93,107,.3)}
+  #adminModal .adm-list{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--card);scrollbar-width:thin;scrollbar-color:#2a3a5e transparent}
+  #adminModal .adm-list .it{padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px;display:flex;gap:10px}
+  #adminModal .adm-list .it:last-child{border-bottom:0}
+  #adminModal .adm-list .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #adminModal .adm-list .d{color:var(--dim);font-size:11.5px;white-space:nowrap}
+  #adminModal .adm-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line)}
+  #adminModal .adm-kv{background:var(--card);padding:12px 16px;min-width:0}
+  #adminModal .adm-kv:last-child:nth-child(3n+2){grid-column:1/-1}
+  #adminModal .adm-kv.wide{grid-column:1/-1;display:flex;align-items:center;gap:12px}
+  #adminModal .adm-kv .k{font-size:11px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+  #adminModal .adm-kv .v{font-size:13.5px;margin-top:4px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #adminModal .adm-kv.wide>div:first-child{min-width:0;flex:1}
+  #adminModal .adm-kv .v.id{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12.5px;color:var(--muted)}
+  #adminModal .adm-copy{flex:none;height:30px;padding:0 12px;border-radius:8px;background:var(--bg2);border:1px solid var(--line);color:var(--muted);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+  #adminModal .adm-copy:hover{color:var(--text);border-color:#2c3d63}
+  #adminModal .adm-copy.ok{color:var(--good);border-color:rgba(52,211,153,.4)}
+  #adminModal h3.adm-sec{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:22px 0 10px}
+  #adminModal .adm-pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid var(--line);background:var(--bg2);color:var(--muted)}
+  #adminModal .adm-pill.on{background:rgba(52,211,153,.14);color:var(--good);border-color:transparent}
+  #adminModal .adm-pill.off{background:rgba(255,93,107,.13);color:var(--accent);border-color:transparent}
+  #adminModal .adm-pill.warn{background:rgba(245,181,68,.14);color:var(--gold);border-color:transparent}
+  #adminModal .adm-empty{color:var(--dim);font-size:13px;padding:14px 0}
+  #adminModal .adm-note{font-size:12px;color:var(--dim);line-height:1.6;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+  #adminModal .adm-plcard{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:12px 14px;margin-bottom:10px}
+  #adminModal .adm-vrow{display:flex;gap:12px;align-items:baseline;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13px}
+  #adminModal .adm-vrow:last-child{border-bottom:0}
+  #adminModal table{border-collapse:collapse;width:100%;font-size:13px}
+  #adminModal th,#adminModal td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line)}
+  @media(max-width:640px){
+    #adminModal{padding:0;place-items:stretch}
+    #adminModal .adm-mbox{width:100%;height:100%;height:100dvh;border:0;border-radius:0}
+    #adminModal .adm-idhead{padding:16px 16px 14px;gap:12px}
+    #adminModal .adm-avatar{width:44px;height:44px;font-size:16px}
+    #adminModal .adm-idmeta h2{font-size:17px}
+    #adminModal .adm-tabs{padding:0 8px}
+    #adminModal .adm-tabs button{padding:0 11px}
+    #adminModal .adm-pane{padding:14px 12px 20px}
+    #adminModal .adm-fieldrow{flex-direction:column;align-items:stretch;gap:10px;padding:12px 14px}
+    #adminModal .adm-seg{display:flex}
+    #adminModal .adm-seg button{flex:1 1 0;min-width:0;padding:0 4px;font-size:12px}
+    #adminModal .adm-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    #adminModal .adm-kv{padding:11px 14px}
+    #adminModal .adm-kv:last-child:nth-child(3n+2){grid-column:auto}
+    #adminModal .adm-kv:last-child:nth-child(even){grid-column:1/-1}
+    #adminModal .adm-foot{padding:12px 14px calc(12px + env(safe-area-inset-bottom))}
+    #adminModal .adm-foot .adm-btn{flex:1 1 auto;justify-content:center}
+    #adminModal .adm-foot .adm-msgs{flex-basis:100%;order:-1}
+  }
+  /* ---------- security view ---------- */
+  .sec-pills{display:flex;gap:4px;flex-wrap:wrap}
+  .spill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.2px;background:rgba(255,93,107,.14);color:var(--accent)}
+  .spill.rl{background:rgba(245,181,68,.16);color:var(--gold)}
+  .spill.dc{background:rgba(251,146,60,.18);color:#fb923c}
+  .spill.ab{background:rgba(167,139,250,.16);color:var(--violet)}
+  .sec-form{display:flex;flex-direction:column;gap:10px;margin-top:0}
+  .sec-form .row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}
+  .sec-form select{flex:0 0 90px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:9px 10px;font-size:13px;outline:none;cursor:pointer}
+  .sec-form select:focus{border-color:var(--accent2)}
+  .sec-form .err{color:var(--accent);font-size:12px;min-height:16px}
+  .abtn{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .abtn:hover{color:var(--text);border-color:#2c3d63}
+  .abtn.danger{border-color:rgba(255,93,107,.4);color:var(--accent)}
+  .abtn.danger:hover{background:rgba(255,93,107,.1)}
+  .abtn.primary{background:var(--accent2);border-color:var(--accent2);color:#fff}
+  .abtn.primary:hover{filter:brightness(1.1)}
+  @media(max-width:860px){.stats{grid-template-columns:1fr 1fr}.cols,.cols3{grid-template-columns:1fr}.legend{grid-template-columns:1fr}.sec-form .row{flex-direction:column}}
 </style>
 </head>
 <body>
@@ -166,18 +295,84 @@
     <div class="t"><span class="brand"><span class="dot" style="width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 16px var(--accent);display:inline-block"></span></span>
       <h1>Analytics</h1><span class="who" id="who"></span></div>
     <div class="spacer"></div>
+    <div class="seg" id="viewSeg">
+      <button data-v="analytics" class="on">Analytics</button>
+      <button data-v="security">Security</button>
+      <button data-v="admin">Admin</button>
+    </div>
     <div class="seg" id="range">
       <button data-h="24">24h</button>
       <button data-h="168" class="on">7d</button>
       <button data-h="720">30d</button>
       <button data-h="0">All</button>
     </div>
+    <div class="seg" id="traffic" title="Which traffic every number on this page counts">
+      <button data-t="human">Humans</button>
+      <button data-t="bot">Bots</button>
+      <button data-t="all">All traffic</button>
+    </div>
     <button class="iconbtn" id="refreshBtn">↻ Refresh</button>
     <button class="iconbtn" id="signOutBtn">Sign out</button>
   </header>
 
   <div id="content"><div class="loading">Loading events…</div></div>
+
+  <!-- =============== ADMIN VIEW =============== -->
+  <div id="adminView" style="display:none">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <input id="adm-q" placeholder="Search name or email…" autocomplete="off"
+        style="flex:1;min-width:200px;background:var(--card);border:1px solid var(--line);border-radius:11px;color:var(--text);padding:10px 14px;font-size:13px;outline:none" />
+      <button class="iconbtn" id="adm-refreshBtn">↻ Refresh</button>
+      <span style="flex:1"></span>
+      <button class="iconbtn" id="adm-prevBtn">‹ Prev</button>
+      <button class="iconbtn" id="adm-nextBtn">Next ›</button>
+      <span id="adm-count" style="color:var(--dim);font-size:12px"></span>
+    </div>
+    <div class="tablewrap" style="overflow-x:auto">
+      <table style="min-width:1080px">
+        <thead><tr id="adm-head">
+          <th>Name</th><th>Email</th><th>Filters</th><th>PIN</th><th>Kid Zone</th>
+          <th>Artists</th><th>PIN fails</th><th>Created</th><th>Last sign-in</th><th>ID</th>
+        </tr></thead>
+        <tbody id="adm-rows"><tr><td colspan="10" style="padding:40px;text-align:center;color:var(--dim)">Loading…</td></tr></tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:32px 0 14px">
+      <h2 style="font-size:18px;font-weight:800;margin:0">Duplicate artists</h2>
+      <span id="adm-dupCount" style="color:var(--dim);font-size:12px"></span>
+      <span style="flex:1"></span>
+      <button class="iconbtn" id="adm-dupRefresh">Rescan</button>
+    </div>
+    <div class="panel" id="adm-dupCard">Loading the catalog…</div>
+    <div class="panel" id="adm-mergeCard" style="margin-top:14px">Loading merges…</div>
+  </div>
 </main>
+
+<!-- =============== ADMIN MODAL =============== -->
+<div id="adminModal">
+  <div class="adm-mbox">
+    <div class="adm-idhead">
+      <div class="adm-avatar" id="adm-mAv">?</div>
+      <div class="adm-idmeta">
+        <h2 id="adm-mTitle">User</h2>
+        <div class="adm-sub" id="adm-mSub"></div>
+        <div class="adm-idtags" id="adm-mTags"></div>
+      </div>
+      <button class="adm-x" id="adm-mClose" aria-label="Close">✕</button>
+    </div>
+    <div class="adm-tabs" id="adm-mTabs" role="tablist"></div>
+    <div id="adm-mBody"></div>
+    <div class="adm-foot" id="adm-mFoot">
+      <div class="adm-msgs">
+        <span class="adm-dirty" id="adm-mDirty">Unsaved changes</span>
+        <span id="adm-mMsg" style="font-size:13px;color:var(--accent);margin:0"></span>
+      </div>
+      <button class="adm-btn adm-danger-ghost" id="adm-mClearPin">Clear PIN</button>
+      <button class="adm-btn" id="adm-mSave">Save changes</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // Self-contained: talks to Supabase's Auth + REST endpoints with plain fetch (no CDN import), so this file
@@ -188,7 +383,7 @@ const TABLE = 'zemer_analytics';
 // Only the columns the dashboard actually reads. select=* also pulled url / user_agent / region —
 // which are never used here — so this trims the paginated download's payload (user_agent especially
 // is a long string on every row). `id` is included for potential keyset paging / de-dupe.
-const COLS = 'id,created_at,event,path,referrer,ip,country,city,browser,os,device,screen,session,user_id,meta';
+const COLS = 'id,created_at,event,path,referrer,ip,country,city,browser,os,device,screen,session,user_id,meta,user_agent';
 
 // tiny Supabase client over fetch
 let SESSION = JSON.parse(localStorage.getItem('sk_session') || 'null');
@@ -237,6 +432,21 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 const num = (n) => (n ?? 0).toLocaleString('en-US');
 let RANGE_H = 168, timer = null;
+let VIEW = (() => {
+  if (location.pathname.startsWith('/admin')) return 'admin';
+  const h = location.hash.slice(1);
+  if (h === 'analytics' || h === 'security' || h === 'admin') return h;
+  try { const v = localStorage.getItem('sk_an_view'); if (['analytics','security','admin'].includes(v)) return v; } catch {}
+  return 'analytics';
+})();
+// Which traffic the page counts: 'human' (default) | 'bot' | 'all'. Remembered per browser.
+let TRAFFIC = (() => { try { const t = localStorage.getItem('sk_an_traffic'); return ['human', 'bot', 'all'].includes(t) ? t : 'human'; } catch { return 'human'; } })();
+// Mirror of public.is_bot_ua() in supabase/analytics-bot-split.sql — keep the two lists in step. Used only on
+// the client-side fallback path; the RPC path filters on the stored zemer_analytics.is_bot column.
+const BOT_RX = /(bot|crawl|spider|slurp|meta-external|facebookexternalhit|headless|lighthouse|pagespeed|python-requests|python-urllib|aiohttp|curl\/|wget|okhttp|go-http-client|axios\/|node-fetch|undici|java\/|apache-httpclient|scrapy|phantomjs|puppeteer|playwright|selenium|preview|monitor|uptime|pingdom|statuscake|googleother|inspectiontool|chatgpt|claude-|anthropic|perplexity|cohere-ai|diffbot|ccbot|bytespider|amazonbot|petalbot|yandex|baidu|semrush|ahrefs|dataforseo)/i;
+const isBotUA = (ua) => BOT_RX.test(ua || '') && !/cubot/i.test(ua || '');
+const botName = (ua) => { const m = (ua || '').match(/([a-z0-9._-]*(bot|crawl[a-z]*|spider|externalagent|headless[a-z]*|lighthouse|python-[a-z]+|curl|wget|okhttp|go-http-client|axios|node-fetch|scrapy|puppeteer|playwright|selenium|preview|monitor)[a-z0-9._\/-]*)/i); return m ? m[1] : (ua || '—').slice(0, 60); };
+const trafficQS = () => (TRAFFIC === 'human' ? '&is_bot=eq.false' : TRAFFIC === 'bot' ? '&is_bot=eq.true' : '');
 
 /* ---------- auth ---------- */
 // Google OAuth — the SAME Supabase project and provider the main app uses, so an admin signs in with
@@ -304,7 +514,27 @@ $('range').addEventListener('click', (e) => {
   [...$('range').children].forEach((x) => x.classList.remove('on'));
   b.classList.add('on'); RANGE_H = +b.dataset.h; load();
 });
+[...$('traffic').children].forEach((b) => b.classList.toggle('on', b.dataset.t === TRAFFIC));
+[...$('viewSeg').children].forEach((b) => b.classList.toggle('on', b.dataset.v === VIEW));
+if (VIEW !== 'analytics') $('traffic').style.display = 'none';
+if (VIEW === 'admin') { $('range').style.display = 'none'; $('content').style.display = 'none'; const _av = document.getElementById('adminView'); if (_av) _av.style.display = ''; }
+$('traffic').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b || b.dataset.t === TRAFFIC) return;
+  [...$('traffic').children].forEach((x) => x.classList.toggle('on', x === b));
+  TRAFFIC = b.dataset.t; try { localStorage.setItem('sk_an_traffic', TRAFFIC); } catch {}
+  load();
+});
 $('refreshBtn').addEventListener('click', () => load(true)); // incremental (new rows only)
+$('viewSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b || b.dataset.v === VIEW) return;
+  [...$('viewSeg').children].forEach((x) => x.classList.toggle('on', x === b));
+  VIEW = b.dataset.v; try { localStorage.setItem('sk_an_view', VIEW); history.replaceState(null, '', '#' + VIEW); } catch {}
+  $('traffic').style.display = VIEW === 'analytics' ? 'inline-flex' : 'none';
+  $('range').style.display = VIEW === 'admin' ? 'none' : '';
+  $('content').style.display = VIEW === 'admin' ? 'none' : '';
+  const av = document.getElementById('adminView'); if (av) av.style.display = VIEW === 'admin' ? '' : 'none';
+  load();
+});
 
 /* ---------- data ---------- */
 // Fast path: one server-side aggregation RPC (dashboard_summary) returns every stat/panel as compact JSONB in a
@@ -312,10 +542,19 @@ $('refreshBtn').addEventListener('click', () => load(true)); // incremental (new
 // shape, a throw while mapping/rendering), aggregate client-side (loadClientSide) exactly as before. Net: output
 // is identical to today, and fast once supabase/dashboard-summary.sql is applied.
 async function load(incremental) {
+  if (VIEW === 'security') { await loadSecurity(); return; }
+  if (VIEW === 'admin') { if (typeof window._adminActivate === 'function') window._adminActivate(); return; }
   try {
     await loadSummary();
     console.log('[analytics] fast path: dashboard_summary RPC');
   } catch (e) {
+    // All-time must never take the client-side path: it downloads the ENTIRE events table into the
+    // browser, which is exactly what made "All" hang. Say what happened instead.
+    if (RANGE_H <= 0) {
+      console.warn('[analytics] all-time summary unavailable:', e && e.message);
+      $('content').innerHTML = '<div class="loading">The all-time summary isn’t available right now. It’s built once an hour on the server — try again shortly, or pick 30d.</div>';
+      return;
+    }
     console.warn('[analytics] RPC path unavailable — falling back to client-side aggregation:', e && e.message);
     await loadClientSide(incremental);
   }
@@ -323,7 +562,21 @@ async function load(incremental) {
 
 async function loadSummary() {
   const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'UTC';
-  const S = await sbRpc('dashboard_summary', { p_hours: RANGE_H, p_tz: tz, p_top: 30 });
+  let S;
+  try { S = await sbRpc('dashboard_summary', { p_hours: RANGE_H, p_tz: tz, p_top: 30, p_traffic: TRAFFIC }); }
+  catch (e) {
+    if (!/p_traffic|could not find the function|schema cache/i.test((e && e.message) || '')) throw e;
+    console.warn('[analytics] dashboard_summary has no traffic split yet (run supabase/analytics-bot-split.sql) — showing all traffic');
+    S = await sbRpc('dashboard_summary', { p_hours: RANGE_H, p_tz: tz, p_top: 30 });
+  }
+  // Raw-row filters only once the database has the is_bot column (signalled by S.traffic).
+  const tq = S && S.traffic ? trafficQS() : '';
+  // All-time is served from an hourly server-side cache (supabase/dashboard-summary-cache.sql). The first
+  // request for a timezone queues it; the next hourly run fills it.
+  if (S && S.pending) {
+    $('content').innerHTML = '<div class="loading">Building the all-time summary for your timezone — it’s computed on the server once an hour, so check back shortly. 24h, 7d and 30d are live.</div>';
+    return;
+  }
   if (!S || typeof S !== 'object' || S.events == null || !Array.isArray(S.by_song) || !Array.isArray(S.by_artist)) throw new Error('Unexpected dashboard_summary shape');
   // dashboard_summary grew the signed-in/anonymous split after the rest of it. Against an older
   // deployed copy those keys are absent, which is what left the card reading "0 accounts · NaN%".
@@ -342,13 +595,13 @@ async function loadSummary() {
   }
   // RPC only returns aggregates — pull a small raw slice for the Recent events table.
   const range = RANGE_H > 0 ? '&created_at=gte.' + new Date(Date.now() - RANGE_H * 3600e3).toISOString() : '';
-  const rawRows = await sbSelect(`select=${COLS}&order=created_at.desc&limit=80${range}`) || [];
+  const rawRows = await sbSelect(`select=${COLS}&order=created_at.desc&limit=80${range}${tq}`) || [];
   const model = modelFromSummary(S);
   // dashboard_summary knows nothing about the filter-blocked panel, and the 80-row slice
   // above is far too small to count it from. These two events are low-volume by nature, so
   // fetch just them for the range — accurate on this path AND on the client-side fallback,
   // rather than a panel that only works when the RPC happens to be missing.
-  Object.assign(model, await loadFilterBlocked(range, model.visitors));
+  Object.assign(model, await loadFilterBlocked(range + tq, model.visitors));
   paint(model, rawRows);
 }
 
@@ -356,14 +609,14 @@ async function loadSummary() {
 async function loadFilterBlocked(range, usersTotal) {
   try {
     const rows = await sbSelect(
-      `select=event,session,ip,meta,created_at&event=in.(filter_blocked,conntest_run)&order=created_at.desc&limit=5000${range}`
+      `select=event,session,ip,meta,created_at&event=in.(filter_blocked,conntest_run,acct_notice)&order=created_at.desc&limit=5000${range}`
     ) || [];
     const m = filterBlockedModel(rows);
     // filterBlockedModel's own denominator is only these rows, which would read as 100%.
     // Use the range's real visitor count from the RPC when it gave us one.
     const total = Number.isFinite(+usersTotal) ? +usersTotal : null;
     m.fbPeoplePct = total && total > 0 ? (m.fbPeople / total) * 100 : null;
-    return m;
+    return Object.assign(m, acctNoticeModel(rows));
   } catch (e) {
     console.warn('[analytics] filter-blocked panel unavailable:', e && e.message);
     return { fbPeople: 0, fbPeoplePct: null, fbEvents: 0, fbTechloq: 0, ctRuns: 0, ctBlocked: 0, ctPartial: 0, ctClear: 0, ctTargets: [] };
@@ -541,6 +794,45 @@ function newRetChart(data) { // data: [{day, nw, rt}, ...] sorted asc
    `blockedPeople` counts anyone hit by either signal. The per-target tally answers the
    follow-up question — WHAT is being blocked — which is what you hand to whoever runs the
    filter. */
+// "Accounts are coming" popup (assets/ui.html maybeShowAccountNotice): one acct_notice row per step,
+// meta.a = shown | signup | not_now | closed | created. Rates are per showing.
+function acctNoticeCard(m) {
+  if (!m.anShown) return '';
+  const p = (x) => (m.anShown ? (x / m.anShown) * 100 : 0);
+  const noAnswer = Math.max(0, m.anShown - m.anSignup - m.anNotNow - m.anClosed);
+  const seg = (x, c) => `<div style="width:${p(x).toFixed(2)}%;background:${c}"></div>`;
+  const tile = (cls, k, x, s) => `<div class="stat ${cls}"><div class="k">${k}</div><div class="v mono">${p(x).toFixed(1)}%</div><div class="s">${num(x)} ${s}</div></div>`;
+  return `
+    <div class="grid stats">
+      <div class="stat b" style="grid-column:1/-1">
+        <div class="k">Account popup</div>
+        <div class="v mono">${num(m.anShown)}<span style="font-size:14px;color:var(--muted);font-weight:400"> times shown to ${num(m.anPeople)} signed-out visitors</span></div>
+        <div class="s">"Create your free SK Music account" — what people did when it appeared. Percentages are of times shown.</div>
+        <div style="margin-top:10px;height:8px;border-radius:999px;background:var(--card2);overflow:hidden;display:flex">
+          ${seg(m.anSignup, 'var(--good)')}${seg(m.anNotNow, 'var(--bad, #ff5d6b)')}${seg(m.anClosed, 'var(--dim)')}
+        </div>
+      </div>
+    </div>
+    <div class="grid stats">
+      ${tile('c', 'Sign up', m.anSignup, 'clicked Sign up')}
+      ${tile('a', 'Not now', m.anNotNow, 'clicked Not now')}
+      ${tile('d', 'Closed', m.anClosed, 'closed it (✕, outside, Esc)')}
+      ${tile('b', 'Accounts created', m.anCreated, `from the popup · ${noAnswer ? num(noAnswer) + ' left without answering' : 'all answered'}`)}
+    </div>`;
+}
+
+function acctNoticeModel(rows) {
+  const n = { shown: 0, signup: 0, not_now: 0, closed: 0, created: 0 };
+  const people = new Set();
+  for (const r of rows) {
+    if (r.event !== 'acct_notice') continue;
+    const a = r.meta && r.meta.a;
+    if (a in n) n[a]++;
+    if (a === 'shown') { const w = (r.meta && r.meta.vid) || r.session || r.ip; if (w) people.add(w); }
+  }
+  return { anShown: n.shown, anPeople: people.size, anSignup: n.signup, anNotNow: n.not_now, anClosed: n.closed, anCreated: n.created };
+}
+
 function filterBlockedModel(rows) {
   const who = (r) => (r.meta && r.meta.vid) || r.session || r.ip || null;
   const people = (rs) => new Set(rs.map(who).filter(Boolean)).size;
@@ -616,6 +908,7 @@ function modelFromRows(rows) {
   const zeroSearch = tally(rows.filter((r) => r.event === 'search' && (r.meta?.count === 0 || r.meta?.count === '0')), null, (r) => r.meta?.q);
   return {
     ...filterBlockedModel(rows),
+    ...acctNoticeModel(rows),
     events: rows.length, eventsToday: todayN,
     visitors: vs.visitors, visitorsReturning: vs.returning, returningPct: vs.returningPct,
     sessions: ss.count, plays: plays.length, likes: likes.length, playsTotal: plays.length,
@@ -665,11 +958,19 @@ function modelFromSummary(S) {
     browserPairs: S.by_browser || [], osPairs: S.by_os || [], viewportPairs: S.by_viewport || [],
     newRet: (S.new_returning || []).map(([d, nw, rt]) => ({ day: d, nw, rt })),
     timeSamples: (S.hourly || []).map(([h, c]) => [new Date(h).getTime(), c]),
-    heatGrid: heatGridFromCells(S.heatmap || []), rangeLabel: RANGE_H ? RANGE_H + 'h' : 'all',
+    traffic: S.traffic || null, botEvents: S.bot_events, humanEvents: S.human_events, botAgents: S.bot_agents || [],
+    heatGrid: heatGridFromCells(S.heatmap || []), rangeLabel: RANGE_H ? RANGE_H + 'h' : (S.cached_at ? 'all · as of ' + new Date(S.cached_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'all'),
   };
 }
 
-function render(rows) { paint(modelFromRows(rows), rows); }
+function render(rows) {
+  const bots = rows.filter((r) => isBotUA(r.user_agent));
+  const pick = TRAFFIC === 'all' ? rows : TRAFFIC === 'bot' ? bots : rows.filter((r) => !isBotUA(r.user_agent));
+  const m = modelFromRows(pick);
+  const by = new Map(); for (const r of bots) { const k = botName(r.user_agent); by.set(k, (by.get(k) || 0) + 1); }
+  Object.assign(m, { traffic: TRAFFIC, botEvents: bots.length, humanEvents: rows.length - bots.length, botAgents: [...by].sort((a, b) => b[1] - a[1]) });
+  paint(m, pick);
+}
 
 function paint(m, tableRows) {
   LAST_ROWS = tableRows;
@@ -690,7 +991,23 @@ function contentHTML(m) {
   const known = acctUsers + anonUsers > 0;
   const evPart = acctEvPct === null ? '' : ` — ${acctEvPct.toFixed(0)}% of events from accounts`;
   const approx = m.identityDays ? ` · over the last ${m.identityDays} day${m.identityDays === 1 ? '' : 's'}, not this range` : '';
-  return `
+  const botTotal = fin(m.botEvents) + fin(m.humanEvents);
+  const botPct = pct(m.botEvents, botTotal);
+  const viewing = { human: 'Humans only — bots are excluded from every number below', bot: 'Bots only — every number below is crawler traffic', all: 'All traffic — humans and bots together' }[m.traffic || TRAFFIC];
+  const botCard = m.botEvents == null ? '' : `
+    <div class="grid stats">
+      <div class="stat a" style="grid-column:1/-1">
+        <div class="k">Bot traffic</div>
+        <div class="v mono">${botPct === null ? '—' : botPct.toFixed(1) + '%'}<span style="font-size:14px;color:var(--muted);font-weight:400"> of events in this range came from bots</span></div>
+        <div class="s">${num(m.botEvents)} bot events · ${num(m.humanEvents)} human. Showing: ${viewing}.</div>
+        <div style="margin-top:10px;height:8px;border-radius:999px;background:var(--card2);overflow:hidden;display:flex">
+          <div style="width:${botPct === null ? '0' : botPct.toFixed(2)}%;background:var(--bad, #ff5d6b)"></div>
+          <div style="flex:1;background:var(--good);opacity:.7"></div>
+        </div>
+        ${(m.botAgents || []).length ? `<div style="margin-top:14px">${barList(m.botAgents, '', 6)}</div>` : ''}
+      </div>
+    </div>`;
+  return botCard + `
     <div class="grid stats">
       <div class="stat c" style="grid-column:1/-1">
         <div class="k">Signed in vs anonymous</div>
@@ -732,6 +1049,7 @@ function contentHTML(m) {
       <div class="stat b"><div class="k">Partly blocked</div><div class="v mono">${num(m.ctPartial)}</div><div class="s">plays, but degraded</div></div>
       <div class="stat c"><div class="k">All clear</div><div class="v mono">${num(m.ctClear)}</div><div class="s">nothing blocked</div></div>
     </div>
+${acctNoticeCard(m)}
 
     <div class="grid cols">
       <div class="panel"><h3>What their filter blocks <span class="n">from ${num(m.ctRuns)} connection test${m.ctRuns === 1 ? '' : 's'}</span></h3>${targetBars(m.ctTargets)}</div>
@@ -800,6 +1118,717 @@ function renderTable() {
       <thead><tr><th>Time</th><th>Event</th><th>Who</th><th>Path / detail</th><th>Browser</th><th>Device</th><th>Location</th><th>IP</th></tr></thead>
       <tbody>${recent}</tbody></table>` : '<div class="empty">No matching events. Browse the site (hard-refresh once so the latest code loads), then Refresh.</div>'}</div>`;
 }
+
+/* ---------- security view ---------- */
+function secKindClass(k) {
+  if (k === 'rate_limited') return 'rl';
+  if (k === 'datacenter_block') return 'dc';
+  if (k === 'auto_ban' || k === 'banned_hit') return 'ab';
+  return '';
+}
+function secKindPills(kinds) {
+  if (!kinds || !kinds.length) return '<span style="color:var(--dim)">—</span>';
+  return '<div class="sec-pills">' + kinds.map((k) => '<span class="spill ' + secKindClass(k) + '">' + esc(k) + '</span>').join('') + '</div>';
+}
+
+async function loadSecurity() {
+  $('content').innerHTML = '<div class="loading">Loading security data…</div>';
+  try {
+    const data = await sbRpc('security_overview', { p_hours: RANGE_H });
+    paintSecurity(data);
+  } catch (e) {
+    const msg = (e && e.message) || '';
+    if (/could not find the function|schema cache/i.test(msg)) {
+      $('content').innerHTML = '<div class="panel" style="margin-top:24px"><div class="empty" style="padding:40px">Security tables aren’t set up yet — run <code style="font-family:monospace;background:var(--bg2);padding:2px 6px;border-radius:4px">supabase/security.sql</code> to deploy them.</div></div>';
+    } else {
+      $('content').innerHTML = '<div class="empty" style="padding:60px">' + esc(msg) + '</div>';
+    }
+  }
+}
+
+function paintSecurity(data) {
+  const ebk = new Map((data.events_by_kind || []).map(([k, n]) => [k, n]));
+  const rl = ebk.get('rate_limited') || 0;
+  const dc = ebk.get('datacenter_block') || 0;
+  const ab = ebk.get('auto_ban') || 0;
+  const bh = ebk.get('banned_hit') || 0;
+  const bans = data.active_bans || [];
+  const rb = +(data.report_blocks) || 0;
+  const co = +(data.contacts_open) || 0;
+  const hl = RANGE_H > 0 ? RANGE_H + 'h' : 'all time';
+  const hourSamples = (data.events_hourly || []).map(([h, n]) => [new Date(h).getTime(), n]);
+  const activeBanIds = new Set(bans.map((b) => b.id));
+
+  const tiles = `<div class="grid stats">
+  <div class="stat d"><div class="k">Rate-limit events</div><div class="v mono">${num(rl)}</div><div class="s">requests throttled \xb7 ${hl}</div></div>
+  <div class="stat" style="border-top:2px solid #fb923c"><div class="k">Datacenter blocks</div><div class="v mono">${num(dc)}</div><div class="s">anon datacenter IPs blocked</div></div>
+  <div class="stat" style="border-top:2px solid var(--violet)"><div class="k">Auto-bans issued</div><div class="v mono">${num(ab)}</div><div class="s">escalation bans triggered</div></div>
+  <div class="stat b"><div class="k">Active bans</div><div class="v mono">${num(bans.length)}</div><div class="s">currently blocked</div></div>
+  <div class="stat a"><div class="k">Report blocks</div><div class="v mono">${num(rb)}</div><div class="s">cap hit this window</div></div>
+  <div class="stat" style="border-top:2px solid var(--good)"><div class="k">Contact requests</div><div class="v mono">${num(co)}</div><div class="s">open unblock requests</div></div>
+</div>`;
+
+  const charts = `<div class="grid cols" style="margin-top:14px">
+  <div class="panel"><h3>Security events over time <span class="n">${hl}</span></h3>${timeChart(hourSamples)}</div>
+  <div class="panel"><h3>Events by kind</h3>${barList(data.events_by_kind || [], 'rose')}</div>
+</div>`;
+
+  const fips = data.flagged_ips || [];
+  const ipRows = fips.length
+    ? fips.map((r) => `<tr>
+  <td class="mono" style="color:var(--text)">${esc(r.ip || '—')}</td>
+  <td class="mono">${num(r.events)}</td>
+  <td>${secKindPills(r.kinds)}</td>
+  <td class="mono">${r.asn != null ? esc(String(r.asn)) : '—'}</td>
+  <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${esc(r.as_org || '—')}</td>
+  <td class="mono">${r.last_seen ? esc(new Date(r.last_seen).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—'}</td>
+  <td><button class="abtn primary" data-action="allowlist-ip" data-value="${esc(r.ip || '')}">Allowlist</button></td>
+</tr>`).join('')
+    : `<tr><td colspan="7" class="empty" style="padding:24px">No flagged IPs in this window</td></tr>`;
+
+  const flaggedIpTable = `<div class="tablewrap" style="margin-top:14px">
+  <h3>Flagged IPs <span style="color:var(--dim);font-weight:600;font-size:11px">top 50 by events</span></h3>
+  <div class="scroll"><table>
+    <thead><tr><th>IP</th><th>Events</th><th>Kinds</th><th>ASN</th><th>Org</th><th>Last seen</th><th></th></tr></thead>
+    <tbody>${ipRows}</tbody>
+  </table></div>
+</div>`;
+
+  const faccts = data.flagged_accounts || [];
+  const acctRows = faccts.length
+    ? faccts.map((r) => `<tr>
+  <td style="color:var(--text)">${esc(r.email || '—')}</td>
+  <td class="mono">${num(r.events)}</td>
+  <td>${secKindPills(r.kinds)}</td>
+  <td class="mono">${r.last_seen ? esc(new Date(r.last_seen).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—'}</td>
+  <td><button class="abtn primary" data-action="allowlist-email" data-value="${esc(r.email || '')}">Allowlist</button></td>
+</tr>`).join('')
+    : `<tr><td colspan="5" class="empty" style="padding:24px">No flagged accounts in this window</td></tr>`;
+
+  const flaggedAcctTable = `<div class="tablewrap" style="margin-top:14px">
+  <h3>Flagged accounts <span style="color:var(--dim);font-weight:600;font-size:11px">top 50 by events</span></h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Email</th><th>Events</th><th>Kinds</th><th>Last seen</th><th></th></tr></thead>
+    <tbody>${acctRows}</tbody>
+  </table></div>
+</div>`;
+
+  const banRows = bans.length
+    ? bans.map((r) => `<tr>
+  <td class="mono" style="color:var(--muted)">${esc(String(r.id))}</td>
+  <td class="mono" style="color:var(--text)">${esc(r.ip || '—')}</td>
+  <td>${esc(r.email || (r.user_id ? String(r.user_id).slice(0, 8) + '…' : '—'))}</td>
+  <td>${esc(r.reason || '—')}</td>
+  <td class="mono">${esc(String(r.level || 1))}</td>
+  <td class="mono">${r.permanent ? '<span class="spill ab">Permanent</span>' : (r.until ? esc(new Date(r.until).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—')}</td>
+  <td><button class="abtn danger" data-action="unban" data-id="${esc(String(r.id))}">Unban</button></td>
+</tr>`).join('')
+    : `<tr><td colspan="7" class="empty" style="padding:24px">No active bans</td></tr>`;
+
+  const bansTable = `<div class="tablewrap" style="margin-top:14px">
+  <h3>Active bans</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>ID</th><th>IP</th><th>Account</th><th>Reason</th><th>Level</th><th>Until</th><th></th></tr></thead>
+    <tbody>${banRows}</tbody>
+  </table></div>
+</div>`;
+
+  const revts = data.recent_events || [];
+  const revRows = revts.length
+    ? revts.slice(0, 100).map((r) => `<tr>
+  <td class="mono">${r.created_at ? esc(new Date(r.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—'}</td>
+  <td><span class="pill ev-blocked">${esc(r.kind || '—')}</span></td>
+  <td class="mono">${esc(r.ip || '—')}</td>
+  <td>${esc(r.email || '—')}</td>
+  <td class="mono">${r.asn != null ? esc(String(r.asn)) : '—'}</td>
+  <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">${esc(r.as_org || '—')}</td>
+  <td class="path">${esc(r.path || '—')}</td>
+  <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;color:var(--dim)">${esc((r.ua || '').slice(0, 80))}</td>
+</tr>`).join('')
+    : `<tr><td colspan="8" class="empty" style="padding:24px">No recent security events</td></tr>`;
+
+  const recentTable = `<div class="tablewrap" style="margin-top:14px">
+  <h3>Recent security events <span style="color:var(--dim);font-weight:600;font-size:11px">latest 100</span></h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Time</th><th>Kind</th><th>IP</th><th>Email</th><th>ASN</th><th>Org</th><th>Path</th><th>User-agent</th></tr></thead>
+    <tbody>${revRows}</tbody>
+  </table></div>
+</div>`;
+
+  const allist = data.allowlist || [];
+  const alRows = allist.length
+    ? allist.map((r) => `<tr>
+  <td><span class="pill" style="background:rgba(52,211,153,.14);color:var(--good)">${esc(r.kind || '—')}</span></td>
+  <td class="mono" style="color:var(--text)">${esc(r.value || '—')}</td>
+  <td style="color:var(--muted)">${esc(r.note || '')}</td>
+  <td class="mono">${r.created_at ? esc(new Date(r.created_at).toLocaleString([], { month: 'short', day: 'numeric' })) : '—'}</td>
+  <td><button class="abtn danger" data-action="allow-remove" data-id="${esc(String(r.id))}" data-value="${esc(r.value || '')}">Remove</button></td>
+</tr>`).join('')
+    : `<tr><td colspan="5" class="empty" style="padding:24px">Allowlist is empty</td></tr>`;
+
+  const allowlistPanel = `<div class="tablewrap" style="margin-top:14px">
+  <h3>Allowlist</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Kind</th><th>Value</th><th>Note</th><th>Added</th><th></th></tr></thead>
+    <tbody>${alRows}</tbody>
+  </table></div>
+  <div style="padding:16px 18px;border-top:1px solid var(--line)">
+    <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Add to allowlist</div>
+    <div class="sec-form">
+      <div class="row">
+        <select data-field="kind"><option value="ip">IP</option><option value="email">Email</option></select>
+        <input data-field="value" type="text" placeholder="1.2.3.4 or user@example.com" autocomplete="off" spellcheck="false" style="flex:1;min-width:160px" />
+        <input data-field="note" type="text" placeholder="Note (optional)" autocomplete="off" style="flex:1;min-width:120px" />
+        <button class="abtn primary" data-action="allowlist-submit">Add</button>
+      </div>
+      <div class="err"></div>
+    </div>
+  </div>
+</div>`;
+
+  const contacts = data.contacts || [];
+  const ctRows = contacts.length
+    ? contacts.map((r) => {
+        const isOpen = r.status === 'open';
+        const hasBan = r.ban_id != null && activeBanIds.has(r.ban_id);
+        return `<tr style="${isOpen ? '' : 'opacity:.55'}">
+  <td class="mono">${r.created_at ? esc(new Date(r.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—'}</td>
+  <td class="mono">${esc(r.ip || '—')}</td>
+  <td>${esc(r.email || '—')}</td>
+  <td><span class="spill">${esc(r.block_reason || '—')}</span></td>
+  <td style="max-width:260px;white-space:normal;word-break:break-word">${esc(r.message || '—')}</td>
+  <td class="mono">${r.ban_id != null ? esc(String(r.ban_id)) : '—'}</td>
+  <td><span class="pill ${isOpen ? 'ev-blocked' : 'ev-other'}">${esc(r.status)}</span></td>
+  <td style="display:flex;gap:5px;flex-wrap:wrap;padding:8px 14px">
+    ${hasBan ? `<button class="abtn danger" data-action="contact-unban" data-ban-id="${esc(String(r.ban_id))}">Unban</button>` : ''}
+    ${r.ip ? `<button class="abtn primary" data-action="allowlist-ip" data-value="${esc(r.ip)}">+IP</button>` : ''}
+    ${r.email ? `<button class="abtn primary" data-action="allowlist-email" data-value="${esc(r.email)}">+Email</button>` : ''}
+    ${isOpen ? `<button class="abtn" data-action="contact-resolve" data-id="${esc(String(r.id))}">Mark handled</button>` : ''}
+  </td>
+</tr>`;
+      }).join('')
+    : `<tr><td colspan="8" class="empty" style="padding:24px">No contact requests</td></tr>`;
+
+  const contactsPanel = `<div class="tablewrap" style="margin-top:14px">
+  <h3>Contact requests <span style="color:var(--dim);font-weight:600;font-size:11px">${co} open</span></h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Time</th><th>IP</th><th>Email</th><th>Reason</th><th>Message</th><th>Ban ID</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${ctRows}</tbody>
+  </table></div>
+</div>`;
+
+  $('content').innerHTML = tiles + charts + contactsPanel + flaggedIpTable + flaggedAcctTable + bansTable + recentTable + allowlistPanel;
+}
+
+/* ---------- security action listener (delegated on #content) ---------- */
+$('content').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn || btn.disabled) return;
+  const action = btn.dataset.action;
+
+  if (action === 'allowlist-ip' || action === 'allowlist-email') {
+    const kind = action === 'allowlist-ip' ? 'ip' : 'email';
+    const value = btn.dataset.value || '';
+    if (!value) return;
+    if (!confirm('Add ' + kind + ' “' + value + '” to the allowlist?')) return;
+    btn.disabled = true;
+    try {
+      await sbRpc('security_allow_add', { p_kind: kind, p_value: value, p_note: '' });
+      await loadSecurity();
+    } catch (err) { alert('Error: ' + ((err && err.message) || 'unknown')); btn.disabled = false; }
+    return;
+  }
+
+  if (action === 'unban' || action === 'contact-unban') {
+    const id = action === 'contact-unban' ? +btn.dataset.banId : +btn.dataset.id;
+    if (!confirm('End this ban now?')) return;
+    btn.disabled = true;
+    try {
+      await sbRpc('security_unban', { p_id: id });
+      await loadSecurity();
+    } catch (err) { alert('Error: ' + ((err && err.message) || 'unknown')); btn.disabled = false; }
+    return;
+  }
+
+  if (action === 'contact-resolve') {
+    const id = +btn.dataset.id;
+    if (!confirm('Mark this contact request as handled?')) return;
+    btn.disabled = true;
+    try {
+      await sbRpc('security_contact_resolve', { p_id: id });
+      await loadSecurity();
+    } catch (err) { alert('Error: ' + ((err && err.message) || 'unknown')); btn.disabled = false; }
+    return;
+  }
+
+  if (action === 'allow-remove') {
+    const id = +btn.dataset.id;
+    const value = btn.dataset.value || '';
+    if (!confirm('Remove “' + value + '” from the allowlist?')) return;
+    btn.disabled = true;
+    try {
+      await sbRpc('security_allow_remove', { p_id: id });
+      await loadSecurity();
+    } catch (err) { alert('Error: ' + ((err && err.message) || 'unknown')); btn.disabled = false; }
+    return;
+  }
+
+  if (action === 'allowlist-submit') {
+    const form = btn.closest('.sec-form');
+    if (!form) return;
+    const kind = form.querySelector('[data-field="kind"]').value;
+    const value = (form.querySelector('[data-field="value"]').value || '').trim();
+    const note = (form.querySelector('[data-field="note"]').value || '').trim();
+    const errEl = form.querySelector('.err');
+    if (!value) { errEl.textContent = 'Enter a value.'; return; }
+    if (kind === 'ip') {
+      const ok4 = /^(\d{1,3}\.){3}\d{1,3}$/.test(value) && value.split('.').every((p) => +p <= 255);
+      const ok6 = value.includes(':') && /^[0-9a-fA-F:]+$/.test(value);
+      if (!ok4 && !ok6) { errEl.textContent = 'Not a valid IPv4 or IPv6 address.'; return; }
+    } else {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) { errEl.textContent = 'Not a valid email address.'; return; }
+    }
+    errEl.textContent = '';
+    btn.disabled = true;
+    try {
+      await sbRpc('security_allow_add', { p_kind: kind, p_value: value, p_note: note });
+      await loadSecurity();
+    } catch (err) { errEl.textContent = 'Error: ' + esc((err && err.message) || 'unknown'); btn.disabled = false; }
+  }
+});
+
+/* ============================================================
+   ADMIN TAB — IIFE to avoid any name collision with analytics
+   Reuses: SESSION (outer let), esc, num, sbRpc (all outer scope)
+   ============================================================ */
+;(function () {
+  const a$ = (id) => document.getElementById('adm-' + id);
+  const rpc = (fn, body) => sbRpc(fn, body == null ? {} : body);
+  const dt = (s) => s ? new Date(s).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+  const dshort = (s) => s ? new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '—';
+
+  /* ---- duplicate artists ---- */
+  let DUPES = [], MERGED = new Set();
+  function normName(s) { return String(s || '').toLowerCase().replace(/['']/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }
+
+  async function loadDupes() {
+    const card = a$('dupCard'); if (!card) return;
+    try {
+      const r = await fetch('/data/artists.json', { cache: 'no-store' });
+      const list = ((await r.json()) || {}).artists || [];
+      const byName = new Map(), byThumb = new Map();
+      for (const a of list) {
+        if (!a || !a.id) continue;
+        const n = normName(a.name); if (n) { if (!byName.has(n)) byName.set(n, []); byName.get(n).push(a); }
+        if (a.thumbnail) { if (!byThumb.has(a.thumbnail)) byThumb.set(a.thumbnail, []); byThumb.get(a.thumbnail).push(a); }
+      }
+      const groups = new Map();
+      for (const [, g] of [...byName, ...byThumb]) {
+        if (g.length < 2) continue;
+        const key = g.map((x) => x.id).sort().join('|');
+        if (!groups.has(key)) groups.set(key, g);
+      }
+      DUPES = [...groups.values()].sort((a, b) => (a[0].name || '').localeCompare(b[0].name || ''));
+      const dc = a$('dupCount'); if (dc) dc.textContent = `${DUPES.length} group${DUPES.length === 1 ? '' : 's'} \xb7 ${DUPES.reduce((n, g) => n + g.length, 0)} channels \xb7 of ${list.length} artists`;
+      renderDupes();
+    } catch (e) { if (card) card.innerHTML = `<div class="adm-em">⚠️ ${esc(e.message)}</div>`; }
+  }
+
+  function renderDupes() {
+    const card = a$('dupCard'); if (!card) return;
+    const open = DUPES.filter((g) => g.filter((x) => !MERGED.has(x.id)).length >= 2);
+    if (!open.length) { card.innerHTML = `<div class="adm-em">No unmerged duplicates. ${DUPES.length ? 'Everything found has been merged.' : 'Nothing looks duplicated.'}</div>`; return; }
+    card.innerHTML = open.map((g, gi) => {
+      const live = g.filter((a) => !MERGED.has(a.id));
+      const rows = live.map((a, i) => `
+        <label style="display:flex;align-items:center;gap:10px;padding:7px 0;cursor:pointer">
+          <input type="radio" name="admdup${gi}" value="${esc(a.id)}"${i === 0 ? ' checked' : ''}>
+          ${a.thumbnail ? `<img src="${esc(a.thumbnail)}" alt="" width="34" height="34" style="border-radius:50%;object-fit:cover">` : '<span style="width:34px"></span>'}
+          <span><b>${esc(a.name)}</b><br><span style="font-family:ui-monospace,monospace;font-size:11px;color:var(--dim)">${esc(a.id)}</span></span>
+        </label>`).join('');
+      return `<div style="padding:12px 0;border-top:${gi ? '1px solid var(--line)' : '0'}">
+        <div style="margin-bottom:6px"><b>${esc(live[0].name)}</b> <span style="color:var(--dim)"> — ${live.length} channels. Pick the one to KEEP:</span></div>
+        ${rows}
+        <button class="abtn primary" style="margin-top:8px" onclick="admMergeGroup(${gi})">Merge the rest into selected</button>
+        <span id="adm-dupMsg${gi}" style="margin-left:10px;font-size:13px;color:var(--accent)"></span>
+      </div>`;
+    }).join('');
+  }
+
+  window.admMergeGroup = async (gi) => {
+    const open = DUPES.filter((g) => g.filter((x) => !MERGED.has(x.id)).length >= 2);
+    const g = (open[gi] || []).filter((a) => !MERGED.has(a.id));
+    const msg = a$('dupMsg' + gi);
+    const picked = document.querySelector(`input[name="admdup${gi}"]:checked`);
+    if (!g.length || !picked) return;
+    const canonical = g.find((a) => a.id === picked.value);
+    const aliases = g.filter((a) => a.id !== picked.value);
+    if (!canonical || !aliases.length) return;
+    if (!confirm(`Merge ${aliases.length} channel${aliases.length === 1 ? '' : 's'} into "${canonical.name}"?\n\nApplies on the next build.`)) return;
+    if (msg) msg.textContent = 'Merging…';
+    try {
+      for (const a of aliases) {
+        await rpc('admin_merge_artists', { p_alias: a.id, p_canonical: canonical.id, p_alias_name: a.name, p_canonical_name: canonical.name });
+        MERGED.add(a.id);
+      }
+      if (msg) msg.textContent = 'Merged. Applies on the next build.';
+      renderDupes(); loadMerges();
+    } catch (e) { if (msg) msg.textContent = e.message; }
+  };
+
+  async function loadMerges() {
+    const card = a$('mergeCard'); if (!card) return;
+    try {
+      const d = await rpc('admin_list_merges');
+      const rows = (d && d.merges) || [];
+      MERGED = new Set(rows.map((m) => m.alias_id));
+      card.innerHTML = `<div style="margin-bottom:8px"><b>Merged</b> <span style="color:var(--dim)">— ${rows.length} duplicate${rows.length === 1 ? '' : 's'} folded in.</span></div>`
+        + (rows.length ? rows.map((m) => `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line)">
+            <span style="flex:1"><b>${esc(m.alias_name || m.alias_id)}</b> <span style="color:var(--dim)">→ ${esc(m.canonical_name || m.canonical_id)}</span><br>
+              <span style="font-family:ui-monospace,monospace;font-size:11px;color:var(--dim)">${esc(m.alias_id)} → ${esc(m.canonical_id)}</span></span>
+            <span style="color:var(--dim);font-size:12px">${dt(m.merged_at)} \xb7 ${esc(m.merged_by || '')}</span>
+            <button class="abtn" onclick="admUnmerge('${esc(m.alias_id)}')">Undo</button>
+          </div>`).join('') : '<div class="adm-em">Nothing merged yet.</div>');
+      renderDupes();
+    } catch (e) {
+      if (card) card.innerHTML = `<div class="adm-em">⚠️ ${esc(e.message)}</div>`;
+    }
+  }
+
+  window.admUnmerge = async (alias) => {
+    if (!confirm('Undo this merge? The artist reappears separately on the next build.')) return;
+    try { await rpc('admin_unmerge_artist', { p_alias: alias }); MERGED.delete(alias); loadMerges(); }
+    catch (e) { alert(e.message); }
+  };
+
+  /* ---- user list ---- */
+  let ADM_TIMER = null, OFFSET = 0, TOTAL = 0, SORT = { key: 'created_at', dir: -1 }, PAGE_USERS = [];
+  const PAGE = 100;
+  const SORTABLE = { name: 1, email: 1, created_at: 1, last_sign_in_at: 1, pin_fails: 1 };
+
+  const filterSummary = (f) => {
+    f = f || {}; const on = [];
+    if (f.noFemale) on.push('Kol isha');
+    if (f.chasid === 'only') on.push('Chasidish only'); else if (f.chasid === 'hide' || f.noChasid) on.push('No Chasidish');
+    if (f.israeli === 'only') on.push('Israeli only'); else if (f.israeli === 'hide') on.push('No Israeli');
+    if (f.acapella === 'only') on.push('Acapella only'); else if (f.acapella === 'hide') on.push('No Acapella');
+    if (f.noDJ) on.push('No DJ'); if (f.blockVideos) on.push('No videos');
+    if (f.zemerRadio === 'off') on.push('Radio off'); else if (f.zemerRadio) on.push('Radio: ' + f.zemerRadio);
+    if (f.sefira === false) on.push('Sefira lifted');
+    return on;
+  };
+
+  window.admSortBy = (key) => {
+    if (!SORTABLE[key]) return;
+    SORT = SORT.key === key ? { key, dir: -SORT.dir } : { key, dir: key === 'name' || key === 'email' ? 1 : -1 };
+    renderRows();
+  };
+  const sortArrow = (key) => SORT.key === key ? (SORT.dir > 0 ? ' ▲' : ' ▼') : '';
+
+  async function adminLoad() {
+    const qEl = a$('q'); const q = qEl ? qEl.value.trim() : '';
+    try {
+      const d = await rpc('admin_list_users', { p_q: q || null, p_limit: PAGE, p_offset: OFFSET });
+      PAGE_USERS = (d && d.users) || [];
+      TOTAL = (d && d.total) || 0;
+      const from = TOTAL ? OFFSET + 1 : 0, to = OFFSET + PAGE_USERS.length;
+      const cnt = a$('count'); if (cnt) cnt.textContent = `${num(from)}–${num(to)} of ${num(TOTAL)}`;
+      const prev = a$('prevBtn'), next = a$('nextBtn');
+      if (prev) prev.disabled = OFFSET === 0;
+      if (next) next.disabled = OFFSET + PAGE >= TOTAL;
+      renderRows();
+    } catch (e) {
+      const body = a$('rows'); if (body) body.innerHTML = `<tr><td colspan="10" style="padding:24px;color:var(--dim)">${esc(e.message)}</td></tr>`;
+    }
+  }
+  window._adminLoad = adminLoad;
+
+  function renderRows() {
+    const body = a$('rows'); if (!body) return;
+    const head = a$('head');
+    if (head) head.innerHTML = `
+      <th onclick="admSortBy('name')" style="cursor:pointer">Name${sortArrow('name')}</th>
+      <th onclick="admSortBy('email')" style="cursor:pointer">Email${sortArrow('email')}</th>
+      <th>Filters</th><th>PIN</th><th>Kid Zone</th><th>Artists</th>
+      <th onclick="admSortBy('pin_fails')" style="cursor:pointer">PIN fails${sortArrow('pin_fails')}</th>
+      <th onclick="admSortBy('created_at')" style="cursor:pointer">Created${sortArrow('created_at')}</th>
+      <th onclick="admSortBy('last_sign_in_at')" style="cursor:pointer">Last sign-in${sortArrow('last_sign_in_at')}</th>
+      <th>ID</th>`;
+    if (!PAGE_USERS.length) { body.innerHTML = '<tr><td colspan="10" class="adm-em" style="padding:24px">No users match.</td></tr>'; return; }
+    const k = SORT.key;
+    const users = PAGE_USERS.slice().sort((a, b) => {
+      let x = a[k], y = b[k];
+      if (k === 'created_at' || k === 'last_sign_in_at') { x = x ? Date.parse(x) : 0; y = y ? Date.parse(y) : 0; }
+      else if (k === 'pin_fails') { x = x || 0; y = y || 0; }
+      else { x = String(x || '').toLowerCase(); y = String(y || '').toLowerCase(); }
+      return x < y ? -SORT.dir : x > y ? SORT.dir : 0;
+    });
+    body.innerHTML = users.map((u) => {
+      const fs = filterSummary(u.filters);
+      const locked = u.pin_locked_until && new Date(u.pin_locked_until) > new Date();
+      return `<tr onclick="admOpenUser('${esc(u.id)}')">
+        <td>${esc(u.name || '—')}</td>
+        <td>${esc(u.email || '—')}</td>
+        <td>${fs.length ? `<span class="adm-pill on">${fs.length} on</span> <span class="adm-em">${esc(fs.slice(0,2).join(', '))}${fs.length>2?'…':''}</span>` : '<span class="adm-pill">none</span>'}</td>
+        <td>${u.has_pin ? '<span class="adm-pill on">set</span>' : '<span class="adm-pill">no</span>'}</td>
+        <td>${u.kid_only ? '<span class="adm-pill warn">on</span>' : '<span class="adm-pill">off</span>'}</td>
+        <td>${u.artist_mode === 'all' ? '<span class="adm-em">all</span>' : `<span class="adm-pill">${esc(u.artist_mode)} \xb7 ${num(u.artist_count)}</span>`}</td>
+        <td>${u.pin_fails ? `<span class="adm-pill ${locked ? 'off' : 'warn'}">${num(u.pin_fails)}${locked ? ' \xb7 locked' : ''}</span>` : '<span class="adm-em">0</span>'}</td>
+        <td class="adm-em">${dshort(u.created_at)}</td>
+        <td class="adm-em">${dshort(u.last_sign_in_at)}</td>
+        <td class="adm-em" style="font-family:ui-monospace,monospace;font-size:11px">${esc(String(u.id).slice(0, 8))}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  /* ---- user modal ---- */
+  let CUR = null, CUR_TAB = 'settings', ORIG = '';
+
+  const snapSettings = (u) => {
+    const f = (u && u.filters) || {}, out = {};
+    Object.keys(f).sort().forEach((k) => { if (f[k] !== false && f[k] !== '' && f[k] != null) out[k] = f[k]; });
+    return JSON.stringify([out, (u && u.artist_mode) || 'all', !!(u && u.kid_only)]);
+  };
+  const updateDirty = () => { const d = a$('mDirty'); if (d) d.classList.toggle('on', !!CUR && snapSettings(CUR) !== ORIG); };
+
+  window.admOpenUser = async function (id) {
+    const modal = document.getElementById('adminModal'); if (!modal) return;
+    modal.classList.add('on'); a$('mMsg').textContent = ''; CUR = null; ORIG = ''; updateDirty();
+    a$('mAv').textContent = '…'; a$('mSub').textContent = ''; a$('mTags').innerHTML = ''; a$('mTabs').innerHTML = '';
+    a$('mFoot').classList.add('off');
+    a$('mTitle').textContent = 'Loading…'; a$('mBody').innerHTML = '<div class="adm-em" style="padding:18px 22px">Loading…</div>';
+    try {
+      CUR = await rpc('admin_user_detail', { p_user: id });
+      ORIG = snapSettings(CUR);
+      renderUser();
+      loadHistory(id); loadVisits(id); loadPlaylists(id);
+    } catch (e) { a$('mBody').innerHTML = `<div class="adm-em" style="padding:18px 22px">${esc(e.message)}</div>`; }
+  };
+
+  async function loadHistory(id) {
+    const box = document.getElementById('adm-hist'); if (!box) return;
+    try {
+      const d = await rpc('admin_user_history', { p_user: id, p_days: 90, p_limit: 300 });
+      const plays = (d && d.plays) || [];
+      if (!CUR || CUR.id !== id) return;
+      const n = document.getElementById('adm-histN'); if (n) n.textContent = `\xb7 ${num(plays.length)} plays, last ${d.days} days`;
+      box.innerHTML = plays.length
+        ? `<div class="adm-list">${plays.slice(0, 300).map((p) => `<div class="it"><span class="t">${esc(p.title || p.videoId || '—')}</span><span class="d">${esc(p.artist || '')} \xb7 ${dt(p.at)}</span></div>`).join('')}</div>`
+        : `<div class="adm-note">No plays recorded for this account in the last ${d.days} days.</div>`;
+    } catch (e) { box.innerHTML = `<div class="adm-note">${esc(e.message)}</div>`; }
+  }
+
+  async function loadVisits(id) {
+    const box = document.getElementById('adm-vis'); if (!box) return;
+    try {
+      const d = await rpc('admin_user_visits', { p_user: id, p_days: 90, p_limit: 100 });
+      const v = (d && d.visits) || [];
+      if (!CUR || CUR.id !== id) return;
+      const n = document.getElementById('adm-visN'); if (n) n.textContent = `\xb7 ${num(v.length)} in the last ${d.days} days`;
+      box.innerHTML = v.length
+        ? `<div class="adm-list">${v.map((s) => {
+            const mins = s.minutes >= 1 ? `${s.minutes}m` : '<1m';
+            const where = [s.city, s.country].filter(Boolean).join(', ');
+            return `<div class="it"><span class="t">${dt(s.started)}</span><span class="d">${mins} \xb7 ${num(s.events)} events${s.plays ? ` \xb7 ${num(s.plays)} plays` : ''} \xb7 ${esc(s.device || '?')}${s.browser ? ' / ' + esc(s.browser) : ''}${where ? ' \xb7 ' + esc(where) : ''}</span></div>`;
+          }).join('')}</div>`
+        : `<div class="adm-note">No signed-in activity recorded in the last ${d.days} days.</div>`;
+    } catch (e) { box.innerHTML = `<div class="adm-note">${esc(e.message)}</div>`; }
+  }
+
+  async function loadPlaylists(id) {
+    const box = document.getElementById('adm-pl'); if (!box) return;
+    try {
+      const d = await rpc('admin_user_playlists', { p_user: id });
+      const pls = (d && d.playlists) || [];
+      if (!CUR || CUR.id !== id) return;
+      const n = document.getElementById('adm-plN'); if (n) n.textContent = `\xb7 ${num(pls.length)}`;
+      box.innerHTML = pls.length
+        ? pls.map((p) => `<div class="adm-plcard">
+            <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+              <b>${esc(p.name)}</b>
+              <span class="adm-pill ${p.is_public ? 'on' : ''}">${p.is_public ? 'public' : 'private'}</span>
+              <span class="adm-em">${num(p.count)} song${p.count === 1 ? '' : 's'} \xb7 updated ${dshort(p.updated_at)}</span>
+            </div>
+            ${(p.tracks || []).length ? `<div class="adm-list">${p.tracks.slice(0, 60).map((t) => `<div class="it"><span class="t">${esc(t.title || t.videoId)}</span><span class="d">${esc(t.artist || '')}</span></div>`).join('')}</div>` : '<div class="adm-em">Empty.</div>'}
+          </div>`).join('')
+        : '<div class="adm-em">No playlists.</div>';
+    } catch (e) { box.innerHTML = `<div class="adm-note">${esc(e.message)}</div>`; }
+  }
+
+  window.admSetTab = (t) => {
+    CUR_TAB = t;
+    document.querySelectorAll('#adm-mTabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
+    document.querySelectorAll('#adm-mBody .adm-pane').forEach((p) => p.classList.toggle('on', p.dataset.t === t));
+    a$('mSave').style.display = t === 'settings' ? '' : 'none';
+    a$('mClearPin').style.display = t === 'settings' ? '' : 'none';
+    a$('mFoot').classList.toggle('off', t !== 'settings');
+    const body = a$('mBody'); if (body) body.scrollTop = 0;
+  };
+
+  window.admCopyId = function (btn) {
+    if (!CUR) return;
+    const done = () => { btn.textContent = 'Copied'; btn.classList.add('ok'); setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('ok'); }, 1400); };
+    const fallback = () => {
+      const ta = document.createElement('textarea'); ta.value = CUR.id; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch (_) {} ta.remove();
+    };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(String(CUR.id)).then(done, fallback); else fallback();
+  };
+
+  const initials = (s) => String(s || '?').trim().split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
+
+  const ADM_SEG = (name, val, opts) => `<div class="adm-seg">${opts.map(([v, l]) =>
+    `<button class="${val === v ? 'on' : ''}" onclick="admSetF('${name}','${v}')">${esc(l)}</button>`).join('')}</div>`;
+
+  const fieldRow = (label, sub, control) =>
+    `<div class="adm-fieldrow"><div class="adm-lbl">${label}${sub ? `<small>${sub}</small>` : ''}</div>${control}</div>`;
+
+  const admCard = (title, sub, body) =>
+    `<div class="adm-card"><div class="adm-card-h">${title}${sub ? `<span>${sub}</span>` : ''}</div>${body}</div>`;
+
+  function settingsHtml(u) {
+    const f = u.filters || {};
+    const locked = u.pin_locked_until && new Date(u.pin_locked_until) > new Date();
+    return admCard('Content filters', '', [
+        fieldRow('Kol isha','Hide female singers', ADM_SEG('noFemale', f.noFemale ? '1' : '0', [['1','Hidden'],['0','Allowed']])),
+        fieldRow('Chasidish','', ADM_SEG('chasid', f.chasid || '', [['','All'],['only','Only'],['hide','Hide']])),
+        fieldRow('Israeli','', ADM_SEG('israeli', f.israeli || '', [['','All'],['only','Only'],['hide','Hide']])),
+        fieldRow('Acapella','Forced during Sefira / the Three Weeks', ADM_SEG('acapella', f.acapella || '', [['','All'],['only','Only'],['hide','Hide']])),
+        fieldRow('DJ sets','', ADM_SEG('noDJ', f.noDJ ? '1' : '0', [['1','Hidden'],['0','Allowed']])),
+        fieldRow('Videos','', ADM_SEG('blockVideos', f.blockVideos ? '1' : '0', [['1','Blocked'],['0','Allowed']])),
+      ].join(''))
+      + admCard('Home &amp; radio', '', fieldRow('Zemer Radio','Live stations on Home', ADM_SEG('zemerRadio', f.zemerRadio || '', [['','All'],['chasidish','Chassidish'],['israeli','Israeli'],['dj','DJ'],['off','Off']])))
+      + admCard('Parental', u.has_pin ? '· PIN set' : '· no PIN', [
+        fieldRow('Kid Zone only', u.kid_only ? `+${(u.kid_add||[]).length} added / −${(u.kid_remove||[]).length} hidden` : 'Restrict to the Kid Zone catalog', ADM_SEG('kid_only', u.kid_only ? '1' : '0', [['1','On'],['0','Off']])),
+        fieldRow('Artists',`${num((u.artist_ids || []).length)} picked`, ADM_SEG('artist_mode', u.artist_mode || 'all', [['all','All'],['only','Only these'],['except','Except these']])),
+      ].join(''))
+      + admCard('Account', '', `<div class="adm-grid">
+          <div class="adm-kv wide"><div><div class="k">User ID</div><div class="v id" title="${esc(u.id)}">${esc(u.id)}</div></div><button class="adm-copy" onclick="admCopyId(this)">Copy</button></div>
+          <div class="adm-kv"><div class="k">Created</div><div class="v">${dt(u.created_at)}</div></div>
+          <div class="adm-kv"><div class="k">Last sign-in</div><div class="v">${dt(u.last_sign_in_at)}</div></div>
+          <div class="adm-kv"><div class="k">Settings updated</div><div class="v">${dt(u.updated_at)}</div></div>
+          ${locked ? `<div class="adm-kv"><div class="k">PIN locked until</div><div class="v">${dt(u.pin_locked_until)}</div></div>` : ''}
+        </div>`)
+      + ((u.audit || []).length ? `<h3 class="adm-sec">Admin changes</h3><div class="adm-list">${u.audit.map((a) => `<div class="it"><span class="t">${esc(a.action)}</span><span class="d">${esc(a.admin)} \xb7 ${dt(a.at)}</span></div>`).join('')}</div>` : '');
+  }
+
+  function renderTags() {
+    const u = CUR, fs = filterSummary(u.filters || {});
+    const locked = u.pin_locked_until && new Date(u.pin_locked_until) > new Date();
+    a$('mTags').innerHTML = [
+      u.provider ? `<span class="adm-pill">${esc(u.provider)}</span>` : '',
+      u.has_pin ? '<span class="adm-pill on">PIN set</span>' : '<span class="adm-pill">no PIN</span>',
+      locked ? '<span class="adm-pill off">PIN locked</span>' : (u.pin_fails ? `<span class="adm-pill warn">${num(u.pin_fails)} failed</span>` : ''),
+      u.kid_only ? '<span class="adm-pill warn">Kid Zone</span>' : '',
+      fs.length ? `<span class="adm-pill on">${fs.length} filter${fs.length === 1 ? '' : 's'}</span>` : '<span class="adm-pill">no filters</span>',
+    ].filter(Boolean).join('');
+  }
+
+  function renderUser() {
+    const u = CUR;
+    const recents = Array.isArray(u.recents) ? u.recents : [];
+    const likes = Array.isArray(u.likes) ? u.likes : [];
+    a$('mAv').textContent = initials(u.name || u.email);
+    a$('mTitle').textContent = u.name || u.email || 'User';
+    a$('mSub').textContent = u.name ? (u.email || '') : (u.provider ? 'via ' + u.provider : '');
+    renderTags();
+    a$('mTabs').innerHTML = [
+      ['settings','Settings',''], ['activity','Activity',''], ['playlists','Playlists',''],
+      ['library','Library', num(recents.length + likes.length)],
+    ].map(([t, label, n]) =>
+      `<button role="tab" data-t="${t}" onclick="admSetTab('${t}')">${label}${n ? `<span class="n">${n}</span>` : ''}</button>`).join('');
+    a$('mBody').innerHTML = `
+      <div class="adm-pane" data-t="settings">${settingsHtml(u)}</div>
+      <div class="adm-pane" data-t="activity">
+        <h3 class="adm-sec" style="margin-top:0">Visits <span id="adm-visN" style="color:var(--dim);font-size:11px"></span></h3>
+        <div id="adm-vis"><div class="adm-em">Loading…</div></div>
+        <h3 class="adm-sec">Play history <span id="adm-histN" style="color:var(--dim);font-size:11px"></span></h3>
+        <div id="adm-hist"><div class="adm-em">Loading…</div></div>
+      </div>
+      <div class="adm-pane" data-t="playlists">
+        <div id="adm-pl"><div class="adm-em">Loading…</div></div>
+      </div>
+      <div class="adm-pane" data-t="library">
+        <h3 class="adm-sec" style="margin-top:0">Recently played \xb7 ${num(recents.length)}</h3>
+        ${recents.length ? `<div class="adm-list">${recents.slice(0, 100).map((t) => `<div class="it"><span class="t">${esc(t.title || t.videoId || '—')}</span><span class="d">${esc(t.artist || '')}</span></div>`).join('')}</div>` : '<div class="adm-empty">Nothing in the synced recently-played list.</div>'}
+        <h3 class="adm-sec">Likes \xb7 ${num(likes.length)}</h3>
+        ${likes.length ? `<div class="adm-list">${likes.slice(0, 100).map((l) => `<div class="it"><span class="t">${esc(l.title || l.video_id)}</span><span class="d">${esc(l.artist || '')} \xb7 ${dshort(l.added_at)}</span></div>`).join('')}</div>` : '<div class="adm-empty">No likes yet.</div>'}
+      </div>`;
+    admSetTab(CUR_TAB);
+    syncFoot();
+  }
+
+  function syncFoot() {
+    const cp = a$('mClearPin');
+    if (cp) { cp.disabled = !(CUR && CUR.has_pin); cp.title = cp.disabled ? 'This user has no PIN' : ''; }
+    updateDirty();
+  }
+
+  window.admSetF = function (name, v) {
+    if (!CUR) return;
+    if (name === 'kid_only') CUR.kid_only = v === '1';
+    else if (name === 'artist_mode') CUR.artist_mode = v;
+    else {
+      CUR.filters = CUR.filters || {};
+      if (name === 'noFemale' || name === 'noDJ' || name === 'blockVideos') CUR.filters[name] = v === '1';
+      else if (v === '') delete CUR.filters[name];
+      else CUR.filters[name] = v;
+    }
+    const pane = document.querySelector('#adm-mBody .adm-pane[data-t="settings"]');
+    if (pane) pane.innerHTML = settingsHtml(CUR);
+    renderTags(); a$('mMsg').textContent = ''; updateDirty();
+  };
+
+  /* ---- modal event listeners ---- */
+  const modal = document.getElementById('adminModal');
+  if (modal) {
+    a$('mClose').addEventListener('click', () => modal.classList.remove('on'));
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('on'); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal.classList.contains('on')) modal.classList.remove('on'); });
+
+    a$('mSave').addEventListener('click', async () => {
+      if (!CUR) return;
+      a$('mSave').disabled = true; a$('mMsg').style.color = ''; a$('mMsg').textContent = 'Saving…';
+      try {
+        await rpc('admin_set_user', { p_user: CUR.id, p_patch: { filters: CUR.filters || {}, artist_mode: CUR.artist_mode, kid_only: !!CUR.kid_only } });
+        ORIG = snapSettings(CUR); updateDirty();
+        a$('mMsg').style.color = 'var(--good)'; a$('mMsg').textContent = 'Saved';
+        adminLoad();
+      } catch (e) { a$('mMsg').style.color = 'var(--accent)'; a$('mMsg').textContent = e.message; }
+      finally { a$('mSave').disabled = false; }
+    });
+
+    a$('mClearPin').addEventListener('click', async () => {
+      if (!CUR || !CUR.has_pin) { a$('mMsg').textContent = 'No PIN set.'; return; }
+      if (!confirm('Clear this user’s parental PIN?')) return;
+      a$('mClearPin').disabled = true; a$('mMsg').style.color = ''; a$('mMsg').textContent = 'Clearing…';
+      try {
+        await rpc('admin_clear_pin', { p_user: CUR.id });
+        CUR = await rpc('admin_user_detail', { p_user: CUR.id }); ORIG = snapSettings(CUR);
+        renderUser(); loadHistory(CUR.id); loadVisits(CUR.id); loadPlaylists(CUR.id);
+        a$('mMsg').style.color = 'var(--good)'; a$('mMsg').textContent = 'PIN cleared';
+        adminLoad();
+      } catch (e) { a$('mMsg').style.color = 'var(--accent)'; a$('mMsg').textContent = e.message; }
+      finally { syncFoot(); }
+    });
+  }
+
+  /* ---- admin view event listeners ---- */
+  let admInited = false;
+  window._adminActivate = function () {
+    if (!admInited) {
+      admInited = true;
+      const qEl = a$('q');
+      if (qEl) qEl.addEventListener('input', () => { clearTimeout(ADM_TIMER); ADM_TIMER = setTimeout(() => { OFFSET = 0; adminLoad(); }, 250); });
+      const rb = a$('refreshBtn'); if (rb) rb.addEventListener('click', () => adminLoad());
+      const pb = a$('prevBtn'); if (pb) pb.addEventListener('click', () => { if (OFFSET > 0) { OFFSET = Math.max(0, OFFSET - PAGE); adminLoad(); } });
+      const nb = a$('nextBtn'); if (nb) nb.addEventListener('click', () => { if (OFFSET + PAGE < TOTAL) { OFFSET += PAGE; adminLoad(); } });
+      const dr = a$('dupRefresh'); if (dr) dr.addEventListener('click', () => { loadDupes(); loadMerges(); });
+    }
+    adminLoad(); loadDupes(); loadMerges();
+  };
+  window._adminLoad = adminLoad;
+})();
 
 boot();
 </script>

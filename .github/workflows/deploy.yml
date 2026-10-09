@@ -34,14 +34,24 @@ jobs:
           # remains the fallback so a fork/public setup still builds.
           GITHUB_TOKEN: ${{ secrets.CORPUS_GH_TOKEN || secrets.GITHUB_TOKEN }}
         run: node engine/fetch-corpus.mjs
+      # A fresh, unguessable folder name per deploy for the bulk catalog files (see emitBulk in
+      # engine/build-static.mjs). Masked so it never appears in the public Actions log.
+      - name: Private folder name
+        id: priv
+        run: |
+          d="_p$(openssl rand -hex 16)"
+          echo "::add-mask::$d"
+          echo "dir=$d" >> "$GITHUB_OUTPUT"
       - name: Build static bundle
+        env:
+          SK_PRIVATE_DIR: ${{ steps.priv.outputs.dir }}
         run: node engine/build-static.mjs
       - name: Deploy to Cloudflare
         if: env.HAS_CF_TOKEN == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          command: deploy
+          command: deploy --var PRIVATE_DIR:${{ steps.priv.outputs.dir }}
       - name: Skipped deploy (no token)
         if: env.HAS_CF_TOKEN != 'true'
         run: echo "::notice::Built. Add the CLOUDFLARE_API_TOKEN repo secret to enable auto-deploy."

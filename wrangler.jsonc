@@ -21,6 +21,21 @@
   // KV: the Worker serves any page override found here before static assets, and caches the live
   // curated trending playlists (refreshed by the cron below).
   "kv_namespaces": [{ "binding": "PAGES", "id": "c19c9b17d6bb45f9a103d067a901a438" }],
+  // Abuse gate rate limiters (engine/security.mjs), keyed u:<userId> for signed-in accounts and ip:<ip>
+  // for anonymous visitors. Anonymous is 3x stricter than an account; a signed-in account on a
+  // datacenter IP gets RL_DC_MIN only. Missing bindings (old deploy / local) just skip limiting.
+  // Exact rate limiting: one RateLimiter Durable Object per IP / account (engine/limiter.mjs).
+  "durable_objects": { "bindings": [{ "name": "LIMITER", "class_name": "RateLimiter" }] },
+  "migrations": [{ "tag": "v1-limiter", "new_sqlite_classes": ["RateLimiter"] }],
+  "ratelimits": [
+    { "name": "RL_ACCT_BURST", "namespace_id": "7101", "simple": { "limit": 45, "period": 10 } },
+    { "name": "RL_ACCT_MIN", "namespace_id": "7102", "simple": { "limit": 120, "period": 60 } },
+    { "name": "RL_ANON_BURST", "namespace_id": "7103", "simple": { "limit": 15, "period": 10 } },
+    { "name": "RL_ANON_MIN", "namespace_id": "7104", "simple": { "limit": 20, "period": 60 } },
+    { "name": "RL_DC_MIN", "namespace_id": "7105", "simple": { "limit": 10, "period": 60 } },
+    // POST /unblock-request (blocked visitors asking for review), per IP.
+    { "name": "RL_CONTACT", "namespace_id": "7106", "simple": { "limit": 3, "period": 60 } }
+  ],
   // Refresh the curated trending playlists into KV 15 min after the upstream index regenerates them
   // (it updates at 08:00/20:00 UTC — both fixed UTC, so 08:15/20:15 UTC never drifts with DST).
   // The same tick also pulls the Zemer app's listening stats (tracking.zemer.io /stats/public) and

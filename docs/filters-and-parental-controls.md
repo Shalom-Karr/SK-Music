@@ -93,6 +93,25 @@ Kid Zone is both a browsable tab and a lockable policy.
 
 ---
 
+## 3a. Music videos (desktop app only)
+
+Music normally plays audio-only: the YouTube iframe lives off-screen in `#ytwrap`. In the desktop app a
+**Watch** button (`#npMV`) in Now Playing can show a music video's picture instead of its album art.
+
+- **Gate** — `mvAllowed()` = desktop shell (`SK_NATIVE`) **and** `pcMusicVideos()` **and not** `kidZoneActive()`.
+  `pcMusicVideos()` is true for a device with **no** parental policy; once a policy exists only
+  `filters.musicVideos === "on"` allows it (Parental Controls → "Music videos", `pcSetMusicVideos()`).
+  Kid Zone always closes it.
+- **Which tracks** — only real music videos (`isVideo`). The artist page tags its Videos section; every
+  other entry point resolves the flag once per track via the engine's `/track` (`mvResolve()`).
+- **How it shows** — the iframe can't be moved (re-parenting reloads it), so `mvPaint()` lays `#ytwrap.mv`
+  over `#npArtBox` (z-index 81: above Now Playing, below toasts/menus), with the gapless standby hidden.
+  `pointer-events: none` stays on, so nothing in the embed is clickable.
+- **Only while PLAYING** — a paused or ended YouTube embed draws its own "more videos" panel, which is
+  outside the whitelist. `mvPaint()` runs on every player state change and every tick and hides the
+  picture the moment the state isn't `1` (playing).
+- The viewer's choice persists in `localStorage.zw_mvWatch`.
+
 ## 4. The parental HARD LOCK (device policy + server enforcement)
 
 The soft version stored the policy only client-side, which a signed-in kid could defeat by PATCHing their

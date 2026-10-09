@@ -4,6 +4,15 @@
 // worker can't start, the page falls back to running the same engine in-thread. (Original implementation.)
 import { handle, preload } from "./engine.mjs";
 
+// Rate-limit / block responses on the catalog files (edge 429, Worker 403/429) go to the page, which shows
+// the notice; this thread has no UI.
+const nativeFetch = self.fetch.bind(self);
+self.fetch = async (input, init) => {
+  const r = await nativeFetch(input, init);
+  if (r.status === 429 || r.status === 403) r.clone().json().then((j) => self.postMessage({ sec: { status: r.status, j } }), () => self.postMessage({ sec: { status: r.status, j: null } }));
+  return r;
+};
+
 // Pre-warm the dataset + indexes, but only after a short delay: the index build is synchronous and would
 // block this worker's inbox, holding up the tiny reads that fire right at boot (/health, /home, /artists).
 // Letting those through first is worth more than warming a couple seconds sooner; a search inside the window

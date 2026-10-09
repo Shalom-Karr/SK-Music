@@ -60,17 +60,218 @@ open at all offline, so they were stuck behind the "Couldn't reach SK Music" scr
 - Saved songs stay inside the app's own data folder, not your Downloads folder, and the installed
   and portable versions share the same saved songs.
 
-## Desktop 1.2.4 — 2026-10-01
+## 1.9.8 + Desktop 1.2.4 — 2026-10-06 (web + desktop)
 
-**Why the bump:** closing the desktop app with **X** didn't close it — the window hid to the tray and
-the music kept playing in the background, so the app always seemed to still be running.
+**Why the bump:** a ⋮ menu on every tile (contributed in PR #20), and the desktop app's **X** now really
+closes it.
 
-**Closing the app actually closes it**
-- The window's **X** now quits SK Music completely and stops playback, the same as **Quit** in the
-  tray menu. Before, it only hid the window to the tray and the song carried on.
-- **Minimizing** is unchanged: the window minimizes and the mini player appears (while something is
-  playing), so you can still keep music going with a small on-screen control.
+**Web: ⋮ menu on every tile**
+- Every album, artist and playlist tile has a **⋮** in its corner — the same idea as the **⋮** on a song,
+  but for the whole set. Choose **Play**, **Shuffle**, **Play next**, **Add to queue**, **Start radio**, or
+  (on an album) **Go to artist** without opening the page first.
+- Song tiles (Trending Songs, New Songs, Keep Listening, and every other song rail) get the same **⋮**,
+  matching the one already on song rows.
+- On a computer it appears when you hover a tile; on phones and tablets it's always visible.
+- It respects your content filters: an artist or album they hide can't be played or queued from a tile.
 
+**Desktop 1.2.4: X closes, minimize opens the mini player**
+- The window's **X** now quits SK Music completely and stops playback, the same as **Quit** in the tray
+  menu. Before, it only hid the window to the tray and the song carried on.
+- **Minimizing** (**–**) is unchanged: the window minimizes and the mini player appears while something is
+  playing, so you can keep music going with a small on-screen control.
+
+## 1.9.7 — 2026-10-06 (web)
+
+**Why the bump:** the Worker's rate limits weren't enforcing — Cloudflare's built-in Workers rate limiter
+counts per machine and syncs loosely, and in production it let 56 requests a minute through a 20-a-minute
+limit without a single 429.
+
+**Rate limits that actually hold**
+- Every IP and account now gets an exact counter of its own (a Durable Object in the Cloudflare location
+  nearest to it). The limits are unchanged — 20 a minute and 15 per 10 seconds without an account, 120 and
+  45 signed in, 10 a minute on datacenter networks — and the 16th request in 10 seconds or the 21st in a
+  minute is now really refused. If the counter is ever unreachable, requests go through rather than
+  breaking the site.
+
+## 1.9.6 — 2026-10-06 (web)
+
+**Why the bump:** measure how people answer the "Create your free SK Music account" popup before
+accounts become required.
+
+**Analytics**
+- New **Account popup** card on the Analytics tab: how many times it was shown and to how many
+  signed-out visitors, and what share clicked **Sign up**, **Not now**, or closed it, plus how many
+  accounts were actually created from it and how many left without answering. Follows the
+  Humans/Bots/All switch and the date range.
+- Recorded as `acct_notice` events (`meta.a` = `shown` · `signup` · `not_now` · `closed` · `created`).
+  Sign-ups through Google from the popup's form aren't counted as `created` (the redirect leaves the page).
+
+**Rate-limit notice**
+- Hitting a rate limit now always says so: "You were blocked for a moment — too many requests too fast.
+  Slow down, or create a free account for higher limits" (signed-in users just get "slow down"). It covers
+  every request — the Worker's limits, the edge limit on catalog files, and the catalog engine's background
+  thread — where before only some API calls showed anything and the rest failed silently.
+
+**Stricter limits without an account**
+- Without an account: 20 requests a minute (was 40). On a datacenter network, even signed in: 10 a minute
+  (was 15). A normal visit uses about 6 at load and 1–2 per page, so real listeners stay well under.
+- Going over the per-minute limit counts as at most one "trip" a minute, so someone clicking quickly isn't
+  banned within seconds; it takes three separate over-limit minutes in 10 minutes. Floods still trip the
+  10-second limit and are banned in about 30 seconds.
+
+**Security: fewer false positives**
+- Content-filter proxies (Techloq US/UK, NetFree-style CloudWebManage, DataVerge, PV-Hosted, PureVoltage)
+  carry many real listeners per IP and are never treated as datacenter traffic.
+- Bing renders pages with a plain `HeadlessChrome` user agent from its crawler IPs; those requests are
+  now recognised as Bing (by its published IP ranges) instead of being blocked as datacenter traffic.
+- Net2Atlanta (a vulnerability scanner) and Semrush are treated as datacenter traffic.
+- Edge rules are live (`docs/security-edge-rules.md`), scoped to `skmusic.shalomkarr.com` only. Sitemaps
+  stay public.
+
+## 1.9.5 — 2026-10-05 (web)
+
+**Why the bump:** scraping and bot protection — rate limits, automatic and permanent bans, a datacenter
+block, no bulk catalog download — plus one dashboard (Analytics · Security · Admin) to watch and manage it.
+
+**Protection (Worker, `engine/security.mjs`)**
+- Per-IP and per-account rate limits on every Worker route. Visitors without an account get limits 3×
+  stricter than signed-in accounts; requests from datacenter networks get stricter limits still.
+- Datacenter, hosting, Tor and location-less (`XX`) networks are blocked unless signed in. Signing in
+  gives them limited access. Verified Googlebot and Bingbot still get through.
+- Tripping the limits 3 times in 10 minutes triggers an automatic ban: 15 minutes, then 1 hour, then
+  24 hours, and the **4th ban is permanent**. Any ban can be lifted from the Security tab.
+- Allowlisted IPs and emails skip every limit and ban.
+- Blocked and banned visitors see a message with a **Contact us** box; requests show up on the Security tab.
+- The full catalog file (`dataset.json.gz`) and the song preview map are no longer public static files.
+  They live in a random, unlinked folder that changes on every deploy, and the Worker serves the dataset
+  only behind the limits and the datacenter block.
+- Reports are capped per account (10 an hour, 30 a day, 3 a day for new accounts), so bots can't
+  mass-flag songs. Bot traffic no longer counts toward trending.
+- Edge (WAF) rules for the static catalog are in `docs/security-edge-rules.md`.
+
+**Site**
+- A one-time notice (every 3 days, signed-out visitors only) that listening will soon need a free
+  account, with a **Sign up** button.
+- **Lyrics** are back, and the tab now appears only when the current song has lyrics (LRCLIB, never Zemer).
+- Fixed: near the end of a song with lyrics, the Now Playing view could jump up and cut off its tabs.
+- Fixed: pressing Save or Enter in in-app dialogs (new playlist, rename) reloaded the page instead of saving.
+
+**Security tab (new)**
+- Stat tiles: rate-limit events, datacenter blocks, auto-bans, banned hits, report blocks, open
+  contact requests.
+- Events-over-time chart, flagged IPs table (ASN + org), flagged accounts table.
+- Active bans table — shows "Permanent" when a ban has no expiry.
+- Contact requests panel — unblock requests from banned users, with Unban / Allowlist / Mark handled
+  actions.
+- Allowlist manager: add or remove IP and email allowlist entries with inline validation.
+- Graceful fallback if the security RPCs are not yet deployed to Supabase.
+- All untrusted data is `esc()`-escaped before insertion into the DOM — no XSS vectors.
+
+**Admin tab (new)**
+- User list with sortable columns, filter summary pills, PIN and Kid Zone status.
+- Click any row to open a user detail modal: Settings (all filter toggles), Activity (visits + play
+  history), Playlists, and Library (recents + likes).
+- Save user settings or clear a parental PIN without leaving the page.
+- Duplicate artist detector (name and thumbnail matching) with merge-and-undo workflow.
+- All admin markup is ID-prefixed `adm-` and wrapped in an IIFE — no name collisions with analytics
+  or security globals.
+- Deep link: `/admin` path opens the Admin tab directly; `#analytics` / `#security` / `#admin`
+  hashes are linkable and remembered across sessions.
+
+**Navigation**
+- Three-tab segmented control: Analytics · Security · Admin.
+- Range and Humans/Bots/All controls show only where they apply.
+
+## 1.9.4 — 2026-10-05 (web)
+
+**Why the bump:** crawlers that run the app (Meta's crawler above all — about a third of the mid-August
+spike) were being counted as visitors, sessions and plays.
+
+**Analytics: humans and bots, separately**
+- A **Humans · Bots · All traffic** switch next to the date range. **Humans** is the default, so every
+  number on the page now counts people; **Bots** shows crawler traffic on its own. The choice is remembered.
+- A new **Bot traffic** card shows what share of the range was bots and which crawlers they were.
+- The recent-events table and the filter-blocked panel follow the switch too.
+
+## 1.9.3 — 2026-10-05 (web)
+
+**Why the bump:** the analytics page's **All** range failed — the summary timed out on the server, and the
+page then tried to download every event ever recorded into the browser.
+
+**Analytics: "All" works again**
+- The all-time summary is now computed on the server once an hour and kept ready, so **All** loads
+  instantly. It's exact, just up to an hour old — the "Activity over time" header shows when it was
+  last computed. 24h, 7d and 30d are unchanged and still live.
+- The first time All is opened from a new timezone, the page says the summary is being built instead
+  of hanging; it's ready after the next hourly run.
+- All never falls back to downloading the whole event table into the browser anymore.
+
+## 1.9.2 — 2026-10-01 (web; affects the desktop app)
+
+**Why the bump:** music played as sound only everywhere — there was no way to see a music video.
+
+**Watch music videos in the desktop app**
+- In the desktop app, a song that's a real music video now has a **Watch** button in Now Playing. Press
+  it and the video plays where the album art was; press it again for the art. The choice is remembered
+  for the next music video.
+- The picture only shows while the video is **playing** — pause and you see the album art again, so
+  YouTube's own "more videos" suggestions never appear. Nothing in the video can be clicked.
+- **Parental Controls → Music videos** decides it for an account: once an account has Parental
+  Controls, music videos are **off** until a parent turns them on. Never available under a Kid Zone lock.
+- The website in a browser is unchanged — music stays audio-only there.
+
+## 1.9.1 — 2026-10-01 (web; affects the desktop app)
+
+**Reopening picks up where you left off**
+- Opening the desktop app again shows the last song in the player bar, **paused** at the spot you
+  left it, with its progress on the seek bar. Press Play and it carries on from there — nothing plays
+  on its own. Before, the app opened with an empty player, and the last song only came back if you
+  pressed Play within 20 minutes.
+- Pausing now saves your exact spot right away, instead of up to five seconds earlier.
+- Only the desktop app does this; the website in a browser is unchanged.
+
+## 1.9.0 — 2026-10-01 (web)
+
+**Rows stop where you let go**
+- Dragging a row of songs, albums or artists sideways (or swiping it on a trackpad) and letting go
+  partway through a card used to make the row jump back to the nearest card edge. It now stays exactly
+  where you left it — no snap-back.
+- The arrow buttons on either end of a row still move a page at a time and land neatly on a card.
+- Applies to the card rows on the home and detail pages, and to Quick Picks.
+
+## 1.8.9 — 2026-10-01 (web)
+
+**Why the bump:** an artist's page opened straight into an alphabetical song list, with no way to see what
+people actually listen to from them.
+
+**Trending Songs on artist pages**
+- The top of every artist page now has a **Trending Songs** row of cards, scrolling sideways like the one on
+  Home. It ranks that artist's songs by how much they're being played over the last 30 days, **combining SK
+  Music listeners with Zemer app listeners**, most-played first.
+- It respects every filter the same way Home's trending does (blocked songs, Acapella mode). When an artist
+  doesn't have enough recent listening to fill a row, it simply isn't shown and the page opens on Songs as before.
+- It loads after the page appears, so artist pages are no slower to open.
+
+**Also**
+- **Downloading a song on the web no longer kicks you out of the app.** The download opens in its own tab
+  instead of navigating the page you were on, so the app and whatever was playing stay put.
+
+## 1.8.8 — 2026-09-29 (web)
+
+**Why the bump:** on iPad the app loaded, passed every connection test, and then played nothing at all.
+
+**Playback falls back instead of failing**
+- iPhone/iPad play through an alternate audio source so the music survives a screen lock. If that source
+  is unreachable, the app now **falls back to the normal player** and keeps going, instead of failing every
+  track in turn and reporting a restricted network. Background playback needs the alternate source, so it
+  is unavailable while running on the fallback — but the music plays.
+- The switch happens once per session, on the first failure, and resumes the **same song** at the position
+  it reached rather than skipping it. Reloading the app tries the preferred source again.
+- When **both** sources are unavailable — the network blocks the normal player *and* the alternate source
+  is unreachable — the app now says plainly that playback on a filtered device is unsupported right now,
+  for lack of the funding to run a streaming server, instead of sending people to a connection test that
+  can only confirm a problem that isn't on their end.
+- **Play next** and **Add to queue** are now in the ⋯ menu on any song, alongside Add to playlist.
 ## 1.8.7 — 2026-09-29 (web)
 
 **Pop-up menus close on a second press**

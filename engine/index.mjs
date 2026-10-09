@@ -6,6 +6,9 @@
  * Static assets are served via env.ASSETS; KV page overrides via env.PAGES.
  */
 
+import { securityGate, handleUnblockRequest } from "./security.mjs";
+export { RateLimiter } from "./limiter.mjs"; // Durable Object class: exact per-IP/account rate limits
+
 // YouTube Music internal API base + context payload used for every browse call.
 const YTM_BASE = "https://music.youtube.com/youtubei/v1";
 const YTM_CTX = {
@@ -134,7 +137,7 @@ async function resolveEntityPreview(env, baseUrl, request, entityType, entityId)
     if (entityType === "song") {
       // The song map is a compact flat blob — cache it in the isolate after the first fetch.
       if (!songOgCache) {
-        const res = await fetchDataFile("/data/og.json");
+        const res = await fetchDataFile(bulkPath(env, "og.json"));
         if (res.ok) songOgCache = await res.json();
       }
       const entry = songOgCache && songOgCache[entityId];
@@ -576,6 +579,80 @@ async function handleAnalyticsBeacon(request, env, ctx) {
 // TWO populations: our own web plays (Supabase RPCs, day-window follows ?days) and the Zemer
 // app's listening stats (KV, cron-resolved to catalog ids, fixed 30-day window). Both songs and
 // artists carry catalog ids so the client can merge/route without name matching. Edge-cached 30 min.
+// Union two play populations by videoId. Score = web share + app share, each normalized to its own
+// top item so neither platform's absolute volume dominates; app share is DEVICE-weighted (unique
+// listeners), which one looping device can't inflate. Cross-platform hits naturally rise to the top.
+// Shared by /trending (global) and /artist-trending (one artist).
+function blendSongs(songs, extSongs, idx) {
+  const maxWeb = Math.max(1, ...songs.map((s) => s.plays || 0));
+  const maxApp = Math.max(1, ...extSongs.map((s) => s.devices || 0));
+  const byVid = new Map();
+  for (const s of songs) {
+    byVid.set(s.videoId, {
+      videoId: s.videoId, title: s.title, artist: s.artist,
+      artistId: resolveArtistId(idx, s.artist),
+      plays: s.plays || 0, appPlays: 0, appDevices: 0, skipRate: null, sources: ["web"],
+    });
+  }
+  for (const e of extSongs) {
+    const cur = byVid.get(e.videoId);
+    if (cur) {
+      cur.appPlays = e.plays || 0; cur.appDevices = e.devices || 0;
+      cur.skipRate = e.skipRate ?? null;
+      if (!cur.artistId) cur.artistId = e.artistId || null;
+      if (e.offCatalog) cur.offCatalog = true;
+      cur.sources.push("app");
+    } else {
+      byVid.set(e.videoId, {
+        videoId: e.videoId, title: e.title, artist: e.artist, artistId: e.artistId || null,
+        plays: 0, appPlays: e.plays || 0, appDevices: e.devices || 0,
+        skipRate: e.skipRate ?? null, ...(e.offCatalog ? { offCatalog: true } : {}), sources: ["app"],
+      });
+    }
+  }
+  return [...byVid.values()]
+    .map((s) => ({ ...s, score: +(s.plays / maxWeb + s.appDevices / maxApp).toFixed(4) }))
+    .sort((a, b) => b.score - a.score);
+}
+
+// One artist's trending songs, blended the same way as /trending: their web plays (Supabase
+// artist_top_songs — the global top_songs only reaches the site-wide top 40, which would leave most
+// artist pages empty) + their Zemer-app plays (the cron-resolved KV snapshot, filtered by channel id).
+// The artist's NAME is resolved server-side from the id — web plays are recorded under the catalog
+// name — so a caller can't pair one artist's cache entry with another artist's plays.
+async function handleArtistTrending(url, env, ctx) {
+  const id = url.searchParams.get("id") || "";
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return Response.json({ error: "bad id" }, { status: 400 });
+  const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get("days") || "30", 10) || 30));
+  const edgeCache = caches.default;
+  const cacheKey = new Request(`https://sk/artist-trending?id=${id}&days=${days}&v=1`);
+  const cached = await edgeCache.match(cacheKey);
+  if (cached) return cached;
+
+  const idx = await getArtistNameIndex(env);
+  const name = idx.names.get(id) || null;
+  let web = [];
+  if (name && env.SUPABASE_URL && env.SUPABASE_KEY) {
+    const raw = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/artist_top_songs`, {
+      method: "POST",
+      headers: { apikey: env.SUPABASE_KEY, Authorization: `Bearer ${env.SUPABASE_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_artist: name, days, lim: 40 }),
+    }).then((r) => (r.ok ? r.json() : [])).catch(() => []); // RPC not deployed yet → app-only, never an error
+    web = (Array.isArray(raw) ? raw : []).map((x) => ({ videoId: x.video_id, title: x.title, artist: x.artist, plays: x.plays }));
+  }
+  let ext = null;
+  if (env.PAGES) { try { ext = await env.PAGES.get(EXT_TRENDING_KEY, "json"); } catch { /* malformed → web-only */ } }
+  const extSongs = (ext && Array.isArray(ext.songs) ? ext.songs : []).filter((s) => s.artistId === id);
+
+  const songs = blendSongs(web, extSongs, idx).filter((s) => !s.artistId || s.artistId === id).slice(0, 24);
+  const res = Response.json(
+    { id, days, songs, app: ext ? { fetchedAt: ext.fetchedAt, days: ext.days } : null },
+    { headers: { "Cache-Control": `public, max-age=${ext ? 1800 : 120}` } }
+  );
+  ctx.waitUntil(edgeCache.put(cacheKey, res.clone()));
+  return res;
+}
+
 async function handleTrending(request, url, env, ctx) {
   const days = Math.min(
     365,
@@ -632,39 +709,7 @@ async function handleTrending(request, url, env, ctx) {
   const extSongs = (ext && Array.isArray(ext.songs)) ? ext.songs : [];
   const extArtists = (ext && Array.isArray(ext.artists)) ? ext.artists : [];
 
-  // Union by videoId. Score = web share + app share, each normalized to its own top item so
-  // neither platform's absolute volume dominates; app share is DEVICE-weighted (unique listeners),
-  // which one looping device can't inflate. Cross-platform hits naturally rise to the top.
-  const maxWeb = Math.max(1, ...songs.map((s) => s.plays || 0));
-  const maxApp = Math.max(1, ...extSongs.map((s) => s.devices || 0));
-  const byVid = new Map();
-  for (const s of songs) {
-    byVid.set(s.videoId, {
-      videoId: s.videoId, title: s.title, artist: s.artist,
-      artistId: resolveArtistId(idx, s.artist),
-      plays: s.plays || 0, appPlays: 0, appDevices: 0, skipRate: null, sources: ["web"],
-    });
-  }
-  for (const e of extSongs) {
-    const cur = byVid.get(e.videoId);
-    if (cur) {
-      cur.appPlays = e.plays || 0; cur.appDevices = e.devices || 0;
-      cur.skipRate = e.skipRate ?? null;
-      if (!cur.artistId) cur.artistId = e.artistId || null;
-      if (e.offCatalog) cur.offCatalog = true;
-      cur.sources.push("app");
-    } else {
-      byVid.set(e.videoId, {
-        videoId: e.videoId, title: e.title, artist: e.artist, artistId: e.artistId || null,
-        plays: 0, appPlays: e.plays || 0, appDevices: e.devices || 0,
-        skipRate: e.skipRate ?? null, ...(e.offCatalog ? { offCatalog: true } : {}), sources: ["app"],
-      });
-    }
-  }
-  const mergedSongs = [...byVid.values()]
-    .map((s) => ({ ...s, score: +(s.plays / maxWeb + s.appDevices / maxApp).toFixed(4) }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 40);
+  const mergedSongs = blendSongs(songs, extSongs, idx).slice(0, 40);
 
   // Artists: same union, keyed by resolved channel id (name-keyed fallback for the rare
   // web-side name that doesn't resolve — it still shows, it just can't merge).
@@ -708,6 +753,10 @@ const EXT_TRENDING_KEY = "ext-trending-v1";
 
 // Fetch a dist/data JSON through the assets binding (routes purely on pathname, so a synthetic
 // origin is fine — scheduled() has no incoming request to derive one from).
+// Bulk build files (dataset.json.gz, og.json) live in a random, unlinked folder when the deploy sets
+// PRIVATE_DIR (see engine/build-static.mjs emitBulk); local builds keep them under /data/.
+const bulkPath = (env, file) => (env.PRIVATE_DIR ? `/${env.PRIVATE_DIR}/${file}` : `/data/${file}`);
+
 async function fetchAssetJSON(env, path) {
   try {
     const res = await env.ASSETS.fetch("https://assets" + path);
@@ -723,8 +772,9 @@ const normArtistName = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ")
 // " - Hebrew" suffix between their index and ours ("Shmulik Sukkot - שמוליק סוכות" vs
 // "Shmulik Sukkot"), so a stripped-suffix key resolves those — but only when it's unique.
 function buildArtistNameIndex(artists) {
-  const exact = new Map(), prefix = new Map(), dupes = new Set();
+  const exact = new Map(), prefix = new Map(), dupes = new Set(), names = new Map();
   for (const a of artists) {
+    if (a.id && a.name) names.set(a.id, a.name);
     const n = normArtistName(a.name);
     if (n) exact.set(n, a.id);
     const p = n.split(" - ")[0].trim();
@@ -734,7 +784,7 @@ function buildArtistNameIndex(artists) {
     }
   }
   for (const d of dupes) prefix.delete(d);
-  return { exact, prefix };
+  return { exact, prefix, names };
 }
 
 const resolveArtistId = (idx, name) => {
@@ -816,7 +866,7 @@ async function refreshExternalTrending(env) {
   if (!stats || (!Array.isArray(stats.topPlays) && !Array.isArray(stats.topArtists))) return;
 
   const [og, artistsFile] = await Promise.all([
-    fetchAssetJSON(env, "/data/og.json"),
+    fetchAssetJSON(env, bulkPath(env, "og.json")),
     fetchAssetJSON(env, "/data/artists.json"),
   ]);
   if (!og) return;
@@ -887,7 +937,7 @@ async function refreshExternalTrending(env) {
 
   await env.PAGES.put(
     EXT_TRENDING_KEY,
-    JSON.stringify({ fetchedAt: Date.now(), days: 30, songs: songs.slice(0, 100), artists: artists.slice(0, 50) }),
+    JSON.stringify({ fetchedAt: Date.now(), days: 30, songs: songs.slice(0, 200), artists: artists.slice(0, 50) }),
     { expirationTtl: 46800 }
   );
 }
@@ -1312,6 +1362,7 @@ async function handleRadio(request, url) {
 // are immutable per song, so a hit is edge-cached for a week. A miss (404 upstream) is a normal
 // outcome, not an error — it returns nulls at 200 and is only cached briefly, since a song not yet
 // on LRCLIB today may be synced there tomorrow.
+const LYRICS_ENABLED = true;
 async function handleLyrics(request, url, ctx) {
   if (request.method !== "GET")
     return Response.json({ error: "method not allowed" }, { status: 405, headers: { "Cache-Control": "no-store" } });
@@ -1709,6 +1760,19 @@ export default {
     const moved = canonicalRedirect(url);
     if (moved) return moved;
 
+    // Blocked visitors' review request — reachable even when banned / datacenter-blocked (own limiter).
+    if (pathname === "/unblock-request") return handleUnblockRequest(request, env, ctx);
+
+    // Abuse gate (engine/security.mjs): allowlist, bans, datacenter block, per-identity rate limits.
+    const blocked = await securityGate(request, env, ctx, url);
+    if (blocked) return blocked;
+
+    // The catalog dataset is not a static file in production (it sits in the private folder), so the
+    // asset layer misses and the request lands here — behind the gate's limits and datacenter block.
+    if (pathname === "/data/dataset.json.gz" && env.PRIVATE_DIR) {
+      return env.ASSETS.fetch(new Request(new URL(bulkPath(env, "dataset.json.gz"), url), request));
+    }
+
     // Sitemaps + robots.txt: large, static SEO files hit by crawlers. Serve them straight from assets,
     // edge-cached via the Cache API with a real TTL, and skip the KV-override lookup below. Without this
     // every Googlebot fetch was a Worker call + KV read + a full, uncached transfer of the ~1 MB file,
@@ -1776,7 +1840,8 @@ export default {
     if (pathname === "/stations") return handleStations(request, url, ctx);
     if (pathname === "/station") return handleStation(request, url);
     if (pathname === "/stations/cover") return handleStationCover(request, url, ctx);
-    if (pathname === "/lyrics") return handleLyrics(request, url, ctx);
+    // Lyrics on/off switch: LYRICS_ENABLED (false ⇒ 404).
+    if (pathname === "/lyrics") return LYRICS_ENABLED ? handleLyrics(request, url, ctx) : new Response("Not found", { status: 404 });
     if (pathname.startsWith("/statuses/")) return handleStatuses(request, url, ctx);
     if (pathname === "/trending") {
       // Content negotiation: browser navigations (Accept: text/html) get the human-readable charts
@@ -1787,6 +1852,7 @@ export default {
       }
       return handleTrending(request, url, env, ctx);
     }
+    if (pathname === "/artist-trending") return handleArtistTrending(url, env, ctx);
     if (pathname === "/a" && request.method === "POST")
       return handleAnalyticsBeacon(request, env, ctx);
     // Desktop auto-updater: serve the newest signed desktop release manifest (edge-cached). 204 =
@@ -1799,7 +1865,10 @@ export default {
     if (pathname === "/csp-report" && request.method === "POST") return handleCspReport(request);
 
     // Admin / tool pages — KV override always wins; never cache these responses.
-    if (pathname === "/analytics" || pathname === "/analytics/") {
+    // /admin is the same dashboard (Analytics / Security / Admin tabs); the page opens its Admin tab when
+    // location.pathname starts with /admin, so old /admin links keep working. Serving the page is not an
+    // authorization decision — access is enforced by the admin RPCs from the verified JWT.
+    if (pathname === "/analytics" || pathname === "/analytics/" || pathname === "/admin" || pathname === "/admin/") {
       const override = await tryKvOverride(env, "/analytics.html");
       if (override) return override;
       const asset = await env.ASSETS.fetch(
@@ -1807,16 +1876,6 @@ export default {
       );
       const headers = new Headers(asset.headers);
       headers.set("Cache-Control", "no-store");
-      return new Response(asset.body, { status: asset.status, headers });
-    }
-    // Admin console. Serving the page is not an authorization decision — the page is public HTML and
-    // the anon key inside it is public too. Access is enforced entirely by the admin_* RPCs, which
-    // re-check zemer_admin membership from the verified JWT on every call.
-    if (pathname === "/admin" || pathname === "/admin/") {
-      const asset = await env.ASSETS.fetch(new Request(new URL("/admin.html", url), request));
-      const headers = new Headers(asset.headers);
-      headers.set("Cache-Control", "no-store");
-      headers.set("X-Robots-Tag", "noindex, nofollow");
       return new Response(asset.body, { status: asset.status, headers });
     }
     if (pathname === "/test" || pathname === "/test/") {

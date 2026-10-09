@@ -315,7 +315,7 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .sechead .more:hover{color:var(--primary)}
 
 .rail{display:grid;grid-auto-flow:column;grid-auto-columns:172px;gap:18px;overflow-x:auto;overflow-y:hidden;
-  padding:4px 4px 14px;scroll-snap-type:x proximity;scrollbar-width:none;-ms-overflow-style:none}
+  padding:4px 4px 14px;scrollbar-width:none;-ms-overflow-style:none}
 .rail::-webkit-scrollbar{display:none}
 .rail.round{grid-auto-columns:150px}
 /* position:relative anchors .play-fab (absolute, centred) to its own card. It used to land there only
@@ -371,14 +371,28 @@ body.on-air .live-note{display:block}
 .card:hover .play-fab{opacity:1;transform:translate(-50%,-50%) scale(1)}
 .card .play-fab:hover{transform:translate(-50%,-50%) scale(1.07);box-shadow:0 13px 32px -6px var(--primary-glow),inset 0 0 0 1px rgba(255,255,255,.26)}
 .card .play-fab:active{transform:translate(-50%,-50%) scale(.95)}
+/* Hover ⋮ on album / artist / playlist tiles: the same options the song ⋮ offers, for the whole set. */
+.card .cardbtn{position:absolute;top:8px;right:8px;width:34px;height:34px;z-index:2;opacity:0;color:var(--text);
+  background:rgba(14,10,11,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:opacity .14s,color .15s,background .15s}
+.card .cardbtn:hover{background:rgba(14,10,11,.92)}
+.card .cardbtn svg{width:20px;height:20px}
+.card.round .cardbtn{top:12px;right:12px}
+.card:hover .cardbtn,.card .cardbtn:focus-visible,.gcell:hover .cardbtn,.gcell .cardbtn:focus-visible{opacity:1}
+@media (hover:none){.card .cardbtn,.gcell .cardbtn{opacity:1}} /* touch: no hover, so the ⋮ is always shown */
+.gcell{position:relative}
+.gcell .cardbtn{position:absolute;top:8px;right:8px;width:34px;height:34px;z-index:2;opacity:0;color:var(--text);
+  background:rgba(14,10,11,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:opacity .14s,color .15s,background .15s}
+.gcell .cardbtn svg{width:20px;height:20px}
 .card .t{font-size:14px;font-weight:600;margin-top:11px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card .s{font-size:12.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card.round .t{text-align:center;margin-top:12px}.card.round .s{text-align:center}
 
 /* Quick Picks — 4-row horizontally paging grid */
 .qpgrid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(4,1fr);grid-auto-columns:min(94%,420px);
-  gap:6px 22px;overflow-x:auto;padding:4px 4px 12px;scroll-snap-type:x proximity;scrollbar-width:none;-ms-overflow-style:none}
+  gap:6px 22px;overflow-x:auto;padding:4px 4px 12px;scrollbar-width:none;-ms-overflow-style:none}
 .qpgrid::-webkit-scrollbar{display:none}
+/* .row (and .card) keep scroll-snap-align as a marker only — scroll-snap-type is off above, so it has
+   no native effect; the paging chevrons read it via getComputedStyle to find each boundary. */
 .qpgrid .row{scroll-snap-align:start}
 @media(min-width:1200px){.qpgrid{grid-auto-columns:minmax(360px,1fr)}}
 
@@ -389,9 +403,6 @@ body.on-air .live-note{display:block}
    each scroller at runtime (see "Horizontal rails" near the end of the script): rails are built
    as HTML strings in ~20 places, so wrapping in the DOM beats editing every call site. */
 .railwrap{position:relative}
-/* Snap fights direct scrollLeft writes (it drags the rail back mid-gesture), so it's off while
-   the pointer or wheel is driving and restored the moment it settles. */
-.rail.nosnap,.qpgrid.nosnap{scroll-snap-type:none}
 .rail.dragging,.qpgrid.dragging,.sts-rail.dragging{scroll-behavior:auto;cursor:grabbing;user-select:none}
 .rail.dragging *,.qpgrid.dragging *,.sts-rail.dragging *{cursor:grabbing}
 .rail img,.qpgrid img,.sts-rail img{-webkit-user-drag:none;user-drag:none}
@@ -605,7 +616,7 @@ body.on-air .live-note{display:block}
 
 /* ============================ Fullscreen now-playing ============================ */
 #now{position:fixed;inset:0;z-index:80;transform:translateY(101%);transition:transform .4s var(--ease);
-  display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+  display:flex;flex-direction:column;overflow:hidden;overflow:clip;background:var(--bg)}
 #now.on{transform:none}
 #now .np-bg{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(90px) saturate(1.5) brightness(.5);transform:scale(1.4);z-index:-2}
 #now::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(14,10,11,.5),rgba(14,10,11,.86))}
@@ -784,6 +795,11 @@ body.on-air .npx-clear{display:none}
 .row.sk-dl-done .title::after{content:"";display:inline-block;width:12px;height:12px;margin-left:7px;vertical-align:-1px;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234ade80'%3E%3Cpath d='M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z'/%3E%3C/svg%3E")}
 /* hidden YouTube IFrame audio engine — rendered off-screen so audio keeps playing */
 #ytwrap{position:fixed;left:-9999px;bottom:0;width:320px;height:180px;opacity:0;pointer-events:none;z-index:-1}
+/* Music-video watch mode (desktop): mvPaint() sizes #ytwrap onto #npArtBox. Above #now (80), below the
+   toast (90) and menus (95). pointer-events stays none, so nothing in the embed is clickable. */
+#ytwrap.mv{opacity:1;z-index:81;background:#000;border-radius:20px;overflow:hidden;bottom:auto}
+#ytwrap.mv iframe{position:absolute;inset:0;width:100%;height:100%}
+#ytwrap.mv iframe.mv-off{visibility:hidden}
 .iconbtn.rateBtn{width:auto;min-width:40px;height:34px;padding:0 11px;border-radius:12px;font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums}
 .iconbtn.rateBtn.on{color:var(--primary)}
 
@@ -1107,10 +1123,10 @@ fill="url(#royal)" stroke="none">
       <button class="authclose" onclick="askClose(null)" aria-label="Close">✕</button>
       <h2 id="askTitle" style="margin-top:4px"></h2>
       <p class="authsub" id="askSub"></p>
-      <form onsubmit="askSubmit(event)" autocomplete="off">
+      <form onsubmit="window.askSubmit(event)" autocomplete="off">
         <div class="authfield" id="askField"><input id="askInput" type="text" maxlength="80" autocomplete="off" data-1p-ignore data-lpignore="true" placeholder="" onkeydown="if(event.key==='Escape'){event.preventDefault();askClose(null)}"></div>
         <div class="authmsg" id="askMsg"></div>
-        <div style="display:flex;gap:10px;margin-top:2px"><button type="button" class="authbtn oauth" style="flex:1" onclick="askClose(null)">Cancel</button><button class="authbtn" id="askSubmit" type="submit" style="flex:1">Save</button></div>
+        <div style="display:flex;gap:10px;margin-top:2px"><button type="button" class="authbtn oauth" id="askCancel" style="flex:1" onclick="askClose(null)">Cancel</button><button class="authbtn" id="askSubmit" type="submit" style="flex:1">Save</button></div>
       </form>
     </div>
   </div>
@@ -1229,6 +1245,7 @@ fill="url(#royal)" stroke="none">
         <button class="iconbtn heart" id="npLike" onclick="toggleLikeCurrent()" title="Like" aria-label="Like" aria-pressed="false" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg></button>
         <!-- Watch / Listen — only shown for a track that actually has video (a filmed shiur), and only
              while the account allows video shiurim. See shToggleWatch / paintWatchUI. -->
+        <button class="iconbtn" id="npMV" onclick="mvToggle()" title="Watch the music video" aria-label="Watch the music video" aria-pressed="false" style="width:48px;height:48px;flex:none;display:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M4 5h11a2 2 0 0 1 2 2v2.4l4-2.6v10.4l-4-2.6V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/></svg></button>
         <button class="iconbtn" id="npWatch" onclick="shToggleWatch()" title="Watch the video" aria-label="Watch the video" aria-pressed="false" style="width:48px;height:48px;flex:none;display:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M4 5h11a2 2 0 0 1 2 2v2.4l4-2.6v10.4l-4-2.6V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/></svg></button>
         <!-- Video-only, shown while watching. Controls = the browser's own scrubber, the thing you'd
              otherwise reach by right-clicking the frame — which the desktop shell has no menu for. -->
@@ -1250,7 +1267,7 @@ fill="url(#royal)" stroke="none">
       </div>
     </div>
     <div class="np-upnext">
-      <div class="npx-head"><button class="npx-tab on" data-p="queue" onclick="npxTab('queue')">Up Next</button><button class="npx-tab" data-p="lyrics" onclick="npxTab('lyrics')">Lyrics</button><label class="np-auto" title="Keep playing similar songs when the queue ends"><input type="checkbox" id="npAuto" onchange="setRadioAutoplay(this.checked)"><span>Autoplay</span></label><button class="npx-clear" onclick="clearQueue()" title="Clear the upcoming queue" aria-label="Clear the upcoming queue">Clear</button></div>
+      <div class="npx-head"><button class="npx-tab on" data-p="queue" onclick="npxTab('queue')">Up Next</button><button class="npx-tab" data-p="lyrics" onclick="npxTab('lyrics')" hidden>Lyrics</button><label class="np-auto" title="Keep playing similar songs when the queue ends"><input type="checkbox" id="npAuto" onchange="setRadioAutoplay(this.checked)"><span>Autoplay</span></label><button class="npx-clear" onclick="clearQueue()" title="Clear the upcoming queue" aria-label="Clear the upcoming queue">Clear</button></div>
       <div class="npx-pane on" id="npPaneQueue"><div class="rows" id="npQueue"></div></div>
       <div class="npx-pane" id="npPaneLyrics"><div class="lyrics" id="npLyrics"></div></div>
     </div>
@@ -1307,6 +1324,50 @@ async function getJSON(url, opt) {
   return fetchJSON(url, opt);
 }
 // One backoff retry on a TRANSIENT failure (network reject or 5xx); never retry an abort or a 4xx.
+// The Worker's security layer answers 403/429 with {error:"datacenter"|"banned"|"rate_limited"}. Say so once,
+// plainly, instead of the page just quietly failing to load things.
+let _secNoticeAt = 0;
+function secNotice(j) {
+  if (!j || !j.error || Date.now() - _secNoticeAt < 60000) return;
+  _secNoticeAt = Date.now();
+  if (j.error === "datacenter") showToast('<b>SK Music is limited on this network</b> (a hosting provider or VPN). <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();openAuth(&#39;in&#39;)">Sign in</a> to keep listening, or <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();unblockRequest()">Contact us</a> if this is a mistake.', 12000);
+  else if (j.error === "banned") { const fin = j.until && isFinite(Date.parse(j.until)); showToast("<b>Too many requests from your connection.</b> Access is " + (fin ? "paused until " + new Date(j.until).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + "." : "blocked.") + ' <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();unblockRequest()">Contact us</a> if this is a mistake.', 12000); }
+  else if (j.error === "rate_limited") showToast("<b>You were blocked for a moment</b> — too many requests too fast. " + (loggedIn()
+    ? "Slow down and it clears in a few seconds."
+    : 'Slow down, or <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();openAuth(&#39;up&#39;)">create a free account</a> for higher limits.'), 9000);
+}
+// Every same-origin request goes through here, so a 429/403 from the Worker (JSON body) or the edge rate
+// limit (Cloudflare's HTML page) shows a notice no matter which code path made it. The engine's Web Worker
+// reports its own through postMessage (engine-worker.mjs).
+function secStatus(status, j) {
+  if (j && j.error) return secNotice(j);
+  if (status === 429) secNotice({ error: "rate_limited" });
+}
+{
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = async (input, init) => {
+    const r = await nativeFetch(input, init);
+    if (r.status === 429 || r.status === 403) {
+      let same = false; try { same = new URL(r.url || String(input), location.href).origin === location.origin; } catch {}
+      if (same) r.clone().json().then((j) => secStatus(r.status, j), () => secStatus(r.status, null));
+    }
+    return r;
+  };
+}
+// Blocked people can always reach this: the Worker exempts /unblock-request from bans and the datacenter
+// block, records the real IP, and caps it per IP. It lands on the Security tab of the admin dashboard.
+async function unblockRequest() {
+  const msg = await askText({ title: "Contact us", sub: "Tell us what happened and we'll review the block. Include an email if you'd like a reply.", placeholder: "Your message (and email, optional)", submit: "Send" });
+  if (!msg) return;
+  const email = (acctEmail() || (msg.match(/[^\s@]+@[^\s@]+\.[^\s@]+/) || [""])[0]).toLowerCase();
+  let ok = false, reason = "";
+  try { const r = await fetch("/unblock-request", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ message: msg.slice(0, 2000), email }) }); const j = await r.json().catch(() => ({})); ok = r.ok && j.ok !== false; reason = j.reason || (r.status === 429 ? "limit" : ""); } catch {}
+  showToast(ok ? "<b>Thanks — we got your message</b> and will review the block."
+    : reason === "limit" ? "You've already sent a few messages — we'll review them."
+    : reason === "invalid_email" ? "That email doesn't look right — send it again without it, or fix it."
+    : reason === "invalid_message" ? "Please write a short message (up to 2,000 characters)."
+    : "Couldn't send that right now. Try again in a little while.", 6000);
+}
 async function fetchJSON(url, opt) {
   for (let attempt = 0; ; attempt++) {
     try {
@@ -1550,6 +1611,57 @@ function setShiurim(on) {
 // whatever artists post today, which is not the whitelisted-catalog promise the rest of the app makes,
 // so filters.statuses === "on" is the ONLY thing that enables them — absent (or signed out) = blocked.
 const pcStatuses = () => pcFilters().statuses === "on";
+// Music videos (desktop app only): watch a music video's picture instead of its album art. A device with
+// no parental policy can; once an account has one, only filters.musicVideos === "on" allows it; Kid Zone
+// never does. The YouTube iframe can't be moved into Now Playing (re-parenting an iframe reloads it), so
+// watch mode lays the hidden #ytwrap over the art box instead — and only while the video is actually
+// PLAYING: a paused or ended embed draws YouTube's own "more videos" panel, which is outside the whitelist.
+const pcMusicVideos = () => { const p = pcPolicy(); return !p || ((p.filters || {}).musicVideos === "on"); };
+const mvAllowed = () => !!SK_NATIVE && pcMusicVideos() && !kidZoneActive();
+const mvWanted = () => LS.get("zw_mvWatch", "") === "1";
+const mvTrackOK = (t) => !!(t && t.isVideo && !t.kind);
+// Most entry points (search, Home rails, trending) carry no isVideo flag, so look the authoritative one up
+// once per track from the catalog engine — only when the Watch button could actually be offered.
+const _mvChecked = new Set();
+async function mvResolve(t) {
+  if (!t || t.kind || t.isVideo || !t.videoId || !mvAllowed() || _mvChecked.has(t.videoId)) return;
+  _mvChecked.add(t.videoId);
+  const r = await getJSON("/track?v=" + encodeURIComponent(t.videoId)).catch(() => null);
+  if (r && r.isVideo) { t.isVideo = true; if (state.queue[state.qi] === t) { paintMVButton(); mvPaint(); } }
+}
+function mvToggle() {
+  if (!mvAllowed()) { showToast("<b>Music videos are turned off</b> for this account — a parent can enable them in Parental Controls.", 4600); return; }
+  LS.set("zw_mvWatch", mvWanted() ? "" : "1");
+  mvPaint(); paintMVButton();
+  showToast(mvWanted() ? "Watching music videos." : "Back to the album art.", 1800);
+}
+function paintMVButton() {
+  const b = el("npMV"); if (!b) return;
+  const can = mvAllowed() && mvTrackOK(state.queue[state.qi]), on = can && mvWanted();
+  b.style.display = can ? "" : "none";
+  b.classList.toggle("on", on);
+  const lbl = on ? "Show the album art" : "Watch the music video";
+  b.title = lbl; b.setAttribute("aria-label", lbl); b.setAttribute("aria-pressed", String(on));
+}
+function mvPaint() {
+  const w = el("ytwrap"); if (!w) return;
+  let playing = false; try { playing = PB.ready && PB.yt.getPlayerState() === 1; } catch {}
+  const box = el("npArtBox"), r = box && box.getBoundingClientRect();
+  const show = state.nowOpen && mvWanted() && mvAllowed() && mvTrackOK(state.queue[state.qi]) && PB.useYt() && playing && r && r.width > 0;
+  if (!show) { if (w.classList.contains("mv")) { w.classList.remove("mv"); w.removeAttribute("style"); } return; }
+  w.classList.add("mv");
+  w.style.left = r.left + "px"; w.style.top = r.top + "px"; w.style.width = r.width + "px"; w.style.height = r.height + "px";
+  let live = null; try { live = PB.yt.getIframe(); } catch {}
+  for (const f of w.querySelectorAll("iframe")) f.classList.toggle("mv-off", f !== live); // the gapless standby stays hidden
+}
+addEventListener("resize", () => mvPaint());
+async function pcSetMusicVideos() {
+  if (!(await pcGuard())) return;
+  const cur = (acct.profile && acct.profile.filters) || {};
+  const next = (cur.musicVideos === "on") ? "" : "on";
+  if (!(await pcSave({ filters: Object.assign({}, cur, { noFemale: noFemale(), noChasid: noChasid(), blockVideos: blockVideos(), musicVideos: next }) }))) return;
+  mvPaint(); paintMVButton(); syncFilterUI(); renderParental();
+}
 const statusesOn = () => pcStatuses() && LS.get("zw_statuses", "1") === "1";
 function setStatuses(on) {
   if (!pcStatuses()) { showToast("<b>Statuses are turned off</b> for this account — a parent can enable them in Parental Controls.", 4600); return; }
@@ -1909,16 +2021,17 @@ function songRow(t, qid, i, opt) {
 }
 function songRows(tracks, opt) { const qid = regQueue(tracks); return `<div class="rows">${tracks.map((t, i) => songRow(t, qid, i, opt)).join("")}</div>`; }
 function songCard(t, qid, i) {
-  return `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="playFrom('${qid}',${i})">${artHTML(yt(t.videoId))}<button class="play-fab" aria-label="Play" onclick="event.stopPropagation();playFrom('${qid}',${i})">${ICON.play}</button><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist || "")}</div></div>`;
+  return `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="playFrom('${qid}',${i})">${artHTML(yt(t.videoId))}<button class="play-fab" aria-label="Play" onclick="event.stopPropagation();playFrom('${qid}',${i})">${ICON.play}</button><button class="iconbtn cardbtn" aria-label="More actions" aria-haspopup="true" title="More" onkeydown="event.stopPropagation()" onclick="songMenuAt('${qid}',${i},event)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4m0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/></svg></button><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist || "")}</div></div>`;
 }
 function songCards(tracks) { const qid = regQueue(tracks); return `<div class="rail">${tracks.map((t, i) => songCard(t, qid, i)).join("")}</div>`; }
 function quickPicks(tracks) { const qid = regQueue(tracks); return `<div class="qpgrid">${tracks.map((t, i) => songRow(t, qid, i)).join("")}</div>`; }
-const albumCard = (a) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openAlbum('${safeId(a.id)}')" onmouseenter="pf('album','${safeId(a.id)}')">${artHTML(a.thumbnail)}<div class="t">${esc(a.title)}</div><div class="s">${esc(a.artist || "")}${a.year ? " · " + a.year : ""}</div></div>`;
-const playlistCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openPlaylist('${safeId(p.id)}')">${artHTML(p.thumbnail)}<div class="t">${esc(p.title)}</div><div class="s">${esc(p.artist || "Playlist")}</div></div>`;
+const tileBtn = (kind, id, title, artist) => `<button class="iconbtn cardbtn" aria-label="More actions" aria-haspopup="true" title="More" onkeydown="event.stopPropagation()" onclick="event.stopPropagation();openTileMenu(this,'${kind}','${safeId(id)}',this.dataset.t,this.dataset.a)" data-t="${esc(title || "")}" data-a="${esc(artist || "")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4m0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/></svg></button>`;
+const albumCard = (a) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openAlbum('${safeId(a.id)}')" onmouseenter="pf('album','${safeId(a.id)}')">${artHTML(a.thumbnail)}${tileBtn("album", a.id, a.title, a.artist)}<div class="t">${esc(a.title)}</div><div class="s">${esc(a.artist || "")}${a.year ? " · " + a.year : ""}</div></div>`;
+const playlistCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openPlaylist('${safeId(p.id)}')">${artHTML(p.thumbnail)}${tileBtn("playlist", p.id, p.title, "")}<div class="t">${esc(p.title)}</div><div class="s">${esc(p.artist || "Playlist")}</div></div>`;
 // Curated playlist card — SVG cover; click → the curated detail (albums + songs).
-const zpCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openCuratedPlaylist('${safeId(p.id)}')">${artHTML(p.thumbnail)}<div class="t">${esc(p.title)}</div><div class="s">${num(p.trackCount || 0)} songs</div></div>`;
-const artistCard = (a) => `<div class="card round" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${safeId(a.id)}')" onmouseenter="pf('artist','${safeId(a.id)}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="t">${esc(a.name || "")}</div></div>`;
-const artistCell = (a) => `<div class="gcell" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${safeId(a.id)}')" onmouseenter="pf('artist','${safeId(a.id)}')">${artHTML(a.thumbnail, ICON.artist, true)}<div class="n">${esc(a.name || "")}</div></div>`;
+const zpCard = (p) => `<div class="card" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openCuratedPlaylist('${safeId(p.id)}')">${artHTML(p.thumbnail)}${tileBtn("zp", p.id, p.title, "")}<div class="t">${esc(p.title)}</div><div class="s">${num(p.trackCount || 0)} songs</div></div>`;
+const artistCard = (a) => `<div class="card round" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${safeId(a.id)}')" onmouseenter="pf('artist','${safeId(a.id)}')">${artHTML(a.thumbnail, ICON.artist, true)}${tileBtn("artist", a.id, a.name, "")}<div class="t">${esc(a.name || "")}</div></div>`;
+const artistCell = (a) => `<div class="gcell" role="button" tabindex="0" onkeydown="${KDACT}" onclick="openArtist('${safeId(a.id)}')" onmouseenter="pf('artist','${safeId(a.id)}')">${artHTML(a.thumbnail, ICON.artist, true)}${tileBtn("artist", a.id, a.name, "")}<div class="n">${esc(a.name || "")}</div></div>`;
 let secN = 0, expSeq = 0;
 // Bumped on every loadHome so a slow section from a superseded run can't paint into the current page.
 let _homeGen = 0;
@@ -3711,7 +3824,7 @@ async function loadMyPlaylists(force) {
 function requirePlaylistLogin() { if (loggedIn()) return true; showToast("<b>Sign in to create playlists.</b> They sync across your devices.", 4000); openAuth("in"); return false; }
 /* ---- reusable text-input / confirm modal (replaces browser prompt()/confirm()) ---- */
 let _askResolve = null;
-function _ask({ title, sub, value, placeholder, submit, danger, input }) {
+function _ask({ title, sub, value, placeholder, submit, cancel, danger, input }) {
   return new Promise((resolve) => {
     _askResolve = resolve;
     el("askTitle").textContent = title || "";
@@ -3720,9 +3833,33 @@ function _ask({ title, sub, value, placeholder, submit, danger, input }) {
     const inp = el("askInput"); inp.value = value || ""; inp.placeholder = placeholder || "";
     el("askMsg").textContent = "";
     const btn = el("askSubmit"); btn.textContent = submit || (input ? "Save" : "Confirm"); btn.classList.toggle("danger", !!danger);
+    el("askCancel").textContent = cancel || "Cancel";
     el("askModal").classList.add("on");
     setTimeout(() => { if (input) { inp.focus(); inp.select(); } else btn.focus(); }, 60);
   });
+}
+// Announcement: listening will soon need an account. Signed-out visitors only, at most once every 3 days,
+// and never over another open dialog.
+const ACCT_NOTICE_KEY = "sk_acct_notice", ACCT_NOTICE_EVERY = 3 * 864e5;
+// Analytics: one acct_notice event per step — shown, then signup | not_now | closed, then created if the
+// sign-up form opened from it creates an account. The dashboard turns these into click-through rates.
+let _acctNoticeSignup = false;
+async function maybeShowAccountNotice() {
+  if (loggedIn() || document.querySelector(".authmodal.on")) return;
+  let last = 0; try { last = +localStorage.getItem(ACCT_NOTICE_KEY) || 0; } catch {}
+  if (Date.now() - last < ACCT_NOTICE_EVERY) return;
+  try { localStorage.setItem(ACCT_NOTICE_KEY, String(Date.now())); } catch {}
+  track("acct_notice", { a: "shown" });
+  let notNow = false; const onCancel = () => { notNow = true; };
+  el("askCancel").addEventListener("click", onCancel, { once: true });
+  const yes = await askConfirm({
+    title: "Create your free SK Music account",
+    sub: "Soon, listening on SK Music will need a free account. Sign up now so nothing changes for you: it takes a few seconds, and your likes, playlists and filters sync across all your devices.",
+    submit: "Sign up", cancel: "Not now",
+  });
+  el("askCancel").removeEventListener("click", onCancel);
+  track("acct_notice", { a: yes ? "signup" : notNow ? "not_now" : "closed" });
+  if (yes && !loggedIn()) { _acctNoticeSignup = true; openAuth("up"); }
 }
 function askText(opts) { return _ask({ ...opts, input: true }); }   // resolves to the trimmed string, or null if cancelled
 function askConfirm(opts) { return _ask({ ...opts, input: false }); } // resolves to true, or null if cancelled
@@ -3929,6 +4066,28 @@ window.__skSaveOfflineCurrent = function () {
 function smDownload() { const t = _menuTrack; if (!t || !t.videoId) return; if (SK_NATIVE) { skDownload(t.videoId, t.title, t.artist); } else { showToast("Downloads require the desktop app", 2000); } }
 function smShare() { const t = _menuTrack; if (t) shareSong(t, _menuRect ? rectAnchor(_menuRect) : null); }
 function smReport() { const t = _menuTrack; if (t) reportSong(t); }
+// A relay-sourced <audio> error means the RELAY refused us — the track itself is fine, so skipping
+// to the next one (which would fail identically) is exactly wrong. Retire the relay for this
+// session and resume the SAME track through the YouTube iframe, fetching the API first on iOS
+// where boot skipped it. Returns true if it took ownership of the error.
+function relayFailed(src) {
+  if (relayDead || !src || src.indexOf(RELAY_BASE) !== 0) return false;
+  relayDead = true;
+  console.warn("[relay] refused — falling back to the YouTube player for this session");
+  // Unconditionally, and BEFORE the track check: the iframe is now the only engine left, and on iOS
+  // boot never fetched the API. Skipping this when nothing happens to be queued would retire the relay
+  // and leave no engine at all — every later track would sit in PB.pending waiting for an API that was
+  // never requested.
+  ensureYT();
+  const t = state.queue[state.qi];
+  if (!t || t.kind || !t.videoId) return false; // nothing to resume; let the normal error path run
+  const at = PB.cur() || 0; // 0 when the relay 403'd before playing; a real position if it died mid-track
+  cancelSwap();
+  PB.nextStart = at;
+  PB.load(t.videoId, at); // relayOn() is false now, so this takes the iframe path (queues in `pending` until the API lands)
+  showToast("Switching player\u2026", 1800);
+  return true;
+}
 function smPlayNext() { enqueueMenuTrack(true); }
 function smAddToQueue() { enqueueMenuTrack(false); }
 // Insert the menu track into the live queue. "Play next" = right after the current track; "Add to
@@ -3944,6 +4103,58 @@ function enqueueMenuTrack(next) {
   if (affectsNext) { cancelSwap(); cueNext(); }
   if (state.nowOpen) paintQueue();
   showToast(next ? `Playing next: “${t.title || "song"}”.` : `Added “${t.title || "song"}” to the queue.`, 1600);
+}
+/* ---- Hover ⋮ on album / artist / playlist tiles ----
+   The song ⋮ for a whole set: Play, Shuffle, Play next, Add to queue, Start radio, Go to artist. The
+   tracks are fetched when an action is chosen (not when the tile renders), then run through the same
+   gates the detail page applies, so a filtered artist/album can't be queued from a tile. */
+let _tile = null;
+function openTileMenu(anchor, kind, id, title, artist) {
+  _tile = { kind, id, title: title || "", artist: artist || "" };
+  const mi = (icon, label, fn) => `<button class="mi" role="menuitem" onclick="closeMenus();${fn}">${icon}<span>${label}</span></button>`;
+  const ic = {
+    play: ICON.play,
+    shuf: '<svg viewBox="0 0 24 24"><path d="M10.6 8.4 7 4.8 4.8 7l3.6 3.6zM14 4l2.3 2.3L4 18.6 5.4 20 17.7 7.7 20 10V4zm.4 9.4L13 14.8l2.9 2.9L14 19.6h6v-6z"/></svg>',
+    next: '<svg viewBox="0 0 24 24"><path d="M4 5v14l8-7zm9 0v14l8-7z"/></svg>',
+    queue: '<svg viewBox="0 0 24 24"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zm14-6v4.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>',
+    radio: ICON.radio, artist: ICON.artist
+  };
+  const radioKind = kind === "zp" ? "playlist" : kind;
+  let h = `<div class="mihead">${esc(_tile.title || "Options")}</div>`;
+  h += mi(ic.play, "Play", "tileDo('play')") + mi(ic.shuf, "Shuffle", "tileDo('shuffle')");
+  h += `<div class="misep"></div>` + mi(ic.next, "Play next", "tileDo('next')") + mi(ic.queue, "Add to queue", "tileDo('queue')");
+  if (acapellaMode() !== "only") h += `<div class="misep"></div>` + mi(ic.radio, "Start radio", `startRadio('${radioKind}','${safeId(id)}')`);
+  if (kind === "album" && _tile.artist) h += mi(ic.artist, "Go to artist", "gotoArtistByName(_tile.artist)");
+  popMenu(anchor, h);
+}
+// The playable, filtered tracks behind a tile — [] (with a toast) if it's hidden or empty.
+async function tileTracks() {
+  const t = _tile; if (!t) return [];
+  const path = t.kind === "album" ? "/album?id=" : t.kind === "artist" ? "/artist?id=" : t.kind === "zp" ? "/zemer-playlists?id=" : "/playlist?id=";
+  const d = await detailGet(path + encodeURIComponent(t.id));
+  if (!d || d.error) { showToast("Couldn't load that right now.", 2400); return []; }
+  await ensureFilters();
+  const hidden = (t.kind === "album" && d.album && hiddenArtist(d.album.artist))
+    || (t.kind === "artist" && d.artist && ((noFemale() && d.artist.isFemale) || (noChasid() && d.artist.isChasid) || hiddenArtist(d.artist.name) || blockedId(d.artist.id)));
+  if (hidden) { showToast("That's hidden by your content filters.", 2600); return []; }
+  const tracks = gate((t.kind === "artist" ? d.songs : d.tracks) || []).filter((x) => x.videoId && !(blockVideos() && x.isVideo));
+  if (!tracks.length) showToast("Nothing to play here.", 2200);
+  return tracks;
+}
+async function tileDo(action) {
+  const t = _tile; if (!t) return;
+  const tracks = await tileTracks(); if (!tracks.length) return;
+  if (action === "play") { playFrom(regQueue(tracks), 0, t.kind); return openNow(); }
+  if (action === "shuffle") { shufflePlay(regQueue(tracks)); return openNow(); }
+  const next = action === "next";
+  const slim = tracks.map((x) => ({ videoId: x.videoId, title: x.title || "", artist: x.artist || "", isFemale: x.isFemale, isChasid: x.isChasid, isVideo: x.isVideo, durationSec: x.durationSec, explicit: x.explicit }));
+  if (!state.queue.length || state.qi < 0) { playFrom(regQueue(slim), 0, t.kind); return openNow(); }
+  const at = next ? state.qi + 1 : state.queue.length;
+  state.queue.splice(at, 0, ...slim);
+  if (at === state.qi + 1) { cancelSwap(); cueNext(); }
+  if (state.nowOpen) paintQueue();
+  const n = slim.length, what = n === 1 ? `“${slim[0].title || "song"}”` : `${n} songs`;
+  showToast(next ? `Playing next: ${what}.` : `Added ${what} to the queue.`, 1800);
 }
 async function openAddToPlaylistMenu() {
   if (!requirePlaylistLogin()) { closeMenus(); return; }
@@ -4107,13 +4318,42 @@ async function openArtist(id, fromRoute) {
   } else if (am === "hide") {
     songs = (d.songs || []).filter((t) => !acapellaTrack(t));
   }
-  const videos = (acOnly || blockVideos()) ? [] : (am === "hide" ? (d.videos || []).filter((t) => !acapellaTrack(t)) : d.videos);
+  const videos = ((acOnly || blockVideos()) ? [] : (am === "hide" ? (d.videos || []).filter((t) => !acapellaTrack(t)) : (d.videos || [])))
+    .map((t) => (t.isVideo ? t : { ...t, isVideo: true })); // the bake implies "video" from the section and omits the flag; music-video Watch needs it on the track
   const albums = acOnly ? [] : d.albums, singles = acOnly ? [] : d.singles, plists = acOnly ? [] : (d.playlists || []); // Audio-only hides the Videos section + keeps videos out of the play queue
   const n = (songs?.length || 0) + (videos?.length || 0);
   pushDetail({ path: "/artists/" + id, kind: "Artist", title: d.artist.name, sub: acOnly ? `<b>${num(n)}</b> Acapella songs` : `<b>${num(n)}</b> songs · <b>${num(d.albums?.length || 0)}</b> albums`, thumb: d.artist.thumbnail, round: true, artistName: d.artist.name, search: true, radio: acOnly ? null : { kind: "artist", seed: id }, follow: { channelId: id, name: d.artist.name }, sections: [
     { label: "Songs", tracks: songs, plays: true, collapse: 6 }, { label: "Albums", items: albums, render: albumCard }, { label: "Singles & EPs", items: singles, render: albumCard },
     { label: "Videos", tracks: videos, collapse: 6 }, { label: "Playlists", items: plists, render: playlistCard } ] }, fromRoute);
+  appendArtistTrending(id); // "Trending Songs" rail across the top, filled in after render
   if (!acOnly) appendSimilarArtists(id, nm); // "Fans also like" from the co-listening radio graph
+}
+// "Trending Songs" across the top of an artist page: this artist's songs ranked by combined SK Music +
+// Zemer-app listening (Worker /artist-trending), ordered by total listens like Home's rail. Inserted
+// after render so it never delays the page, and skipped when there's too little data for a real rail.
+// Memoized per session (successes only) so revisiting an artist costs no extra Worker request.
+const _artistTrend = new Map();
+async function appendArtistTrending(id) {
+  try {
+    let p = _artistTrend.get(id);
+    if (!p) {
+      p = fetch("/artist-trending?id=" + encodeURIComponent(id) + "&b=" + Math.floor(Date.now() / 600000)) // &b= busts filter-proxy caches, as on Home
+        .then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      _artistTrend.set(id, p);
+    }
+    const d = await p;
+    if (!d) { _artistTrend.delete(id); return; }
+    if (!Array.isArray(d.songs) || state.detailKind !== "artist" || state.detailPath !== "/artists/" + id) return;
+    await loadBlockedIds(); if (acapella()) await loadAcapella(); // per-song blocks + the Acapella set, same gates as Home's trending
+    const total = (x) => (x.plays || 0) + (x.appPlays || 0);
+    const songs = d.songs.slice().sort((a, b) => total(b) - total(a))
+      .map((x) => ({ videoId: x.videoId, title: x.title, artist: x.artist }))
+      .filter((x) => x.videoId && !blockedId(x.videoId) && songOK(x));
+    if (songs.length < 3) return;
+    const main = el("dMain");
+    if (!main || main.querySelector(".artist-trending")) return;
+    main.insertAdjacentHTML("afterbegin", section("Trending Songs", songCards(songs)).replace('class="section"', 'class="section artist-trending"'));
+  } catch {}
 }
 // Derive a "Similar artists" shelf from the artist's radio station: the distinct OTHER artists the
 // co-listening graph surfaces. Appended after render so it never delays the artist page.
@@ -4317,9 +4557,13 @@ const relayDownloadUrl = (id) => RELAY_BASE + "/download?v=" + encodeURIComponen
 // Every reader goes through relayOn(), which is true for either, so the engine choice, the
 // toggle UI and the analytics tag all just work.
 let relaySession = false;
+// Set when a relay-sourced <audio> errors: the relay is refusing this origin (403) or is down.
+// Session-only and one-way — a reload gives it another chance, but within a session we stop
+// re-trying an engine that just proved it cannot serve us and fall back to the iframe instead.
+let relayDead = false;
 // IS_IOS first: on iOS the iframe engine cannot play in the background at all, so the relay IS the
 // engine, not a fallback. The manual toggle is hidden there (syncFilterUI).
-const relayOn = () => IS_IOS || relaySession || LS.get("zw_relay", "") === "1";
+const relayOn = () => !relayDead && (IS_IOS || relaySession || LS.get("zw_relay", "") === "1");
 function setRelay(on, quiet, persist = true) {
   if (persist) { LS.set("zw_relay", on ? "1" : ""); relaySession = false; }
   else relaySession = !!on;
@@ -4337,8 +4581,11 @@ function setRelay(on, quiet, persist = true) {
 
 // Download the current track. Desktop keeps its own offline library (skdl:// + an index); the web
 // app has nowhere to put a library, so it just hands the file to the browser — the relay sends
-// `Content-Disposition: attachment` with a real "Artist - Title.m4a" name, so a plain link download
-// is all that is needed and no CORS grant is involved.
+// The relay sends `Content-Disposition: attachment` with a real "Artist - Title.m4a" name, so the
+// browser saves it rather than rendering it. It is a CROSS-ORIGIN URL (stream host ≠ this site), so the
+// `download` attribute is ignored — a same-tab click would NAVIGATE the SPA to the relay URL, wiping the
+// app state (and showing an error page if the relay refuses). Open it in a NEW tab instead: the download
+// fires there off the attachment header, that tab self-closes, and this tab's URL is never touched.
 function downloadCurrent() {
   const t = state.queue[state.qi];
   if (!t || !t.videoId) return;
@@ -4346,7 +4593,8 @@ function downloadCurrent() {
   if (typeof SK_NATIVE !== "undefined" && SK_NATIVE) return skToggleDownloadCurrent();
   const a = document.createElement("a");
   a.href = relayDownloadUrl(t.videoId);
-  a.rel = "noopener";
+  a.target = "_blank";                // download in a new tab so the app tab's URL never changes
+  a.rel = "noopener noreferrer";
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -4670,8 +4918,9 @@ window.onYouTubeIframeAPIReady = function () {
   PB.yt = mk("ytplayer", true);
   ytStandbyBoot = mk("ytplayer2", false); // promoted to ytStandby by its onReady OR by tick()'s readiness poll
 };
-(function loadYT() {
-  if (IS_IOS) return; // iOS never uses the iframe engine — do not load ~500 KB of YT script or arm the "slow player" warning
+let ytRequested = false;
+function ensureYT() {
+  if (ytRequested) return; ytRequested = true;
   const s = document.createElement("script"); s.src = "https://www.youtube.com/iframe_api"; s.onerror = () => ytUnavailable(true); // the script was REFUSED: a real block, not a slow load
   document.head.appendChild(s);
   // A SLOW load is not a blocked one. This used to flip PB.mode to "html5" after 9s — a ONE-WAY trapdoor onto
@@ -4684,7 +4933,10 @@ window.onYouTubeIframeAPIReady = function () {
   // relay auto-switch on unfiltered laptops that were merely slow to start, then persisted
   // that choice across reloads. Only s.onerror (the script actually refused) may switch.
   setTimeout(() => ytUnavailable(false), 9000);
-})();
+}
+// iOS boots on the relay (background audio is impossible through the iframe), so the iframe API is
+// not fetched up front there — relayFailed() calls ensureYT() if the relay lets us down.
+if (!IS_IOS) ensureYT();
 // The embed host is unreachable — a filtered network, nearly always. There is no server-side stream to fall
 // back to, so say so plainly and point at the diagnostic that identifies WHICH layer is blocked.
 let ytWarnedAt = 0, ytBlockReported = false;
@@ -4708,7 +4960,7 @@ function ytUnavailable(confirmed) {
   // Auto-switch to the relay ONLY on a confirmed block, and only for THIS session: an
   // automatic switch is never written to localStorage, so a one-off hiccup can't leave an
   // unfiltered user parked on the relay for good. A user's own toggle still persists.
-  if (confirmed && !relayOn()) {
+  if (confirmed && !relayOn() && !relayDead) {
     setRelay(true, true, /*persist*/ false);
     showToast('<b>Your filter blocks the normal player — switched to proxy streaming.</b> Music should play now. '
       + '<a href="/test" style="color:var(--primary);font-weight:700">Run the connection test</a> if anything is still wrong.', 10000);
@@ -4719,8 +4971,20 @@ function ytUnavailable(confirmed) {
       + '<a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a> — or turn on <b>Stream via proxy</b> in the filter menu.', 9000);
     return;
   }
+  if (relayDead) return noSourceToast();
   showToast('<b>Playback is blocked on this network.</b> Search &amp; browse still work — <a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a> to see what\'s blocking it.', 9000);
 }
+// Both engines are gone: the network refused the normal player AND the alternate source is unusable.
+// This is the end of the line for a filtered device, and pointing at the connection test would only
+// send someone to diagnose a problem that is not on their end — so say what is actually true.
+function noSourceToast() {
+  if (noSourceShown) return; noSourceShown = true;
+  track("filter_blocked", { stage: "no_source", desktop: !!SK_NATIVE });
+  showToast('<b>Playback on a filtered device is currently unsupported.</b> Getting music through a content '
+    + 'filter needs a streaming server that SK Music does not have the funding to run right now. '
+    + 'Search, browse and playlists still work.', 12000);
+}
+let noSourceShown = false;
 
 function playFrom(qid, i, source) { const q = queues.get(qid); if (!q) return; stStop(); state.queue = q; state.radio = null; state.playSource = source || (state.detailOpen ? (state.detailKind || "detail") : (state.tab || "home")); state.qi = i; if (state.shuffle) shuffleTail(); playIndex(state.qi); }
 // Play-duration tracking — measure REAL listen time (excludes pauses) and emit the `play` event on end/skip,
@@ -4779,6 +5043,8 @@ function playIndex(i, dir) {
 // Start-of-track bookkeeping shared by playIndex and the gapless handoff: now-bar/Now-Playing UI,
 // recents, the shareable /song URL, the play-duration session, and the browser/OS media sessions.
 function trackStarted(t) {
+  bootResume = null;
+  paintMVButton(); mvResolve(t);
   el("nowbar").classList.add("on");
   PB.fallbackDur = t.durationSec || 0; // catalog duration, used by PB.dur() iOS correction
   if (IS_IOS) { ensureIOSKeepAlive(); resumeIOSKeepAlive(); resetIOSAudioBase(); }
@@ -4797,7 +5063,7 @@ function trackStarted(t) {
   // neither of which can handle a track that isn't on YouTube. A shiur keeps its own resume point
   // (shSavePos) and is reachable from the Shiurim tab, so it stays out of the library entirely.
   if (!t.kind) saveRecent(t);
-  paintQueue(); refreshLikeUI(t.videoId); refreshNowPlaying(); if (lyricsOpen()) loadLyrics(); if (typeof skUpdateNpButton === "function") skUpdateNpButton(); // SK-OFFLINE: reflect this track's downloaded state
+  paintQueue(); refreshLikeUI(t.videoId); refreshNowPlaying(); if (state.nowOpen) loadLyrics(); if (typeof skUpdateNpButton === "function") skUpdateNpButton(); // SK-OFFLINE: reflect this track's downloaded state
   pushURL(trackPath(t), true); // shareable per-track URL reflecting what's playing (no history spam)
   playBegin(t); // start a play-duration session — the `play` event fires on end/skip with real listen time
   if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: t.title || "", artist: t.artist || "", album: "SK Music", artwork: art ? [{ src: art, sizes: "480x360", type: "image/jpeg" }] : [] });
@@ -4881,12 +5147,30 @@ function refreshNowPlaying() {
     if (title) { if (on && !eq) title.insertAdjacentHTML("afterbegin", EQ); else if (!on && eq) eq.remove(); }
   });
 }
-function toggle() { if (!state.queue.length) return resumeOrRadio(); PB.paused() ? PB.play() : PB.pause(); }
-// Empty-queue Play: resume the last listen if it's fresh (≤ 20 min since it last ticked), otherwise
-// start the endless trending mix — the play button always does something musical.
+function toggle() { if (!state.queue.length) return resumeOrRadio(); if (PB.paused()) PB.play(); else { saveLastPlay(PB.cur(), true); PB.pause(); } }
+// Desktop app: after the app is quit and reopened it should land exactly where you left off —
+// the last track shown in the player bar, PAUSED at its saved position (nothing loads or plays until Play).
+// Cleared the moment any track actually starts (trackStarted), so a route that plays something wins.
+let bootResume = null;
+function restoreLastPlayPaused() {
+  if (!SK_NATIVE) return;
+  let saved = null; try { saved = JSON.parse(localStorage.getItem("zw_lastPlay") || "null"); } catch {}
+  if (!saved || !saved.t || !saved.t.videoId) return;
+  bootResume = saved;
+  const t = saved.t, art = t.kind ? (t.thumbnail || "") : yt(t.videoId, "hq"), small = t.kind ? art : yt(t.videoId);
+  el("nowbar").classList.add("on");
+  if (small) el("nbArt").src = small;
+  el("nbArt").classList.toggle("hide", !small); el("nbTitle").textContent = t.title || ""; el("nbArtist").textContent = t.artist || "";
+  if (art) el("npArt").src = art;
+  el("npArt").classList.toggle("hide", !art); el("npTitle").textContent = t.title || ""; el("npArtist").textContent = t.artist || "";
+  el("npBg").style.backgroundImage = art ? `url('${art}')` : "none";
+  setPlayIcons(); tick(); // the 300ms tick only starts on play, so paint the saved position once now
+}
+// Empty-queue Play: resume the last listen if it's fresh (≤ 20 min since it last ticked) or was restored
+// paused at launch, otherwise start the endless trending mix — the play button always does something musical.
 async function resumeOrRadio() {
   let saved = null; try { saved = JSON.parse(localStorage.getItem("zw_lastPlay") || "null"); } catch {}
-  if (saved && saved.t && saved.t.videoId && Date.now() - (saved.at || 0) <= 20 * 60 * 1000) {
+  if (saved && saved.t && saved.t.videoId && (bootResume || Date.now() - (saved.at || 0) <= 20 * 60 * 1000)) {
     // Re-gate before replaying: filters/parental policy may have changed since the track was saved
     // (a parent could have flipped a filter, or Sefira begun). Never resume a now-blocked track.
     await ensureFilters();
@@ -4908,9 +5192,9 @@ async function resumeOrRadio() {
   startRadio("shuffle", "");
 }
 let _lastPlaySavedAt = 0;
-function saveLastPlay(c) { // called from tick() ~every 5 s while something plays
+function saveLastPlay(c, force) { // called from tick() ~every 5 s while something plays, and on pause (force)
   const t = state.queue[state.qi]; if (!t || !t.videoId || !(c > 0)) return;
-  const nowT = Date.now(); if (nowT - _lastPlaySavedAt < 5000) return;
+  const nowT = Date.now(); if (!force && nowT - _lastPlaySavedAt < 5000) return;
   _lastPlaySavedAt = nowT;
   // A shiur needs its source URL and flags carried across the reload too — the saved shape is replayed
   // verbatim by resumeOrRadio(), and without `src` PB.load() would fall through to the YouTube engine.
@@ -4974,7 +5258,19 @@ function seekBy(d) {
 // sorted [{t,text}] parsed from LRC; .plain is unsynced text; .none means the fetch found nothing.
 let _ly = { key: "", synced: null, plain: "", loading: false, none: false, cur: -1 };
 function lyKey(t) { return t ? (t.artist || "") + "\n" + (t.title || "") : ""; }
+// Lyrics (LRCLIB via the Worker's /lyrics — never Zemer). The tab starts hidden and paintLyricsTab() shows it
+// only for a song that actually has lyrics. They're looked up only while Now Playing is open (where the tab
+// lives), so songs played in the background cost no lyrics request. Set false to switch the feature off.
+const LYRICS_ENABLED = true;
+function paintLyricsTab() {
+  const tab = document.querySelector('.npx-tab[data-p="lyrics"]'); if (!tab) return;
+  const t = state.queue[state.qi];
+  const has = LYRICS_ENABLED && !!t && !t.kind && _ly.key === lyKey(t) && !_ly.loading && !_ly.none;
+  tab.hidden = !has;
+  if (!has && lyricsOpen() && !_ly.loading) npxTab("queue"); // the next song has none — don't strand them on an empty pane
+}
 function npxTab(p) {
+  if (p === "lyrics" && !LYRICS_ENABLED) p = "queue";
   document.querySelectorAll(".npx-tab").forEach((b) => b.classList.toggle("on", b.dataset.p === p));
   el("npPaneQueue").classList.toggle("on", p === "queue");
   el("npPaneLyrics").classList.toggle("on", p === "lyrics");
@@ -4995,14 +5291,16 @@ function parseLRC(text) {
   return out.sort((a, b) => a.t - b.t);
 }
 async function loadLyrics(force) {
+  if (!LYRICS_ENABLED) return;
   const box = el("npLyrics"); if (!box) return;
   const t = state.queue[state.qi];
-  if (!t) { _ly = { key: "", synced: null, plain: "", loading: false, none: false, cur: -1 }; box.innerHTML = '<div class="ly-msg">Nothing playing.</div>'; return; }
+  if (!t) { _ly = { key: "", synced: null, plain: "", loading: false, none: false, cur: -1 }; box.innerHTML = '<div class="ly-msg">Nothing playing.</div>'; paintLyricsTab(); return; }
   // A shiur has no lyrics, and /lyrics is a Worker route — asking it would spend a request to be told so.
-  if (t.kind) { _ly = { key: "", synced: null, plain: "", loading: false, none: true, cur: -1 }; box.innerHTML = '<div class="ly-msg">No lyrics for a shiur.</div>'; return; }
+  if (t.kind) { _ly = { key: "", synced: null, plain: "", loading: false, none: true, cur: -1 }; box.innerHTML = '<div class="ly-msg">No lyrics for a shiur.</div>'; paintLyricsTab(); return; }
   const key = lyKey(t);
-  if (key === _ly.key && !force) { renderLyrics(); return; }
+  if (key === _ly.key && !force) { renderLyrics(); paintLyricsTab(); return; }
   _ly = { key, synced: null, plain: "", loading: true, none: false, cur: -1 };
+  paintLyricsTab(); // hidden until we know this song has lyrics
   box.innerHTML = '<div class="ly-msg">Loading lyrics…</div>';
   const qs = "artist=" + encodeURIComponent(t.artist || "") + "&title=" + encodeURIComponent(t.title || "") + (t.durationSec ? "&duration=" + Math.round(t.durationSec) : "");
   let d = null; try { d = await fetchJSON("/lyrics?" + qs); } catch {}
@@ -5011,7 +5309,7 @@ async function loadLyrics(force) {
   if (d && d.synced) _ly.synced = parseLRC(d.synced);
   if (d && d.plain) _ly.plain = String(d.plain).trim();
   _ly.none = !(_ly.synced && _ly.synced.length) && !_ly.plain;
-  renderLyrics();
+  renderLyrics(); paintLyricsTab();
 }
 function renderLyrics() {
   const box = el("npLyrics"); if (!box) return;
@@ -5035,7 +5333,10 @@ function paintLyricLine(c) {
   _ly.cur = idx;
   const rows = box.querySelectorAll(".ly-line");
   rows.forEach((r, i) => r.classList.toggle("cur", i === idx));
-  if (idx >= 0 && rows[idx]) rows[idx].scrollIntoView({ block: "center", behavior: "smooth" });
+  // Scroll only the lyrics box. scrollIntoView() would also scroll every ancestor — including #now, whose
+  // scaled blurred backdrop gives it overflow — so a line it can't center (the last ones) shoves the view up.
+  const r = rows[idx];
+  if (r) box.scrollTo({ top: box.scrollTop + r.getBoundingClientRect().top - box.getBoundingClientRect().top - (box.clientHeight - r.offsetHeight) / 2, behavior: "smooth" });
 }
 // Drop the upcoming queue, keeping the track that's playing. cueNext() re-primes gapless off the new tail.
 function clearQueue() {
@@ -5045,8 +5346,8 @@ function clearQueue() {
   if (state.nowOpen) paintQueue();
   showToast("Cleared what was coming up.", 1800);
 }
-function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); const au = el("npAuto"); if (au) au.checked = radioAutoplay(); paintShuffleUI(); paintSleepUI(); paintCrossfadeUI(); paintQueue(); if (lyricsOpen()) loadLyrics(); }
-function closeNow() { state.nowOpen = false; el("now").classList.remove("on"); }
+function openNow() { if (!state.queue.length) return; state.nowOpen = true; el("now").classList.add("on"); const au = el("npAuto"); if (au) au.checked = radioAutoplay(); paintShuffleUI(); paintSleepUI(); paintCrossfadeUI(); paintQueue(); loadLyrics(); paintMVButton(); mvPaint(); }
+function closeNow() { state.nowOpen = false; el("now").classList.remove("on"); mvPaint(); }
 function saveRecent(t) { try { const h = readRecent().filter((x) => x.videoId !== t.videoId); h.unshift({ videoId: t.videoId, title: t.title, artist: t.artist, explicit: t.explicit, isVideo: t.isVideo }); localStorage.setItem("zw_recent", JSON.stringify(h.slice(0, 80))); } catch {} acctSyncRecents(); }
 function toggleMute() { PB.setMuted(!PB.muted); el("vol").value = PB.muted ? 0 : Math.round(PB.vol * 100); paintSeek(el("vol")); }
 function paintQueue() {
@@ -5408,6 +5709,15 @@ let tickTimer = null, seeking = false, toastTimer, streamFails = 0;
 function startTick() { if (!tickTimer) tickTimer = setInterval(tick, 300); }
 function stopTick() { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } }
 function tick() {
+  mvPaint(); // keeps the overlay on the art box through Now Playing's open animation and gapless swaps
+  if (bootResume && !state.queue.length) { // nothing loaded yet: show the paused resume point, not 0:00
+    const d = bootResume.t.durationSec || 0, c = bootResume.pos || 0, pct = d ? Math.min(1, c / d) : 0;
+    el("nbProgress").style.width = (pct * 100) + "%";
+    if (!seeking) { el("nbSeek").value = el("npSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); }
+    el("nbCur").textContent = el("npCur").textContent = fmt(c);
+    el("nbDur").textContent = el("npDur").textContent = d ? fmt(d) : "0:00";
+    return;
+  }
   const d = PB.dur(), c = PB.cur(), pct = d ? c / d : 0;
   el("nbProgress").style.width = (pct * 100) + "%";
   if (!seeking) { el("nbSeek").value = el("npSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); }
@@ -5443,6 +5753,7 @@ function tick() {
   skTick(c);
 }
 function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing · 2 paused · 3 buffering · 5 cued
+  mvPaint(); // hide the picture the instant it stops PLAYING (paused/ended embeds draw YouTube's own suggestions)
   if (code === 3) setBuffering(true); else if (code === 1 || code === 2 || code === 0) setBuffering(false);
   if (code === 1) {
     streamFails = 0; startTick(); if (PB.rate !== 1) PB.setRate(PB.rate); playResume(); // rate resets on each load
@@ -5557,6 +5868,7 @@ function onPlaybackError() {
     // one-per-session report as ytUnavailable so the Filter-Blocked panel counts
     // people, not failures.
     if (!ytBlockReported) { ytBlockReported = true; track("filter_blocked", { stage: "playback", desktop: !!SK_NATIVE }); }
+    if (relayDead) return noSourceToast(); // the alternate source is already gone, so this is not a per-track dud
     showToast('<b>Couldn\'t play these tracks.</b> Playback looks restricted on this network — <a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a> to see what\'s blocking it.', 9000);
     return;
   }
@@ -5575,7 +5887,7 @@ function onPlaybackError() {
   m.addEventListener("canplay", () => { if (m === PB.med()) setBuffering(false); });
   m.addEventListener("pause", () => { if (m !== PB.med()) return; stopTick(); setPlayIcons(); playAccrue(); });
   m.addEventListener("ended", () => { if (m !== PB.med()) return; setBuffering(false); stopTick(); playFinalize(); repeatOrNext(); });
-  m.addEventListener("error", () => { if (m !== PB.med() || !m.getAttribute("src")) return; if (PB.local) { const t = state.queue[state.qi]; if (t && t.videoId) skDL.bad.add(t.videoId); PB.local = false; onPlaybackError(); } else if (PB.direct || PB.mode === "html5") onPlaybackError(); }); // SK-OFFLINE: a bad local file → blacklist it for the session and skip. PB.direct: a dead upstream media URL must surface as a playback error, not silence
+  m.addEventListener("error", () => { if (m !== PB.med() || !m.getAttribute("src")) return; if (PB.direct && relayFailed(m.getAttribute("src"))) return; if (PB.local) { const t = state.queue[state.qi]; if (t && t.videoId) skDL.bad.add(t.videoId); PB.local = false; onPlaybackError(); } else if (PB.direct || PB.mode === "html5") onPlaybackError(); }); // SK-OFFLINE: a bad local file → blacklist it for the session and skip. PB.direct: a dead upstream media URL must surface as a playback error, not silence
 });
 // On iOS the keep-alive pumps "timeupdate" every ~100ms while locked; that is the only heartbeat that
 // survives the background JS freeze, so hang the end-of-track advance off it.
@@ -6480,8 +6792,19 @@ async function sbRpc(fn, args) { try { const body = JSON.stringify(args || {}); 
 // catch and returned null, i.e. reported success as failure. Callers can now trust a null.
 
 // --- session persistence ---
-function saveSession() { try { acct.session ? localStorage.setItem("zw_sb", JSON.stringify(acct.session)) : localStorage.removeItem("zw_sb"); } catch {} }
-function restoreSession() { try { acct.session = JSON.parse(localStorage.getItem("zw_sb") || "null"); } catch { acct.session = null; } }
+function saveSession() { try { acct.session ? localStorage.setItem("zw_sb", JSON.stringify(acct.session)) : localStorage.removeItem("zw_sb"); } catch {} syncAuthCookie(); }
+function restoreSession() { try { acct.session = JSON.parse(localStorage.getItem("zw_sb") || "null"); } catch { acct.session = null; } syncAuthCookie(); }
+// The Worker's security layer (engine/security.mjs) reads who is signed in from this cookie: it verifies the
+// Supabase token's signature itself, so a signed-in account gets the higher rate limit and is let in from a
+// datacenter/VPN network that blocks anonymous traffic. Same-origin only; it lives exactly as long as the token.
+function syncAuthCookie() {
+  try {
+    const at = acct.session && acct.session.access_token;
+    let ttl = 0;
+    if (at) { try { const b = at.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"); const c = JSON.parse(atob(b + "===".slice((b.length + 3) % 4))); ttl = Math.max(0, (c.exp || 0) - Math.floor(Date.now() / 1000)); } catch { ttl = 0; } }
+    document.cookie = ttl > 0 ? `sk_at=${at}; Path=/; Max-Age=${ttl}; Secure; SameSite=Lax` : "sk_at=; Path=/; Max-Age=0; Secure; SameSite=Lax";
+  } catch {}
+}
 // Email-confirmation / magic-link / OAuth deliver the session in the URL hash (#access_token=…&refresh_token=…).
 // Consume it into a session, decode the user from the JWT, and strip it from the address bar.
 function consumeAuthHash() {
@@ -6698,6 +7021,7 @@ async function submitAuth(ev) {
   const r = up ? await acctSignUp(email, pw) : await acctSignIn(email, pw);
   btn.disabled = false; renderAuthMode();
   if (!r.ok) { msg.textContent = r.error; return; }
+  if (up && _acctNoticeSignup) { _acctNoticeSignup = false; track("acct_notice", { a: "created" }); flushEvents(); }
   if (r.needsConfirm) { el("authModal").dataset.mode = "in"; renderAuthMode(); msg.classList.add("ok"); msg.textContent = "Almost there — check your email to confirm, then sign in."; return; }
   closeAuth(); showToast("Signed in — welcome" + (acctEmail() ? ", " + esc(acctEmail().split("@")[0]) : "") + "!", 2600);
 }
@@ -6860,6 +7184,8 @@ function renderParental() {
           tog(pcShiurim(), "pcToggleShiurim()")) +
         row("Statuses", "Artist story circles from JewishStatus — <b>off by default</b>. Third-party video, outside the whitelisted catalog.",
           tog(pcStatuses(), "pcSetStatuses()")) +
+        row("Music videos", "Watch the video on music videos in the desktop app — <b>off by default</b> for this account. A video can show more than the song does. Never available under a Kid Zone lock.",
+          tog((pcFilters().musicVideos === "on"), "pcSetMusicVideos()")) +
         row("Zemer Radio", "Live broadcast stations on Home — block them, or allow only one",
           `<div class="pc-seg-wrap" style="margin-top:0;width:290px;flex-wrap:wrap">${
             // Driven off STATION_STYLE rather than a hardcoded three, so a station added upstream
@@ -7017,7 +7343,7 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
       STATIC = true; ENGINE = await import("/lib/engine.mjs"); // in-thread engine = the fallback (dataset loads lazily only if a fallback call happens)
       try { // primary: the engine in a Web Worker, so the dataset parse + search-index build never block the UI
         ENGINE_WORKER = new Worker("/lib/engine-worker.mjs", { type: "module" });
-        ENGINE_WORKER.onmessage = (e) => { const { id, r, err } = e.data || {}; const res = _wReq.get(id); if (res) { _wReq.delete(id); res(err ? null : r); } };
+        ENGINE_WORKER.onmessage = (e) => { if (e.data && e.data.sec) return secStatus(e.data.sec.status, e.data.sec.j); const { id, r, err } = e.data || {}; const res = _wReq.get(id); if (res) { _wReq.delete(id); res(err ? null : r); } };
         ENGINE_WORKER.onerror = () => { ENGINE_WORKER = null; }; // worker failed to load → in-thread engine takes over
       } catch { ENGINE_WORKER = null; }
     }
@@ -7034,7 +7360,7 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
       setInterval(() => reg.update(), 3600000);
     }).catch(() => {});
     // Reload once when a new SW takes over — but NEVER while the window is hidden. In the desktop app the
-    // window closes to the tray (webview stays alive, background-timer throttling is disabled), so a hidden
+    // window can sit minimized behind the mini player (webview alive, background-timer throttling off), so a hidden
     // reload would silently re-run boot, re-open the current /song/:id URL and AUTOPLAY it — audio starting on
     // its own an hour after the app was "closed". Defer the refresh until the window is visible again; an
     // already-playing track keeps playing until then.
@@ -7051,6 +7377,7 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   maybeShowRecovery(); // password-reset link (#type=recovery) → open the "Set a new password" form
   renderAcct(); if (loggedIn()) onLogin(); // accounts: load profile/likes/filters
   renderNav(); initSearch(); syncFilterUI(); setPlayIcons();
+  restoreLastPlayPaused(); // desktop: reopen on the last track, paused where it was left
   refreshStat(); setInterval(() => { if (document.visibilityState !== "hidden") refreshStat(); }, 30000); // the corpus stat is near-static; poll slowly and pause on hidden tabs (battery/requests)
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refreshStat(); });
   // Route from the URL: a shared /artists/:id (etc.) opens directly, with Home seeded underneath so Back works.
@@ -7062,6 +7389,7 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   else if (path === "/" || PATH_TAB[path]) { go(PATH_TAB[path] || "home", true); }
   else { history.replaceState({}, "", "/"); go("home", true); history.pushState({}, "", path + qs); applyRoute(location.href); }
   track("load"); // first pageview
+  setTimeout(maybeShowAccountNotice, 4000);
   setTimeout(maybeShowInstallTip, 3500); // iOS-only Add-to-Home-Screen tip, after the app has settled
   setTimeout(function(){ window.__appReady && window.__appReady(); }, 4500); // safety: never let the splash stick
   // Warm the search/detail dataset in the background so the first artist/song click is instant.
@@ -7088,13 +7416,6 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   const railAt = (t) => (t instanceof Element ? t.closest(SEL) : null);
   const reduce = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // Snap is dropped while a gesture drives scrollLeft and restored once it settles (see .nosnap).
-  const unsnap = (s) => {
-    s.classList.add("nosnap");
-    clearTimeout(s._snapT);
-    s._snapT = setTimeout(() => s.classList.remove("nosnap"), 140);
-  };
-
   /* ---------------- drag to scroll ---------------- */
   let drag = null, swallowClick = false;
   addEventListener("pointerdown", (e) => {
@@ -7116,7 +7437,6 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
       drag.s.classList.add("dragging");
       try { drag.s.setPointerCapture(drag.id); } catch {}
     }
-    unsnap(drag.s);
     drag.s.scrollLeft = drag.left - dx;
     e.preventDefault();
   }, true);
@@ -7126,9 +7446,9 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
     drag = null;
     s.classList.remove("dragging");
     try { s.releasePointerCapture(id); } catch {}
-    s.classList.remove("nosnap"); // let proximity snap settle the rail where the drag left it
-    clearTimeout(s._snapT);
     if (moved < SLOP) return;
+    // The rail stays exactly where the drag let go, mid-card or not — nothing pulls it onto a snap
+    // point (scroll-snap-type is off on .rail/.qpgrid); only the paging chevrons land on a card edge.
     // The click that follows this pointerup would open whatever card the drag ended on. Swallow it in
     // the capture phase (cards use inline onclick, which a bubble-phase guard can't reach in time).
     swallowClick = true;
@@ -7154,7 +7474,6 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
     // At either end, hand the wheel back so the page keeps scrolling instead of trapping the cursor.
     const max = s.scrollWidth - s.clientWidth;
     if ((step < 0 && s.scrollLeft <= EDGE) || (step > 0 && s.scrollLeft >= max - EDGE)) return;
-    unsnap(s);
     s.scrollLeft += step;
     e.preventDefault();
   }, { passive: false });
@@ -7166,9 +7485,18 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   };
   const page = (s, dir) => {
     // Quick Picks pages a full screen-width (its columns are page-sized); card rails move most of one.
+    // Scroll-snap is off (see .rail/.qpgrid), so land on a card edge ourselves: aim roughly a page
+    // over, then go to whichever card/row starts closest to that point instead of stopping mid-card.
     const by = s.clientWidth * (s.classList.contains("qpgrid") ? 1 : 0.85);
-    s.classList.remove("nosnap"); // a paged jump should land on a snap point
-    s.scrollBy({ left: dir * Math.max(120, by), behavior: reduce() ? "auto" : "smooth" });
+    const approx = s.scrollLeft + dir * Math.max(120, by);
+    let target = approx, best = Infinity;
+    for (const k of s.children) {
+      if (getComputedStyle(k).scrollSnapAlign === "none") continue;
+      const d = Math.abs(k.offsetLeft - approx);
+      if (d < best) { best = d; target = k.offsetLeft; }
+    }
+    target = Math.max(0, Math.min(s.scrollWidth - s.clientWidth, target));
+    s.scrollTo({ left: target, behavior: reduce() ? "auto" : "smooth" });
   };
   const sync = (s) => {
     const w = s.parentElement;
