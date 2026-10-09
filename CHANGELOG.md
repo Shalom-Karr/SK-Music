@@ -1,5 +1,65 @@
 # Changelog
 
+## Desktop 1.2.7 — 2026-10-06
+
+**Why the bump:** extracting a song's audio needed a real hidden browser window navigating to
+youtube.com per download — that's the thing that was making Download and Save for offline feel
+slow, not the lack of an HLS manifest to decode (YouTube doesn't expose one for on-demand videos).
+
+**Download / Save for offline no longer open a browser window**
+- Resolving a song's audio stream now goes through `rustypipe`, a Rust YouTube client that
+  deciphers the signed stream URL itself (via a small embedded QuickJS engine, not a real
+  browser) instead of SK Music spinning up its own hidden webview on youtube.com.
+- Same fallback as before when that fails (a filter blocking YouTube, or any other reason): the
+  streaming relay. Download and Save for offline behave exactly the same otherwise.
+
+## Desktop 1.2.6 + web — 2026-10-02
+
+**Why the bump:** there was no way to save a song for offline without it landing as a plain Download —
+no album/artwork grouping, nothing to do it from the ⋮ menu or the tray.
+
+**Save for offline** (new, desktop only)
+- On any song's **⋮** menu, choose **Save for offline** (desktop app only; this part arrives with the
+  website update). Or right-click inside the app, or right-click the tray icon, and choose **Save for
+  offline** to keep the song that's playing. Saved songs show up in the offline player and in Downloads.
+- Saving also keeps the song's album and artwork, so the offline player can group by album and artist.
+  The app looks the artist's photo up itself (from the site's own artist list) when the page didn't
+  already send it, so right-click and tray saves get it too.
+- A save goes through the exact same pipeline as **Download** — one worker, one audio source (YouTube's
+  own player first, the streaming proxy only as a last resort, same as Download already did), one temp
+  file per song — so a save can never collide with a Download, and the two can never run in parallel
+  against the same id. **Download** itself is unchanged.
+
+## Desktop 1.2.5 — 2026-10-01
+
+**Why the bump:** songs saved with **Download** couldn't be played without internet. The app couldn't
+open at all offline, so they were stuck behind the "Couldn't reach SK Music" screen.
+
+**Offline player for saved songs**
+- When the app can't connect and you have saved songs, it now opens straight into a built-in offline
+  player — no internet needed, nothing to click. With nothing saved you still get the Try again screen.
+- It looks like the regular app — same fonts, sidebar, top bar, home banner, song rows, now-playing bar
+  and full-screen Now Playing view. Tapping a song plays it; tap the song in the bar at the bottom to
+  open Now Playing, like the website.
+- Saved songs are grouped like the website: **Home** shows recently saved songs and artists;
+  **Artists** lists everyone you've saved songs from, and an artist's page has their songs with Play
+  and Shuffle. **Search** covers saved songs and artists. Items that need the internet (Playlists, Kid
+  Zone, Library, About) are dimmed and say so.
+- Every song has a **⋮** menu — in the lists (on hover) and in Now Playing — with **Play next**, **Add
+  to queue**, **Go to artist** and **Remove from offline**, which deletes the saved song from this
+  computer. Things that need the internet (playlists, sharing, radio) aren't offered.
+- Hover an artist or album tile for the same **⋮**: **Play**, **Shuffle**, **Play next**, **Add to
+  queue**, **Go to artist** (albums) and **Remove** — which removes all of that artist's, or that
+  album's, saved songs after asking you to confirm.
+- Play/pause, next/previous, skip 15 seconds, shuffle, repeat-one, playback speed, seek and volume all
+  work. The tray menu, keyboard media keys, Windows' media controls and the mini player control it too.
+- It remembers where you were: reopen it and it's paused on the same song at the same spot.
+- **Reconnect** checks the connection right then: if you're back online it opens SK Music straight
+  away, otherwise it tells you you're still offline. When the connection returns on its own, the top
+  bar shows **Back online** with an **Open SK Music** button.
+- Saved songs stay inside the app's own data folder, not your Downloads folder, and the installed
+  and portable versions share the same saved songs.
+
 ## 1.9.8 + Desktop 1.2.4 — 2026-10-06 (web + desktop)
 
 **Why the bump:** a ⋮ menu on every tile (contributed in PR #20), and the desktop app's **X** now really

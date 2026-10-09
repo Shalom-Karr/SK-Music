@@ -84,6 +84,16 @@
     if (done) return;
     document.body.classList.add("fail");
     statusEl.textContent = "Couldn't reach SK Music. Check your internet or network filter, then try again.";
+    // Songs saved for offline live in the app's own data folder, so they still play with no
+    // connection: if there's at least one, go straight into the bundled offline player (offline.html),
+    // which offers the full app back as soon as the connection returns. With nothing saved there's
+    // nothing to play, so this retry screen stays.
+    if (invoke) invoke("offline_library").then(function (items) {
+      if (done || !Array.isArray(items) || !items.length) return;
+      done = true;
+      clearTimeout(timer);
+      location.replace("offline.html");
+    }).catch(function () {});
   }
   function settle(reachable) { reachable ? enter() : fail(); }
   // Fallback path: cross-origin <img> load — onload if reachable, onerror if a filter blocks it.

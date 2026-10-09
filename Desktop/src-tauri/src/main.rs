@@ -125,6 +125,8 @@ fn main() {
             mini::mini_open_main,
             mini::mini_hide,
             tray::show_app_menu,
+            download::offline_library,
+            download::offline_remove,
         ])
         .setup(|app| {
             let handle = app.handle();

@@ -1,6 +1,6 @@
 [package]
 name = "sk-music-desktop"
-version = "1.2.4"
+version = "1.2.7"
 description = "SK Music — native desktop shell (Tauri 2) for the kosher Jewish-music web client"
 authors = ["SK Music"]
 license = "GPL-3.0-or-later"
@@ -53,6 +53,11 @@ serde_json = "1"
 reqwest = "0.13"
 tokio = { version = "1", features = ["time", "sync"] }
 futures-util = "0.3"
+
+# YouTube Innertube client (src/download.rs::native_extract): resolves a deciphered audio stream
+# URL without a hidden browser window — it runs YouTube's player-JS signature/`n`-param cipher
+# through an embedded QuickJS engine (rquickjs, a vendored C library) instead of a real webview.
+rustypipe = "0.11"
 
 # Taskbar jump list (src/jumplist.rs): ICustomDestinationList + IShellLinkW COM.
 # Audio ducking (src/ducking.rs): WASAPI session enumeration + per-session peak meters, plus
