@@ -1,5 +1,8 @@
 # Catalog account gate + daily catalog quota
 
+> Separate from these, signed-out visitors are always limited to 5 detail pages and 1 song start per 7 minutes,
+> and never get the dataset — see [anon-limits.md](anon-limits.md).
+
 Two controls on the catalog files, both enforced by the Worker (`engine/security.mjs`) and both **off until
 the database migration is applied** — and the account gate stays off until the admin switches it on.
 
@@ -65,8 +68,8 @@ the dashboard reaches every server within about a minute.
   day).
 - Gate on and signed out: opening an artist/album/playlist, searching (needs the dataset) or pressing Play
   shows **Sign in to keep listening** (Create free account / Sign in). After signing in, the blocked view
-  is reloaded (or the blocked track plays). The engine skips the dataset pre-warm and hover prefetch while
-  the catalog would refuse them, and the "accounts are coming" popup is not shown.
+  is reloaded (or the blocked track plays). The "accounts are coming" popup is not shown. (Since 1.9.13 the
+  dataset pre-warm and hover prefetch are skipped whenever nobody is signed in, gate on or off.)
 - Rate limits and bans show the full-site block overlay with a countdown (see CHANGELOG 1.9.9). Over the
   daily quota it says **Daily browsing limit reached — opens again at <local time of the next 00:00 UTC>**
   with the countdown, **Contact us**, **Create a free account** when the block is on a signed-out IP, and

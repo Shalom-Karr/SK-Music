@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.9.13 — 2026-10-12 (web)
+
+**Why the bump:** visitors without an account could browse, search and play the whole catalog without limit
+— a free account was optional in practice, and the full search dataset went to anyone who asked for it.
+
+**Without an account: a small taste, then sign in**
+- Signed out, each visitor (per connection — see below) can open **5 artist, album or playlist pages** and
+  start **1 song** per 7 minutes, counted from the first one. Opening the same page again, or replaying the
+  same song, doesn't use anything up. Home, Kid Zone, charts, the Trending rails, and the podcast and shiurim
+  lists are untouched.
+- **Search needs an account.** The full catalog dataset is no longer sent to signed-out visitors, so searching
+  songs, artists and albums — and the Playlists tab, and opening a YouTube playlist — asks you to sign in.
+  Spoken-word search (shiurim, podcasts) still works signed out.
+- Over a limit, one clear prompt: **You've reached the limit without an account** — "Sign in or create a free
+  account to keep browsing and listening." — with **Create free account**, **Sign in**, and **or wait m:ss**
+  counting down to when the limit opens again (no countdown for search). After signing in, whatever was blocked
+  opens or plays straight away. A page you couldn't open says why instead of "Not available".
+- Music that's already playing is never interrupted by the prompt, and a refused song leaves your queue alone.
+- Shared song links (`/song/…`) still play signed out.
+- Signed-in accounts: no change at all — no limits, search and gapless playback as before. Search engines
+  (Google, Bing) keep full access.
+
+**Under the hood**
+- "Per connection": the IP address (an IPv6 household counts as one), or — behind content-filter proxies
+  (Techloq, NetFree-style filters), where many people share one address — the listener's own address that the
+  proxy forwards, else a signed device cookie (`sk_dev`) set only on those networks.
+- Signed out, the app no longer pre-loads the search dataset or prefetches pages on hover, starts each new song
+  only after the server says yes (no silent gapless hand-off), and skips the For You "from your artists" mix.
+  Signing out drops the dataset this device had loaded.
+- If the counting service is unavailable, browsing and playing are allowed (never blocked by an outage); the
+  search dataset stays account-only.
+- New Security-tab event: `signin_required` (what was limited, and how the visitor was identified). Run
+  `supabase/anon-limits.sql` once to record it. Details: `docs/anon-limits.md`.
+
 ## 1.9.12 — 2026-10-08 (web)
 
 **Why the bump:** music videos only played their picture in the desktop app — everyone else got audio
