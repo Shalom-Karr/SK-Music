@@ -6,7 +6,7 @@
  * Static assets are served via env.ASSETS; KV page overrides via env.PAGES.
  */
 
-import { securityGate, handleUnblockRequest, isCatalogPath, catalogGateValue, CATALOG_GATE_HEADER } from "./security.mjs";
+import { securityGate, handleUnblockRequest, isCatalogPath, catalogGateValue, CATALOG_GATE_HEADER, PUBLIC_LIVE_PLAYLISTS, withDeviceCookie } from "./security.mjs";
 export { RateLimiter } from "./limiter.mjs"; // Durable Object class: exact per-IP/account rate limits
 
 // YouTube Music internal API base + context payload used for every browse call.
@@ -237,6 +237,30 @@ async function renderDeepLinkShell(request, env, baseUrl, entityType, entityId) 
     status: 200,
     headers: { "content-type": "text/html; charset=utf-8" },
   });
+}
+
+// GET /song-meta?v=<videoId> — one catalog song's title/artist/flags from og.json. A signed-out visitor never gets
+// the dataset, so a shared /song/:id link checks the song against the whitelist and the content filters with this
+// instead (engine/engine.mjs /track?lite=1). The same facts the /song/:id preview already publishes.
+async function handleSongMeta(request, url, env) {
+  if (request.method !== "GET") return Response.json({ error: "method not allowed" }, { status: 405, headers: { "Cache-Control": "no-store", Allow: "GET" } });
+  const v = url.searchParams.get("v") || "";
+  const miss = () => Response.json({ error: "not found" }, { status: 404, headers: { "Cache-Control": "public, max-age=300" } });
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(v)) return miss();
+  if (!songOgCache) {
+    try {
+      const res = await env.ASSETS.fetch(new Request(new URL(bulkPath(env, "og.json"), url)));
+      if (res.ok) songOgCache = await res.json();
+    } catch { /* unavailable → 503 below */ }
+  }
+  if (!songOgCache) return Response.json({ error: "unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } });
+  const e = Object.hasOwn(songOgCache, v) ? songOgCache[v] : null;
+  if (!Array.isArray(e) || typeof e[0] !== "string") return miss();
+  const f = Number(e[2]) || 0;
+  return Response.json(
+    { videoId: v, title: e[0], artist: String(e[1] || ""), isVideo: !!(f & 1), explicit: !!(f & 2), isFemale: !!(f & 4), isChasid: !!(f & 8) },
+    { headers: { "Cache-Control": "public, max-age=3600" } },
+  );
 }
 
 // Inject a static per-tab preview (title + og.png) into the SPA shell.
@@ -982,8 +1006,9 @@ async function refreshExternalTrending(env) {
 
 // The upstream Zemer index refreshes these auto-playlists ~twice daily.
 // The cron keeps a warm KV copy so /zp-live is always fast and same-origin
-// (works behind content filters; no per-build staleness).
-const LIVE_PLAYLIST_IDS = ["auto-trending", "auto-top-50", "auto-acapella-top-50"];
+// (works behind content filters; no per-build staleness). Home reads them signed out, so the signed-out
+// detail limit (engine/security.mjs) leaves exactly these ids alone.
+const LIVE_PLAYLIST_IDS = PUBLIC_LIVE_PLAYLISTS;
 const zpKvKey = (id) => "zp:" + id;
 
 // Fetch a fresh copy of one auto-playlist from the upstream Zemer search index.
@@ -1780,7 +1805,21 @@ function canonicalRedirect(url) {
 const AI_CRAWLER_RX = /meta-externalagent|meta-externalfetcher|facebookbot|gptbot|oai-searchbot|chatgpt-user|claudebot|claude-web|anthropic-ai|ccbot|bytespider|amazonbot|applebot-extended|google-extended|perplexitybot|cohere-ai|diffbot|omgilibot/i;
 
 export default {
+  // The gate may issue the signed device cookie (content-filter networks, signed out); it rides on whatever
+  // response the request ends with.
   async fetch(request, env, ctx) {
+    return withDeviceCookie(request, await route(request, env, ctx));
+  },
+
+  // Cron trigger: keep the upstream trending playlists + the app listening stats warm in KV.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(refreshTrending(env));
+    ctx.waitUntil(refreshExternalTrending(env));
+    ctx.waitUntil(refreshHomeRows(env));
+  },
+};
+
+async function route(request, env, ctx) {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
@@ -1859,6 +1898,14 @@ export default {
       });
     }
 
+
+    // The app asks right before a song starts while signed out; securityGate counts it (one start per 7 minutes
+    // without an account) and answers 401 signin_required over the limit. Reaching here means go ahead.
+    if (pathname === "/play-start")
+      return request.method === "POST"
+        ? Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } })
+        : Response.json({ error: "method not allowed" }, { status: 405, headers: { "Cache-Control": "no-store", Allow: "POST" } });
+    if (pathname === "/song-meta") return handleSongMeta(request, url, env);
 
     // Live data routes.
     if (pathname === "/playlist")
@@ -1951,12 +1998,4 @@ export default {
     // Everything else — static assets, /data/*, /lib/*, SPA fallback.
     // The SPA index.html bakes in the default OG block for unmatched client-side routes.
     return env.ASSETS.fetch(request);
-  },
-
-  // Cron trigger: keep the upstream trending playlists + the app listening stats warm in KV.
-  async scheduled(event, env, ctx) {
-    ctx.waitUntil(refreshTrending(env));
-    ctx.waitUntil(refreshExternalTrending(env));
-    ctx.waitUntil(refreshHomeRows(env));
-  },
-};
+}

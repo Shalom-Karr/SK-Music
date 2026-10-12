@@ -388,9 +388,13 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
 
   // OG lookup for the Worker's server-rendered link previews: videoId → [title, artistName].
   // Keeps the Worker's ogShell lean — it doesn't need the full 4 MB dataset.
+  // A third element, only when non-zero, carries the flags the app's /song/:id checks need while signed out
+  // (no dataset then; the Worker's /song-meta answers from this file): 1=video 2=explicit 4=female 8=chasid.
   const ogLookup = {};
   for (const t of tracks) {
-    ogLookup[t.videoId] = [t.title, artists[artistIndex.get(t.artistId)]?.name || ""];
+    const a = artists[artistIndex.get(t.artistId)];
+    const flags = encodeTrackFlags(t) | (a?.isFemale ? 4 : 0) | (a?.isChasid ? 8 : 0);
+    ogLookup[t.videoId] = flags ? [t.title, a?.name || "", flags] : [t.title, a?.name || ""];
   }
   emitBulk("og.json", Buffer.from(JSON.stringify(ogLookup)));
 

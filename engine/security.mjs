@@ -12,6 +12,10 @@
  * controls, both read from catalog_state and both OFF while it can't be read: the account gate (signed-out ⇒
  * 401 account_required, when the admin switched it on) and a daily per-key quota (over it ⇒ security_ban's
  * escalation). They count against the burst limiter only, never the per-minute one.
+ *
+ * Signed-out limits (docs/anon-limits.md): without an account, 5 detail pages and 1 song start per 7 minutes per
+ * client (IP, IPv6 /64, the X-Forwarded-For listener behind a content-filter proxy, or the signed sk_dev cookie),
+ * and no search dataset — 401 signin_required. Counted by RateLimiter's anchored windows; fail open.
  */
 
 // Test seam: the clock and the log-flush delay. Production never touches these.
@@ -230,27 +234,36 @@ function readToken(request) {
 
 // Returns { userId, email } for a valid token, else null (anonymous). Never throws.
 export async function resolveIdentity(request, env) {
+  return (await verifyToken(request, env)).id;
+}
+
+// { id, unverified }: unverified = a well-formed, unexpired token for this project that could not be checked
+// because the signing keys are unavailable (JWKS never loaded / Supabase unreachable). It still counts as
+// anonymous everywhere it did before; only the signed-out limits skip it, so an outage can't put a signed-in
+// listener on them.
+async function verifyToken(request, env) {
+  const no = { id: null, unverified: false };
   const token = readToken(request);
   const base = String(env.SUPABASE_URL || "").replace(/\/+$/, "");
-  if (!token || !base) return null;
+  if (!token || !base) return no;
   const now = _t.now();
   const hit = tokenCache.get(token);
   if (hit) {
-    if (hit.exp > now) return hit.id;
+    if (hit.exp > now) return { id: hit.id, unverified: false };
     tokenCache.delete(token);
   }
   try {
     const parts = token.split(".");
-    if (parts.length !== 3) return null;
+    if (parts.length !== 3) return no;
     const header = b64uJson(parts[0]);
     const claims = b64uJson(parts[1]);
-    if (header.alg !== "ES256" || !header.kid) return null;
+    if (header.alg !== "ES256" || !header.kid) return no;
     const expMs = Number(claims.exp) * 1000;
-    if (!(expMs + 30e3 > now)) return null;
+    if (!(expMs + 30e3 > now)) return no;
     const aud = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
-    if (!aud.includes("authenticated") || claims.iss !== `${base}/auth/v1` || !claims.sub) return null;
+    if (!aud.includes("authenticated") || claims.iss !== `${base}/auth/v1` || !claims.sub) return no;
     const key = await keyFor(base, header.kid);
-    if (!key) return null;
+    if (!key) return { id: null, unverified: jwks.keys.size === 0 };
     const ok = await crypto.subtle.verify(
       { name: "ECDSA", hash: "SHA-256" },
       key,
@@ -261,9 +274,9 @@ export async function resolveIdentity(request, env) {
     if (tokenCache.size > 2000) tokenCache.clear();
     // Cache good tokens until they expire; cache bad ones briefly so a replayed forgery isn't re-verified.
     tokenCache.set(token, { exp: ok ? expMs + 30e3 : now + 60e3, id });
-    return id;
+    return { id, unverified: false };
   } catch {
-    return null;
+    return no;
   }
 }
 
@@ -562,6 +575,191 @@ async function checkLimits(env, cls, key, opts) {
   return i === -1 ? null : bound[i];
 }
 
+// ─── Signed-out limits ────────────────────────────────────────────────────────
+//
+// Without an account, per client: 5 detail pages (artist / album / playlist) and 1 song start per 7 minutes,
+// each window opening at the first use (RateLimiter's anchored windows, distinct ids). Search needs the full
+// dataset, which signed-out visitors never get. Over a limit ⇒ 401 {error:"signin_required", kind, resetAt,
+// retryAfter}. Allowlisted visitors and verified search crawlers return before this and are never limited.
+const ANON_WINDOW = 7 * 60; // seconds
+const ANON_LIMITS = { detail: 5, play: 1 };
+// The upstream trending playlists Home and For You read through /zp-live at boot — public rows, not a detail.
+export const PUBLIC_LIVE_PLAYLISTS = ["auto-trending", "auto-top-50", "auto-acapella-top-50"];
+const PUBLIC_LIVE_SET = new Set(PUBLIC_LIVE_PLAYLISTS);
+const ENTITY_FILE_RX = /^\/data\/(artist|album|zemer-playlist)\/([A-Za-z0-9_-]+)\.json$/;
+// Same id shapes the routes themselves accept (anything else is answered 400 / an empty stub, not a track list).
+const ID_ARTIST_TRENDING = /^[A-Za-z0-9_-]{1,64}$/, ID_PLAYLIST = /^[A-Za-z0-9_-]{6,64}$/, ID_ZP_LIVE = /^[A-Za-z0-9_-]{2,60}$/;
+const ID_PLAY = /^[A-Za-z0-9_-]{1,64}$/;
+
+// What a request would use up: { kind: "detail", member } | { kind: "play", member } | { kind: "search" } | null.
+// member = the entity (or video) id, so loading the same page twice in a window counts once.
+export function anonUse(request, url) {
+  const p = url.pathname, m = request.method;
+  if (p === "/play-start") {
+    if (m !== "POST") return null;
+    const v = url.searchParams.get("v") || "";
+    return { kind: "play", member: ID_PLAY.test(v) ? "v:" + v : null };
+  }
+  if (m !== "GET" && m !== "HEAD") return null;
+  if (p === "/data/dataset.json.gz") return { kind: "search" };
+  const f = ENTITY_FILE_RX.exec(p);
+  if (f) return f[1] === "zemer-playlist" && f[2] === "acapella" ? null : { kind: "detail", member: f[1] + ":" + f[2] };
+  const id = url.searchParams.get("id") || "";
+  // An artist page also asks /artist-trending for the same artist: one slot for both.
+  if (p === "/artist-trending") return ID_ARTIST_TRENDING.test(id) ? { kind: "detail", member: "artist:" + id } : null;
+  if (p === "/playlist") return ID_PLAYLIST.test(id) ? { kind: "detail", member: "playlist:" + id } : null;
+  if (p === "/zp-live") return ID_ZP_LIVE.test(id) && !PUBLIC_LIVE_SET.has(id) ? { kind: "detail", member: "zemer-playlist:" + id } : null;
+  return null;
+}
+
+// ── Which client: IP (IPv6 by /64), the X-Forwarded-For client behind a content-filter proxy, or a device cookie.
+
+const hex4 = (b, i) => ((b[i] << 8) | b[i + 1]).toString(16);
+// Canonical key for an address: "ip:1.2.3.4", or "ip6:2001:db8:1:2::/64" (one household's /64 is one client).
+// IPv4-mapped IPv6 is the IPv4 address. null when unparseable.
+function ipKey(ip) {
+  const b = parseIp(String(ip || "").trim());
+  return b ? bytesKey(b) : null;
+}
+function bytesKey(b) {
+  if (b.length === 4) return "ip:" + b.join(".");
+  if (b.slice(0, 10).every((x) => x === 0) && b[10] === 255 && b[11] === 255) return "ip:" + [b[12], b[13], b[14], b[15]].join(".");
+  return "ip6:" + [0, 2, 4, 6].map((i) => hex4(b, i)).join(":") + "::/64";
+}
+
+const cidr = (s) => { const [a, l] = s.split("/"); return [parseIp(a), Number(l)]; };
+// Not a real client address: private, loopback, link-local, CGNAT, documentation, benchmarking, multicast, reserved.
+const NON_PUBLIC_V4 = ["0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24",
+  "192.0.2.0/24", "192.88.99.0/24", "192.168.0.0/16", "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/3"].map(cidr);
+// Cloudflare's published ranges (cloudflare.com/ips): a Cloudflare address is never the listener.
+const CLOUDFLARE_NETS = ["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18",
+  "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14",
+  "172.64.0.0/13", "131.0.72.0/22", "2400:cb00::/32", "2606:4700::/32", "2803:f800::/32", "2405:b500::/32", "2405:8100::/32",
+  "2a06:98c0::/29", "2c0f:f248::/32"].map(cidr);
+const GLOBAL_V6 = cidr("2000::/3"), DOC_V6 = cidr("2001:db8::/32"), TEREDO_V6 = cidr("2001::/32"), SIXTOFOUR_V6 = cidr("2002::/16");
+
+function publicClientIp(bytes) {
+  let b = bytes;
+  if (b.length === 16 && b.slice(0, 10).every((x) => x === 0) && b[10] === 255 && b[11] === 255) b = b.slice(12);
+  if (b.length === 4) { if (NON_PUBLIC_V4.some((n) => inNet(b, n))) return false; }
+  else if (!inNet(b, GLOBAL_V6) || inNet(b, DOC_V6) || inNet(b, TEREDO_V6) || inNet(b, SIXTOFOUR_V6)) return false;
+  return !CLOUDFLARE_NETS.some((n) => inNet(b, n));
+}
+
+// One X-Forwarded-For entry → address bytes. Tolerates "1.2.3.4:5678", "[2001:db8::1]:443", quotes; else null.
+function xffEntry(s) {
+  let v = String(s || "").trim().replace(/^"|"$/g, "");
+  const br = /^\[([^\]]+)\](?::\d+)?$/.exec(v);
+  if (br) v = br[1];
+  else if (/^\d+\.\d+\.\d+\.\d+:\d+$/.test(v)) v = v.replace(/:\d+$/, "");
+  return v.length <= 64 ? parseIp(v) : null;
+}
+const sameIp = (a, b) => !!a && !!b && a.length === b.length && a.every((x, i) => x === b[i]);
+
+// The listener behind a content-filter proxy. Cloudflare appends the address that connected to it (the proxy)
+// to any X-Forwarded-For it receives, so the proxy's own entry is last and the one before it is what the proxy
+// added: its client. Trusted ONLY for FILTER_ASNS requests (anyone else could write any value), and only when
+// that entry is a public address that isn't Cloudflare's or the proxy's. Returns an ipKey, or null.
+export function xffClient(xff, connectingIp) {
+  if (!xff || xff.length > 1024) return null;
+  const parts = xff.split(",");
+  if (parts.length < 2) return null;
+  const proxy = parseIp(String(connectingIp || "").trim());
+  if (!sameIp(xffEntry(parts[parts.length - 1]), proxy)) return null;
+  const c = xffEntry(parts[parts.length - 2]);
+  if (!c || sameIp(c, proxy) || !publicClientIp(c)) return null;
+  return bytesKey(c);
+}
+
+// Device cookie: sk_dev=<128-bit random id>.<HMAC-SHA256(id) under a key derived from SEC_TOKEN>. Issued on Worker
+// responses to signed-out visitors on content-filter networks that don't carry a valid one; a forged or unsigned
+// value is ignored (and replaced).
+const DEV_COOKIE = "sk_dev", DEV_MAX_AGE = 365 * 86400;
+const DEV_RX = /^([A-Za-z0-9_-]{22})\.([A-Za-z0-9_-]{43})$/;
+let devKey = { token: null, p: null };
+const b64u = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const utf8 = (s) => new TextEncoder().encode(s);
+function deviceKey(env) {
+  const token = env.SEC_TOKEN ? String(env.SEC_TOKEN) : "";
+  if (!token) return null;
+  if (devKey.token !== token) {
+    const hmac = { name: "HMAC", hash: "SHA-256" };
+    const p = crypto.subtle.importKey("raw", utf8(token), hmac, false, ["sign"])
+      .then((k) => crypto.subtle.sign("HMAC", k, utf8("sk_dev cookie key v1")))
+      .then((raw) => crypto.subtle.importKey("raw", raw, hmac, false, ["sign", "verify"]));
+    devKey = { token, p };
+    p.catch(() => { if (devKey.p === p) devKey = { token: null, p: null }; });
+  }
+  return devKey.p;
+}
+const deviceSeen = new WeakMap(); // request → verified device id | null
+async function readDevice(request, env) {
+  if (deviceSeen.has(request)) return deviceSeen.get(request);
+  let id = null;
+  try {
+    const m = new RegExp(`(?:^|;\\s*)${DEV_COOKIE}=([^;]+)`).exec(request.headers.get("Cookie") || "");
+    const v = m && DEV_RX.exec(m[1].trim());
+    const key = v && deviceKey(env);
+    if (key && await crypto.subtle.verify("HMAC", await key, b64uBytes(v[2]), utf8("dev:" + v[1]))) id = v[1];
+  } catch {}
+  deviceSeen.set(request, id);
+  return id;
+}
+async function mintDeviceCookie(env) {
+  const key = deviceKey(env);
+  if (!key) return null;
+  const id = b64u(crypto.getRandomValues(new Uint8Array(16)));
+  const sig = b64u(new Uint8Array(await crypto.subtle.sign("HMAC", await key, utf8("dev:" + id))));
+  return `${DEV_COOKIE}=${id}.${sig}; Max-Age=${DEV_MAX_AGE}; Path=/; Secure; HttpOnly; SameSite=Lax`;
+}
+const cookieToSet = new WeakMap(); // request → Set-Cookie value for its response
+
+// Adds the device cookie the gate decided to issue for this request (engine/index.mjs wraps every response).
+// The one response that carries it is made `private`, so a shared cache (filter proxies cache) never hands
+// one listener's id to another.
+export function withDeviceCookie(request, res) {
+  const c = cookieToSet.get(request);
+  if (!c || !res) return res;
+  try {
+    const out = new Response(res.body, res);
+    out.headers.append("Set-Cookie", c);
+    if (!/no-store/i.test(out.headers.get("Cache-Control") || "")) out.headers.set("Cache-Control", "private, no-cache");
+    return out;
+  } catch {
+    return res;
+  }
+}
+
+// The key a signed-out request is limited under, and how it was found (logged as detail.via).
+async function anonClient(request, env, ip, cf) {
+  if (FILTER_ASNS.has(Number(cf?.asn))) {
+    const x = xffClient(request.headers.get("X-Forwarded-For"), ip);
+    if (x) return { key: x, via: "xff" };
+    const dev = await readDevice(request, env);
+    if (dev) return { key: "dev:" + dev, via: "device" };
+  }
+  const k = ipKey(ip);
+  return k ? { key: k, via: "ip" } : null;
+}
+
+// RateLimiter anchored window for this client and kind → { ok, resetAt } | null (no limiter / slow / error: the
+// caller lets the request through — an infrastructure problem must never block a real listener).
+async function anonCheck(env, clientKey, kind, member) {
+  if (!env.LIMITER || typeof env.LIMITER.idFromName !== "function") return null;
+  try {
+    const stub = env.LIMITER.get(env.LIMITER.idFromName("anon:" + clientKey));
+    const r = await stub.fetch("https://limiter/", {
+      method: "POST",
+      body: JSON.stringify({ anchored: [kind, ANON_LIMITS[kind], ANON_WINDOW, member ?? null] }),
+      signal: AbortSignal.timeout(LIMITER_TIMEOUT),
+    });
+    const a = (await r.json())?.anchored;
+    return a && typeof a.ok === "boolean" && Number.isFinite(a.resetAt) ? a : null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Responses ────────────────────────────────────────────────────────────────
 
 const CONTACT_PATH = "/unblock-request";
@@ -571,6 +769,7 @@ const HTML_TEXT = {
   rate_limited: ["Slow down a little", "Too many requests in a short time. Please wait a few seconds and try again."],
   account_required: ["Sign in to keep listening", "A free SK Music account is needed to browse and play the catalog."],
   daily_limit: ["Daily browsing limit reached", "This connection or account has opened more of the catalog today than the daily limit allows."],
+  signin_required: ["You've reached the limit without an account", "Sign in or create a free account to keep browsing and listening."],
 };
 const PAGE_CSS = "body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0f172a;color:#e2e8f0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px;box-sizing:border-box}main{max-width:460px;width:100%;box-sizing:border-box;background:#1e293b;border-radius:12px;padding:28px}h1{margin:0 0 8px;font-size:20px}h2{margin:20px 0 4px;font-size:16px}p{margin:8px 0}.m{color:#94a3b8;font-size:14px}a{color:#60a5fa}label{display:block;margin:10px 0 4px;font-size:14px;color:#cbd5e1}input,textarea{width:100%;box-sizing:border-box;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:8px;padding:8px;font:inherit}textarea{min-height:96px;resize:vertical}button{margin-top:12px;background:#2563eb;color:#fff;border:0;border-radius:8px;padding:9px 16px;font:inherit;cursor:pointer}";
 const page = (title, inner) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${title} · SK Music</title><style>${PAGE_CSS}</style></head><body><main><h1>${title}</h1>${inner}</main></body></html>`;
@@ -589,7 +788,8 @@ function blockResponse(request, status, body, retryAfter, extraHeaders) {
     else if (body.error === "banned") extra = (body.permanent
       ? `<p>This block is permanent unless it is lifted after review.</p>`
       : `<p class="m">Try again after ${new Date(body.until).toUTCString()}.</p>`) + CONTACT_FORM;
-    else if (body.error === "account_required") extra = `<p><a href="/">Go to SK Music and sign in</a></p>`;
+    else if (body.error === "account_required" || body.error === "signin_required") extra = `<p><a href="/">Go to SK Music and sign in</a></p>`
+      + (retryAfter ? `<p class="m">Or try again in ${Math.ceil(retryAfter / 60)} min.</p>` : "");
     else if (body.error === "daily_limit") extra = (body.permanent ? "" : `<p class="m">It opens again ${new Date(body.until).toUTCString()}.</p>`) + CONTACT_FORM;
     else if (retryAfter) extra = `<p class="m">Try again in ${retryAfter} seconds.</p>`;
     headers["Content-Type"] = "text/html; charset=utf-8";
@@ -610,13 +810,31 @@ async function inspect(request, env, ctx) {
   const ip = request.headers.get("CF-Connecting-IP") || "";
   const cf = request.cf;
   const ua = request.headers.get("User-Agent") || "";
-  const [st, identity] = await Promise.all([getState(env, ctx), resolveIdentity(request, env)]);
+  const [st, tok] = await Promise.all([getState(env, ctx), verifyToken(request, env)]);
+  const identity = tok.id;
   const allowed = st.allowIps.has(ip) || !!(identity?.email && st.allowEmails.has(identity.email));
   const who = identity ? "u:" + identity.userId : "ip:" + ip;
   const until = allowed ? 0 : banUntil(st, ip, identity, _t.now());
   const dcWhy = datacenterReason(cf);
   const crawler = async () => ((dcWhy || !identity) ? isVerifiedCrawler(cf, ua, ip) : false);
-  return { st, ip, cf, ua, identity, allowed, who, until, dcWhy, crawler };
+  return { st, ip, cf, ua, identity, tokenUnverified: tok.unverified, allowed, who, until, dcWhy, crawler };
+}
+
+// null = let it through. Search: never (the dataset is account-only). Detail / play: the client's anchored window;
+// no answer from the limiter ⇒ through (fail open).
+async function anonGate(request, env, ctx, x, use, ev) {
+  const client = await anonClient(request, env, x.ip, x.cf);
+  let resetAt = 0;
+  if (use.kind !== "search") {
+    if (!client) return null;
+    const a = await anonCheck(env, client.key, use.kind, use.member);
+    if (!a || a.ok) return null;
+    resetAt = a.resetAt;
+  }
+  logEvent(env, ctx, "signin_required", x.who + "|" + use.kind, { ...ev, detail: { kind: use.kind, via: client ? client.via : null } });
+  if (use.kind === "search") return blockResponse(request, 401, { error: "signin_required", kind: "search", resetAt: null, retryAfter: null });
+  const secs = Math.max(1, Math.ceil((resetAt - _t.now()) / 1000));
+  return blockResponse(request, 401, { error: "signin_required", kind: use.kind, resetAt: new Date(resetAt).toISOString(), retryAfter: secs }, secs);
 }
 
 const banBody = (until) => until === Infinity
@@ -646,11 +864,18 @@ export async function securityGate(request, env, ctx, url) {
       logEvent(env, ctx, "datacenter_block", who, { ...ev, detail: dcWhy });
       return blockResponse(request, 403, { error: "datacenter", signIn: true, contact: CONTACT_PATH });
     }
+    // Signed out behind a content-filter proxy without a valid device cookie: issue one with this response.
+    if (!identity && FILTER_ASNS.has(Number(cf?.asn)) && !(await readDevice(request, env))) {
+      const c = await mintDeviceCookie(env);
+      if (c) cookieToSet.set(request, c);
+    }
 
     // Catalog files (GET/HEAD): account gate, burst limiter only, daily quota. Allowlisted visitors and verified
     // search crawlers returned above, so they are never gated or counted.
     const catalog = (request.method === "GET" || request.method === "HEAD") && isCatalogPath(pathname);
-    if (catalog && !identity && x.st.catalog.requiresAccount) {
+    // What a signed-out request would use up (detail page / song start / the search dataset); null when signed in.
+    const use = identity ? null : anonUse(request, url);
+    if ((catalog || use) && !identity && x.st.catalog.requiresAccount) {
       logEvent(env, ctx, "account_required", who, ev);
       return blockResponse(request, 401, { error: "account_required", signIn: true }, 0,
         { [CATALOG_GATE_HEADER]: `1;${state.loaded ? state.at : 0}` });
@@ -667,12 +892,18 @@ export async function securityGate(request, env, ctx, url) {
     }
 
     if (UNCOUNTED_PATHS.has(pathname)) return null;
-    if (!identity && !ip) return null; // no attributable key (local dev); production always sets CF-Connecting-IP
+    // No attributable key (local dev); production always sets CF-Connecting-IP. The dataset stays account-only.
+    if (!identity && !ip) return use && use.kind === "search" && !x.tokenUnverified ? anonGate(request, env, ctx, x, use, ev) : null;
     const cls = identity ? (dcWhy ? "dc" : "account") : "anon";
     // A person opening artists quickly also spends 1–2 API calls per page, so catalog files skip the per-minute
     // tier; the daily quota is the slow-scraper control.
     const tripped = await checkLimits(env, cls, who, catalog ? { skipMinute: true } : undefined);
     if (!tripped) {
+      // Signed-out limits. A token we couldn't check (signing keys unavailable) is not held to them.
+      if (use && !x.tokenUnverified) {
+        const denied = await anonGate(request, env, ctx, x, use, ev);
+        if (denied) return denied;
+      }
       // Quota key: the account, else the IP — except content-filter proxies (FILTER_ASNS), whose IPs carry
       // many listeners each.
       if (catalog && x.st.catalog.dailyQuota > 0 && (identity || !FILTER_ASNS.has(Number(cf?.asn))))
@@ -801,4 +1032,5 @@ export function _resetSecurityState() {
   tokenCache.clear(); logQ = []; logSeen.clear(); logTimer = false; logFlushing = null;
   localBans.clear(); localCatalogBlocks.clear(); trips.clear(); lastTrip.clear(); crawlerRanges.clear();
   quotaQ = new Map(); quotaEmail = new Map(); quotaTimer = false; quotaFlushing = null;
+  devKey = { token: null, p: null };
 }

@@ -1137,7 +1137,7 @@ function secKindClass(k) {
   if (k === 'rate_limited') return 'rl';
   if (k === 'datacenter_block') return 'dc';
   if (k === 'auto_ban' || k === 'banned_hit' || k === 'quota_exceeded') return 'ab';
-  if (k === 'account_required') return 'dc';
+  if (k === 'account_required' || k === 'signin_required') return 'dc';
   return '';
 }
 function secKindPills(kinds) {
