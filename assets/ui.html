@@ -159,6 +159,12 @@ body:has(#nowbar.on) .built-by-pill .bb-who{overflow:hidden;text-overflow:ellips
 .authlogo svg{width:30px;height:30px;fill:#fff}
 .authcard h2{font-family:Fraunces,serif;font-weight:600;font-size:25px;margin:0 0 6px;text-align:center}
 .authsub{color:var(--muted);font-size:13px;line-height:1.45;margin:0 auto 20px;text-align:center;max-width:300px}
+.gatewait{color:var(--muted);font-size:13px;text-align:center;margin:14px 0 0}
+.gatewait b{color:var(--text);font-variant-numeric:tabular-nums}
+.signincard{max-width:380px;margin:9vh auto 0;text-align:center;padding:36px 28px 30px;border:1px solid var(--line-2);border-radius:24px;background:radial-gradient(130% 90% at 50% -10%,rgba(255,93,107,.14),var(--surface-2) 55%)}
+.signincard h2{font-family:Fraunces,serif;font-weight:600;font-size:24px;margin:0 0 10px}
+.signincard p{color:var(--muted);line-height:1.5;margin:0 auto 20px;max-width:320px}
+.signincard .authbtn+.authbtn{margin-top:10px}
 .authseg{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line-2);border-radius:13px;padding:4px;margin-bottom:16px}
 .authseg-btn{flex:1;height:38px;border:0;border-radius:9px;background:transparent;color:var(--muted);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;transition:.15s}
 .authseg-btn.on{background:var(--surface-2);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.35)}
@@ -1220,7 +1226,8 @@ fill="url(#royal)" stroke="none">
       </form>
     </div>
   </div>
-  <!-- catalog account gate: a catalog request answered 401 account_required, or Play while signed out with the gate on -->
+  <!-- catalog account gate: a catalog request answered 401 account_required, or Play while signed out with the gate on.
+       Also the signed-out limits (401 signin_required): "You've reached the limit without an account" + "or wait m:ss". -->
   <div class="authmodal" id="gateModal" role="dialog" aria-modal="true" aria-labelledby="gateTitle" aria-describedby="gateSub" onclick="if(event.target===this)gateClose()">
     <div class="authcard" style="max-width:392px">
       <button class="authclose" onclick="gateClose()" aria-label="Close">✕</button>
@@ -1229,6 +1236,7 @@ fill="url(#royal)" stroke="none">
       <p class="authsub" id="gateSub">A free SK Music account is needed to browse and play music. It takes a few seconds, and your likes, playlists and filters sync across your devices.</p>
       <button type="button" class="authbtn" id="gateUp" onclick="gateGo('up')">Create free account</button>
       <button type="button" class="authbtn oauth" id="gateIn" style="margin-top:10px" onclick="gateGo('in')">Sign in</button>
+      <p class="gatewait" id="gateWait" style="display:none" aria-live="polite"></p>
     </div>
   </div>
 </div>
@@ -1407,11 +1415,11 @@ const safeId = (s) => (typeof s === "string" && /^[A-Za-z0-9_-]+$/.test(s)) ? s 
 const yt = (id, q) => `https://i.ytimg.com/vi/${id}/${q || "mq"}default.jpg`;
 // Warm the prebuilt detail JSON on hover so the click opens instantly (the fetch is already a cache hit).
 // Only after the pointer rests on a card (sweeping across a grid prefetches nothing): in production these files
-// are Worker requests that count toward the limits and the daily catalog quota. Never while the catalog would
-// refuse them (signed out behind the account gate).
+// are Worker requests that count toward the limits and the daily catalog quota. Never while signed out: there
+// every distinct detail file uses up the signed-out budget (5 per 7 minutes), so only a real click may spend it.
 const _pf = new Set(); let _pfT = 0;
 function pf(kind, id) {
-  if (!STATIC || !id || _pf.has(id) || (catalogGateOn() && !loggedIn())) return;
+  if (!STATIC || !id || _pf.has(id) || !loggedIn()) return;
   clearTimeout(_pfT);
   _pfT = setTimeout(() => { if (_pf.has(id)) return; _pf.add(id); try { fetch("/data/" + kind + "/" + id + ".json").catch(() => {}); } catch {} }, 250);
 }
@@ -1440,9 +1448,21 @@ function engineHandle(url) {
   return ENGINE ? ENGINE.handle(url) : Promise.resolve(null);
 }
 async function getJSON(url, opt) {
-  if (STATIC && (ENGINE_WORKER || ENGINE)) { try { const r = await engineHandle(url); return r && r.error ? null : r; } catch (e) { console.warn("engine failed", url, e); return null; } }
+  if (STATIC && (ENGINE_WORKER || ENGINE)) { try { const r = await engineHandle(url); engineSignin(url, r); return r && r.error ? null : r; } catch (e) { console.warn("engine failed", url, e); return null; } }
   return fetchJSON(url, opt);
 }
+// The reads someone asked for that need the dataset — a search, the Playlists tab, a live playlist — show the
+// sign-in prompt when it's refused (signed out). Background lookups (/track for a duration or the Watch button)
+// stay silent: they just get nothing.
+function engineSignin(url, r) { if (needsSignin(r) && /^\/(search|playlists?)(\?|$)/.test(url)) datasetSignin(gateRetryView); }
+// getJSON, except that a refusal for want of an account comes back as {error:"signin_required"} instead of null, so
+// the caller can say why: a detail page over the signed-out limit, or a read that needs the dataset (search, the
+// Playlists tab, a live playlist) while signed out. Background lookups use getJSON and simply get nothing.
+async function getJSONOrSignin(url, opt) {
+  if (STATIC && (ENGINE_WORKER || ENGINE)) { try { const r = await engineHandle(url); engineSignin(url, r); return r && r.error && r.error !== "signin_required" ? null : r; } catch (e) { console.warn("engine failed", url, e); return null; } }
+  return fetchJSON(url, opt);
+}
+const needsSignin = (r) => !!(r && r.error === "signin_required");
 // One backoff retry on a TRANSIENT failure (network reject or 5xx); never retry an abort or a 4xx.
 // The Worker's security layer answers 401/403/429 with {error:"account_required"|"datacenter"|"banned"|
 // "rate_limited"}; the edge rate limit answers 429 with Cloudflare's HTML page (Retry-After header, if any).
@@ -1465,6 +1485,9 @@ function retryAfterSecs(ra) {
 function secStatus(status, j, ra) {
   const e = j && j.error;
   if (e === "account_required") return gateNotice(gateRetryView);
+  // Signed-out limits: a detail page over its budget shows the notice from here. Song starts (permitThen) and
+  // dataset reads (search etc.) show it where they were asked for, with their own retry.
+  if (e === "signin_required") { if (j.kind === "detail") signinNotice(j, gateRetryView); return; }
   if (e === "rate_limited") return blkOpen({ until: Date.now() + 1000 * (Math.max(+j.retryAfter || 0, retryAfterSecs(ra)) || 10) });
   if (e === "banned") return blkOpen({ ban: true, until: j.permanent || j.until === "infinity" ? Infinity : (Date.parse(j.until) || Infinity) });
   if (e === "daily_limit") return blkOpen({ daily: true, signIn: !!j.signIn, until: j.permanent || j.until === "infinity" ? Infinity : (Date.parse(j.until) || Date.now() + 1000 * (+j.retryAfter || 3600)) });
@@ -1554,30 +1577,81 @@ function cgNote(h) {
   try { localStorage.setItem(CG_KEY, JSON.stringify(_cg)); } catch {}
   cgWarm();
 }
-// The engine worker pre-warms the dataset only when it would be allowed to fetch it.
-function cgWarm() { try { if (ENGINE_WORKER) ENGINE_WORKER.postMessage({ cfg: { warm: !(catalogGateOn() && !loggedIn()) } }); } catch {} }
+// The engine worker pre-warms the dataset only when signed in (signed out, the Worker refuses it). auth = a sign-in
+// just happened: the engine forgets an earlier refusal.
+function cgWarm(auth) {
+  const on = loggedIn(), reset = !!auth && on;
+  try { if (reset && ENGINE && ENGINE.resetAuth) ENGINE.resetAuth(); } catch {}
+  try { if (ENGINE_WORKER) ENGINE_WORKER.postMessage({ cfg: { warm: on, auth: reset } }); } catch {}
+}
 let _gateRetry = null, _gateAt = 0, _gateRefreshAt = 0;
 // Re-render whatever view the blocked catalog request was for (artist/album/playlist page, or the tab).
 function gateRetryView() { if (state.detailOpen) applyRoute(location.href); else reloadCurrent(); }
-// "Sign in to keep listening". retry runs once the visitor has signed in.
-function gateNotice(retry) {
+const GATE_COPY = {
+  gate: ["Sign in to keep listening", "A free SK Music account is needed to browse and play music. It takes a few seconds, and your likes, playlists and filters sync across your devices."],
+  limit: ["You've reached the limit without an account", "Sign in or create a free account to keep browsing and listening."],
+};
+let _gateWait = null; // { until, timer } — the "or wait m:ss" line of the limit version
+// "Sign in to keep listening" (account gate), or with lim = { until } the signed-out-limit version: "You've reached
+// the limit without an account" plus a countdown to when the limit opens again (until 0 = no countdown). retry runs
+// once the visitor has signed in. One notice at a time: nothing opens over another dialog or the block overlay.
+function gateNotice(retry, lim) {
   if (loggedIn()) {
     // Signed in here but the Worker saw no valid token (expired cookie): refresh once, then retry.
-    if (Date.now() - _gateRefreshAt > 30000) { _gateRefreshAt = Date.now(); acctRefresh().then((ok) => { if (ok && retry) retry(); }); }
+    if (Date.now() - _gateRefreshAt > 30000) { _gateRefreshAt = Date.now(); acctRefresh().then((ok) => { if (ok) { cgWarm(true); if (retry) retry(); } }); }
     return;
   }
   if (retry) _gateRetry = retry;
   const m = el("gateModal");
-  if (m.classList.contains("on") || el("authModal").classList.contains("on") || el("askModal").classList.contains("on") || Date.now() - _gateAt < 1500) return;
+  if (m.classList.contains("on") || el("authModal").classList.contains("on") || el("askModal").classList.contains("on") || _blk || Date.now() - _gateAt < 1500) return;
   _gateAt = Date.now();
   try { localStorage.setItem(ACCT_NOTICE_KEY, String(Date.now())); } catch {} // this IS the account prompt — don't show the "soon" popup on top
+  const [title, sub] = GATE_COPY[lim ? "limit" : "gate"];
+  el("gateTitle").textContent = title; el("gateSub").textContent = sub;
+  gateWaitStop();
+  if (lim && lim.until > Date.now()) { _gateWait = { until: lim.until, timer: setInterval(gateWaitTick, 250) }; gateWaitTick(); }
+  el("gateWait").style.display = _gateWait ? "" : "none";
   m.classList.add("on");
   setTimeout(() => el("gateUp").focus(), 60);
 }
-function gateClose() { el("gateModal").classList.remove("on"); }
+function gateWaitTick() {
+  if (!_gateWait) return;
+  const left = _gateWait.until - Date.now();
+  if (left <= 0) { gateWaitStop(); el("gateWait").textContent = "You can continue now."; return; }
+  el("gateWait").innerHTML = "or wait <b>" + fmtCountdown(left) + "</b>";
+}
+function gateWaitStop() { if (_gateWait) { clearInterval(_gateWait.timer); _gateWait = null; } }
+// Signed-out limits (engine/security.mjs): 401 {error:"signin_required", kind:"detail"|"play"|"search", resetAt,
+// retryAfter}. A search has no countdown — it needs an account, full stop. With the account gate on, its own copy.
+function signinNotice(j, retry) {
+  if (catalogGateOn()) return gateNotice(retry);
+  const kind = (j && j.kind) || "search";
+  const until = kind === "search" ? 0 : (Date.parse(j.resetAt) || Date.now() + 1000 * (+j.retryAfter || 0));
+  gateNotice(retry, { until });
+}
+function gateClose() { el("gateModal").classList.remove("on"); gateWaitStop(); }
 function gateGo(mode) { gateClose(); openAuth(mode); }
 // After any sign-in: retry what the gate stopped.
-function gateAfterLogin() { const f = _gateRetry; _gateRetry = null; cgWarm(); if (f && loggedIn()) try { f(); } catch {} }
+function gateAfterLogin() { const f = _gateRetry; _gateRetry = null; cgWarm(true); if (f && loggedIn()) try { f(); } catch {} }
+// The page-sized version, left behind the notice: a detail page or view that couldn't load for want of an account.
+function signinCard(title, sub) {
+  return `<div class="signincard"><div class="authlogo"><svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg></div><h2>${esc(title)}</h2><p>${esc(sub)}</p>`
+    + `<button type="button" class="authbtn" onclick="gateGo('up')">Create free account</button><button type="button" class="authbtn oauth" onclick="gateGo('in')">Sign in</button></div>`;
+}
+function signinPage() {
+  const [title, sub] = catalogGateOn() ? GATE_COPY.gate : ["This needs a free account", GATE_COPY.limit[1]];
+  el("v-detail").innerHTML = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>` + signinCard(title, sub);
+  showDetail();
+}
+// A view that needs the dataset (search, the Playlists tab, a live playlist) while signed out: the notice at most
+// every 30 s while the visitor keeps typing / clicking, the inline card always.
+let _dsGateAt = 0;
+function datasetSignin(retry) {
+  _gateRetry = retry || _gateRetry;
+  if (Date.now() - _dsGateAt < 30000) return;
+  _dsGateAt = Date.now();
+  signinNotice({ kind: "search" }, retry);
+}
 // Play while signed out with the gate on: ask first (true = go ahead).
 function playAllowed(retry) { if (!catalogGateOn() || loggedIn()) return true; gateNotice(retry); return false; }
 let _secQuiet = false; // set around a background pre-warm: its refusal must not pop a notice
@@ -1630,7 +1704,7 @@ async function fetchJSON(url, opt) {
 // dataset, so search and detail (artist / album / playlist) run fully local, no live index. apiGet/detailGet
 // stay as thin aliases so their call-sites don't change.
 const apiGet = (path, opt) => getJSON(path, opt);
-const detailGet = (path) => getJSON(path);
+const detailGet = (path) => getJSONOrSignin(path);
 const NOTE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg>';
 // a11y: keyboard activation for clickable non-button elements (Enter/Space triggers the element's own click)
 const KDACT = "if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}";
@@ -2671,6 +2745,7 @@ function tasteArtists(items) {
 }
 // A round-robin mix of songs from the given artists (client-side, from the dataset) — variety over one artist.
 async function songsFromArtists(arts, limit) {
+  if (anonLimited()) return []; // six detail files in the background would use up the signed-out budget
   const lists = [];
   for (const a of arts.slice(0, 6)) {
     const dd = await detailGet("/artist?id=" + encodeURIComponent(a.id)).catch(() => null);
@@ -2739,7 +2814,9 @@ async function loadPlaylists() {
   v.innerHTML = `<div id="zpsec"></div><div class="searchbox" style="max-width:420px;margin:6px 0 18px">${ICON.search}<input id="pq" placeholder="Filter playlists" autocomplete="off" aria-label="Filter playlists"></div><div class="pgrid" id="pgrid">${Array.from({ length: 12 }, () => `<div class="sk-card"><div class="sk art"></div><div class="sk l1"></div><div class="sk l2"></div></div>`).join("")}</div>`;
   getJSON("/zemer-playlists").then((z) => { const zp = (z && z.playlists) || []; if (zp.length && el("zpsec")) el("zpsec").innerHTML = section("Curated Playlists", `<div class="rail">${zp.map(zpCard).join("")}</div>`); });
   await ensureFilters();
-  const d = await getJSON("/playlists?" + filterQS()); playlistsAll = gate((d && d.playlists) || []).filter(playlistHasAllowed); // artist_mode blocklist / kid-only at the card level, then drop playlists with no hearable songs
+  const d = await getJSONOrSignin("/playlists?" + filterQS());
+  if (needsSignin(d)) { playlistsAll = []; el("pq").parentElement.style.display = "none"; el("pgrid").outerHTML = signinCard("Browsing playlists needs a free account", GATE_COPY.limit[1]); return; }
+  playlistsAll = gate((d && d.playlists) || []).filter(playlistHasAllowed); // artist_mode blocklist / kid-only at the card level, then drop playlists with no hearable songs
   renderPlaylists(""); el("pq").addEventListener("input", (e) => renderPlaylists(e.target.value.trim().toLowerCase()));
 }
 function renderPlaylists(q) {
@@ -3905,8 +3982,13 @@ async function doSearch() {
   // independently so one dead source can't blank the other.
   sxLoad(q, ++sxSeq);
   if (sInflight) sInflight.abort(); sInflight = new AbortController(); const t0 = performance.now();
-  const d = await apiGet("/search?" + p, { signal: sInflight.signal });
+  const d = await getJSONOrSignin("/search?" + p, { signal: sInflight.signal });
   if (d === null) return;
+  if (needsSignin(d)) { // signed out: no dataset, no music search (spoken word above still runs — it needs none)
+    sData = null; el("smeta").textContent = ""; sPanes();
+    el("sresMain").innerHTML = signinCard("Search needs a free account", "Sign in or create a free account to search songs, artists and albums.");
+    return;
+  }
   sData = d; el("smeta").textContent = `${num(d.count)} result${d.count === 1 ? "" : "s"} · ${(performance.now() - t0).toFixed(0)} ms`; renderResults();
   track("search", { q, count: d.count });
   if (d.count) recordSearch(q); // remember searches that found something, for the recent/saved list
@@ -4379,7 +4461,8 @@ function smArtist() { const t = _menuTrack; if (t && t.artist) gotoArtistByName(
 async function smAlbum() {
   const t = _menuTrack; if (!t || !t.videoId) return;
   showToast("Finding album…", 1200);
-  const d = await getJSON("/track?v=" + encodeURIComponent(t.videoId));
+  const d = await getJSONOrSignin("/track?v=" + encodeURIComponent(t.videoId));
+  if (needsSignin(d)) return datasetSignin(null);
   if (!d || !d.albumId) return showToast("This song isn’t on an album", 2400);
   if (state.nowOpen) closeNow();
   openAlbum(d.albumId);
@@ -4453,6 +4536,7 @@ async function tileTracks() {
   const t = _tile; if (!t) return [];
   const path = t.kind === "album" ? "/album?id=" : t.kind === "artist" ? "/artist?id=" : t.kind === "zp" ? "/zemer-playlists?id=" : "/playlist?id=";
   const d = await detailGet(path + encodeURIComponent(t.id));
+  if (needsSignin(d)) return []; // the notice is already up (secStatus for a detail over the limit, engineSignin for a live playlist)
   if (!d || d.error) { showToast("Couldn't load that right now.", 2400); return []; }
   await ensureFilters();
   const hidden = (t.kind === "album" && d.album && hiddenArtist(d.album.artist))
@@ -4616,7 +4700,7 @@ function detailLoading(kind, round) {
 }
 async function openArtist(id, fromRoute) {
   detailLoading("Artist", true);
-  const d = await detailGet("/artist?id=" + encodeURIComponent(id)); if (!d || d.error) return notAvailable("artist");
+  const d = await detailGet("/artist?id=" + encodeURIComponent(id)); if (needsSignin(d)) return signinPage(); if (!d || d.error) return notAvailable("artist");
   // This artist was a duplicate channel that has since been merged (see supabase/v1.2.8). The bake
   // serves the merged page at the OLD id so existing links keep working; correct the address bar so
   // anything shared from here uses the surviving id. replaceState, not push — the duplicate URL
@@ -4695,7 +4779,7 @@ async function appendSimilarArtists(id, selfName) {
 }
 async function openAlbum(id, fromRoute) {
   detailLoading("Album");
-  const d = await detailGet("/album?id=" + encodeURIComponent(id)); if (!d || d.error) return notAvailable("album");
+  const d = await detailGet("/album?id=" + encodeURIComponent(id)); if (needsSignin(d)) return signinPage(); if (!d || d.error) return notAvailable("album");
   await ensureFilters(); // /album carries no flags — hiddenArtist(album artist) is the ONLY gate, so the map MUST be loaded first
   if (hiddenArtist(d.album.artist)) return blockedByFilter("album");
   const tracks = gate(d.tracks || []).filter((t) => !(blockVideos() && t.isVideo)); // Acapella (songOK) + Audio-only on the tracklist
@@ -4705,6 +4789,7 @@ async function openPlaylist(id, fromRoute) {
   detailLoading("Playlist");
   if (!fromRoute) pushURL("/playlists/" + id); // reflect /playlists/:id in the URL instantly, before the contents fetch
   const d = await detailGet("/playlist?id=" + encodeURIComponent(id));
+  if (needsSignin(d)) return signinPage(); // a live playlist is filtered through the dataset: signed out, there is none
   if (!d) { el("v-detail").innerHTML = `<button class="backbtn" onclick="detailBack()"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>Back</button>` + emptyState("Couldn't load playlist", "Try again in a moment."); return; }
   await ensureFilters(); // a followed playlist can mix artists — gate every track (female/chasid/video + parental)
   const tracks = gate(d.tracks || []).filter((t) => !(blockVideos() && t.isVideo));
@@ -4719,7 +4804,8 @@ async function openPlaylist(id, fromRoute) {
 async function openCuratedPlaylist(id, fromRoute) {
   detailLoading("Curated Playlist");
   if (!fromRoute) pushURL("/zemer-playlists/" + id); // reflect the URL instantly, before the contents fetch
-  const d = await getJSON("/zemer-playlists?id=" + encodeURIComponent(id));
+  const d = await detailGet("/zemer-playlists?id=" + encodeURIComponent(id));
+  if (needsSignin(d)) return signinPage();
   if (!d || d.error || !d.playlist) return notAvailable("playlist");
   await ensureFilters();                                          // content + parental gate + the Acapella set (else acapella mode empties the page)
   const tracks = gate(d.tracks || []).filter((t) => !(blockVideos() && t.isVideo));
@@ -4742,7 +4828,7 @@ async function openSong(id, fromRoute, startAt) {
   // Deep-link entry (/song/:id). VERIFY the track is whitelisted + allowed BEFORE any playback starts — a
   // kosher app must never play blocked content, not even for a moment. (In-app taps use playFrom() directly,
   // with already-filtered data.) Nothing is queued or loaded into the player until the checks pass.
-  const t = await getJSON("/track?v=" + encodeURIComponent(id));
+  const t = await getJSON("/track?lite=1&v=" + encodeURIComponent(id));
   const deny = (title, sub, reason) => { track("blocked", Object.assign({ v: id, reason }, t && !t.error ? { title: t.title, artist: t.artist } : {})); blockedPage(title, sub); history.replaceState({}, "", "/song/" + id); };
   if (!t || t.error) return deny("Not in the catalog", "This song isn’t from a whitelisted artist, so it can’t be played here.", "not-whitelisted");
   await artistByName(); await loadBlockedIds(); // artist flags + per-id overrides for the gate
@@ -5256,6 +5342,7 @@ function nextPlayableIndex() { // the index playIndex(qi+1) would actually land 
   return -1;
 }
 function cueNext() {
+  if (anonLimited()) { if (cued.id) cancelSwap(); return; } // signed out: each next song asks permitThen first, so no silent hand-off
   if (PB.mode !== "yt" || PB.local || PB.direct || !standbyReady || (gapless && gapless.phase === "start") || state.repeat) return; // SK-OFFLINE: no YT gapless while a local file plays; `direct` = a non-YouTube source is on air
   const idx = nextPlayableIndex(), t = idx >= 0 ? state.queue[idx] : null;
   // t.kind marks a non-YouTube source (shiurim): cueVideoById would be handed an id YouTube has never
@@ -5467,7 +5554,13 @@ function noSourceToast() {
 }
 let noSourceShown = false;
 
-function playFrom(qid, i, source) { const q = queues.get(qid); if (!q) return; stStop(); state.queue = q; state.radio = null; state.playSource = source || (state.detailOpen ? (state.detailKind || "detail") : (state.tab || "home")); state.qi = i; if (state.shuffle) shuffleTail(); playIndex(state.qi); }
+function playFrom(qid, i, source) {
+  const q = queues.get(qid); if (!q) return;
+  // Signed out: ask first, and leave the queue and the playing song alone if the answer is no.
+  if (anonLimited()) return permitThen(q[i], () => playFromNow(qid, i, source), () => playFrom(qid, i, source), () => { PB.nextStart = 0; });
+  playFromNow(qid, i, source);
+}
+function playFromNow(qid, i, source) { const q = queues.get(qid); if (!q) return; stStop(); state.queue = q; state.radio = null; state.playSource = source || (state.detailOpen ? (state.detailKind || "detail") : (state.tab || "home")); state.qi = i; if (state.shuffle) shuffleTail(); playIndex(state.qi); }
 // Play-duration tracking — measure REAL listen time (excludes pauses) and emit the `play` event on end/skip,
 // not on start, so a 2-second skip is distinguishable from a real listen (drives `qualified` + trending).
 let playSes = null;
@@ -5506,6 +5599,36 @@ function playIndex(i, dir) {
     if (j < 0 || j >= state.queue.length) { showToast(am === "only" ? "No more Acapella songs in this queue." : "No more non-Acapella songs in this queue.", 2600); return; }
     i = j;
   }
+  if (anonLimited()) { const want = state.queue[i]; return permitThen(want, () => { if (state.queue[i] === want) playIndexNow(i); }, () => playIndex(i, dir), () => { PB.nextStart = 0; }); }
+  playIndexNow(i);
+}
+// ── Signed-out song starts (engine/security.mjs): without an account, one new song per 7 minutes per client. The
+// Worker counts POST /play-start right before a song actually starts (never for the gapless standby, a seek, a
+// pause/resume or a reload of the same song); the same song again is free. go() runs on yes. On 401/403/429 the
+// song doesn't start: signinNotice here (with again() as the after-sign-in retry), or secStatus's own notice (rate
+// limit, ban, datacenter, account gate). A network error or any other answer ⇒ go (fail open).
+function anonLimited() { return STATIC && !loggedIn(); }
+let _permitSeq = 0, _permitOK = null;
+function permitId(t) {
+  const v = String((t && t.videoId) || "");
+  if (/^[A-Za-z0-9_-]{1,64}$/.test(v)) return v;
+  let h = 2166136261; for (const c of v + "|" + ((t && t.src) || "")) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  return "h" + (h >>> 0).toString(36);
+}
+function permitThen(t, go, again, no) {
+  const v = permitId(t);
+  if (!anonLimited() || (_permitOK && _permitOK.v === v && Date.now() - _permitOK.at < 15000)) return go(); // playFrom → playIndex: asked once
+  const seq = ++_permitSeq; // a newer start supersedes this one
+  const yes = () => { if (seq !== _permitSeq) return; _permitOK = { v, at: Date.now() }; go(); };
+  fetch("/play-start?v=" + encodeURIComponent(v), { method: "POST", headers: { Accept: "application/json" }, cache: "no-store" }).then(async (r) => {
+    if (r.status !== 401 && r.status !== 403 && r.status !== 429) return yes();
+    if (seq !== _permitSeq) return;
+    if (no) no();
+    const j = await r.json().catch(() => null);
+    if (j && j.error === "signin_required") signinNotice(j, again);
+  }, yes);
+}
+function playIndexNow(i) {
   // Fast path: the standby is ALREADY primed+buffered for exactly this track (the common case when
   // you hit Next — it's the track gapless pre-loaded). Hand off to it instead of cold-loading a
   // fresh copy on the active player, so a manual skip is instant instead of a buffer wait.
@@ -7293,7 +7416,14 @@ async function sbRpc(fn, args) { try { const body = JSON.stringify(args || {}); 
 // catch and returned null, i.e. reported success as failure. Callers can now trust a null.
 
 // --- session persistence ---
-function saveSession() { try { acct.session ? localStorage.setItem("zw_sb", JSON.stringify(acct.session)) : localStorage.removeItem("zw_sb"); } catch {} syncAuthCookie(); }
+function saveSession() { try { acct.session ? localStorage.setItem("zw_sb", JSON.stringify(acct.session)) : localStorage.removeItem("zw_sb"); } catch {} syncAuthCookie(); if (!acct.session) forgetDataset(); }
+// Signed out (sign-out, or a session that couldn't be refreshed): the search dataset needs an account, so drop the copy
+// this device holds — the engines' memory and the service worker's cache — and let the Worker decide again next time.
+function forgetDataset() {
+  try { if (ENGINE && ENGINE.forget) ENGINE.forget(); } catch {}
+  try { if (ENGINE_WORKER) ENGINE_WORKER.postMessage({ cfg: { warm: false, forget: true } }); } catch {}
+  try { if (self.caches) caches.keys().then((ks) => ks.forEach((k) => caches.open(k).then((c) => c.delete("/data/dataset.json.gz")))).catch(() => {}); } catch {}
+}
 function restoreSession() { try { acct.session = JSON.parse(localStorage.getItem("zw_sb") || "null"); } catch { acct.session = null; } syncAuthCookie(); }
 // The Worker's security layer (engine/security.mjs) reads who is signed in from this cookie: it verifies the
 // Supabase token's signature itself, so a signed-in account gets the higher rate limit and is let in from a
@@ -7373,6 +7503,7 @@ async function acctSignOut() {
     if (!(await requirePin("Enter the PIN to sign out", "This account is locked by Parental Controls — the PIN is required to sign out."))) return;
   }
   acct.session = null; acct.profile = null; acct.pinOK = false; acct.pin = ""; saveSession(); renderAcct(); if (state.tab === "parental") go("home"); showToast("Signed out.", 2000);
+  cgWarm(); cancelSwap(); // signed out: song starts go through permitThen again, so no primed gapless hand-off
 }
 async function acctRefresh() { // Supabase access tokens expire (~1h) → refresh with the stored refresh_token
   if (!acct.session || !acct.session.refresh_token) return false;
@@ -7879,6 +8010,7 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   if (!consumeAuthHash()) restoreSession(); // email-confirm/OAuth/magic-link hash → session, else restore the saved one
   maybeShowRecovery(); // password-reset link (#type=recovery) → open the "Set a new password" form
   renderAcct(); if (loggedIn()) onLogin(); // accounts: load profile/likes/filters
+  cgWarm(); // the engine worker was told "signed out" before the session was restored
   renderNav(); initSearch(); syncFilterUI(); setPlayIcons();
   restoreLastPlayPaused(); // desktop: reopen on the last track, paused where it was left
   refreshStat(); setInterval(() => { if (document.visibilityState !== "hidden") refreshStat(); }, 30000); // the corpus stat is near-static; poll slowly and pause on hidden tabs (battery/requests)
@@ -7899,7 +8031,7 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   if (STATIC) artistByName().catch(() => {}); // preload gender flags for the content filter
   // Warm the dataset in the background. The worker warms itself (see engine-worker.mjs); only warm the
   // in-thread engine when there's no worker, to avoid loading the dataset into memory twice.
-  if (STATIC && !ENGINE_WORKER && ENGINE && ENGINE.preload) { const warm = () => { if (catalogGateOn() && !loggedIn()) return; _secQuiet = true; try { ENGINE.preload().catch(() => {}); } finally { _secQuiet = false; } }; "requestIdleCallback" in window ? requestIdleCallback(warm, { timeout: 1500 }) : setTimeout(warm, 800); }
+  if (STATIC && !ENGINE_WORKER && ENGINE && ENGINE.preload) { const warm = () => { if (!loggedIn()) return; _secQuiet = true; try { ENGINE.preload().catch(() => {}); } finally { _secQuiet = false; } }; "requestIdleCallback" in window ? requestIdleCallback(warm, { timeout: 1500 }) : setTimeout(warm, 800); }
 })();
 
 /* ============================ Horizontal rails: drag, wheel, chevrons ============================

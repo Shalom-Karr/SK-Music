@@ -66,21 +66,49 @@ const grab = async (u) => {
   if (r.ok) files.set(u, j); // never pin a failure: a 401 (sign-in needed) or 429 must work once it clears
   return j;
 };
+// A detail file (artist / album / curated playlist). Refused for want of an account (signed-out limit, or the
+// account gate) ⇒ { error: "signin_required" }, so the page can say why instead of "not found".
+const grabDetail = async (u, missing) => {
+  if (files.has(u)) return files.get(u);
+  const r = await fetch(u);
+  if (r.status === 401) return SIGNIN;
+  const j = r.ok ? await r.json() : null;
+  if (r.ok) files.set(u, j);
+  return j || missing;
+};
+
+// The dataset (search, /track, /playlists, live-playlist filtering) is account-only. Once the Worker has refused it
+// (401), stay refused without asking again until the page reports a sign-in (resetAuth) — a signed-out visitor
+// typing a search must not cost a request per keystroke.
+const SIGNIN = { error: "signin_required" };
+let needAcct = false, gen = 0;
+export function resetAuth() { needAcct = false; }
+const signinErr = () => Object.assign(new Error("signin_required"), { signin: true });
 
 async function ready() {
   if (DS) return DS;
-  if (!warming) warming = (async () => {
-    const gz = await fetch("/data/dataset.json.gz");
-    if (!gz.ok) throw new Error("dataset HTTP " + gz.status);
-    const text = await new Response(gz.body.pipeThrough(new DecompressionStream("gzip"))).text();
-    DS = inflate(JSON.parse(text));
-    CATS = buildCategories(DS, compileSynonyms((await grab("/data/synonyms.json")) || []));
-    return DS;
-  })();
-  warming.catch(() => { warming = null; }); // a failed load (signed out behind the account gate, rate limited) retries next time
+  if (needAcct) throw signinErr();
+  if (!warming) {
+    const g = gen;
+    const w = warming = (async () => {
+      const gz = await fetch("/data/dataset.json.gz");
+      if (gz.status === 401) { needAcct = true; throw signinErr(); }
+      if (!gz.ok) throw new Error("dataset HTTP " + gz.status);
+      const text = await new Response(gz.body.pipeThrough(new DecompressionStream("gzip"))).text();
+      const ds = inflate(JSON.parse(text));
+      const cats = buildCategories(ds, compileSynonyms((await grab("/data/synonyms.json")) || []));
+      if (g !== gen) throw signinErr(); // signed out while it loaded (forget): don't keep it
+      DS = ds; CATS = cats;
+      return DS;
+    })();
+    w.catch(() => { if (warming === w) warming = null; }); // a failed load (signed out, rate limited) retries next time
+  }
   return warming;
 }
 export const preload = ready;   // warm in the background so the first interaction is instant
+// Signed out on this device: drop the loaded dataset, so the next read asks the Worker again (which refuses it
+// signed out) instead of searching from memory.
+export function forget() { gen++; DS = null; CATS = null; warming = null; ALBUM_OF = null; }
 
 const artistOK = (x, allowFem, kid, allowChas) => (allowFem || !x.isFemale) && (allowChas || !x.isChasid) && (!kid || x.isKidZone);
 
@@ -114,6 +142,15 @@ function albumOf(t) {
 }
 
 export async function handle(url) {
+  try {
+    return await route(url);
+  } catch (e) {
+    if (e && e.signin) return SIGNIN;
+    throw e;
+  }
+}
+
+async function route(url) {
   const u = new URL(url, location.origin), path = u.pathname, q = u.searchParams;
   const allowFem = q.get("allowFemale") !== "0", allowChas = q.get("allowChasid") !== "0", kid = q.get("kidZone") === "1", blockVid = q.get("blockVideos") === "1";
 
@@ -138,12 +175,18 @@ export async function handle(url) {
     const categories = searchCategories(CATS, query, { allowFemale: allowFem, allowChasid: allowChas, kidZoneOnly: kid, blockVideos: blockVid, k });
     return { q: query, count: Object.values(categories).reduce((n, a) => n + a.length, 0), categories };
   }
-  if (path === "/artist") { const id = q.get("id") || ""; return idOK(id) ? ((await grab("/data/artist/" + id + ".json")) || { error: "artist not found" }) : { error: "artist not found" }; }
-  if (path === "/album") { const id = q.get("id") || ""; return idOK(id) ? ((await grab("/data/album/" + id + ".json")) || { error: "album not found" }) : { error: "album not found" }; }
+  if (path === "/artist") { const id = q.get("id") || ""; return idOK(id) ? grabDetail("/data/artist/" + id + ".json", { error: "artist not found" }) : { error: "artist not found" }; }
+  if (path === "/album") { const id = q.get("id") || ""; return idOK(id) ? grabDetail("/data/album/" + id + ".json", { error: "album not found" }) : { error: "album not found" }; }
+  // lite=1 (a /song/:id link): without the dataset (signed out), check the one song through the Worker's
+  // /song-meta instead — same whitelist (og.json is built from the same tracks) and the same flags.
+  if (path === "/track" && q.get("lite") === "1" && !DS) {
+    try { await ready(); } catch (e) { if (e && e.signin) return songMeta(q.get("v") || ""); throw e; }
+  }
   if (path === "/track") { await ready(); const t = DS.trackById.get(q.get("v")); return t ? { videoId: t.videoId, title: t.title, artist: t.artistName, durationSec: t.durationSec, explicit: t.explicit, isVideo: t.isVideo, isFemale: t.isFemale, isChasid: t.isChasid, albumId: albumOf(t) } : { error: "not found" }; }
   if (path === "/playlist") {   // live route: keep only whitelisted-corpus tracks from the upstream list
     const id = q.get("id") || "";
-    const r = await fetch(url), remote = r.ok ? await r.json() : null; await ready();
+    await ready(); // first: no dataset to filter with (signed out) ⇒ don't fetch the playlist at all
+    const r = await fetch(url), remote = r.ok ? await r.json() : null;
     const raw = (remote && remote.tracks) || [];
     const tracks = raw.map((s) => DS.trackById.get(s.videoId)).filter(Boolean).map((t) => ({ videoId: t.videoId, title: t.title, artist: t.artistName, explicit: t.explicit, durationSec: t.durationSec }));
     const meta = DS.playlists.find((pl) => pl.id === id);
@@ -152,8 +195,16 @@ export async function handle(url) {
   }
   if (path === "/zemer-playlists") {   // curated playlists baked at build time — read the local files
     const id = q.get("id");
-    if (id) return idOK(id) ? ((await grab("/data/zemer-playlist/" + id + ".json")) || { error: "not found" }) : { error: "not found" };
+    if (id) return idOK(id) ? grabDetail("/data/zemer-playlist/" + id + ".json", { error: "not found" }) : { error: "not found" };
     return (await grab("/data/zemer-playlists.json")) || { count: 0, playlists: [] };
   }
   const r = await fetch(url); return r.ok ? r.json() : null;
+}
+
+async function songMeta(v) {
+  if (!idOK(v)) return { error: "not found" };
+  const r = await fetch("/song-meta?v=" + encodeURIComponent(v));
+  const t = r.ok ? await r.json() : null;
+  if (!t || !t.videoId) return { error: "not found" };
+  return { videoId: t.videoId, title: t.title, artist: t.artist, durationSec: null, explicit: !!t.explicit, isVideo: !!t.isVideo, isFemale: !!t.isFemale, isChasid: !!t.isChasid, albumId: null };
 }
