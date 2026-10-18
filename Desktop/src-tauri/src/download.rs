@@ -5,19 +5,15 @@
 //! shell: one module, one custom URI scheme, one capability. Nothing here runs for
 //! the web-only PWA — the SPA gates every hook behind `SK_NATIVE`.
 //!
-//! ## How the audio URL is obtained (no signature forging, no yt-dlp)
-//! We reuse the SK Video Downloader trick: let YouTube's OWN player produce the
-//! signed, PoToken'd stream URL and capture it. SK Music's main webview plays via a
-//! cross-origin youtube-nocookie iframe it can't script, so we spin up a SEPARATE
-//! hidden Tauri webview navigated to `https://www.youtube.com/watch?v=<id>`. An
-//! initialization script (see `EXTRACTOR_JS`) runs on that youtube.com page, reads
-//! `ytInitialPlayerResponse` (or the InnerTube player endpoint), picks the best
-//! audio-only adaptive format (itag 140 / AAC preferred), deciphers the signature
-//! eval-free, and ALSO monkeypatches fetch/XHR to capture the player's own
-//! `videoplayback` request (which carries a valid, un-throttled `n`). It hands the
-//! resulting URL back by EMITTING `sk-yt-extracted` — a `core:event`, because the
-//! youtube webview is remote content and (like the main SPA) can only use events,
-//! never app commands.
+//! ## How the audio URL is obtained (no browser window, no yt-dlp binary)
+//! `native_extract()` calls YouTube's Innertube API through `rustypipe`
+//! (<https://codeberg.org/ThetaDev/rustypipe>), a from-scratch Rust client. It picks the best
+//! audio-only adaptive format and deciphers its signature/`n`-param by running the actual
+//! extracted cipher function from YouTube's player JS through a bundled QuickJS engine
+//! (`rquickjs`) — not a real browser, just a small embedded JS interpreter — so the whole thing
+//! is a plain async network call on the download worker. Nothing opens, visibly or hidden, and
+//! nothing here re-derives YouTube's cipher algorithm by hand (that was the previous approach's
+//! fragility; rustypipe tracks player-JS changes as its own maintenance burden instead of ours).
 //!
 //! ## Download + playback
 //! Rust fetches the signed URL with `reqwest` using a small number of concurrent ranged requests
@@ -30,21 +26,28 @@
 //! `<audio>` element at that URL when a download exists — allowed by the site CSP's
 //! `media-src` once the scheme is whitelisted (see engine/build-static.mjs).
 //!
+//! ## Save for offline
+//! The ⋮ "Save for offline" and the tray's "Save for offline" are the SAME pipeline as a plain
+//! Download — one single-worker queue, one extraction strategy (native first, the streaming relay
+//! as a last resort), one `<id>.<ext>.part` temp file per id. The only difference is the `Job` carries
+//! extra metadata (album, artwork URLs) that the SPA already knows, so the finished `Entry` can be
+//! grouped by album/artist with artwork in the offline player. Artwork itself is fetched with
+//! `reqwest` after the song lands — small HTTPS images from the CDNs the site itself uses, not a
+//! reason to spin up a browser window.
+//!
 //! ## Event contract (all `core:event`, the only channel remote origins get)
 //! SPA (main window) -> Rust:
 //!   * `sk-dl-request`      `{ videoId, title, artist }`  — download this song
 //!   * `sk-dl-delete`       `{ videoId }`                 — remove a download
 //!   * `sk-dl-list-request` `{}`                          — send the current library
 //!   * `sk-dl-reveal`       `{ videoId }`                 — show the saved file in the OS file manager
+//!   * `sk-offline-save`    `{ videoId, title, artist, ...SaveMeta }` — save for offline (⋮ menu)
 //! Rust -> SPA (main window):
 //!   * `sk-dl-progress`       `{ videoId, phase, received, total }`  phase = extracting|downloading
 //!   * `sk-dl-done`           `{ videoId, item }`                    item = library entry (+ src)
 //!   * `sk-dl-error`          `{ videoId, message }`
 //!   * `sk-dl-list`           `{ items: [entry, ...] }`
 //!   * `sk-dl-reveal-failed`  `{ videoId, message }`
-//! Hidden extractor webview -> Rust:
-//!   * `sk-yt-extracted`      `{ videoId, url, mime, itag, contentLength, title, author }`
-//!   * `sk-yt-extract-failed` `{ videoId, reason }`
 
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -53,13 +56,13 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use rustypipe::client::RustyPipe;
+use rustypipe::param::StreamFilter;
 use serde::{Deserialize, Serialize};
 use tauri::http::{header, Request, Response, StatusCode};
-use tauri::{AppHandle, Emitter, Listener, Manager, Url, WebviewUrl, WebviewWindowBuilder};
-use tokio::sync::{mpsc, oneshot};
+use tauri::{AppHandle, Emitter, Listener, Manager, Url};
+use tokio::sync::mpsc;
 
-/// Label of the reused hidden extractor window.
-const EXTRACTOR_LABEL: &str = "sk-yt-extractor";
 /// Ranged download chunk size — keeps each request small enough to stay under YouTube's
 /// per-request throttle window while still being large enough to amortise round-trip latency.
 const CHUNK: u64 = 2 << 20; // 2 MiB
@@ -68,8 +71,6 @@ const CHUNK: u64 = 2 << 20; // 2 MiB
 const PARALLEL: usize = 3;
 /// Per-chunk retry limit before aborting the whole download.
 const CHUNK_RETRIES: u32 = 2;
-/// How long to wait for the extractor webview to hand back a stream URL.
-const EXTRACT_TIMEOUT: Duration = Duration::from_secs(30);
 /// Browser-ish UA — googlevideo can 403 an obviously-headless client.
 const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36";
 
@@ -84,7 +85,7 @@ const RELAY_DOWNLOAD: &str = "https://stream.zemer.io/download";
 // ---------------------------------------------------------------------------
 
 /// One downloaded song, as stored in `downloads/index.json` and sent to the SPA.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Entry {
     video_id: String,
@@ -94,18 +95,33 @@ struct Entry {
     mime: String, // Content-Type served by the skdl:// handler
     bytes: u64,
     added: u64, // epoch ms
+    // Filled in by "Save for offline" so the offline player can group by album and show artwork.
+    // Files named here live in downloads/art and may be missing (fetch failed) — callers check.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    duration_sec: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    album_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    album: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    album_year: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cover: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    album_cover: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    artist_photo: Option<String>,
 }
 
 /// Serialize index writes across the download worker + delete handler.
 static INDEX_LOCK: Mutex<()> = Mutex::new(());
-/// videoId -> waiting extractor result channel (one in flight, but keyed for safety).
-static PENDING: OnceLock<Mutex<HashMap<String, oneshot::Sender<Result<Extracted, String>>>>> =
-    OnceLock::new();
 /// The single-worker download queue.
 static QUEUE: OnceLock<mpsc::UnboundedSender<Job>> = OnceLock::new();
-
-fn pending() -> &'static Mutex<HashMap<String, oneshot::Sender<Result<Extracted, String>>>> {
-    PENDING.get_or_init(|| Mutex::new(HashMap::new()))
+/// The Innertube client used by `native_extract()`. Cheap to clone/reuse (internally Arc'd), so
+/// one instance lives for the app's lifetime instead of being rebuilt per download.
+static RP: OnceLock<RustyPipe> = OnceLock::new();
+fn rp() -> &'static RustyPipe {
+    RP.get_or_init(RustyPipe::new)
 }
 
 // ---------------------------------------------------------------------------
@@ -131,7 +147,6 @@ struct IdOnly {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Extracted {
-    video_id: String,
     url: String,
     #[serde(default)]
     mime: String,
@@ -145,18 +160,18 @@ struct Extracted {
     author: String,
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ExtractFailed {
-    video_id: String,
-    #[serde(default)]
-    reason: String,
-}
-
 struct Job {
     video_id: String,
     title: String,
     artist: String,
+    /// Set for a "Save for offline" job: extra metadata the SPA (or the native now-playing
+    /// snapshot) already knows, so the finished entry can be grouped by album/artist with
+    /// artwork. `None` for a plain Download — same pipeline, nothing extra to attach.
+    extras: Option<SaveMeta>,
+    /// True for a tray/right-click save, which has no in-page UI to report back to — so process()
+    /// shows OS notifications for it. A plain Download and an SPA-triggered save show none; the
+    /// SPA already renders its own toasts off `sk-dl-done` / `sk-dl-error`.
+    native_notices: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -186,7 +201,7 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
                 return;
             }
             if let Some(q) = QUEUE.get() {
-                let _ = q.send(Job { video_id: r.video_id, title: r.title, artist: r.artist });
+                let _ = q.send(Job { video_id: r.video_id, title: r.title, artist: r.artist, extras: None, native_notices: false });
             }
         }
     });
@@ -198,30 +213,31 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
     });
     let h = app.clone();
     app.listen("sk-dl-list-request", move |_| emit_list(&h));
+    // The SPA's ⋮ "Save for offline" (it toasts on its own, so no native notifications).
+    let h = app.clone();
+    app.listen("sk-offline-save", move |ev| {
+        if let Ok(meta) = serde_json::from_str::<SaveMeta>(ev.payload()) {
+            let h = h.clone();
+            // Off the event thread: the lookup below is network. The page normally sends everything;
+            // this fills any gap. Queuing (not a direct call) is what gives every save the same
+            // single-worker serialization as a plain Download.
+            tauri::async_runtime::spawn(async move {
+                let meta = if valid_id(&meta.video_id) && (meta.album_id.is_none() || meta.artist_photo_url.is_none()) {
+                    enrich_meta(meta).await
+                } else {
+                    meta
+                };
+                enqueue_save(&h, meta, false);
+            });
+        }
+    });
+    // Tray / right-click save on a site that doesn't offer __skSaveOfflineCurrent yet.
+    let h = app.clone();
+    app.listen("sk-offline-save-fallback", move |_| save_from_snapshot(&h));
     let h = app.clone();
     app.listen("sk-dl-reveal", move |ev| {
         if let Ok(r) = serde_json::from_str::<IdOnly>(ev.payload()) {
             reveal(&h, &r.video_id);
-        }
-    });
-
-    // Hidden extractor webview -> Rust
-    app.listen("sk-yt-extracted", move |ev| {
-        if let Ok(x) = serde_json::from_str::<Extracted>(ev.payload()) {
-            if let Some(tx) = pending().lock().unwrap().remove(&x.video_id) {
-                let _ = tx.send(Ok(x));
-            }
-        }
-    });
-    app.listen("sk-yt-extract-failed", move |ev| {
-        if let Ok(f) = serde_json::from_str::<ExtractFailed>(ev.payload()) {
-            if let Some(tx) = pending().lock().unwrap().remove(&f.video_id) {
-                let _ = tx.send(Err(if f.reason.is_empty() {
-                    "extraction failed".into()
-                } else {
-                    f.reason
-                }));
-            }
         }
     });
 
@@ -234,60 +250,42 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
 
 async fn process(app: &AppHandle, job: Job) {
     let id = job.video_id.clone();
+    let native_notices = job.native_notices;
+    let name = if job.title.is_empty() { "This song".to_string() } else { job.title.clone() };
 
-    // Already have it: just re-affirm to the SPA.
+    // Already have it: just re-affirm to the SPA (and the tray, if this was a save).
     if load_index(app).contains_key(&id) {
+        if native_notices {
+            notify(app, "Already saved for offline", &name);
+        }
         emit_done(app, &id);
         emit_list(app);
         return;
     }
+    if native_notices {
+        notify(app, "Saving for offline…", &name);
+    }
 
     emit_progress(app, &id, "extracting", 0, None);
 
-    let (tx, rx) = oneshot::channel();
-    pending().lock().unwrap().insert(id.clone(), tx);
-    open_extractor(app, &id);
-
-    // The hidden extractor loads youtube.com/watch and tries three ways to find an audio
-    // URL: the embedded player response, a sniffed googlevideo request from the hidden
-    // player, and the InnerTube API. All three need YouTube itself to be reachable, and
-    // for a large share of this audience it isn't: a kosher filter blocks youtube.com and
-    // googlevideo.com outright, the extractor gets a block page, and every strategy comes
-    // up empty — that is the "no audio format found" report.
-    //
-    // The web app already handles exactly this case by streaming and downloading through
-    // the streaming proxy (see RELAY_BASE in assets/ui.html). This
-    // gives the desktop downloader the same fallback: when YouTube extraction fails for
-    // ANY reason — filter block, timeout, or a YouTube-side change that breaks the
-    // scraper — try the relay before giving up. Everything downstream (ranged download,
-    // index entry, done event) is unchanged: the relay simply yields an `Extracted`.
-    let extracted = match tokio::time::timeout(EXTRACT_TIMEOUT, rx).await {
-        Ok(Ok(Ok(x))) => {
-            park_extractor(app);
-            x
-        }
-        Ok(Ok(Err(reason))) => {
-            pending().lock().unwrap().remove(&id);
-            park_extractor(app);
-            match relay_extract(app, &id, &job).await {
-                Some(x) => x,
-                None => {
-                    emit_error(app, &id, &format!("could not read the audio stream: {reason}"));
-                    return;
-                }
+    // native_extract() is a plain Innertube network call — no window opens. It fails whenever
+    // YouTube itself isn't reachable (a kosher filter blocking youtube.com/googlevideo.com
+    // outright is the common case for this audience) or YouTube changes something rustypipe
+    // hasn't caught up with yet. Either way, fall back to the same streaming relay the web app
+    // already uses when a filter blocks YouTube (see RELAY_BASE in assets/ui.html) before giving
+    // up. Everything downstream (ranged download, index entry, done event) is unchanged: the
+    // relay simply yields an `Extracted` too.
+    let extracted = match native_extract(&id).await {
+        Ok(x) => x,
+        Err(reason) => match relay_extract(app, &id, &job).await {
+            Some(x) => x,
+            None => {
+                let msg = format!("could not read the audio stream: {reason}");
+                emit_error(app, &id, &msg);
+                if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: {msg}")); }
+                return;
             }
-        }
-        _ => {
-            pending().lock().unwrap().remove(&id);
-            park_extractor(app);
-            match relay_extract(app, &id, &job).await {
-                Some(x) => x,
-                None => {
-                    emit_error(app, &id, "timed out reading the audio stream");
-                    return;
-                }
-            }
-        }
+        },
     };
 
     let ext = ext_for(&extracted.mime, extracted.itag);
@@ -298,7 +296,9 @@ async fn process(app: &AppHandle, job: Job) {
     };
     let dir = downloads_dir(app);
     if let Err(e) = fs::create_dir_all(&dir) {
-        emit_error(app, &id, &format!("cannot create downloads folder: {e}"));
+        let msg = format!("cannot create downloads folder: {e}");
+        emit_error(app, &id, &msg);
+        if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: {msg}")); }
         return;
     }
     let part = dir.join(format!("{id}.{ext}.part"));
@@ -310,27 +310,45 @@ async fn process(app: &AppHandle, job: Job) {
         Ok(n) => n,
         Err(e) => {
             let _ = fs::remove_file(&part);
-            emit_error(app, &id, &format!("download failed: {e}"));
+            let msg = format!("download failed: {e}");
+            emit_error(app, &id, &msg);
+            if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: {msg}")); }
             return;
         }
     };
     if written == 0 {
         let _ = fs::remove_file(&part);
         emit_error(app, &id, "download produced an empty file");
+        if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: download produced an empty file")); }
         return;
     }
     if let Err(e) = fs::rename(&part, &final_path) {
         let _ = fs::remove_file(&part);
-        emit_error(app, &id, &format!("could not finalize file: {e}"));
+        let msg = format!("could not finalize file: {e}");
+        emit_error(app, &id, &msg);
+        if native_notices { notify(app, "Couldn't save for offline", &format!("{name}: {msg}")); }
         return;
     }
 
     let title = pick(&job.title, &extracted.title, &id);
     let artist = pick(&job.artist, &extracted.author, "");
-    let entry = Entry { video_id: id.clone(), title, artist, ext, mime, bytes: written, added: now_ms() };
+    let mut entry = Entry { video_id: id.clone(), title, artist, ext, mime, bytes: written, added: now_ms(), ..Default::default() };
+    if let Some(meta) = &job.extras {
+        entry.duration_sec = meta.duration_sec.as_ref().and_then(json_u64);
+        entry.album_id = meta.album_id.clone().filter(|s| !s.is_empty());
+        entry.album = meta.album.clone().filter(|s| !s.is_empty());
+        entry.album_year = meta.album_year.as_ref().and_then(json_u64).and_then(|y| u32::try_from(y).ok());
+        entry.cover = cover_name(meta);
+        entry.album_cover = album_cover_name(meta);
+        entry.artist_photo = artist_photo_name(meta);
+        spawn_art_fetch(app, meta);
+    }
     upsert_index(app, entry);
     emit_done(app, &id);
     emit_list(app);
+    if native_notices {
+        notify(app, "Saved for offline", &name);
+    }
 }
 
 /// Download `url` to `path` using a pool of concurrent ranged requests. Returns bytes written.
@@ -552,6 +570,18 @@ fn delete(app: &AppHandle, id: &str) {
     emit_list(app);
 }
 
+/// "Remove from offline" in the offline player (a local page, so it may invoke commands). Same
+/// removal as the full app's delete: the audio file and its index entry. Artwork is left alone because
+/// album covers and artist photos are shared by other songs.
+#[tauri::command]
+pub fn offline_remove(app: AppHandle, video_id: String) -> Result<(), String> {
+    if !valid_id(&video_id) {
+        return Err("invalid video id".into());
+    }
+    delete(&app, &video_id);
+    Ok(())
+}
+
 /// Open the OS file manager on a finished download, with the file selected.
 ///
 /// The page sends only the videoId — never a path. A path arriving from the main window would be a
@@ -580,44 +610,31 @@ fn reveal(app: &AppHandle, id: &str) {
 }
 
 // ---------------------------------------------------------------------------
-// Hidden extractor webview
+// Native YouTube extraction (no browser window — see the module doc comment)
 // ---------------------------------------------------------------------------
 
-/// Create (or reuse + re-navigate) the hidden youtube.com extractor webview for `id`.
-fn open_extractor(app: &AppHandle, id: &str) {
-    let target = format!("https://www.youtube.com/watch?v={id}");
-    let app = app.clone();
-    let _ = app.clone().run_on_main_thread(move || {
-        let url = match Url::parse(&target) {
-            Ok(u) => u,
-            Err(_) => return,
-        };
-        if let Some(win) = app.get_webview_window(EXTRACTOR_LABEL) {
-            let _ = win.navigate(url);
-        } else {
-            let _ = WebviewWindowBuilder::new(&app, EXTRACTOR_LABEL, WebviewUrl::External(url))
-                .title("SK Music helper")
-                .visible(false)
-                .focused(false)
-                .skip_taskbar(true)
-                .inner_size(400.0, 300.0)
-                .initialization_script(EXTRACTOR_JS)
-                .build();
-        }
-    });
-}
-
-/// Send the extractor to about:blank between jobs so the youtube player stops
-/// buffering/using the network while a download runs (and while idle).
-fn park_extractor(app: &AppHandle) {
-    let app = app.clone();
-    let _ = app.clone().run_on_main_thread(move || {
-        if let Some(win) = app.get_webview_window(EXTRACTOR_LABEL) {
-            if let Ok(url) = Url::parse("about:blank") {
-                let _ = win.navigate(url);
-            }
-        }
-    });
+/// Resolve `id` to a deciphered, downloadable audio stream URL via rustypipe's Innertube client.
+/// A plain async network call: nothing opens a window, visible or hidden. Errors (video blocked
+/// in-region, DRM, no audio format, the Innertube call itself failing) all fall through to
+/// `relay_extract()` in `process()` — this function only needs to say what went wrong, not
+/// distinguish why, since the caller treats every failure the same way.
+async fn native_extract(id: &str) -> Result<Extracted, String> {
+    let player = rp()
+        .query()
+        .player(id)
+        .await
+        .map_err(|e| format!("youtube lookup failed: {e}"))?;
+    let stream = player
+        .select_audio_stream(&StreamFilter::default())
+        .ok_or_else(|| "no audio format found".to_string())?;
+    Ok(Extracted {
+        url: stream.url.clone(),
+        mime: stream.mime.clone(),
+        itag: stream.itag,
+        content_length: Some(stream.size).filter(|&n| n > 0),
+        title: player.details.name.clone().unwrap_or_default(),
+        author: player.details.channel_name.clone().unwrap_or_default(),
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -627,6 +644,9 @@ fn park_extractor(app: &AppHandle) {
 /// Handler for `skdl://localhost/<videoId>` (Windows: `http://skdl.localhost/<videoId>`).
 /// Supports HTTP Range so the html5 scrubber can seek.
 pub fn serve_protocol(app: &AppHandle, req: &Request<Vec<u8>>) -> Response<Vec<u8>> {
+    if let Some(name) = req.uri().path().strip_prefix("/art/") {
+        return serve_art(app, name);
+    }
     let id = req.uri().path().trim_start_matches('/');
     let id = id.split('.').next().unwrap_or(id); // tolerate a trailing extension
     if !valid_id(id) {
@@ -672,6 +692,26 @@ pub fn serve_protocol(app: &AppHandle, req: &Request<Vec<u8>>) -> Response<Vec<u
         );
     }
     builder.body(buf).unwrap_or_else(|_| simple(StatusCode::INTERNAL_SERVER_ERROR))
+}
+
+/// Saved artwork (cover / album cover / artist photo) for the offline player.
+fn serve_art(app: &AppHandle, name: &str) -> Response<Vec<u8>> {
+    if !valid_art_name(name) {
+        return simple(StatusCode::BAD_REQUEST);
+    }
+    let Ok(bytes) = fs::read(downloads_dir(app).join("art").join(name)) else {
+        return simple(StatusCode::NOT_FOUND);
+    };
+    let Some(mime) = image_mime(&bytes) else {
+        return simple(StatusCode::NOT_FOUND);
+    };
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, mime)
+        .header(header::CACHE_CONTROL, "no-store")
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .body(bytes)
+        .unwrap_or_else(|_| simple(StatusCode::INTERNAL_SERVER_ERROR))
 }
 
 fn parse_range(spec: &str, len: u64) -> Option<(u64, u64)> {
@@ -737,13 +777,342 @@ fn emit_done(app: &AppHandle, id: &str) {
 }
 
 fn emit_list(app: &AppHandle) {
+    let _ = app.emit("sk-dl-list", serde_json::json!({ "items": library_items(app) }));
+}
+
+/// The whole library as SPA-ready items, newest first.
+fn library_items(app: &AppHandle) -> Vec<serde_json::Value> {
     let mut items: Vec<_> = load_index(app).values().map(to_item).collect();
-    // Newest first.
     items.sort_by(|a, b| {
         b.get("added").and_then(|v| v.as_u64()).unwrap_or(0)
             .cmp(&a.get("added").and_then(|v| v.as_u64()).unwrap_or(0))
     });
-    let _ = app.emit("sk-dl-list", serde_json::json!({ "items": items }));
+    items
+}
+
+/// The library for the bundled offline player (`frontend/offline.html`). A local page can invoke app
+/// commands, unlike the remote SPA, which has to go through the `sk-dl-list-request` event. Entries
+/// whose audio file has gone missing are left out so the player never lists an unplayable song.
+#[tauri::command]
+pub fn offline_library(app: AppHandle) -> Vec<serde_json::Value> {
+    let dir = downloads_dir(&app);
+    let art = dir.join("art");
+    let art_src = |name: &Option<String>| {
+        name.as_ref().filter(|n| valid_art_name(n) && art.join(n.as_str()).is_file()).map(|n| art_url(n))
+    };
+    let mut entries: Vec<Entry> = load_index(&app)
+        .into_values()
+        .filter(|e| dir.join(format!("{}.{}", e.video_id, e.ext)).is_file())
+        .collect();
+    entries.sort_by(|a, b| b.added.cmp(&a.added)); // newest first
+    entries
+        .iter()
+        .map(|e| {
+            let mut it = to_item(e);
+            if let Some(o) = it.as_object_mut() {
+                o.insert("durationSec".into(), serde_json::json!(e.duration_sec));
+                o.insert("albumId".into(), serde_json::json!(e.album_id));
+                o.insert("album".into(), serde_json::json!(e.album));
+                o.insert("albumYear".into(), serde_json::json!(e.album_year));
+                o.insert("coverSrc".into(), serde_json::json!(art_src(&e.cover)));
+                o.insert("albumCoverSrc".into(), serde_json::json!(art_src(&e.album_cover)));
+                o.insert("artistPhotoSrc".into(), serde_json::json!(art_src(&e.artist_photo)));
+            }
+            it
+        })
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
+// "Save for offline" — queues onto the SAME pipeline as a plain Download
+// ---------------------------------------------------------------------------
+//
+// A save is a download with extra metadata attached: the audio comes from the same native-extraction-
+// first, relay-as-last-resort pipeline `process()` already uses, through the same single-worker queue
+// (so a save can never collide with a Download's temp file, and only one of either ever runs at a
+// time). `enqueue_save()` builds a `Job` with `extras: Some(meta)` and sends it; `process()` reads
+// `job.extras` once the song has landed to fill in album/artwork and to kick off `spawn_art_fetch()`.
+// Everything downstream — the library index, `sk-dl-done`, the offline player — is the same as Download.
+
+/// Images are small; anything bigger than this isn't the thumbnail we asked for.
+const MAX_IMAGE_BYTES: usize = 3 << 20;
+
+/// Everything the page knows about a song when it asks to save it. Only `video_id` is required; the
+/// rest makes the offline player look like the site (artist/album grouping, artwork, durations).
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SaveMeta {
+    video_id: String,
+    title: String,
+    artist: String,
+    duration_sec: Option<serde_json::Value>,
+    album_id: Option<String>,
+    album: Option<String>,
+    album_year: Option<serde_json::Value>,
+    cover_url: Option<String>,
+    album_cover_url: Option<String>,
+    artist_photo_url: Option<String>,
+}
+
+/// Tray / right-click "Save for offline": let the page do it when it can — it knows the album and
+/// the artist's photo — and fall back to what the native now-playing snapshot carries. The page
+/// answers by calling `__skSaveOfflineCurrent` (newer site) or emitting `sk-offline-save-fallback`.
+pub fn save_current_offline(app: &AppHandle) {
+    let Some(win) = app.get_webview_window("main") else { return };
+    let on_site = win
+        .url()
+        .ok()
+        .and_then(|u| u.host_str().map(|h| h.ends_with("skmusic.shalomkarr.com") || h.ends_with("skmusic.shalomkarr.workers.dev")))
+        .unwrap_or(false);
+    if !on_site {
+        notify(app, "You're offline", "Connect to the internet to save songs for offline.");
+        return;
+    }
+    let _ = win.eval(
+        "(function(){try{if(typeof window.__skSaveOfflineCurrent==='function'){window.__skSaveOfflineCurrent();return;}}catch(e){}\
+         try{window.__TAURI__.event.emit('sk-offline-save-fallback',{});}catch(e){}})();",
+    );
+}
+
+/// The page couldn't (older site): save from the native now-playing snapshot instead.
+fn save_from_snapshot(app: &AppHandle) {
+    let np = crate::media::snapshot_value();
+    let field = |k: &str| np.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let id = field("videoId");
+    if id.is_empty() {
+        notify(app, "Nothing to save", "Play a song first, then choose Save for offline.");
+        return;
+    }
+    let art = field("artUrl");
+    let meta = SaveMeta {
+        video_id: id.clone(),
+        title: field("title"),
+        artist: field("artist"),
+        duration_sec: np.get("durationMs").and_then(|v| v.as_u64()).map(|ms| serde_json::json!(ms / 1000)),
+        // The snapshot's art is whatever the media overlay uses; the YouTube thumbnail is the same cover
+        // the site shows, so prefer it when the id is well-formed.
+        cover_url: if valid_id(&id) { Some(format!("https://i.ytimg.com/vi/{id}/hqdefault.jpg")) } else if art.is_empty() { None } else { Some(art) },
+        ..Default::default()
+    };
+    let h = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let meta = enrich_meta(meta).await; // artist photo, looked up natively
+        enqueue_save(&h, meta, true);
+    });
+}
+
+const SITE: &str = "https://skmusic.shalomkarr.com";
+/// Artist name (lowercase) -> photo URL, fetched once per run from the site's /artists list.
+static ARTIST_THUMBS: OnceLock<Mutex<Option<HashMap<String, String>>>> = OnceLock::new();
+
+/// Same rewrite the site's sizedArt() does: Google image CDN URLs take a size after the last "=", and
+/// the corpus ships banner-sized originals. Other hosts pass through untouched.
+fn sized_art(src: &str, px: u32) -> String {
+    let ok = Url::parse(src)
+        .map(|u| {
+            let h = u.host_str().unwrap_or("");
+            u.scheme() == "https"
+                && u.query().is_none()
+                && (h.starts_with("yt3.") || h.starts_with("lh"))
+                && (h.ends_with(".googleusercontent.com") || h.ends_with(".ggpht.com"))
+        })
+        .unwrap_or(false);
+    if !ok {
+        return src.to_string();
+    }
+    let base = match src.rfind('=') {
+        Some(c) if c > src.rfind('/').unwrap_or(0) => &src[..c],
+        _ => src,
+    };
+    format!("{base}=s{px}-c-k-c0x00ffffff-no-rj")
+}
+
+async fn site_json(client: &reqwest::Client, path_and_query: &str) -> Option<serde_json::Value> {
+    let resp = client.get(format!("{SITE}{path_and_query}")).send().await.ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    serde_json::from_str(&resp.text().await.ok()?).ok()
+}
+
+/// Fill in what the page didn't send — the artist's photo — from the site's static `/data/artists.json`
+/// (the same file the web app's own artist-photo lookups use; it's a real deployed asset, unlike
+/// `/track` and `/album`, which only exist as routes inside the client-side search engine and 404 to
+/// the app shell on a direct server request). Best effort: any failure leaves the field empty and the
+/// song still saves, just with a placeholder in that spot.
+///
+/// There's no server-side way to resolve a bare videoId to its album (that needs the full corpus, which
+/// only the browser's search engine holds) — so album fields stay whatever the page already sent, and a
+/// save with no album context just doesn't get album grouping in the offline player.
+async fn enrich_meta(mut meta: SaveMeta) -> SaveMeta {
+    let Ok(client) = reqwest::Client::builder().timeout(Duration::from_secs(8)).user_agent(UA).build() else {
+        return meta;
+    };
+    if meta.artist_photo_url.is_none() && !meta.artist.trim().is_empty() {
+        let cached = ARTIST_THUMBS.get_or_init(|| Mutex::new(None)).lock().unwrap().clone();
+        let map = match cached {
+            Some(m) => m,
+            None => {
+                let mut m = HashMap::new();
+                if let Some(list) = site_json(&client, "/data/artists.json").await {
+                    for a in list.get("artists").and_then(|v| v.as_array()).into_iter().flatten() {
+                        if let (Some(n), Some(t)) = (a.get("name").and_then(|v| v.as_str()), a.get("thumbnail").and_then(|v| v.as_str())) {
+                            m.insert(n.to_lowercase(), sized_art(t, 480));
+                        }
+                    }
+                }
+                if !m.is_empty() {
+                    *ARTIST_THUMBS.get_or_init(|| Mutex::new(None)).lock().unwrap() = Some(m.clone());
+                }
+                m
+            }
+        };
+        meta.artist_photo_url = map.get(&meta.artist.trim().to_lowercase()).cloned();
+    }
+    meta
+}
+
+/// `native_notices`: true from the tray / right-click menu (no in-page UI to report back), false from
+/// the SPA, which shows its own toasts off `sk-dl-done` / `sk-dl-error`.
+fn enqueue_save(app: &AppHandle, meta: SaveMeta, native_notices: bool) {
+    let id = meta.video_id.clone();
+    if !valid_id(&id) {
+        if native_notices {
+            notify(app, "Can't save this one", "Only songs can be saved for offline, not shiurim or podcasts.");
+        }
+        return;
+    }
+    let job = Job {
+        video_id: id,
+        title: meta.title.clone(),
+        artist: meta.artist.clone(),
+        extras: Some(meta),
+        native_notices,
+    };
+    if let Some(q) = QUEUE.get() {
+        let _ = q.send(job);
+    }
+}
+
+/// Fetch a save's artwork (cover / album cover / artist photo) with `reqwest`, in the background — the
+/// song is already indexed and playable by the time this runs, so it can only add artwork, never hold
+/// up the next queued job. Only fetches what isn't already on disk (album covers and artist photos are
+/// shared across songs); a failure here just leaves that spot as a placeholder.
+fn spawn_art_fetch(app: &AppHandle, meta: &SaveMeta) {
+    let art_dir = downloads_dir(app).join("art");
+    let images: Vec<(String, String)> = art_plan(meta)
+        .into_iter()
+        .filter(|(file, _)| !art_dir.join(file).is_file())
+        .collect();
+    if images.is_empty() {
+        return;
+    }
+    let h = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let dir = downloads_dir(&h).join("art");
+        let _ = fs::create_dir_all(&dir);
+        let Ok(client) = reqwest::Client::builder().timeout(Duration::from_secs(15)).user_agent(UA).build() else {
+            return;
+        };
+        for (name, url) in images {
+            if dir.join(&name).is_file() {
+                continue;
+            }
+            if let Ok(resp) = client.get(&url).send().await {
+                if resp.status().is_success() {
+                    if let Ok(bytes) = resp.bytes().await {
+                        let _ = store_art(&h, &name, &bytes);
+                    }
+                }
+            }
+        }
+    });
+}
+
+/// Which images a song wants, as (file under downloads/art, url). Album covers and artist photos get
+/// shared names, so the second song from the same album/artist reuses the first one's file.
+fn art_plan(meta: &SaveMeta) -> Vec<(String, String)> {
+    [
+        (cover_name(meta), meta.cover_url.as_deref()),
+        (album_cover_name(meta), meta.album_cover_url.as_deref()),
+        (artist_photo_name(meta), meta.artist_photo_url.as_deref()),
+    ]
+    .into_iter()
+    .filter_map(|(name, url)| match (name, url) {
+        (Some(n), Some(u)) if image_url_ok(u) => Some((n, u.to_string())),
+        _ => None,
+    })
+    .collect()
+}
+fn cover_name(meta: &SaveMeta) -> Option<String> {
+    meta.cover_url.as_ref().map(|_| format!("{}.img", meta.video_id))
+}
+fn album_cover_name(meta: &SaveMeta) -> Option<String> {
+    let id = meta.album_id.as_deref().filter(|s| !s.is_empty())?;
+    meta.album_cover_url.as_ref().map(|_| format!("al-{}.img", art_key(id)))
+}
+fn artist_photo_name(meta: &SaveMeta) -> Option<String> {
+    let a = meta.artist.trim();
+    if a.is_empty() { return None; }
+    meta.artist_photo_url.as_ref().map(|_| format!("ar-{}.img", art_key(&a.to_lowercase())))
+}
+
+/// The page passes these URLs, so only fetch from the image CDNs the site itself uses, over https.
+fn image_url_ok(u: &str) -> bool {
+    let Ok(url) = Url::parse(u) else { return false };
+    let host = url.host_str().unwrap_or("");
+    url.scheme() == "https"
+        && (host.ends_with(".ytimg.com") || host.ends_with(".ggpht.com") || host.ends_with(".googleusercontent.com"))
+}
+
+/// Stable, filename-safe key (FNV-1a) — album ids and artist names can hold any character.
+fn art_key(s: &str) -> String {
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in s.as_bytes() {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    format!("{h:016x}")
+}
+
+fn valid_art_name(name: &str) -> bool {
+    name.len() <= 80
+        && name.ends_with(".img")
+        && name.trim_end_matches(".img").bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+}
+
+/// Content-Type from the first bytes; also our "is this really an image" check.
+fn image_mime(head: &[u8]) -> Option<&'static str> {
+    if head.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        Some("image/jpeg")
+    } else if head.starts_with(b"\x89PNG") {
+        Some("image/png")
+    } else if head.len() >= 12 && &head[0..4] == b"RIFF" && &head[8..12] == b"WEBP" {
+        Some("image/webp")
+    } else {
+        None
+    }
+}
+
+fn store_art(app: &AppHandle, name: &str, bytes: &[u8]) -> bool {
+    if !valid_art_name(name) || bytes.len() > MAX_IMAGE_BYTES || image_mime(bytes).is_none() {
+        return false;
+    }
+    let dir = downloads_dir(app).join("art");
+    let _ = fs::create_dir_all(&dir);
+    fs::write(dir.join(name), bytes).is_ok()
+}
+
+/// A number the page may send as a number or a numeric string ("2019").
+fn json_u64(v: &serde_json::Value) -> Option<u64> {
+    v.as_u64()
+        .or_else(|| v.as_f64().filter(|f| *f >= 0.0).map(|f| f.round() as u64))
+        .or_else(|| v.as_str().and_then(|s| s.trim().parse().ok()))
+}
+
+fn notify(app: &AppHandle, title: &str, body: &str) {
+    use tauri_plugin_notification::NotificationExt;
+    let _ = app.notification().builder().title(title).body(body).show();
 }
 
 /// An index entry as sent to the SPA, with a ready-to-use `src` for the audio element.
@@ -762,6 +1131,10 @@ fn to_item(entry: &Entry) -> serde_json::Value {
 
 /// Platform-correct URL for the skdl:// scheme. Tauri serves custom schemes at
 /// `http://<scheme>.localhost/...` on Windows and `<scheme>://localhost/...` elsewhere.
+fn art_url(name: &str) -> String {
+    format!("{}/art/{name}", src_url("").trim_end_matches('/'))
+}
+
 fn src_url(id: &str) -> String {
     #[cfg(windows)]
     {
@@ -863,7 +1236,6 @@ async fn relay_extract(app: &AppHandle, id: &str, job: &Job) -> Option<Extracted
     drop(resp);
 
     Some(Extracted {
-        video_id: id.to_string(),
         url,
         mime,
         itag: 0,
@@ -915,186 +1287,41 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-// ---------------------------------------------------------------------------
-// Extractor init script (runs in the MAIN world on youtube.com)
-// ---------------------------------------------------------------------------
+// Manual network checks for native_extract() — not run by default (#[ignore]), since they hit
+// real YouTube and shouldn't be part of a normal `cargo test` / CI run. Exist so "does extraction
+// still work" is a one-line check instead of launching the app and watching a real download.
+//   cargo test --release native_extract_reliability -- --ignored --nocapture
+#[cfg(test)]
+mod reliability_check {
+    use super::native_extract;
 
-/// Injected into the hidden youtube.com webview. Reads the player response, picks
-/// the best audio-only format, deciphers signatures eval-free (YouTube's CSP forbids
-/// eval), monkeypatches fetch/XHR to prefer the player's own valid-`n` stream URL,
-/// and hands the result back over `core:event`. Adapted (audio-only) from the SK
-/// Video Downloader content script.
-const EXTRACTOR_JS: &str = r#"
-(function () {
-  "use strict";
-  var VID = null;
-  try { VID = new URLSearchParams(location.search).get("v"); } catch (e) {}
-  if (!VID || !/^[\w-]{11}$/.test(VID)) return;
-  if (window.__skDlDone === VID) return;
-
-  var AUDIO_ITAGS = { 139:1,140:1,141:1,149:1,150:1,256:1,258:1,327:1,328:1,251:1,250:1,249:1 };
-  var captured = null;
-  function scoreCap(itag, mime) {
-    if (itag === 140 || /audio\/mp4/.test(mime)) return 3;
-    if (AUDIO_ITAGS[itag] || /audio/.test(mime)) return 2;
-    return 0;
-  }
-  function noteUrl(u) {
-    try {
-      if (!u || u.indexOf("googlevideo.com/videoplayback") < 0) return;
-      var url = new URL(u, location.href);
-      var itag = parseInt(url.searchParams.get("itag"), 10);
-      var mime = url.searchParams.get("mime") || "";
-      var s = scoreCap(itag, mime);
-      if (!s) return;
-      ["range","rn","rbuf","ump","srfvp","sq","alr"].forEach(function (p) { url.searchParams.delete(p); });
-      var clen = parseInt(url.searchParams.get("clen"), 10) || null;
-      if (!captured || s > captured.pri) {
-        captured = { url: url.toString(), itag: itag, mime: (mime || (s === 3 ? "audio/mp4" : "audio/webm")).split(";")[0], clen: clen, pri: s };
-      }
-    } catch (e) {}
-  }
-  try {
-    var of = window.fetch;
-    if (of) window.fetch = function (a) { try { noteUrl(typeof a === "string" ? a : (a && a.url) || ""); } catch (e) {} return of.apply(this, arguments); };
-  } catch (e) {}
-  try {
-    var ox = XMLHttpRequest.prototype.open;
-    XMLHttpRequest.prototype.open = function (m, u) { try { noteUrl(u); } catch (e) {} return ox.apply(this, arguments); };
-  } catch (e) {}
-
-  var cipherCache = null;
-  function getBaseJs() {
-    var path = null;
-    try { if (window.ytcfg && ytcfg.get) path = ytcfg.get("PLAYER_JS_URL"); } catch (e) {}
-    if (!path) { var m = document.documentElement.innerHTML.match(/"(\/s\/player\/[^"]+base\.js)"/); if (m) path = m[1]; }
-    if (!path) return Promise.resolve(null);
-    var url = path.indexOf("http") === 0 ? path : "https://www.youtube.com" + path;
-    return fetch(url).then(function (r) { return r.ok ? r.text() : null; }).catch(function () { return null; });
-  }
-  var DEC_RE = [
-    /\b([a-zA-Z0-9$]{2,})\s*=\s*function\(\s*([a-zA-Z0-9$]+)\s*\)\s*\{\s*\2\s*=\s*\2\.split\(\s*""\s*\)\s*;[\s\S]+?return\s+\2\.join\(\s*""\s*\)\s*\}/,
-    /(?:\b|[^a-zA-Z0-9$])([a-zA-Z0-9$]{2,})\s*=\s*function\(\s*a\s*\)\s*\{\s*a\s*=\s*a\.split\(\s*""\s*\)[\s\S]+?return a\.join\(\s*""\s*\)\s*\}/
-  ];
-  function buildCipher(body) {
-    var name = null;
-    for (var i = 0; i < DEC_RE.length; i++) { var m = body.match(DEC_RE[i]); if (m) { name = m[1]; break; } }
-    if (!name) return null;
-    var esc = name.replace(/[$]/g, "\\$&");
-    var fnMatch = body.match(new RegExp(esc + "=function\\(\\s*[a-zA-Z0-9$]+\\s*\\)\\{([\\s\\S]+?)\\}"));
-    if (!fnMatch) return null;
-    var fnBody = fnMatch[1];
-    var objMatch = fnBody.match(/;\s*([a-zA-Z0-9$]+)\./);
-    if (!objMatch) return null;
-    var objEsc = objMatch[1].replace(/[$]/g, "\\$&");
-    var objBody = (body.match(new RegExp("var " + objEsc + "=\\{([\\s\\S]+?)\\};")) || [])[1];
-    if (!objBody) return null;
-    var ops = {};
-    objBody.split(/,\s*(?=[a-zA-Z0-9$]+:function)/).forEach(function (part) {
-      var nm = (part.match(/^([a-zA-Z0-9$]+):/) || [])[1];
-      if (!nm) return;
-      if (/reverse\(\)/.test(part)) ops[nm] = { t: "reverse" };
-      else if (/splice\(/.test(part)) ops[nm] = { t: "splice" };
-      else if (/var\s+c=/.test(part) || /\[0\]/.test(part)) ops[nm] = { t: "swap" };
-    });
-    var seq = [], callRe = new RegExp(objEsc + "\\.([a-zA-Z0-9$]+)\\([a-zA-Z0-9$]+,(\\d+)\\)", "g"), c;
-    while ((c = callRe.exec(fnBody))) { var op = ops[c[1]]; if (op) seq.push({ t: op.t, n: parseInt(c[2], 10) }); }
-    if (!seq.length) return null;
-    return function (sig) {
-      var arr = sig.split("");
-      for (var k = 0; k < seq.length; k++) {
-        var st = seq[k];
-        if (st.t === "reverse") arr.reverse();
-        else if (st.t === "splice") arr.splice(0, st.n);
-        else if (st.t === "swap") { var tmp = arr[0]; arr[0] = arr[st.n % arr.length]; arr[st.n % arr.length] = tmp; }
-      }
-      return arr.join("");
-    };
-  }
-  function getCipher() {
-    if (cipherCache !== null) return Promise.resolve(cipherCache);
-    return getBaseJs().then(function (body) { cipherCache = body ? buildCipher(body) : null; return cipherCache; }).catch(function () { cipherCache = null; return null; });
-  }
-  function resolveUrl(fmt) {
-    if (fmt.url) return Promise.resolve(fmt.url);
-    var cipher = fmt.signatureCipher || fmt.cipher;
-    if (!cipher) return Promise.resolve(null);
-    var params = new URLSearchParams(cipher);
-    var url = params.get("url"), s = params.get("s"), sp = params.get("sp") || "signature";
-    if (!url) return Promise.resolve(null);
-    if (!s) return Promise.resolve(url);
-    return getCipher().then(function (c) { return c ? url + "&" + sp + "=" + encodeURIComponent(c(s)) : null; });
-  }
-
-  function grabPlayerResponse() {
-    try { if (window.ytInitialPlayerResponse && window.ytInitialPlayerResponse.streamingData) return window.ytInitialPlayerResponse; } catch (e) {}
-    try {
-      var args = window.ytplayer && window.ytplayer.config && window.ytplayer.config.args;
-      if (args) {
-        if (args.raw_player_response && args.raw_player_response.streamingData) return args.raw_player_response;
-        if (typeof args.player_response === "string") { var p = JSON.parse(args.player_response); if (p && p.streamingData) return p; }
-      }
-    } catch (e) {}
-    return null;
-  }
-  function ytCfg(key, fb) { try { if (window.ytcfg && ytcfg.get) { var v = ytcfg.get(key); if (v) return v; } } catch (e) {} return fb; }
-  function fetchInnertube(id) {
-    var key = ytCfg("INNERTUBE_API_KEY", "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8");
-    var cv = ytCfg("INNERTUBE_CLIENT_VERSION", "2.20240401.00.00");
-    return fetch("/youtubei/v1/player?key=" + encodeURIComponent(key) + "&prettyPrint=false", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ videoId: id, context: { client: { clientName: "WEB", clientVersion: cv, hl: "en" } }, contentCheckOk: true, racyCheckOk: true })
-    }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { return j && j.streamingData ? j : null; }).catch(function () { return null; });
-  }
-
-  function pickAudio(pr) {
-    var af = (pr.streamingData && pr.streamingData.adaptiveFormats) || [];
-    var audios = af.filter(function (f) { return /audio/i.test(f.mimeType || ""); });
-    audios.sort(function (a, b) {
-      var am = /audio\/mp4/i.test(a.mimeType || "") ? 1 : 0, bm = /audio\/mp4/i.test(b.mimeType || "") ? 1 : 0;
-      if (am !== bm) return bm - am;
-      return (b.bitrate || 0) - (a.bitrate || 0);
-    });
-    if (audios.length) return audios[0];
-    var prog = (pr.streamingData && pr.streamingData.formats) || [];
-    var m18 = prog.filter(function (f) { return f.itag === 18; });
-    return m18.length ? m18[0] : null;
-  }
-  function mimeOf(f) { return ((f.mimeType || "").split(";")[0]) || "audio/mp4"; }
-
-  function emitResult(url, mime, itag, clen, meta) {
-    window.__skDlDone = VID;
-    try { window.__TAURI__.event.emit("sk-yt-extracted", { videoId: VID, url: url, mime: mime, itag: itag || 0, contentLength: clen || null, title: (meta && meta.title) || "", author: (meta && meta.author) || "" }); } catch (e) {}
-  }
-  function emitFail(reason) {
-    window.__skDlDone = VID;
-    try { window.__TAURI__.event.emit("sk-yt-extract-failed", { videoId: VID, reason: String(reason || "") }); } catch (e) {}
-  }
-
-  function run() {
-    try { var v = document.querySelector("video"); if (v) { v.muted = true; var pp = v.play && v.play(); if (pp && pp.catch) pp.catch(function () {}); } } catch (e) {}
-    var pr = grabPlayerResponse(), tries = 0;
-    (function poll() {
-      pr = pr || grabPlayerResponse();
-      if (!pr && tries++ < 12) { setTimeout(poll, 400); return; }
-      (pr ? Promise.resolve(pr) : fetchInnertube(VID)).then(function (resp) {
-        var meta = resp && resp.videoDetails ? { title: resp.videoDetails.title, author: resp.videoDetails.author } : {};
-        var fmt = resp ? pickAudio(resp) : null;
-        (fmt ? resolveUrl(fmt) : Promise.resolve(null)).then(function (prUrl) {
-          var waited = 0;
-          (function waitCap() {
-            if ((captured && captured.pri >= 3) || waited >= 4500) {
-              if (captured && (!prUrl || captured.pri >= 2)) return emitResult(captured.url, captured.mime, captured.itag, captured.clen, meta);
-              if (prUrl) return emitResult(prUrl, fmt ? mimeOf(fmt) : "audio/mp4", fmt ? fmt.itag : 0, (fmt && fmt.contentLength) ? parseInt(fmt.contentLength, 10) : null, meta);
-              if (captured) return emitResult(captured.url, captured.mime, captured.itag, captured.clen, meta);
-              return emitFail("no audio format found");
+    /// Resolves a handful of catalog-style ids and prints what came back — itag/mime/size/url
+    /// length are enough to tell a real signed stream from something broken.
+    #[tokio::test]
+    #[ignore]
+    async fn native_extract_reliability() {
+        let ids = ["aZNY-dObZOY", "bl89NV3UN64", "dQw4w9WgXcQ"];
+        for id in ids {
+            match native_extract(id).await {
+                Ok(x) => println!("OK {id}: itag={} mime={} len={:?} url_len={}", x.itag, x.mime, x.content_length, x.url.len()),
+                Err(e) => println!("FAIL {id}: {e}"),
             }
-            waited += 300; setTimeout(waitCap, 300);
-          })();
-        });
-      });
-    })();
-  }
-  run();
-})();
-"#;
+        }
+    }
+
+    /// Goes one step further: actually fetches a ranged chunk from the extracted URL, the same
+    /// way download_ranged() does, to rule out a well-formed but non-functional signature.
+    #[tokio::test]
+    #[ignore]
+    async fn native_extract_stream_is_fetchable() {
+        let x = native_extract("aZNY-dObZOY").await.expect("extract failed");
+        let client = reqwest::Client::builder().user_agent(super::UA).build().unwrap();
+        let resp = client.get(&x.url).header(reqwest::header::RANGE, "bytes=0-65535").send().await.expect("request failed");
+        let status = resp.status();
+        let ct = resp.headers().get(reqwest::header::CONTENT_TYPE).and_then(|v| v.to_str().ok()).unwrap_or("").to_string();
+        let bytes = resp.bytes().await.expect("body read failed");
+        println!("status={status} content-type={ct} bytes_received={}", bytes.len());
+        assert!(status.is_success() || status.as_u16() == 206, "unexpected status {status}");
+        assert!(bytes.len() > 1000, "suspiciously small body: {} bytes", bytes.len());
+    }
+}

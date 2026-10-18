@@ -78,6 +78,8 @@ fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     let next_i = MenuItem::with_id(app, "next", "Next", true, None::<&str>)?;
     let prev_i = MenuItem::with_id(app, "previous", "Previous", true, None::<&str>)?;
     let like_i = MenuItem::with_id(app, "like", "Like this song", true, None::<&str>)?;
+    // Desktop-only: keep the playing song in the app's own library for offline listening (download.rs).
+    let save_i = MenuItem::with_id(app, "save_offline", "Save for offline", true, None::<&str>)?;
     // Starts as the no-track label (nothing plays at launch); set_now_playing swaps it live.
     let radio_i = MenuItem::with_id(app, "radio", "Start radio", true, None::<&str>)?;
 
@@ -139,6 +141,7 @@ fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
             &next_i,
             &prev_i,
             &like_i,
+            &save_i,
             &radio_i,
             &sep3,
             &mini_i,
@@ -173,6 +176,7 @@ fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
                 "next" => media::control(app, "next"),
                 "previous" => media::control(app, "previous"),
                 "like" => media::control(app, "like"),
+                "save_offline" => crate::download::save_current_offline(app),
                 "radio" => media::control(app, "radio"),
                 "mini" => crate::mini::toggle(app),
                 "autostart_toggle" => toggle_autostart(app),
