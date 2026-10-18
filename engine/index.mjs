@@ -6,7 +6,7 @@
  * Static assets are served via env.ASSETS; KV page overrides via env.PAGES.
  */
 
-import { securityGate, handleUnblockRequest } from "./security.mjs";
+import { securityGate, handleUnblockRequest, isCatalogPath, catalogGateValue, CATALOG_GATE_HEADER } from "./security.mjs";
 export { RateLimiter } from "./limiter.mjs"; // Durable Object class: exact per-IP/account rate limits
 
 // YouTube Music internal API base + context payload used for every browse call.
@@ -130,8 +130,9 @@ let songOgCache = null;
 // tags for the <!--OG-->…<!--/OG--> slot.
 async function resolveEntityPreview(env, baseUrl, request, entityType, entityId) {
   // Fetch a data file through ASSETS so it inherits the right origin and request headers.
-  const fetchDataFile = (path) =>
-    env.ASSETS.fetch(new Request(new URL(path, baseUrl), request));
+  const fetchDataFile = (path) => path
+    ? env.ASSETS.fetch(new Request(new URL(path, baseUrl), request))
+    : Promise.resolve(new Response(null, { status: 404 }));
 
   try {
     if (entityType === "song") {
@@ -156,7 +157,7 @@ async function resolveEntityPreview(env, baseUrl, request, entityType, entityId)
         };
       }
     } else if (entityType === "artists") {
-      const res = await fetchDataFile(`/data/artist/${entityId}.json`);
+      const res = await fetchDataFile(entityPath(env, "artist", entityId));
       if (res.ok) {
         const data = await res.json();
         if (data.artist) {
@@ -173,7 +174,7 @@ async function resolveEntityPreview(env, baseUrl, request, entityType, entityId)
         }
       }
     } else if (entityType === "albums") {
-      const res = await fetchDataFile(`/data/album/${entityId}.json`);
+      const res = await fetchDataFile(entityPath(env, "album", entityId));
       if (res.ok) {
         const data = await res.json();
         if (data.album) {
@@ -191,7 +192,7 @@ async function resolveEntityPreview(env, baseUrl, request, entityType, entityId)
         }
       }
     } else if (entityType === "zemer-playlists") {
-      const res = await fetchDataFile(`/data/zemer-playlist/${entityId}.json`);
+      const res = await fetchDataFile(entityPath(env, "zemer-playlist", entityId));
       if (res.ok) {
         const data = await res.json();
         if (data.playlist) {
@@ -756,6 +757,41 @@ const EXT_TRENDING_KEY = "ext-trending-v1";
 // Bulk build files (dataset.json.gz, og.json) live in a random, unlinked folder when the deploy sets
 // PRIVATE_DIR (see engine/build-static.mjs emitBulk); local builds keep them under /data/.
 const bulkPath = (env, file) => (env.PRIVATE_DIR ? `/${env.PRIVATE_DIR}/${file}` : `/data/${file}`);
+
+// Per-entity detail file (/data/<kind>/<id>.json). With PRIVATE_DIR it sits under /<PRIVATE_DIR>/data/…, except
+// the public acapella playlist (entityFile in engine/build-static.mjs). null for an id that can't be one.
+const entityPath = (env, kind, id) => {
+  if (!/^[A-Za-z0-9_-]+$/.test(id || "")) return null;
+  const p = `/data/${kind}/${id}.json`;
+  return env.PRIVATE_DIR && !(kind === "zemer-playlist" && id === "acapella") ? `/${env.PRIVATE_DIR}${p}` : p;
+};
+
+// A catalog file from the private folder, after securityGate let the request through. Conditional headers
+// pass through (ETag / 304 as for any asset). `private` keeps shared caches (filter proxies) from handing a
+// signed-in visitor's copy to someone the account gate would refuse.
+async function serveCatalogFile(request, env, url, pathname) {
+  const m = /^\/data\/([a-z-]+)\/([^/]+)\.json$/.exec(pathname);
+  const target = m ? entityPath(env, m[1], m[2]) : bulkPath(env, "dataset.json.gz");
+  const res = target ? await env.ASSETS.fetch(new Request(new URL(target, url), request)) : null;
+  // A missing file comes back as the SPA shell (single-page-application not-found handling): answer a real 404.
+  if (!res || (res.status === 200 && (res.headers.get("Content-Type") || "").includes("text/html"))) {
+    return Response.json({ error: "not found" }, { status: 404, headers: { "Cache-Control": "no-store" } });
+  }
+  const headers = new Headers(res.headers);
+  headers.set("Cache-Control", "private, max-age=0, must-revalidate");
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+}
+
+// Stamps the catalog-gate setting on a boot-time API response (see catalogGateValue in engine/security.mjs).
+async function withCatalogGate(res, env, ctx) {
+  try {
+    const headers = new Headers(res.headers);
+    headers.set(CATALOG_GATE_HEADER, await catalogGateValue(env, ctx));
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+  } catch {
+    return res;
+  }
+}
 
 async function fetchAssetJSON(env, path) {
   try {
@@ -1767,10 +1803,11 @@ export default {
     const blocked = await securityGate(request, env, ctx, url);
     if (blocked) return blocked;
 
-    // The catalog dataset is not a static file in production (it sits in the private folder), so the
-    // asset layer misses and the request lands here — behind the gate's limits and datacenter block.
-    if (pathname === "/data/dataset.json.gz" && env.PRIVATE_DIR) {
-      return env.ASSETS.fetch(new Request(new URL(bulkPath(env, "dataset.json.gz"), url), request));
+    // Catalog files (the dataset + per-entity detail JSON) are not static files in production (they sit in the
+    // private folder), so the asset layer misses and the request lands here — behind the gate's account
+    // requirement, limits, daily quota and datacenter block.
+    if (env.PRIVATE_DIR && (request.method === "GET" || request.method === "HEAD") && isCatalogPath(pathname)) {
+      return serveCatalogFile(request, env, url, pathname);
     }
 
     // Sitemaps + robots.txt: large, static SEO files hit by crawlers. Serve them straight from assets,
@@ -1829,8 +1866,8 @@ export default {
         ? servePlaylist(url, ctx)
         : new Response("method not allowed", { status: 405, headers: { "Cache-Control": "no-store" } });
     if (pathname === "/zp-live") return handleLivePlaylist(url, env, ctx);
-    if (pathname === "/zemer-home-rows") return handleHomeRows(env, ctx);
-    if (pathname === "/zemer-new") return handleZemerNew(env, ctx);
+    if (pathname === "/zemer-home-rows") return withCatalogGate(await handleHomeRows(env, ctx), env, ctx);
+    if (pathname === "/zemer-new") return withCatalogGate(await handleZemerNew(env, ctx), env, ctx);
     if (pathname === "/radio") return handleRadio(request, url);
     // /podcasts/new-episodes is the ONLY API path under /podcasts/ — matched exactly so the SPA's
     // shareable /podcasts/:podcaster falls through to the app shell instead of being answered with a
@@ -1850,9 +1887,9 @@ export default {
       if (request.method === "GET" && (request.headers.get("Accept") || "").includes("text/html")) {
         return env.ASSETS.fetch(new Request(new URL("/charts", url), request));
       }
-      return handleTrending(request, url, env, ctx);
+      return withCatalogGate(await handleTrending(request, url, env, ctx), env, ctx);
     }
-    if (pathname === "/artist-trending") return handleArtistTrending(url, env, ctx);
+    if (pathname === "/artist-trending") return withCatalogGate(await handleArtistTrending(url, env, ctx), env, ctx);
     if (pathname === "/a" && request.method === "POST")
       return handleAnalyticsBeacon(request, env, ctx);
     // Desktop auto-updater: serve the newest signed desktop release manifest (edge-cached). 204 =

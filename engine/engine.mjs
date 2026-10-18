@@ -63,18 +63,21 @@ const files = new Map();
 const grab = async (u) => {
   if (files.has(u)) return files.get(u);
   const r = await fetch(u), j = r.ok ? await r.json() : null;
-  files.set(u, j); return j;
+  if (r.ok) files.set(u, j); // never pin a failure: a 401 (sign-in needed) or 429 must work once it clears
+  return j;
 };
 
 async function ready() {
   if (DS) return DS;
   if (!warming) warming = (async () => {
     const gz = await fetch("/data/dataset.json.gz");
+    if (!gz.ok) throw new Error("dataset HTTP " + gz.status);
     const text = await new Response(gz.body.pipeThrough(new DecompressionStream("gzip"))).text();
     DS = inflate(JSON.parse(text));
     CATS = buildCategories(DS, compileSynonyms((await grab("/data/synonyms.json")) || []));
     return DS;
   })();
+  warming.catch(() => { warming = null; }); // a failed load (signed out behind the account gate, rate limited) retries next time
   return warming;
 }
 export const preload = ready;   // warm in the background so the first interaction is instant

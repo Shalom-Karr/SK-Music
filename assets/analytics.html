@@ -257,6 +257,19 @@
   .sec-form select{flex:0 0 90px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:9px 10px;font-size:13px;outline:none;cursor:pointer}
   .sec-form select:focus{border-color:var(--accent2)}
   .sec-form .err{color:var(--accent);font-size:12px;min-height:16px}
+  .cg-row{display:flex;gap:14px 22px;flex-wrap:wrap;align-items:center}
+  .cg-sw{display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13.5px;color:var(--text);font-weight:600}
+  .cg-sw input{position:absolute;opacity:0;width:1px;height:1px}
+  .cg-sw .tr{width:42px;height:24px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);position:relative;flex:none;transition:.15s}
+  .cg-sw .tr::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--muted);transition:.15s}
+  .cg-sw input:checked + .tr{background:var(--accent);border-color:var(--accent)}
+  .cg-sw input:checked + .tr::after{left:20px;background:#fff}
+  .cg-sw input:focus-visible + .tr{outline:2px solid var(--accent2);outline-offset:2px}
+  .cg-q{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  .cg-q input{width:110px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:8px 10px;font-size:13px;outline:none}
+  .cg-q input:focus{border-color:var(--accent2)}
+  .cg-meta{margin-top:12px;font-size:12.5px;color:var(--muted);line-height:1.6}
+  .cg-meta b{color:var(--text);font-weight:700}
   .abtn{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
   .abtn:hover{color:var(--text);border-color:#2c3d63}
   .abtn.danger{border-color:rgba(255,93,107,.4);color:var(--accent)}
@@ -1123,7 +1136,8 @@ function renderTable() {
 function secKindClass(k) {
   if (k === 'rate_limited') return 'rl';
   if (k === 'datacenter_block') return 'dc';
-  if (k === 'auto_ban' || k === 'banned_hit') return 'ab';
+  if (k === 'auto_ban' || k === 'banned_hit' || k === 'quota_exceeded') return 'ab';
+  if (k === 'account_required') return 'dc';
   return '';
 }
 function secKindPills(kinds) {
@@ -1134,8 +1148,12 @@ function secKindPills(kinds) {
 async function loadSecurity() {
   $('content').innerHTML = '<div class="loading">Loading security data…</div>';
   try {
-    const data = await sbRpc('security_overview', { p_hours: RANGE_H });
-    paintSecurity(data);
+    // catalog_gate_get comes from supabase/catalog-gate.sql; missing (not applied yet) ⇒ the panel says so.
+    const [data, cg] = await Promise.all([
+      sbRpc('security_overview', { p_hours: RANGE_H }),
+      sbRpc('catalog_gate_get', { p_hours: RANGE_H }).catch(() => null),
+    ]);
+    paintSecurity(data, cg);
   } catch (e) {
     const msg = (e && e.message) || '';
     if (/could not find the function|schema cache/i.test(msg)) {
@@ -1146,7 +1164,29 @@ async function loadSecurity() {
   }
 }
 
-function paintSecurity(data) {
+// Catalog access: the account gate (catalog_requires_account) and the daily per-account catalog quota.
+function catalogPanel(cg, hl) {
+  if (!cg) return `<div class="panel" style="margin-top:14px"><h3>Catalog access</h3><div class="empty" style="padding:18px">Not set up yet — run <code style="font-family:monospace;background:var(--bg2);padding:2px 6px;border-radius:4px">supabase/catalog-gate.sql</code> in the Supabase SQL editor.</div></div>`;
+  const t = cg.today || {}, ev = cg.events || {};
+  return `<div class="panel" style="margin-top:14px" id="cgPanel" data-on="${cg.requires_account ? 1 : 0}">
+  <h3>Catalog access <span class="n">${cg.requires_account ? 'account required' : 'open to everyone'}</span></h3>
+  <div class="sec-form" style="padding:2px 18px 16px">
+    <div class="cg-row">
+      <label class="cg-sw"><input type="checkbox" id="cgOn" ${cg.requires_account ? 'checked' : ''}><span class="tr"></span>Require an account for the catalog</label>
+      <label class="cg-q">Daily quota per account <input id="cgQuota" type="number" min="0" max="1000000" step="1" inputmode="numeric" value="${esc(String(cg.daily_quota ?? 400))}"> files / day</label>
+      <button class="abtn primary" data-action="catalog-save">Save</button>
+    </div>
+    <div class="err" id="cgErr"></div>
+    <div class="cg-meta">
+      Signed-out visitors ${cg.requires_account ? '<b>must sign in</b>' : 'can browse and play'}. Changes reach every server within about a minute. Quota 0 turns the quota off; going over it bans the account (or a signed-out IP) with the usual escalation.<br>
+      Today (UTC): <b>${num(t.requests)}</b> catalog files to <b>${num(t.keys)}</b> accounts/IPs · <b>${num(t.over_quota)}</b> over quota ·
+      events ${hl}: <b>${num(ev.account_required)}</b> sign-in required, <b>${num(ev.quota_exceeded)}</b> quota exceeded
+    </div>
+  </div>
+</div>`;
+}
+
+function paintSecurity(data, cg) {
   const ebk = new Map((data.events_by_kind || []).map(([k, n]) => [k, n]));
   const rl = ebk.get('rate_limited') || 0;
   const dc = ebk.get('datacenter_block') || 0;
@@ -1317,7 +1357,7 @@ function paintSecurity(data) {
   </table></div>
 </div>`;
 
-  $('content').innerHTML = tiles + charts + contactsPanel + flaggedIpTable + flaggedAcctTable + bansTable + recentTable + allowlistPanel;
+  $('content').innerHTML = tiles + catalogPanel(cg, hl) + charts + contactsPanel + flaggedIpTable + flaggedAcctTable + bansTable + recentTable + allowlistPanel;
 }
 
 /* ---------- security action listener (delegated on #content) ---------- */
@@ -1370,6 +1410,23 @@ $('content').addEventListener('click', async (e) => {
       await sbRpc('security_allow_remove', { p_id: id });
       await loadSecurity();
     } catch (err) { alert('Error: ' + ((err && err.message) || 'unknown')); btn.disabled = false; }
+    return;
+  }
+
+  if (action === 'catalog-save') {
+    const panel = $('cgPanel'), errEl = $('cgErr');
+    if (!panel) return;
+    const on = $('cgOn').checked, was = panel.dataset.on === '1';
+    const qs = String($('cgQuota').value || '').trim();
+    if (!/^\d{1,7}$/.test(qs) || +qs > 1000000) { errEl.textContent = 'Daily quota must be a whole number from 0 to 1,000,000.'; return; }
+    if (on && !was && !confirm('Require an account for the catalog?\n\nSigned-out visitors will need to sign in to browse and play. Takes effect within about a minute.')) return;
+    if (!on && was && !confirm('Open the catalog to signed-out visitors again?')) return;
+    errEl.textContent = '';
+    btn.disabled = true;
+    try {
+      await sbRpc('catalog_gate_set', { p_requires_account: on, p_daily_quota: +qs });
+      await loadSecurity();
+    } catch (err) { errEl.textContent = 'Error: ' + ((err && err.message) || 'unknown'); btn.disabled = false; }
     return;
   }
 

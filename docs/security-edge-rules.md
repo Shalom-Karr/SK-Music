@@ -1,9 +1,12 @@
 # Edge rules (Cloudflare WAF) — protecting the static catalog
 
-The catalog files (`/data/dataset.json.gz`, `/data/artist/*.json`, `/data/album/*.json`, …) are served by
-Cloudflare's asset layer and **never run the Worker**, so the Worker's rate limits, bans and datacenter
-block (`engine/security.mjs`) cannot see them. These zone rules protect them at the edge, before anything
-costs a Worker request. They are configured once in the dashboard (the deploy token has no WAF permission).
+The small boot files under `/data/` (`home.json`, `artists.json`, …) are served by Cloudflare's asset layer
+and **never run the Worker**, so the Worker's rate limits, bans and datacenter block (`engine/security.mjs`)
+cannot see them. The catalog itself (`/data/dataset.json.gz` and the per-entity `/data/artist|album|
+zemer-playlist/*.json`) lives in the private folder in production and is served by the Worker behind the
+gate — see [catalog-gate.md](catalog-gate.md) for the account gate and daily quota. These zone rules protect
+everything under `/data/` at the edge, before anything costs a Worker request. They are configured once in
+the dashboard (the deploy token has no WAF permission).
 
 The zone is all of `shalomkarr.com`, so every rule starts with `http.host eq "skmusic.shalomkarr.com"` — without it the rules would
 hit the other subdomains too.

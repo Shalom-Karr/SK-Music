@@ -27,8 +27,8 @@ const MARGIN: f64 = 24.0;
 /// Slack (logical px) allowed around a monitor's usable area when validating a restored position.
 const VIS_MARGIN: f64 = 8.0;
 
-/// True while the mini is on screen because WE auto-showed it (main window unfocused during
-/// playback) rather than the user opening it — only auto-shown minis auto-hide again.
+/// True while the mini is on screen because WE auto-showed it (main window minimized, or unfocused
+/// during playback) rather than the user opening it — only auto-shown minis auto-hide again.
 static AUTO_SHOWN: AtomicBool = AtomicBool::new(false);
 
 /// Auto-show/hide the mini with the main window's state. When a focus change should surface the mini
@@ -40,16 +40,21 @@ static AUTO_SHOWN: AtomicBool = AtomicBool::new(false);
 ///                         window drags and popped it whenever another screen was clicked. Only MINIMIZE
 ///                         surfaces the mini on a multi-monitor setup.
 /// Minimize/restore is authoritative on any setup and is read on the resize event (minimizing can emit
-/// Focused(false) before is_minimized() flips). Monitor count is queried live, so plugging/unplugging a
-/// display is picked up on the next focus change. Hooked in `.setup()`.
+/// Focused(false) before is_minimized() flips). Minimizing shows the mini whether or not anything is
+/// playing; a focus change only does while something plays. Monitor count is queried live, so
+/// plugging/unplugging a display is picked up on the next focus change. Hooked in `.setup()`.
+///
+/// The mini window is created hidden shortly after launch, so a minimize only has to show an
+/// already-loaded window: no webview spin-up, no blank frame, no delay.
 pub fn init(app: &tauri::AppHandle) {
     let Some(main) = app.get_webview_window("main") else { return };
+    prewarm(app);
     let handle = app.clone();
     main.on_window_event(move |event| match event {
         // Focus loss counts as "covered" only on a single-monitor setup (see above).
         tauri::WindowEvent::Focused(false) => {
             if monitor_count(&handle) <= 1 {
-                auto_show(&handle);
+                auto_show(&handle, true);
             }
         }
         // Regaining focus (restore / reopen from tray / clicking back to the app) hides the auto-mini.
@@ -59,7 +64,7 @@ pub fn init(app: &tauri::AppHandle) {
         tauri::WindowEvent::Resized(_) => {
             if let Some(m) = handle.get_webview_window("main") {
                 if m.is_minimized().unwrap_or(false) {
-                    auto_show(&handle);
+                    auto_show(&handle, false);
                 } else {
                     auto_hide(&handle);
                 }
@@ -78,9 +83,24 @@ fn monitor_count(app: &tauri::AppHandle) -> usize {
         .unwrap_or(1)
 }
 
-/// Surface the mini (subject to the setting + active playback). No-op if it's already visible.
-pub(crate) fn auto_show(app: &tauri::AppHandle) {
-    if !crate::settings::auto_mini() || !crate::media::is_playing() {
+/// Build the mini window hidden, off the main thread (building a webview window from a main-thread
+/// event handler can deadlock on Windows), once the main window has had a moment to start loading.
+/// Every event handler runs on the main thread and sees the window only once it exists, so a minimize
+/// that beats the prewarm simply creates it itself — and then this one finds it and does nothing.
+fn prewarm(app: &tauri::AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(1500));
+        if app.get_webview_window(LABEL).is_none() {
+            let _ = create(&app, false, false);
+        }
+    });
+}
+
+/// Surface the mini (subject to the setting, and to active playback when `need_playing`). No-op if
+/// it's already visible.
+pub(crate) fn auto_show(app: &tauri::AppHandle, need_playing: bool) {
+    if !crate::settings::auto_mini() || (need_playing && !crate::media::is_playing()) {
         return;
     }
     if let Some(win) = app.get_webview_window(LABEL) {
@@ -92,7 +112,7 @@ pub(crate) fn auto_show(app: &tauri::AppHandle) {
         AUTO_SHOWN.store(true, Ordering::SeqCst);
         return;
     }
-    if create(app, false).is_ok() {
+    if create(app, false, true).is_ok() {
         AUTO_SHOWN.store(true, Ordering::SeqCst);
     }
 }
@@ -114,7 +134,7 @@ pub fn show(app: &tauri::AppHandle) {
         let _ = win.show();
         return;
     }
-    if let Err(e) = create(app, false) {
+    if let Err(e) = create(app, false, true) {
         eprintln!("[mini] failed to create mini player: {e}");
     }
 }
@@ -140,12 +160,12 @@ pub fn toggle(app: &tauri::AppHandle) {
         return;
     }
     AUTO_SHOWN.store(false, Ordering::SeqCst); // an explicit toggle takes ownership either way
-    if let Err(e) = create(app, true) {
+    if let Err(e) = create(app, true, true) {
         eprintln!("[mini] failed to create mini player: {e}");
     }
 }
 
-fn create(app: &tauri::AppHandle, focused: bool) -> tauri::Result<()> {
+fn create(app: &tauri::AppHandle, focused: bool, visible: bool) -> tauri::Result<()> {
     let win = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("mini.html".into()))
         .title("SK Music — Mini")
         .inner_size(MINI_W, MINI_H)
@@ -153,7 +173,7 @@ fn create(app: &tauri::AppHandle, focused: bool) -> tauri::Result<()> {
         .always_on_top(true)
         .skip_taskbar(true)
         .resizable(false)
-        .visible(true)
+        .visible(visible)
         .focused(focused)
         .build()?;
 

@@ -342,6 +342,11 @@ main{flex:1;padding:6px 26px calc(var(--nowbar-h) + 40px);max-width:1500px;width
 .live-pill::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--primary);
   box-shadow:0 0 0 0 rgba(255,93,107,.7);animation:stpulse 1.8s infinite}
 body.on-air .live-pill{display:inline-flex}
+/* "Skipping an ad…" — shown by adPaint() while the ad guard holds the player on an ad it has detected. */
+.adnote{display:none;align-items:center;padding:2px 7px;border-radius:999px;background:rgba(176,154,147,.16);
+  color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.02em;white-space:nowrap;flex:none;width:max-content}
+.adnote.on{display:inline-flex}
+#npAd{margin-top:6px}
 body.on-air .rpt,body.on-air .shf{display:none}
 body.on-air .seek{pointer-events:none;opacity:.55;filter:grayscale(.4)}
 body.on-air .nb-controls .skip,body.on-air .np-controls .skip{display:none}
@@ -716,6 +721,31 @@ body.on-air .npx-clear{display:none}
 #toast a{pointer-events:auto;text-decoration:underline;text-underline-offset:2px}
 #toast b{color:var(--primary);font-weight:600}
 @media(max-width:899px){#toast{bottom:calc(var(--mini-h) + var(--tab-h) + 18px)}}
+
+/* ============================ Block overlay (rate limit / ban) ============================ */
+/* Full-site: above every modal, the player and the splash. Dialogs opened FROM it (sign-up, Contact us)
+   are lifted above it via body.sk-blocked. */
+#blkOverlay{display:none;position:fixed;inset:0;z-index:9600;background:rgba(6,4,5,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));overflow-y:auto;overscroll-behavior:contain}
+#blkOverlay.on{display:flex;animation:fade .2s var(--ease)}
+body.sk-blocked{overflow:hidden}
+body.sk-blocked .authmodal.on{z-index:9700}
+.blk-card{width:100%;max-width:560px;text-align:center;margin:auto;padding:36px 28px 30px;border-radius:28px;border:1px solid var(--line-2);
+  background:radial-gradient(130% 90% at 50% -10%,rgba(255,93,107,.18),var(--surface-2) 58%);box-shadow:0 30px 90px rgba(0,0,0,.65);animation:authpop .25s var(--ease)}
+.blk-ic{width:72px;height:72px;margin:0 auto 18px;border-radius:22px;display:flex;align-items:center;justify-content:center;background:linear-gradient(140deg,var(--primary),#b23145);box-shadow:0 14px 34px rgba(255,93,107,.42)}
+.blk-ic svg{width:38px;height:38px;fill:#fff}
+.blk-card h2{font-family:Fraunces,serif;font-weight:600;font-size:clamp(26px,5.4vw,38px);line-height:1.15;margin:0 0 10px;color:var(--text)}
+.blk-text{color:var(--muted);font-size:clamp(15px,3.6vw,18px);line-height:1.5;margin:0 auto;max-width:440px}
+.blk-lbl{margin:26px 0 2px;color:var(--faint);font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.blk-clock{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;font-weight:700;font-size:clamp(52px,14vw,72px);line-height:1.1;color:var(--text);letter-spacing:.02em}
+.blk-acct{margin-top:26px}
+.blk-acct .authbtn{height:56px;font-size:17px;border-radius:14px}
+.blk-note{margin:10px 0 0;color:var(--muted);font-size:14px}
+.blk-contact{margin-top:14px}
+.blk-contact .authbtn{height:48px}
+.blk-dismiss{margin-top:12px}
+.blk-dismiss button{background:none;border:0;color:var(--muted);font:inherit;font-size:14px;font-weight:600;cursor:pointer;padding:8px 14px;border-radius:10px}
+.blk-dismiss button:hover{color:var(--text);background:rgba(255,255,255,.06)}
 @media(max-width:899px){#now .np-upnext{display:flex;flex:1 1 auto;min-height:140px;margin-top:10px}}
 /* shared floating popup menu (sleep timer, queue/song actions, add-to-playlist, report) */
 #popmenu{position:fixed;z-index:95;min-width:200px;max-width:min(88vw,320px);max-height:70vh;overflow:auto;padding:6px;
@@ -795,11 +825,71 @@ body.on-air .npx-clear{display:none}
 .row.sk-dl-done .title::after{content:"";display:inline-block;width:12px;height:12px;margin-left:7px;vertical-align:-1px;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234ade80'%3E%3Cpath d='M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z'/%3E%3C/svg%3E")}
 /* hidden YouTube IFrame audio engine — rendered off-screen so audio keeps playing */
 #ytwrap{position:fixed;left:-9999px;bottom:0;width:320px;height:180px;opacity:0;pointer-events:none;z-index:-1}
-/* Music-video watch mode (desktop): mvPaint() sizes #ytwrap onto #npArtBox. Above #now (80), below the
+/* Music-video watch mode: mvPaint() sizes #ytwrap onto #npArtBox. Above #now (80), below the
    toast (90) and menus (95). pointer-events stays none, so nothing in the embed is clickable. */
 #ytwrap.mv{opacity:1;z-index:81;background:#000;border-radius:20px;overflow:hidden;bottom:auto}
 #ytwrap.mv iframe{position:absolute;inset:0;width:100%;height:100%}
 #ytwrap.mv iframe.mv-off{visibility:hidden}
+/* Fullscreen targets #ytwrap itself (not #npArtBox, which it only overlays — a sibling, not a
+   descendant, so it wouldn't be carried into #npArtBox's own fullscreen). mvPaint()'s inline left/top/
+   width/height are undone here the same way .np-art:fullscreen undoes the small-box sizing above. */
+#ytwrap.mv:fullscreen,#ytwrap.mv:-webkit-full-screen{position:fixed;inset:0;left:0;top:0;width:100vw;height:100vh;border-radius:0}
+/* Lives INSIDE #ytwrap so it survives #ytwrap's own fullscreen and sits above the iframe (which has
+   pointer-events:none for safety — a child can still opt back into pointer-events itself). */
+#mvFull{position:absolute;top:10px;right:10px;z-index:2;display:none;width:40px;height:40px;border:0;border-radius:11px;
+  background:rgba(0,0,0,.55);color:#fff;cursor:pointer;align-items:center;justify-content:center;backdrop-filter:blur(6px);pointer-events:auto}
+#mvFull:hover{background:rgba(0,0,0,.78)}
+#mvFull svg{width:22px;height:22px;fill:currentColor}
+#ytwrap.mv>#mvFull{display:flex}
+/* Cover over the frame whenever it can't be shown (an ad, or an ended/cued embed — see mvPaint): the song's
+   art on black, with "Playing ad" during an ad. Keeps watch mode (and full screen) instead of dropping out
+   of it. On a pause of the song's own video the frame stays frozen in view and #mvHold shows only the
+   play glyph over a light tint (the !important beats the inline art background). */
+#mvHold{position:absolute;inset:0;z-index:1;display:none;flex-direction:column;gap:10px;align-items:center;justify-content:center;background:#000 center/contain no-repeat}
+#ytwrap.mv.mv-hold>#mvHold{display:flex}
+#ytwrap.mv.mv-paused:not(.mv-hold)>#mvHold{display:flex;background:rgba(0,0,0,.18)!important}
+#mvHold svg{width:76px;height:76px;fill:#fff;opacity:0;filter:drop-shadow(0 4px 14px rgba(0,0,0,.6));transition:opacity .15s}
+#ytwrap.mv-paused #mvHold svg{opacity:.92}
+#mvHold .mv-msg{display:none;padding:6px 14px;border-radius:999px;background:rgba(0,0,0,.72);color:#fff;font-size:13px;font-weight:700;letter-spacing:.02em}
+#ytwrap.mv-ad #mvHold .mv-msg{display:block}
+#ytwrap.mv-ad #mvHold svg{display:none}
+#ytwrap.mv.mv-ad:fullscreen #mvHold .mv-msg,#ytwrap.mv.mv-ad:-webkit-full-screen #mvHold .mv-msg{font-size:17px}
+/* Tap the picture to pause/resume. A transparent layer over the iframe and #mvHold (same z-index, later
+   in the DOM — under #mvFull and the full-screen controls at 2) takes the press, so the embed itself
+   still never gets a click. */
+#mvTap{position:absolute;inset:0;z-index:1;display:none;cursor:pointer;pointer-events:auto}
+#ytwrap.mv>#mvTap{display:block}
+/* Double-tap skip feedback, YouTube-style: a shaded half-circle on the tapped side with arrows sweeping
+   the skip direction and a running total ("30 seconds"). Drawn inside #ytwrap so it shows full screen
+   too (the toast doesn't); pointer-events:none so it never eats a tap. */
+#mvSkipFx{position:absolute;inset:0;z-index:1;display:none;pointer-events:none}
+#ytwrap.mv>#mvSkipFx{display:block}
+#mvSkipFx .fx{position:absolute;top:0;bottom:0;width:42%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  color:#fff;background:rgba(0,0,0,.45);opacity:0;transition:opacity .25s}
+#mvSkipFx .fx.l{left:0;border-radius:0 50% 50% 0/0 50% 50% 0}
+#mvSkipFx .fx.r{right:0;border-radius:50% 0 0 50%/50% 0 0 50%}
+#mvSkipFx .fx.on{opacity:1;transition:opacity .08s}
+#mvSkipFx .arr{display:flex;gap:2px}
+#mvSkipFx .l .arr{flex-direction:row-reverse}
+#mvSkipFx .arr i{width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;opacity:.25}
+#mvSkipFx .r .arr i{border-left:12px solid #fff}
+#mvSkipFx .l .arr i{border-right:12px solid #fff}
+#mvSkipFx .fx.on .arr i{animation:mvArr .7s ease-in-out infinite}
+#mvSkipFx .fx.on .arr i:nth-child(2){animation-delay:.12s}
+#mvSkipFx .fx.on .arr i:nth-child(3){animation-delay:.24s}
+@keyframes mvArr{0%{opacity:.25}40%{opacity:1}100%{opacity:.25}}
+#mvSkipFx b{font-size:13.5px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+#ytwrap.mv:fullscreen #mvSkipFx b,#ytwrap.mv:-webkit-full-screen #mvSkipFx b{font-size:17px}
+#ytwrap.mv:fullscreen #mvSkipFx .arr,#ytwrap.mv:-webkit-full-screen #mvSkipFx .arr{transform:scale(1.5)}
+@media (prefers-reduced-motion:reduce){#mvSkipFx .fx.on .arr i{animation:none;opacity:1}}
+/* Scrubber, shown only full screen: otherwise Now Playing's own #npSeek sits right below the art box
+   and is already visible (#ytwrap only covers the art box, not the whole panel) — a second one there
+   would just be a redundant duplicate. Full screen is the one state where #ytwrap covers everything
+   else on screen, so it's the only state that actually needs its own copy to skip around. */
+.mv-controls{position:absolute;left:0;right:0;bottom:0;z-index:2;display:none;flex-direction:column;gap:2px;
+  padding:10px 16px calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(0deg,rgba(0,0,0,.76),transparent);
+  pointer-events:auto}
+#ytwrap.mv:fullscreen .mv-controls,#ytwrap.mv:-webkit-full-screen .mv-controls{display:flex}
 .iconbtn.rateBtn{width:auto;min-width:40px;height:34px;padding:0 11px;border-radius:12px;font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums}
 .iconbtn.rateBtn.on{color:var(--primary)}
 
@@ -1130,6 +1220,17 @@ fill="url(#royal)" stroke="none">
       </form>
     </div>
   </div>
+  <!-- catalog account gate: a catalog request answered 401 account_required, or Play while signed out with the gate on -->
+  <div class="authmodal" id="gateModal" role="dialog" aria-modal="true" aria-labelledby="gateTitle" aria-describedby="gateSub" onclick="if(event.target===this)gateClose()">
+    <div class="authcard" style="max-width:392px">
+      <button class="authclose" onclick="gateClose()" aria-label="Close">✕</button>
+      <div class="authlogo"><svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg></div>
+      <h2 id="gateTitle">Sign in to keep listening</h2>
+      <p class="authsub" id="gateSub">A free SK Music account is needed to browse and play music. It takes a few seconds, and your likes, playlists and filters sync across your devices.</p>
+      <button type="button" class="authbtn" id="gateUp" onclick="gateGo('up')">Create free account</button>
+      <button type="button" class="authbtn oauth" id="gateIn" style="margin-top:10px" onclick="gateGo('in')">Sign in</button>
+    </div>
+  </div>
 </div>
 
 <!-- content-filter menu -->
@@ -1190,7 +1291,7 @@ fill="url(#royal)" stroke="none">
     <div class="art"><img id="nbArt" alt=""><div class="ph" id="nbPh" aria-hidden="true"></div></div>
     <!-- The LIVE pill is a SIBLING of #nbArtist, never a child: the now-bar paints that line with
          textContent (setNow), which would wipe any nested markup on the next track change. -->
-    <div class="nb-meta"><div class="nb-t" id="nbTitle"></div><div class="nb-s" style="display:flex;align-items:center;gap:6px"><span class="live-pill">LIVE</span><span id="nbArtist"></span></div></div>
+    <div class="nb-meta"><div class="nb-t" id="nbTitle"></div><div class="nb-s" style="display:flex;align-items:center;gap:6px"><span class="live-pill">LIVE</span><span id="nbArtist"></span><span class="adnote" id="nbAd" role="status">Skipping an ad…</span></div></div>
   </div>
   <div class="nb-center">
     <div class="nb-controls">
@@ -1241,7 +1342,7 @@ fill="url(#royal)" stroke="none">
         only way out, which is not discoverable. Here it stays on screen and toggles both ways. -->
         <button id="npFull" onclick="toggleVidFullscreen()" title="Full screen" aria-label="Full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zM6 15v3h3v2H4v-5zm12 3v-3h2v5h-5v-2z"/></svg></button><img id="npArt" alt=""><div class="ph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg></div></div>
       <div class="np-info">
-        <div style="min-width:0"><div class="np-title" id="npTitle"></div><div class="np-artist" id="npArtist" role="button" tabindex="0" aria-label="Go to artist" onclick="npOpenArtist()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"></div></div>
+        <div style="min-width:0"><div class="np-title" id="npTitle"></div><div class="np-artist" id="npArtist" role="button" tabindex="0" aria-label="Go to artist" onclick="npOpenArtist()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"></div><div class="adnote" id="npAd" role="status">Skipping an ad…</div></div>
         <button class="iconbtn heart" id="npLike" onclick="toggleLikeCurrent()" title="Like" aria-label="Like" aria-pressed="false" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M12 20.3l-1.4-1.3C5.4 14.3 2 11.3 2 7.6 2 5 4 3 6.5 3c1.6 0 3 .7 3.9 1.9L12 6.4l1.6-1.5A5 5 0 0 1 17.5 3C20 3 22 5 22 7.6c0 3.7-3.4 6.7-8.6 11.4L12 20.3z"/></svg></button>
         <!-- Watch / Listen — only shown for a track that actually has video (a filmed shiur), and only
              while the account allows video shiurim. See shToggleWatch / paintWatchUI. -->
@@ -1274,8 +1375,20 @@ fill="url(#royal)" stroke="none">
   </div>
 </div>
 
-<div id="ytwrap" aria-hidden="true"><div id="ytplayer"></div><div id="ytplayer2"></div></div>
+<div id="ytwrap" aria-hidden="true"><div id="ytplayer"></div><div id="ytplayer2"></div><div id="mvHold" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><b class="mv-msg">Playing ad</b></div><div id="mvTap" onclick="mvTap(event)" aria-hidden="true"></div><div id="mvSkipFx" aria-hidden="true"><div class="fx l"><div class="arr"><i></i><i></i><i></i></div><b></b></div><div class="fx r"><div class="arr"><i></i><i></i><i></i></div><b></b></div></div><button id="mvFull" onclick="mvToggleFullscreen()" title="Full screen" aria-label="Full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zM6 15v3h3v2H4v-5zm12 3v-3h2v5h-5v-2z"/></svg></button><div class="mv-controls"><input type="range" class="seek" id="mvSeek" min="0" max="1000" value="0" aria-label="Seek"><div class="np-times"><span id="mvCur">0:00</span><span id="mvDur">0:00</span></div></div></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+<!-- rate-limit / ban overlay: covers the whole site until its countdown ends (blkOpen) -->
+<div id="blkOverlay" role="alertdialog" aria-modal="true" aria-labelledby="blkTitle" aria-describedby="blkText">
+  <div class="blk-card">
+    <div class="blk-ic"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20m0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16m.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7z"/></svg></div>
+    <h2 id="blkTitle"></h2>
+    <p class="blk-text" id="blkText"></p>
+    <div id="blkTimer"><div class="blk-lbl">Opens again in</div><div class="blk-clock" id="blkClock" role="timer" aria-live="off"></div></div>
+    <div class="blk-acct" id="blkAcct"><button type="button" class="authbtn" onclick="openAuth('up')">Create a free account</button><p class="blk-note" id="blkNote">Free accounts get higher limits.</p></div>
+    <div class="blk-contact" id="blkContact"><button type="button" class="authbtn oauth" onclick="unblockRequest()">Contact us</button></div>
+    <div class="blk-dismiss" id="blkDismiss"><button type="button" onclick="blkClose()">Close</button></div>
+  </div>
+</div>
 <div id="popmenu" role="menu" aria-hidden="true"></div>
 <!-- fullscreen statuses viewer (contents rendered per status by stsRender) -->
 <div id="stsView" role="dialog" aria-modal="true" aria-label="Statuses" aria-hidden="true"></div>
@@ -1293,8 +1406,15 @@ const esc = (s) => (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 const safeId = (s) => (typeof s === "string" && /^[A-Za-z0-9_-]+$/.test(s)) ? s : "";
 const yt = (id, q) => `https://i.ytimg.com/vi/${id}/${q || "mq"}default.jpg`;
 // Warm the prebuilt detail JSON on hover so the click opens instantly (the fetch is already a cache hit).
-const _pf = new Set();
-function pf(kind, id) { if (!STATIC || !id || _pf.has(id)) return; _pf.add(id); try { fetch("/data/" + kind + "/" + id + ".json").catch(() => {}); } catch {} }
+// Only after the pointer rests on a card (sweeping across a grid prefetches nothing): in production these files
+// are Worker requests that count toward the limits and the daily catalog quota. Never while the catalog would
+// refuse them (signed out behind the account gate).
+const _pf = new Set(); let _pfT = 0;
+function pf(kind, id) {
+  if (!STATIC || !id || _pf.has(id) || (catalogGateOn() && !loggedIn())) return;
+  clearTimeout(_pfT);
+  _pfT = setTimeout(() => { if (_pf.has(id)) return; _pf.add(id); try { fetch("/data/" + kind + "/" + id + ".json").catch(() => {}); } catch {} }, 250);
+}
 const num = (x) => (x || 0).toLocaleString();
 const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); const m = Math.floor(s / 60); return (m >= 60 ? Math.floor(m / 60) + ":" + String(m % 60).padStart(2, "0") : m) + ":" + String(s % 60).padStart(2, "0"); };
 const ago = (ms) => { if (!ms) return ""; const s = Math.max(0, (Date.now() - ms) / 1000); return s < 3600 ? Math.max(1, Math.round(s / 60)) + "m ago" : s < 86400 ? Math.round(s / 3600) + "h ago" : s < 604800 ? Math.round(s / 86400) + "d ago" : Math.round(s / 604800) + "w ago"; };
@@ -1324,32 +1444,155 @@ async function getJSON(url, opt) {
   return fetchJSON(url, opt);
 }
 // One backoff retry on a TRANSIENT failure (network reject or 5xx); never retry an abort or a 4xx.
-// The Worker's security layer answers 403/429 with {error:"datacenter"|"banned"|"rate_limited"}. Say so once,
-// plainly, instead of the page just quietly failing to load things.
+// The Worker's security layer answers 401/403/429 with {error:"account_required"|"datacenter"|"banned"|
+// "rate_limited"}; the edge rate limit answers 429 with Cloudflare's HTML page (Retry-After header, if any).
+// Rate limits and bans get the full-site block overlay, a catalog file that needs an account gets the sign-in
+// prompt, and a datacenter network gets a toast (once a minute).
 let _secNoticeAt = 0;
 function secNotice(j) {
-  if (!j || !j.error || Date.now() - _secNoticeAt < 60000) return;
+  if (!j || j.error !== "datacenter" || Date.now() - _secNoticeAt < 60000) return;
   _secNoticeAt = Date.now();
-  if (j.error === "datacenter") showToast('<b>SK Music is limited on this network</b> (a hosting provider or VPN). <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();openAuth(&#39;in&#39;)">Sign in</a> to keep listening, or <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();unblockRequest()">Contact us</a> if this is a mistake.', 12000);
-  else if (j.error === "banned") { const fin = j.until && isFinite(Date.parse(j.until)); showToast("<b>Too many requests from your connection.</b> Access is " + (fin ? "paused until " + new Date(j.until).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + "." : "blocked.") + ' <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();unblockRequest()">Contact us</a> if this is a mistake.', 12000); }
-  else if (j.error === "rate_limited") showToast("<b>You were blocked for a moment</b> — too many requests too fast. " + (loggedIn()
-    ? "Slow down and it clears in a few seconds."
-    : 'Slow down, or <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();openAuth(&#39;up&#39;)">create a free account</a> for higher limits.'), 9000);
+  showToast('<b>SK Music is limited on this network</b> (a hosting provider or VPN). <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();openAuth(&#39;in&#39;)">Sign in</a> to keep listening, or <a href="#" style="color:var(--primary);font-weight:700" onclick="event.preventDefault();unblockRequest()">Contact us</a> if this is a mistake.', 12000);
 }
-// Every same-origin request goes through here, so a 429/403 from the Worker (JSON body) or the edge rate
-// limit (Cloudflare's HTML page) shows a notice no matter which code path made it. The engine's Web Worker
-// reports its own through postMessage (engine-worker.mjs).
-function secStatus(status, j) {
-  if (j && j.error) return secNotice(j);
-  if (status === 429) secNotice({ error: "rate_limited" });
+// Seconds from a Retry-After header (delta-seconds or an HTTP date); 0 if absent/unreadable.
+function retryAfterSecs(ra) {
+  if (ra == null || ra === "") return 0;
+  if (/^\s*\d+\s*$/.test(ra)) return +ra;
+  const t = Date.parse(ra); return isFinite(t) ? Math.max(0, Math.ceil((t - Date.now()) / 1000)) : 0;
 }
+// Every same-origin request goes through here, so a block shows no matter which code path made the request.
+// The engine's Web Worker reports its own through postMessage (engine-worker.mjs).
+function secStatus(status, j, ra) {
+  const e = j && j.error;
+  if (e === "account_required") return gateNotice(gateRetryView);
+  if (e === "rate_limited") return blkOpen({ until: Date.now() + 1000 * (Math.max(+j.retryAfter || 0, retryAfterSecs(ra)) || 10) });
+  if (e === "banned") return blkOpen({ ban: true, until: j.permanent || j.until === "infinity" ? Infinity : (Date.parse(j.until) || Infinity) });
+  if (e === "daily_limit") return blkOpen({ daily: true, signIn: !!j.signIn, until: j.permanent || j.until === "infinity" ? Infinity : (Date.parse(j.until) || Date.now() + 1000 * (+j.retryAfter || 3600)) });
+  if (e === "datacenter") return secNotice(j);
+  if (status === 429) blkOpen({ until: Date.now() + 1000 * (retryAfterSecs(ra) || 10) });
+}
+
+// ── Block overlay: rate limited or banned. Covers the whole site with a live countdown and closes itself when
+// it runs out. A later block while it is open only ever extends it (never stacks, never re-announces). Music
+// is paused when it opens and stays paused afterwards — the listener presses play.
+let _blk = null; // { until, ban, timer }
+const fmtCountdown = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = s % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
+function blkPaint() {
+  if (!_blk) return;
+  const perm = _blk.until === Infinity, out = !loggedIn();
+  // daily = over today's catalog quota (Worker 429 daily_limit). Only the catalog is blocked, so this one can be
+  // closed — the rest of the site keeps working and the next artist/album/search shows it again.
+  const daily = _blk.daily && !_blk.ban;
+  el("blkTitle").textContent = daily ? (perm ? "Browsing blocked" : "Daily browsing limit reached") : perm ? "Blocked" : _blk.ban ? "Access paused" : "Slow down — you're going too fast";
+  el("blkText").textContent = daily
+    ? (perm ? "Browsing the catalog is blocked for this account or connection. If this is a mistake, contact us and we'll review it."
+      : "You've opened more of the catalog today than the daily limit allows. It opens again at " + new Date(_blk.until).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + ".")
+    : perm ? "Access from your connection is blocked. If this is a mistake, contact us and we'll review it."
+    : _blk.ban ? "Too many requests came from your connection, so access is paused for a while."
+    : "Browsing is paused for a moment.";
+  el("blkTimer").style.display = perm ? "none" : "";
+  el("blkAcct").style.display = out && (daily ? _blk.signIn : !_blk.ban) ? "" : "none";
+  el("blkNote").textContent = daily ? "A free account gets its own daily limit." : "Free accounts get higher limits.";
+  el("blkContact").style.display = _blk.ban || daily ? "" : "none";
+  el("blkDismiss").style.display = daily ? "" : "none";
+}
+function blkTick() {
+  if (!_blk || _blk.until === Infinity) return; // permanent: no countdown (the timer row is hidden)
+  const left = _blk.until - Date.now();
+  if (left <= 0) return blkClose();
+  el("blkClock").textContent = fmtCountdown(left);
+}
+function blkClose() {
+  if (!_blk) return;
+  clearInterval(_blk.timer); _blk = null;
+  el("blkOverlay").classList.remove("on"); document.body.classList.remove("sk-blocked");
+}
+function blkSpeak() {
+  try {
+    const ss = window.speechSynthesis;
+    if (!ss || typeof SpeechSynthesisUtterance !== "function") return;
+    const u = new SpeechSynthesisUtterance(loggedIn() ? "You have been blocked. Please slow down." : "You have been blocked. Please slow down, or create a free account.");
+    u.lang = "en-US"; u.rate = 0.95;
+    const us = (ss.getVoices() || []).filter((v) => /^en[-_]us$/i.test(v.lang || ""));
+    const v = us.find((x) => /natural|neural|google us english|samantha|aria|jenny/i.test(x.name || "")) || us.find((x) => x.localService) || us[0];
+    if (v) u.voice = v;
+    ss.cancel(); ss.speak(u);
+  } catch {}
+}
+let _blkDailyUntil = 0; // the daily-limit block already announced (closing + reopening it stays quiet)
+function blkOpen({ until, ban, daily, signIn }) {
+  if (!(until > Date.now())) return;
+  if (_blk) { _blk.until = Math.max(_blk.until, until); _blk.ban = _blk.ban || !!ban; _blk.daily = _blk.daily || !!daily; _blk.signIn = _blk.signIn || !!signIn; blkPaint(); blkTick(); return; }
+  _blk = { until, ban: !!ban, daily: !!daily, signIn: !!signIn, timer: 0 };
+  blkPaint(); blkTick();
+  el("blkOverlay").classList.add("on"); document.body.classList.add("sk-blocked");
+  const repeat = !!daily && _blkDailyUntil === until;
+  if (daily) _blkDailyUntil = until;
+  if (!repeat) {
+    try { if (state.queue.length && !PB.paused()) { saveLastPlay(PB.cur(), true); PB.pause(); } } catch {}
+    blkSpeak();
+  }
+  _blk.timer = setInterval(blkTick, 250);
+}
+// The overlay blocks the mouse; this blocks the keyboard (media shortcuts, Space = play) for everything behind it.
+addEventListener("keydown", (e) => {
+  if (!_blk || (e.target && e.target.closest && e.target.closest("#blkOverlay, .authmodal.on"))) return;
+  e.stopImmediatePropagation(); if (e.key !== "Tab") e.preventDefault();
+}, true);
+
+// ── Catalog account gate (engine/security.mjs). The Worker stamps "<0|1>;<ms the setting was read>" on boot API
+// responses and on its 401; keep the newest reading so a browser-cached response can't roll it back. A reading
+// older than a day is ignored (the Worker fails open while it can't read the setting).
+const CG_KEY = "sk_cgate";
+let _cg = { on: false, at: 0 };
+try { const v = JSON.parse(localStorage.getItem(CG_KEY) || "null"); if (v && typeof v.on === "boolean" && typeof v.at === "number") _cg = v; } catch {}
+function catalogGateOn() { return _cg.on && Math.abs(Date.now() - _cg.at) < 864e5; }
+function cgNote(h) {
+  const m = /^([01]);(\d{1,16})$/.exec(h || ""); if (!m) return;
+  const at = +m[2]; if (!at || at < _cg.at) return;
+  _cg = { on: m[1] === "1", at };
+  try { localStorage.setItem(CG_KEY, JSON.stringify(_cg)); } catch {}
+  cgWarm();
+}
+// The engine worker pre-warms the dataset only when it would be allowed to fetch it.
+function cgWarm() { try { if (ENGINE_WORKER) ENGINE_WORKER.postMessage({ cfg: { warm: !(catalogGateOn() && !loggedIn()) } }); } catch {} }
+let _gateRetry = null, _gateAt = 0, _gateRefreshAt = 0;
+// Re-render whatever view the blocked catalog request was for (artist/album/playlist page, or the tab).
+function gateRetryView() { if (state.detailOpen) applyRoute(location.href); else reloadCurrent(); }
+// "Sign in to keep listening". retry runs once the visitor has signed in.
+function gateNotice(retry) {
+  if (loggedIn()) {
+    // Signed in here but the Worker saw no valid token (expired cookie): refresh once, then retry.
+    if (Date.now() - _gateRefreshAt > 30000) { _gateRefreshAt = Date.now(); acctRefresh().then((ok) => { if (ok && retry) retry(); }); }
+    return;
+  }
+  if (retry) _gateRetry = retry;
+  const m = el("gateModal");
+  if (m.classList.contains("on") || el("authModal").classList.contains("on") || el("askModal").classList.contains("on") || Date.now() - _gateAt < 1500) return;
+  _gateAt = Date.now();
+  try { localStorage.setItem(ACCT_NOTICE_KEY, String(Date.now())); } catch {} // this IS the account prompt — don't show the "soon" popup on top
+  m.classList.add("on");
+  setTimeout(() => el("gateUp").focus(), 60);
+}
+function gateClose() { el("gateModal").classList.remove("on"); }
+function gateGo(mode) { gateClose(); openAuth(mode); }
+// After any sign-in: retry what the gate stopped.
+function gateAfterLogin() { const f = _gateRetry; _gateRetry = null; cgWarm(); if (f && loggedIn()) try { f(); } catch {} }
+// Play while signed out with the gate on: ask first (true = go ahead).
+function playAllowed(retry) { if (!catalogGateOn() || loggedIn()) return true; gateNotice(retry); return false; }
+let _secQuiet = false; // set around a background pre-warm: its refusal must not pop a notice
 {
   const nativeFetch = window.fetch.bind(window);
   window.fetch = async (input, init) => {
+    const quiet = _secQuiet;
     const r = await nativeFetch(input, init);
-    if (r.status === 429 || r.status === 403) {
-      let same = false; try { same = new URL(r.url || String(input), location.href).origin === location.origin; } catch {}
-      if (same) r.clone().json().then((j) => secStatus(r.status, j), () => secStatus(r.status, null));
+    let same = false; try { same = new URL(r.url || String(input), location.href).origin === location.origin; } catch {}
+    if (same) {
+      cgNote(r.headers.get("X-SK-Catalog-Gate"));
+      if (!quiet && (r.status === 429 || r.status === 403 || r.status === 401)) {
+        const ra = r.headers.get("Retry-After");
+        r.clone().json().then((j) => secStatus(r.status, j, ra), () => secStatus(r.status, null, ra));
+      }
     }
     return r;
   };
@@ -1611,13 +1854,15 @@ function setShiurim(on) {
 // whatever artists post today, which is not the whitelisted-catalog promise the rest of the app makes,
 // so filters.statuses === "on" is the ONLY thing that enables them — absent (or signed out) = blocked.
 const pcStatuses = () => pcFilters().statuses === "on";
-// Music videos (desktop app only): watch a music video's picture instead of its album art. A device with
-// no parental policy can; once an account has one, only filters.musicVideos === "on" allows it; Kid Zone
-// never does. The YouTube iframe can't be moved into Now Playing (re-parenting an iframe reloads it), so
-// watch mode lays the hidden #ytwrap over the art box instead — and only while the video is actually
-// PLAYING: a paused or ended embed draws YouTube's own "more videos" panel, which is outside the whitelist.
+// Music videos: watch a music video's picture instead of its album art. A device with no parental
+// policy can; once an account has one, only filters.musicVideos === "on" allows it; Kid Zone never does.
+// The YouTube iframe can't be moved into Now Playing (re-parenting an iframe reloads it), so watch mode
+// lays the hidden #ytwrap over the art box instead — and only while the video is actually PLAYING: a
+// paused or ended embed draws YouTube's own "more videos" panel, which is outside the whitelist. That
+// guard (mvPaint below) is what keeps raw YouTube UI off screen, and it's platform-agnostic — the same
+// iframe is already loaded for audio on every platform — so this isn't gated to the desktop app.
 const pcMusicVideos = () => { const p = pcPolicy(); return !p || ((p.filters || {}).musicVideos === "on"); };
-const mvAllowed = () => !!SK_NATIVE && pcMusicVideos() && !kidZoneActive();
+const mvAllowed = () => pcMusicVideos() && !kidZoneActive();
 const mvWanted = () => LS.get("zw_mvWatch", "") === "1";
 const mvTrackOK = (t) => !!(t && t.isVideo && !t.kind);
 // Most entry points (search, Home rails, trending) carry no isVideo flag, so look the authoritative one up
@@ -1635,26 +1880,134 @@ function mvToggle() {
   mvPaint(); paintMVButton();
   showToast(mvWanted() ? "Watching music videos." : "Back to the album art.", 1800);
 }
+// Shows what pressing it does: a video camera while showing album art (press to watch), the same note
+// used elsewhere (auth logo, the art placeholder) while watching (press to go back to audio).
+const MV_VIDEO_ICON = '<svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M4 5h11a2 2 0 0 1 2 2v2.4l4-2.6v10.4l-4-2.6V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/></svg>';
+const MV_NOTE_ICON = '<svg viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg>';
 function paintMVButton() {
   const b = el("npMV"); if (!b) return;
   const can = mvAllowed() && mvTrackOK(state.queue[state.qi]), on = can && mvWanted();
   b.style.display = can ? "" : "none";
   b.classList.toggle("on", on);
+  b.innerHTML = on ? MV_NOTE_ICON : MV_VIDEO_ICON;
   const lbl = on ? "Show the album art" : "Watch the music video";
   b.title = lbl; b.setAttribute("aria-label", lbl); b.setAttribute("aria-pressed", String(on));
 }
+// Ad detection. YouTube's public player API never says "this is an ad" — it reports PLAYING identically
+// for an ad and for the real video — but an ad reports its OWN length. So when the player's duration is
+// far shorter than the catalog's length for this song (a 15s or 30s clip for a 3-minute song), or the
+// player reports a video id that isn't this song's, an ad is on screen and the frame gets covered with
+// "Playing ad". A heuristic, not a guarantee: before the player knows its duration (the first instant of
+// playback) there's nothing to compare, and a song shorter than a minute isn't judged at all. Only judged
+// while PLAYING — an ad reports PLAYING, but a track that's still loading can briefly report the PREVIOUS
+// song's id and length, which would otherwise read as an ad on every skip.
+function mvAdOnScreen(t, id, ytState) {
+  if (ytState !== 1 || !t || t.kind || !PB.useYt()) return false;
+  let ytDur = 0, ytVid = "";
+  try { ytDur = PB.yt.getDuration() || 0; } catch {}
+  try { ytVid = (PB.yt.getVideoData() || {}).video_id || ""; } catch {}
+  const expected = (t && t.durationSec) || 0;
+  return !!id && ((!!ytVid && ytVid !== id) || (expected > 60 && ytDur > 0 && ytDur < expected * 0.5 && expected - ytDur > 20));
+}
 function mvPaint() {
   const w = el("ytwrap"); if (!w) return;
-  let playing = false; try { playing = PB.ready && PB.yt.getPlayerState() === 1; } catch {}
+  const t = state.queue[state.qi], id = (t && t.videoId) || "";
+  let ytState = -1; try { ytState = PB.ready ? PB.yt.getPlayerState() : -1; } catch {}
+  // Muting is the ad guard's job (adAttach/adHold): it silences every load until the song is confirmed.
+  // Here it decides what's on screen: `held` (unconfirmed, possibly an ad) keeps the picture covered with
+  // the song's art; "Playing ad" shows only for an actual detection, not the instant every track is checked.
+  const held = adHeld(PB.yt), g = PB.yt && adGuards.get(PB.yt);
+  const ad = mvAdOnScreen(t, id, ytState) || (held && !!(g && g.ev));
   const box = el("npArtBox"), r = box && box.getBoundingClientRect();
-  const show = state.nowOpen && mvWanted() && mvAllowed() && mvTrackOK(state.queue[state.qi]) && PB.useYt() && playing && r && r.width > 0;
-  if (!show) { if (w.classList.contains("mv")) { w.classList.remove("mv"); w.removeAttribute("style"); } return; }
+  const active = state.nowOpen && mvWanted() && mvAllowed() && mvTrackOK(t) && PB.useYt() && r && r.width > 0;
+  if (!active) {
+    if (w.classList.contains("mv")) {
+      w.classList.remove("mv", "mv-hold", "mv-paused", "mv-ad"); w.removeAttribute("style");
+      if (fsNow() === w) { const x = document.exitFullscreen || document.webkitExitFullscreen; if (x) try { x.call(document); } catch {} }
+    }
+    return;
+  }
+  // The song's own video stays uncovered while PLAYING, BUFFERING (a seek or a stall — the frame with
+  // YouTube's spinner) or PAUSED, where it freezes on the current frame with a play glyph over it. An ad,
+  // or an ended/cued embed (YouTube's end-screen suggestions, outside the whitelist), is covered with the
+  // song's art (#mvHold) — plus "Playing ad" for an ad — rather than leaving watch mode, so the video
+  // stays put and stays full screen.
+  const reveal = !ad && !held && (ytState === 1 || ytState === 2 || ytState === 3);
   w.classList.add("mv");
-  w.style.left = r.left + "px"; w.style.top = r.top + "px"; w.style.width = r.width + "px"; w.style.height = r.height + "px";
+  w.classList.toggle("mv-hold", !reveal);
+  w.classList.toggle("mv-ad", ad);
+  w.classList.toggle("mv-paused", ytState === 2 && !ad);
+  const hold = el("mvHold"), art = el("npArt");
+  if (hold && !reveal && art && art.currentSrc) hold.style.backgroundImage = "url(" + JSON.stringify(art.currentSrc) + ")";
+  // While #ytwrap is itself the fullscreen element, #ytwrap.mv:fullscreen owns its size (100vw/100vh).
+  // An inline style always outranks a class/pseudo-class selector regardless of specificity, so a STALE
+  // left/top/width/height left over from before fullscreen was requested would keep pinning the frame
+  // (and #mvSeek, anchored to its bottom edge) to the small pre-fullscreen box — clickable only in that
+  // tiny corner of the now-fullscreen black screen, not where the video visually fills it.
+  if (fsNow() !== w) { w.style.left = r.left + "px"; w.style.top = r.top + "px"; w.style.width = r.width + "px"; w.style.height = r.height + "px"; }
+  else { w.style.removeProperty("left"); w.style.removeProperty("top"); w.style.removeProperty("width"); w.style.removeProperty("height"); }
   let live = null; try { live = PB.yt.getIframe(); } catch {}
   for (const f of w.querySelectorAll("iframe")) f.classList.toggle("mv-off", f !== live); // the gapless standby stays hidden
+  const fb = el("mvFull");
+  if (fb) { const l = fsNow() === w ? "Exit full screen" : "Full screen"; fb.title = l; fb.setAttribute("aria-label", l); }
 }
 addEventListener("resize", () => mvPaint());
+// Esc or the browser's own exit control fires this — re-snap #ytwrap back to the art-box size (still
+// playing, still watching) or, if it already stopped PLAYING while fullscreen, finish tearing it down.
+for (const ev of ["fullscreenchange", "webkitfullscreenchange"]) addEventListener(ev, () => mvPaint());
+// Full screen targets #ytwrap, not #npArtBox: #ytwrap only overlays the art box visually (see mvPaint
+// above), it isn't a descendant of it, so #npArtBox's own fullscreen (toggleVidFullscreen, for a filmed
+// shiur) wouldn't carry it along.
+function mvToggleFullscreen() {
+  const w = el("ytwrap"); if (!w) return;
+  if (fsNow()) { const x = document.exitFullscreen || document.webkitExitFullscreen; if (x) try { x.call(document); } catch {} return; }
+  const req = w.requestFullscreen || w.webkitRequestFullscreen;
+  if (req) { try { req.call(w); } catch {} }
+}
+// Tapping the picture (#mvTap): one tap pauses / resumes (a pause stays in watch mode — see mvPaint);
+// double-tap skips YouTube-style — right half +15s, left half −10s — and further quick taps keep
+// skipping. The single tap waits out the double-tap window, so a skip never pauses first.
+const MV_DBL_MS = 350;
+let _mvTapT = 0, _mvTapAt = 0, _mvSkipping = false;
+function mvTap(e) {
+  const now = Date.now(), quick = now - _mvTapAt < MV_DBL_MS;
+  _mvTapAt = now;
+  if (quick && (_mvTapT || _mvSkipping)) {
+    clearTimeout(_mvTapT); _mvTapT = 0; _mvSkipping = true;
+    const r = e.currentTarget.getBoundingClientRect();
+    mvSkip(e.clientX >= r.left + r.width / 2);
+    return;
+  }
+  _mvSkipping = false;
+  _mvTapT = setTimeout(() => { _mvTapT = 0; toggle(); }, MV_DBL_MS);
+}
+// One skip step. A burst of quick taps moves a single target (counted from where playback was when the
+// burst began, so no tap is lost while the player is still catching up) and seeks there once, shortly
+// after the last tap — one rebuffer per burst instead of one per tap. The popup shows the running total
+// for the side being tapped; switching sides restarts the count but keeps the target.
+let _mvFxSum = 0, _mvFxDir = 0, _mvFxT = 0, _mvSeekT = 0, _mvTarget = 0;
+function mvSkip(fwd) {
+  const dir = fwd ? 1 : -1, step = fwd ? 15 : 10, d = PB.dur();
+  if (!_mvFxSum) _mvTarget = PB.cur();
+  if (dir !== _mvFxDir) { _mvFxDir = dir; _mvFxSum = 0; }
+  _mvTarget = Math.max(0, _mvTarget + dir * step);
+  if (d) _mvTarget = Math.min(_mvTarget, d - 1);
+  _mvFxSum += step;
+  const fx = el("mvSkipFx");
+  if (fx) {
+    const side = fx.querySelector(fwd ? ".r" : ".l"), other = fx.querySelector(fwd ? ".l" : ".r");
+    other.classList.remove("on");
+    side.querySelector("b").textContent = _mvFxSum + " seconds";
+    side.classList.remove("on"); void side.offsetWidth; side.classList.add("on"); // restart the arrow sweep
+  }
+  clearTimeout(_mvSeekT);
+  _mvSeekT = setTimeout(() => { if (xf) abortCrossfade(); PB.seek(_mvTarget); }, 180);
+  clearTimeout(_mvFxT);
+  _mvFxT = setTimeout(() => {
+    if (fx) fx.querySelectorAll(".fx").forEach((f) => f.classList.remove("on"));
+    _mvFxSum = 0; _mvFxDir = 0;
+  }, 700);
+}
 async function pcSetMusicVideos() {
   if (!(await pcGuard())) return;
   const cur = (acct.profile && acct.profile.filters) || {};
@@ -2909,6 +3262,7 @@ const shFromPos = (id, e) => ({ videoId: "ta-" + id, kind: "shiur", shId: +id, s
 // stick to the shared track object a rendered list is still holding.
 function playShiur(t, watch) {
   if (!t || (!t.src && !t.vsrc && !t.hsrc)) { showToast("This shiur has no audio.", 2600); return; }
+  shHidePic = false; // a fresh shiur always starts showing its picture (if it has one) — see shToggleWatch
   if (watch && !t.vsrc && !t.hsrc) watch = false;
   const q = { ...t, watch: !!watch || (!t.src && !!(t.vsrc || t.hsrc)) }; // video-only lectures have nowhere else to go
   const at = (shPos()[q.shId] || {}).pos || 0;
@@ -3845,7 +4199,7 @@ const ACCT_NOTICE_KEY = "sk_acct_notice", ACCT_NOTICE_EVERY = 3 * 864e5;
 // sign-up form opened from it creates an account. The dashboard turns these into click-through rates.
 let _acctNoticeSignup = false;
 async function maybeShowAccountNotice() {
-  if (loggedIn() || document.querySelector(".authmodal.on")) return;
+  if (loggedIn() || catalogGateOn() || document.querySelector(".authmodal.on")) return; // gate on: its own "Sign in to keep listening" prompt replaces this
   let last = 0; try { last = +localStorage.getItem(ACCT_NOTICE_KEY) || 0; } catch {}
   if (Date.now() - last < ACCT_NOTICE_EVERY) return;
   try { localStorage.setItem(ACCT_NOTICE_KEY, String(Date.now())); } catch {}
@@ -4757,6 +5111,161 @@ const RATES = [1, 1.25, 1.5, 2, 0.75];
 function cycleRate() { PB.setRate(RATES[(RATES.indexOf(PB.rate) + 1) % RATES.length]); updateRateUI(); }
 function updateRateUI() { const l = (PB.rate === 1 ? "1×" : PB.rate + "×"); document.querySelectorAll(".rateBtn").forEach((b) => { b.textContent = l; b.classList.toggle("on", PB.rate !== 1); b.setAttribute("aria-label", "Playback speed " + l); }); }
 
+/* ---- Ad guard -----------------------------------------------------------------------------------
+   YouTube can put an ad in front of a song (or in the middle of one), and the IFrame API has no "an ad
+   is playing" signal. So a player is held MUTED — and, in watch mode, out of view — until it is
+   positively playing the video we asked for, and is held again the moment anything stops matching:
+     · identity — getVideoData().video_id, the v= of getVideoUrl() and getDebugText()'s debug_videoId
+       must be the requested id wherever the player reports one;
+     · duration — getDuration() must match the catalog duration within ±max(5s, 10%) (ads run seconds,
+       songs minutes); with no catalog duration, the duration first confirmed for this load must hold;
+     · state — only PLAYING confirms. UNSTARTED/CUED (how a switch to another video surfaces) re-hold a
+       confirmed player until it confirms again. BUFFERING does not: every seek and stall buffers, and
+       re-holding there would clip the start of a gapless hand-off.
+   Every load and cue arms the guard on that player (loadVideoById/cueVideoById are wrapped), so no path
+   can start a video unguarded. The hold is the player's OWN mute: PB.vol, the slider and the saved volume
+   are never touched, and the app's own mute()/unMute() calls are recorded rather than dropped while held,
+   so a release restores exactly the state the app last asked for.
+   The gapless standby warms MUTED, so it proves itself before the hand-off: it is only primed once
+   confirmed (an ad on it plays out silently first), which keeps the hand-off audible from its first frame.
+   "Skipping an ad…" shows only on positive evidence (a persistent identity/duration mismatch), so an
+   ordinary track change or buffer never flashes it.
+   An ad that won't end: after AD_GIVEUP_MS of playing-unconfirmed (or AD_ENDED_MS sitting ENDED after an
+   ad finished) the same video is reloaded once at the same position — a reload usually comes back without
+   the ad — and if that is held just as long, the track is skipped like an unplayable one. */
+const AD_POLL_MS = 100, AD_TOL_MIN = 5, AD_TOL_FRAC = 0.1, AD_NOID_MS = 1500, AD_MISMATCH_MS = 250, AD_GIVEUP_MS = 20000, AD_ENDED_MS = 4000;
+const adGuards = new WeakMap(); // YT.Player → guard state
+const adDurs = new Map();       // videoId → catalog duration from the engine (0 = looked up, none known)
+let adTimer = 0, adShown = false;
+function adCatalogDur(id) {
+  if (!id) return 0;
+  const q = state.queue, pick = (t) => (t && t.videoId === id && +t.durationSec > 0) ? +t.durationSec : 0;
+  return pick(q[state.qi]) || pick(q[cued.idx]) || (q.find((t) => pick(t)) || {}).durationSec || adDurs.get(id) || 0;
+}
+// Tracks without a catalog duration (some recents/radio rows) ask the in-browser engine — never the
+// network, which would spend the visitor's rate limit on every play.
+function adLookupDur(id) {
+  if (!id || adDurs.has(id) || !(STATIC && (ENGINE_WORKER || ENGINE))) return;
+  adDurs.set(id, 0);
+  getJSON("/track?v=" + encodeURIComponent(id)).then((r) => {
+    const d = r && +r.durationSec > 0 ? +r.durationSec : 0; if (!d) return;
+    adDurs.set(id, d);
+    for (const p of [PB.yt, ytStandby]) { const g = p && adGuards.get(p); if (g && g.id === id && !g.dur) g.dur = d; }
+  }).catch(() => {});
+}
+// Wrap a player's mute/unMute/loadVideoById/cueVideoById (idempotent; re-wraps if the API re-installs them).
+function adAttach(p) {
+  if (!p || typeof p.mute !== "function" || typeof p.unMute !== "function" || typeof p.loadVideoById !== "function" || typeof p.cueVideoById !== "function") return null;
+  let g = adGuards.get(p);
+  if (g && p.mute === g.w.mute && p.unMute === g.w.unMute && p.loadVideoById === g.w.load && p.cueVideoById === g.w.cue) return g;
+  if (!g) { g = { want: PB.muted, hold: true, id: null, dur: 0, start: 0, confD: 0, armedAt: 0, playMs: 0, lastAt: 0, ev: "", misAt: 0, tries: 0, retrying: false, endedAt: 0, w: {}, raw: {} }; adGuards.set(p, g); }
+  const cap = (k, wk) => (p[k] === g.w[wk] ? g.raw[wk] : p[k]);
+  g.raw = { mute: cap("mute", "mute"), unMute: cap("unMute", "unMute"), load: cap("loadVideoById", "load"), cue: cap("cueVideoById", "cue") };
+  g.w = {
+    mute(...a) { g.want = true; return g.raw.mute.apply(p, a); },
+    unMute(...a) { g.want = false; if (!g.hold) return g.raw.unMute.apply(p, a); },
+    load(...a) { adArm(p, a); return g.raw.load.apply(p, a); },
+    cue(...a) { adArm(p, a); return g.raw.cue.apply(p, a); },
+  };
+  p.mute = g.w.mute; p.unMute = g.w.unMute; p.loadVideoById = g.w.load; p.cueVideoById = g.w.cue;
+  try { g.raw.mute.call(p); } catch {}
+  return g;
+}
+function adArm(p, a) {
+  const g = adGuards.get(p); if (!g) return;
+  const x = a[0], id = typeof x === "string" ? x : (x && x.videoId) || null;
+  if (!g.retrying) g.tries = 0;
+  Object.assign(g, { id, dur: adCatalogDur(id), start: (x && typeof x === "object" ? +x.startSeconds : +a[1]) || 0, confD: 0, armedAt: performance.now(), playMs: 0, lastAt: 0, ev: "", misAt: 0, endedAt: 0 });
+  adHold(p, g, true);
+  if (!g.dur) adLookupDur(id);
+}
+function adHold(p, g, on) {
+  if (on) { try { g.raw.mute.call(p); } catch {} }
+  if (g.hold === on) return;
+  g.hold = on;
+  if (!on) { g.ev = ""; g.misAt = 0; g.playMs = 0; g.endedAt = 0; if (!g.want) try { g.raw.unMute.call(p); } catch {} }
+  if (p === PB.yt) { mvPaint(); adPaint(); }
+}
+const adHeld = (p) => { const g = p && adGuards.get(p); return !!(g && g.hold); };
+function adObserve(p) {
+  const o = { st: -9, vid: "", uvid: "", dvid: "", d: 0, ct: 0 };
+  try { o.st = p.getPlayerState(); } catch {}
+  try { o.vid = ((p.getVideoData() || {}).video_id) || ""; } catch {}
+  try { const m = /[?&]v=([\w-]{6,})/.exec(p.getVideoUrl() || ""); o.uvid = m ? m[1] : ""; } catch {}
+  try { const m = /"debug_videoId"\s*:\s*"([\w-]+)"/.exec((p.getDebugText && p.getDebugText()) || ""); o.dvid = m ? m[1] : ""; } catch {}
+  try { o.d = +p.getDuration() || 0; } catch {}
+  try { o.ct = +p.getCurrentTime() || 0; } catch {}
+  return o;
+}
+// "content" | "ad" | "unsure". Only a PLAYING observation is ever classified: right after a load the
+// cached getters still describe the previous video, which must not read as an ad.
+function adClassify(o, g) {
+  if (!g.id || o.st !== 1) return "unsure";
+  if ((o.vid && o.vid !== g.id) || (o.uvid && o.uvid !== g.id) || (o.dvid && o.dvid !== g.id)) return "ad";
+  if (!(o.d > 0)) return "unsure";
+  if (g.dur > 0) return Math.abs(o.d - g.dur) > Math.max(AD_TOL_MIN, g.dur * AD_TOL_FRAC) ? "ad" : "content";
+  if (g.confD > 0) return Math.abs(o.d - g.confD) > 2 ? "ad" : "content";
+  return o.vid === g.id ? "content" : "unsure";
+}
+// One evaluation of player p. Returns true when it is confirmed playing the requested content.
+function adCheck(p, now) {
+  const g = adAttach(p); if (!g || !g.id) return false;
+  const o = adObserve(p), c = adClassify(o, g), dt = g.lastAt ? Math.min(1000, now - g.lastAt) : 0;
+  g.lastAt = now;
+  if (!g.hold) {
+    if (c === "ad") { g.ev = "mismatch"; adHold(p, g, true); return false; }
+    if (c === "content" && !g.confD) g.confD = o.d;
+    return true;
+  }
+  if (c === "content") { g.confD = g.confD || o.d; adHold(p, g, false); return true; }
+  if (o.st === 1) g.playMs += dt;
+  // A mismatch only counts as evidence once it persists: for a moment after a load the getters can still
+  // describe the previous video, and that must not flash "Skipping an ad…" on every track change.
+  if (c === "ad") { if (!g.misAt) g.misAt = now; else if (now - g.misAt >= AD_MISMATCH_MS) g.ev = "mismatch"; } else g.misAt = 0;
+  // Nothing positive to go on (no reported id, no duration to compare) but nothing wrong either: never
+  // hold a real song for longer than AD_NOID_MS of actual playback on that basis alone.
+  if (c === "unsure" && o.st === 1 && o.d > 0 && !g.ev && g.playMs >= AD_NOID_MS) { g.confD = o.d; adHold(p, g, false); return true; }
+  if (p === PB.yt && (g.playMs >= AD_GIVEUP_MS || (g.endedAt && o.st === 0 && now - g.endedAt >= AD_ENDED_MS))) adGiveUp(p, g);
+  return false;
+}
+function adGiveUp(p, g) {
+  g.playMs = 0; g.endedAt = 0;
+  if (g.tries < 1) {
+    g.tries++; g.retrying = true;
+    try { p.loadVideoById({ videoId: g.id, startSeconds: g.start }); } catch {}
+    g.retrying = false; return;
+  }
+  console.warn("[ad-guard] an ad would not end — skipping", g.id);
+  showToast("Skipped a song that kept playing an ad.", 3200);
+  next();
+}
+// The player hit ENDED while held after showing an ad: that was the AD ending, not the song (the song
+// never confirmed), so the normal advance must not run. Returns true when onPlayback should ignore it.
+function adEndedIsAd(p) {
+  const g = adGuards.get(p); if (!g || !g.hold || !g.ev) return false;
+  if (!g.endedAt) g.endedAt = performance.now();
+  return true;
+}
+function adOnState(p, code) {
+  const g = adAttach(p); if (!g || !g.id) return;
+  if (!g.hold && (code === -1 || code === 5)) adHold(p, g, true);
+  if (code === 1) { g.endedAt = 0; adCheck(p, performance.now()); }
+}
+function adPaint() {
+  const g = adGuards.get(PB.yt);
+  const on = !!(g && g.hold && g.id && g.ev && PB.useYt());
+  if (on === adShown) return; adShown = on;
+  for (const id of ["nbAd", "npAd"]) { const e = el(id); if (e) e.classList.toggle("on", on); }
+}
+function adTick() {
+  const now = performance.now();
+  for (const p of [PB.yt, ytStandby || ytStandbyBoot]) {
+    if (!p || !adCheck(p, now) || p !== ytStandby) continue;
+    if (gapless && gapless.phase === "warm") onStandbyState(1); // a standby that was held while warming primes now
+  }
+  adPaint();
+}
+function adStart() { if (!adTimer) adTimer = setInterval(adTick, AD_POLL_MS); }
 /* ---- Gapless advance (double-buffer prime) ----
    The standby player pre-cues the next queue track and PRIMES it immediately: the moment the cue
    loads it plays MUTED just long enough to buffer (muted autoplay is always permitted), then pauses
@@ -4825,6 +5334,10 @@ function fireSwap() { // make the primed standby audible; the swap completes on 
 function onStandbyState(code) {
   if (code !== 1 || !gapless) return;
   if (gapless.phase === "warm") {
+    // Not confirmed as the song yet (an ad — which can report its own video id — or just too early): keep
+    // warming MUTED; adTick primes it on confirmation. Checked BEFORE the stale-video reset, which would
+    // otherwise stop the ad and re-warm straight into it again, round and round.
+    if (!adCheck(ytStandby, performance.now())) return;
     const vid = (() => { try { return (ytStandby.getVideoData() || {}).video_id; } catch { return null; } })();
     if (vid && cued.id && vid !== cued.id) { try { ytStandby.stopVideo(); } catch {} gapless = null; return; } // warmed a stale video — reset; the tick re-cues
     gapless.phase = "primed"; try { ytStandby.pauseVideo(); ytStandby.seekTo(0, true); } catch {}
@@ -4908,10 +5421,11 @@ window.onYouTubeIframeAPIReady = function () {
     playerVars: { autoplay: first ? 1 : 0, controls: 0, disablekb: 1, fs: 0, rel: 0, modestbranding: 1, iv_load_policy: 3, playsinline: 1, origin: location.origin },
     events: {
       onReady(e) {
+        adAttach(e.target); adStart();
         if (first) { PB.ready = true; PB.yt.setVolume(Math.round(PB.out() * 100)); if (PB.pending) { PB.yt.loadVideoById(PB.pending); PB.pending = null; } }
         else { ytStandby = e.target; standbyReady = true; cueNext(); } // may never fire for a videoless player — tick() also polls ytStandbyBoot into readiness
       },
-      onStateChange(e) { e.target === PB.yt ? onPlayback(e.data) : onStandbyState(e.data); },
+      onStateChange(e) { adOnState(e.target, e.data); e.target === PB.yt ? onPlayback(e.data) : onStandbyState(e.data); },
       onError(e) { if (e.target === PB.yt) onPlaybackError(); else { if (cued.id) cueDead.add(cued.id); cancelSwap(); } }, // 101/150 embed-disabled · 100 removed/private · 2/5 bad-id/html5; a dead cue is blacklisted so the handoff isn't retried against it
     },
   });
@@ -5012,6 +5526,7 @@ addEventListener("visibilitychange", () => {
 addEventListener("pageshow", iosOnForeground); // PWA restored from bfcache
 function playIndex(i, dir) {
   if (i < 0 || i >= state.queue.length) return;
+  if (!playAllowed(() => playIndex(i, dir))) return; // catalog account gate: signed out ⇒ "Sign in to keep listening"
   // Acapella sets INSTRUMENTAL MUSIC aside; a shiur is speech, so the filter has nothing to say about
   // it. Without this, Sefira/the Three Weeks would refuse to play any shiur ("no more Acapella songs
   // in this queue") — acapellaTrack() tests membership of a curated MUSIC playlist it can never be in.
@@ -5097,16 +5612,21 @@ function toggleVidFullscreen() {
 for (const ev of ["fullscreenchange", "webkitfullscreenchange"]) addEventListener(ev, () => { try { video.controls = !!fsNow() || vidControlsOn(); } catch {} paintWatchUI(); });
 function paintWatchUI() {
   const t = state.queue[state.qi], can = !!(t && (t.vsrc || t.hsrc) && podcastVideosOn());
+  // watching = the picture is actually on screen. Usually that's just "is the video element active"
+  // (PB.vid), but a video-only lecture (no t.src) has nowhere else to send the audio, so shHidePic lets
+  // it keep playing through the SAME video element while only the frame's visibility is toggled off —
+  // see shToggleWatch.
+  const watching = !!PB.vid && !shHidePic;
   const b = el("npWatch");
   if (b) {
     b.style.display = can ? "" : "none";
-    b.classList.toggle("on", can && !!PB.vid);
-    const lbl = PB.vid ? "Listen to the audio" : "Watch the video";
-    b.title = lbl; b.setAttribute("aria-label", lbl); b.setAttribute("aria-pressed", String(can && !!PB.vid));
+    b.classList.toggle("on", can && watching);
+    const lbl = watching ? "Listen to the audio" : "Watch the video";
+    b.title = lbl; b.setAttribute("aria-label", lbl); b.setAttribute("aria-pressed", String(can && watching));
   }
   // The two video-only buttons appear only once something is actually on screen — offering "full
   // screen" next to an audio track would be a dead control.
-  const watching = !!PB.vid, ctl = el("npVidCtl"), fs = el("npFull");
+  const ctl = el("npVidCtl"), fs = el("npFull");
   if (ctl) {
     ctl.style.display = watching ? "" : "none";
     ctl.classList.toggle("on", vidControlsOn());
@@ -5117,19 +5637,32 @@ function paintWatchUI() {
   // survives fullscreen, and an inline display here would fight that rule. Only the label is ours.
   if (fs) { const l = fsNow() ? "Exit full screen" : "Full screen"; fs.title = l; fs.setAttribute("aria-label", l); }
   try { video.controls = watching && (!!fsNow() || vidControlsOn()); } catch {}
-  const box = el("npArtBox"); if (box) box.classList.toggle("watching", !!PB.vid);
+  const box = el("npArtBox"); if (box) box.classList.toggle("watching", watching);
 }
+// Lets a video-only lecture's picture be hidden without touching playback: a <video> element keeps
+// decoding (and keeps its audio) even while display:none, same as the YouTube iframe sits off-screen
+// for audio-only playback (see the desktop download pipeline's own comment on the same property).
+// Reset on every new playShiur() so a fresh track always starts showing its picture.
+let shHidePic = false;
 // Flip the CURRENT track between its video and its audio, in place and at the same position — the
-// resume point, the queue entry and the play-duration session all survive, because only the media
-// element changes. Video-only lectures can't flip back (there is no audio to flip to).
+// resume point, the queue entry and the play-duration session all survive either way.
 function shToggleWatch() {
   const t = state.queue[state.qi]; if (!t || (!t.vsrc && !t.hsrc)) return;
   if (!podcastVideosOn()) { showToast("<b>Video shiurim are turned off</b> for this account — a parent can enable them in Parental Controls.", 4600); return; }
+  if (!t.src) {
+    // Video-only lecture: there's no separate audio file to switch the media element to, but its audio
+    // track plays regardless of whether the picture is shown — so "listen" just hides the frame, with
+    // the exact same source still loaded. No PB.load, no reload, no lost position.
+    shHidePic = !shHidePic;
+    paintWatchUI();
+    showToast(shHidePic ? "Back to audio only." : "Watching the video.", 1800);
+    return;
+  }
   const to = !t.watch;
   if (to && !t.vsrc && !t.hsrc) { showToast("This shiur has no video.", 2600); return; }
-  if (!to && !t.src) { showToast("This shiur is video only.", 2600); return; }
   const at = PB.cur() || 0;
   t.watch = to;
+  shHidePic = false;
   PB.load(t.videoId, at, to ? t.vsrc : t.src, to, to ? t.hsrc : "");
   paintWatchUI(); setPlayIcons();
   showToast(to ? "Watching the video." : "Back to audio only.", 1800);
@@ -5713,25 +6246,25 @@ function tick() {
   if (bootResume && !state.queue.length) { // nothing loaded yet: show the paused resume point, not 0:00
     const d = bootResume.t.durationSec || 0, c = bootResume.pos || 0, pct = d ? Math.min(1, c / d) : 0;
     el("nbProgress").style.width = (pct * 100) + "%";
-    if (!seeking) { el("nbSeek").value = el("npSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); }
-    el("nbCur").textContent = el("npCur").textContent = fmt(c);
-    el("nbDur").textContent = el("npDur").textContent = d ? fmt(d) : "0:00";
+    if (!seeking) { el("nbSeek").value = el("npSeek").value = el("mvSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); paintSeek(el("mvSeek")); }
+    el("nbCur").textContent = el("npCur").textContent = el("mvCur").textContent = fmt(c);
+    el("nbDur").textContent = el("npDur").textContent = el("mvDur").textContent = d ? fmt(d) : "0:00";
     return;
   }
   const d = PB.dur(), c = PB.cur(), pct = d ? c / d : 0;
   el("nbProgress").style.width = (pct * 100) + "%";
-  if (!seeking) { el("nbSeek").value = el("npSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); }
-  el("nbCur").textContent = el("npCur").textContent = fmt(c);
-  el("nbDur").textContent = el("npDur").textContent = d ? fmt(d) : "0:00";
+  if (!seeking) { el("nbSeek").value = el("npSeek").value = el("mvSeek").value = Math.round(pct * 1000); paintSeek(el("nbSeek")); paintSeek(el("npSeek")); paintSeek(el("mvSeek")); }
+  el("nbCur").textContent = el("npCur").textContent = el("mvCur").textContent = fmt(c);
+  el("nbDur").textContent = el("npDur").textContent = el("mvDur").textContent = d ? fmt(d) : "0:00";
   // Gapless: WARM as soon as the standby's cue has loaded (polled here — see onStandbyState note),
   // then FIRE near the end (re-validating that the cue still matches what playIndex would choose).
   if (PB.mode === "yt" && !PB.local && !PB.direct && !state.repeat && !seeking && !PB.paused() && !xf) { // !paused: a pause in the final 0.5s must NOT let the fire window un-pause playback; !xf: a fade owns the transition; !local/!direct: skip while a non-YouTube source plays
     if (!standbyReady && ytStandbyBoot) { // onReady is unreliable for a videoless player — probe it functional
-      try { ytStandbyBoot.getPlayerState(); ytStandby = ytStandbyBoot; standbyReady = true; } catch {}
+      try { ytStandbyBoot.getPlayerState(); adAttach(ytStandbyBoot); ytStandby = ytStandbyBoot; standbyReady = true; } catch {}
     }
     if (standbyReady && cued.idx < 0 && !gapless) cueNext(); // nothing cued (e.g. readiness arrived late) → cue now
     if (!gapless && cued.idx >= 0) beginWarm(); // no-op until the cued video is actually loaded
-    else if (gapless && gapless.phase === "primed" && d > 0 && c > 0
+    else if (gapless && gapless.phase === "primed" && d > 0 && c > 0 && !adHeld(PB.yt) // held = an ad (or unconfirmed): d/c may be the ad's, not the song's
         && cued.idx === nextPlayableIndex() && state.queue[cued.idx] && state.queue[cued.idx].videoId === cued.id) {
       if (state.crossfade > 0 && !PB.muted && d - c <= state.crossfade) startCrossfade(); // fade in over the tail
       else if (d - c <= GAPLESS_FIRE) fireSwap();                                          // else the seamless gapless handoff
@@ -5764,6 +6297,7 @@ function onPlayback(code) { // YT states: -1 unstarted · 0 ended · 1 playing �
   } else if (code === 2) { playAccrue(); if (skSt) skSt.pausedAt = Date.now(); } // paused → bank the elapsed listen time
   else if (code === 0) { // ended: a primed/starting standby takes over instantly; anything else falls back to the normal path
     if (xf) return; // the active track finished mid-crossfade — the fade's own timer owns the advance
+    if (adEndedIsAd(PB.yt)) return; // an AD ended, not the song — the song starts next (or adCheck gives up and recovers)
     stopTick();
     const cueValid = gapless && cued.idx === nextPlayableIndex() && state.queue[cued.idx] && state.queue[cued.idx].videoId === cued.id;
     if (gapless && gapless.phase === "primed" && cueValid) fireSwap(); // completes on the standby's PLAYING event
@@ -5892,11 +6426,11 @@ function onPlaybackError() {
 // On iOS the keep-alive pumps "timeupdate" every ~100ms while locked; that is the only heartbeat that
 // survives the background JS freeze, so hang the end-of-track advance off it.
 audio.addEventListener("timeupdate", () => { if (IS_IOS && !PB.useYt()) iosMaybeForceEnd(); });
-["nbSeek", "npSeek"].forEach((id) => {
+["nbSeek", "npSeek", "mvSeek"].forEach((id) => {
   const s = el(id);
   // CSS already makes the bar non-interactive on a station; this is the belt to that braces, since
   // a range input can still be driven by the keyboard when focused.
-  s.addEventListener("input", () => { if (skSt) { paintSeek(s); return; } seeking = true; paintSeek(s); el("nbCur").textContent = el("npCur").textContent = fmt((s.value / 1000) * PB.dur()); });
+  s.addEventListener("input", () => { if (skSt) { paintSeek(s); return; } seeking = true; paintSeek(s); el("nbCur").textContent = el("npCur").textContent = el("mvCur").textContent = fmt((s.value / 1000) * PB.dur()); });
   s.addEventListener("change", () => { if (xf) abortCrossfade(); const d = PB.dur(); if (d) PB.seek((s.value / 1000) * d); seeking = false; });
 });
 el("vol").addEventListener("input", (e) => { PB.setVol(e.target.value / 100); paintSeek(e.target); });
@@ -6890,6 +7424,7 @@ async function _onLogin() {
   acct.profile = prof || {};
   cachePolicy(); // persist the gating policy so it survives sign-out (only on a confirmed-good read)
   await syncLikesOnLogin(); applyProfileFilters(); mergeRecentsOnLogin(); renderAcct();
+  gateAfterLogin();
 }
 // --- recents sync (cross-device recently-played, stored in zemer_user.recents) ---
 let _recTimer;
@@ -7343,8 +7878,9 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
       STATIC = true; ENGINE = await import("/lib/engine.mjs"); // in-thread engine = the fallback (dataset loads lazily only if a fallback call happens)
       try { // primary: the engine in a Web Worker, so the dataset parse + search-index build never block the UI
         ENGINE_WORKER = new Worker("/lib/engine-worker.mjs", { type: "module" });
-        ENGINE_WORKER.onmessage = (e) => { if (e.data && e.data.sec) return secStatus(e.data.sec.status, e.data.sec.j); const { id, r, err } = e.data || {}; const res = _wReq.get(id); if (res) { _wReq.delete(id); res(err ? null : r); } };
+        ENGINE_WORKER.onmessage = (e) => { if (e.data && e.data.sec) return secStatus(e.data.sec.status, e.data.sec.j, e.data.sec.ra); const { id, r, err } = e.data || {}; const res = _wReq.get(id); if (res) { _wReq.delete(id); res(err ? null : r); } };
         ENGINE_WORKER.onerror = () => { ENGINE_WORKER = null; }; // worker failed to load → in-thread engine takes over
+        cgWarm(); // no dataset pre-warm while the catalog would refuse it (signed out behind the account gate)
       } catch { ENGINE_WORKER = null; }
     }
   } catch { /* server mode */ }
@@ -7396,7 +7932,7 @@ async function pcKidRemoveChip(id, which) { if (!(await pcGuard())) return; cons
   if (STATIC) artistByName().catch(() => {}); // preload gender flags for the content filter
   // Warm the dataset in the background. The worker warms itself (see engine-worker.mjs); only warm the
   // in-thread engine when there's no worker, to avoid loading the dataset into memory twice.
-  if (STATIC && !ENGINE_WORKER && ENGINE && ENGINE.preload) { const warm = () => ENGINE.preload().catch(() => {}); "requestIdleCallback" in window ? requestIdleCallback(warm, { timeout: 1500 }) : setTimeout(warm, 800); }
+  if (STATIC && !ENGINE_WORKER && ENGINE && ENGINE.preload) { const warm = () => { if (catalogGateOn() && !loggedIn()) return; _secQuiet = true; try { ENGINE.preload().catch(() => {}); } finally { _secQuiet = false; } }; "requestIdleCallback" in window ? requestIdleCallback(warm, { timeout: 1500 }) : setTimeout(warm, 800); }
 })();
 
 /* ============================ Horizontal rails: drag, wheel, chevrons ============================
