@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.9.14 + Desktop 1.2.6 — 2026-10-28 (web + desktop)
+
+**Why the bump:** Zemer, which supplies the catalog, now answers only clients it recognises. Its playback
+proxy (`stream.zemer.io`) is no longer available to SK Music, and server-side calls need a partner key. This
+release follows Zemer's directions so SK Music keeps its catalog.
+
+**Web**
+- **No more "Stream via proxy".** Songs always play through the YouTube player, iOS included. On a network
+  whose filter blocks YouTube, songs can't play; the app shows the existing "Playback is blocked on this
+  network" message. Shiurim and podcasts are unaffected.
+- **iOS:** songs no longer keep playing on the lock screen (that ran through the proxy). Shiurim and podcasts
+  still do.
+- **Download is desktop-only.** The web Download button and menu item are gone.
+- **One address:** every page now redirects to `skmusic.shalomkarr.com` before anything on it runs, including
+  the charts, test, dashboard, diagnostic and tagger pages. Old desktop builds (1.2.0 and earlier) are left alone
+  so their update prompt still works.
+
+**Desktop 1.2.6**
+- Downloads come only from YouTube. If YouTube can't be reached (for example, a filter blocks it), the error
+  says so; there is no proxy fallback any more.
+
+**Under the hood**
+- Build and Worker calls to Zemer send the partner key (`X-Zemer-Partner`), only on the paths Zemer allows. The
+  key lives in the GitHub Actions secret and the Worker secret `ZEMER_PARTNER_KEY`, never in the repo
+  (`docs/zemer-partner.md`).
+- The daily build now **fails instead of publishing** when Zemer's whitelist or blocked-content list can't be
+  fetched, so the last good site stays live. Other Zemer feeds that fail show as warnings in the Actions log.
+- `stream.zemer.io` removed from the Content-Security-Policy.
+
 ## 1.9.13 — 2026-10-12 (web)
 
 **Why the bump:** visitors without an account could browse, search and play the whole catalog without limit

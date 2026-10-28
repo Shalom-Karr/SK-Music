@@ -9,6 +9,7 @@ code (the Supabase **anon** key) is publishable and safe (see below).
 | `CLOUDFLARE_API_TOKEN` | `wrangler deploy` | Yes (to deploy) | GitHub Actions secret |
 | `GITHUB_TOKEN` | Fetching the catalog release | Auto (CI) | Provided by GitHub Actions |
 | `CF_ANALYTICS_TOKEN` | Cloudflare Web Analytics beacon | Optional | GitHub Actions secret |
+| `ZEMER_PARTNER_KEY` | Server-side Zemer calls (build + Worker), header `X-Zemer-Partner` | **Yes** (build fails without it) | GitHub Actions secret **and** Worker secret (`npx wrangler secret put ZEMER_PARTNER_KEY`) — see [zemer-partner.md](zemer-partner.md) |
 | Supabase **anon** key | Analytics, parental controls, tags | Yes | Committed (safe, RLS-protected) |
 | Supabase **service_role** key | — | **Not used by the app** | Never commit; local admin only |
 
@@ -76,12 +77,14 @@ Schema: **[`supabase/schema.sql`](../supabase/schema.sql)**.
 
 - **`CORPUS_REPO`** — the whitelisted catalog snapshot is a **public** GitHub release; downloading it needs
   no auth.
-- **`CATALOG_API`** — the curated-playlist API is public; no auth.
+- **`CATALOG_API`** — the curated-playlist API; server-side calls to the real search.zemer.io carry
+  `ZEMER_PARTNER_KEY` (above).
 
 ---
 
 ## Never commit
 
-`CLOUDFLARE_API_TOKEN`, any Supabase `service_role` key, and any `*.token` file are gitignored. If one is
-ever exposed, rotate it immediately. See [`.env.example`](../.env.example) for the full list of
+`CLOUDFLARE_API_TOKEN`, `ZEMER_PARTNER_KEY`, any Supabase `service_role` key, `.dev.vars` and any `*.token`
+file are gitignored or secret-only. If one is ever exposed, rotate it immediately (a leaked Zemer key: tell
+Zemer at once so they replace it). See [`.env.example`](../.env.example) for the full list of
 (non-secret) build configuration.

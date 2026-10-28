@@ -15,6 +15,8 @@ data/.httpcache/
 CLOUDFLARE_API_TOKEN.txt
 *.token
 innertube_cookie.txt
+.dev.vars
+.dev.vars.*
 google-services.json
 
 # Cloudflare static build output + wrangler state (rebuilt)

@@ -45,10 +45,17 @@ const CANON_HOST = new URL(SITE).hostname;
 // Tauri remote capability, so moving them to another origin silently kills the entire event bridge —
 // media keys, downloads, the updates card, auto-duck — with no error anywhere. 1.2.1+ opens the
 // canonical host directly and trusts both, so it never reaches this code.
+//
+// window.stop() BEFORE the replace (after it, stop() would cancel the navigation too): location.replace only
+// schedules the navigation, and the rest of the document would keep parsing and running meanwhile — the
+// app's own scripts would call Zemer from the wrong origin, which Zemer refuses (it answers browsers only on
+// the canonical host). Stopping the load means nothing after this tag ever runs off-host.
 const CANON_JS = `<script>(function(){try{var c=${JSON.stringify(CANON_HOST)},h=location.hostname;`
   + `if(h===c||h==="localhost"||h==="127.0.0.1"||h==="::1"||h.slice(-10)===".localhost")return;`
   + `if(window.__TAURI__||window.__TAURI_INTERNALS__)return;`
-  + `location.replace("https://"+c+location.pathname+location.search+location.hash);}catch(e){}})();</script>`;
+  + `window.stop&&window.stop();location.replace("https://"+c+location.pathname+location.search+location.hash);}catch(e){}})();</script>`;
+// Every other asset-served page gets the same guard as the first thing in <head>.
+const canonHead = (html) => html.replace(/<head[^>]*>/i, (m) => m + CANON_JS);
 
 // ── file helpers ──────────────────────────────────────────────────────────────
 // Windows refuses to delete a directory some process holds open (a local `wrangler dev`, an editor's file
@@ -1021,7 +1028,7 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
         ? taggerTemplate.replace(/const ARTISTS = \[[\s\S]*?\];/, artistsReplacement)
         : taggerTemplate;
       html = html.replace(/const CFG = \{[^;]*\};/, "const CFG = " + JSON.stringify(cfg) + ";");
-      ensureWrite(path.join(DIST, file), html);
+      ensureWrite(path.join(DIST, file), canonHead(html));
     }
   } catch (e) {
     console.warn("  taggers: skipped —", e.message);
@@ -1121,21 +1128,21 @@ for (const png of ["chrome.png", "edge.png"]) fs.copyFileSync(path.join(ROOT, "r
 // Every read/write goes through SECURITY DEFINER RPCs that re-check membership server-side (the anon key is
 // public, so the UI gates nothing). Written as admin.html too: the asset layer serves /admin from that file
 // before the Worker runs, so it must be the same dashboard.
-const DASHBOARD = fs.readFileSync(path.join(ROOT, "assets/analytics.html"), "utf8");
+const DASHBOARD = canonHead(fs.readFileSync(path.join(ROOT, "assets/analytics.html"), "utf8"));
 ensureWrite(path.join(DIST, "analytics.html"), DASHBOARD);
 ensureWrite(path.join(DIST, "admin.html"), DASHBOARD);
 
 // Network connectivity test page — diagnoses filter/whitelist blocks and a real playback test.
-ensureWrite(path.join(DIST, "test.html"), fs.readFileSync(path.join(ROOT, "assets/connectivity.html"), "utf8"));
+ensureWrite(path.join(DIST, "test.html"), canonHead(fs.readFileSync(path.join(ROOT, "assets/connectivity.html"), "utf8")));
 
 // Public trending charts page — served at /charts by the asset layer, and at /trending for browser
 // navigations (the Worker content-negotiates; fetch() clients keep getting the JSON API). Deliberately
 // NOT named trending.html: an asset at that path would shadow the /trending route entirely.
-ensureWrite(path.join(DIST, "charts.html"), fs.readFileSync(path.join(ROOT, "assets/charts.html"), "utf8"));
+ensureWrite(path.join(DIST, "charts.html"), canonHead(fs.readFileSync(path.join(ROOT, "assets/charts.html"), "utf8")));
 
 // Deep playback diagnostic — served at /playback-block-test (asset layer, via html_handling; no Worker).
 // Isolates each layer of the YouTube stack (domain → iframe_api → embed → media) to pinpoint a block.
-ensureWrite(path.join(DIST, "playback-block-test.html"), fs.readFileSync(path.join(ROOT, "assets/playback-block-test.html"), "utf8"));
+ensureWrite(path.join(DIST, "playback-block-test.html"), canonHead(fs.readFileSync(path.join(ROOT, "assets/playback-block-test.html"), "utf8")));
 
 // ── service worker ─────────────────────────────────────────────────────────────
 // Cache versioned per build: V changes → old caches evicted on activate.
@@ -1216,7 +1223,7 @@ const CSP = [
   // lectures (both mp3 AND mp4 — video shiurim need no host this list didn't already have), and
   // www.torahanytime.com serves the legacy /dl/mobileaudio/ URLs that a few older records still use
   // as their only `audio_url`.
-  "media-src 'self' blob: skdl: https://stream.zemer.io http://skdl.localhost https://skdl.localhost https://dl.torahanytime.com https://proxier.torahanytime.com https://www.torahanytime.com https://ta-lectures.s3.us-east-005.backblazeb2.com https://ta-tusd.nyc3.digitaloceanspaces.com",
+  "media-src 'self' blob: skdl: http://skdl.localhost https://skdl.localhost https://dl.torahanytime.com https://proxier.torahanytime.com https://www.torahanytime.com https://ta-lectures.s3.us-east-005.backblazeb2.com https://ta-tusd.nyc3.digitaloceanspaces.com",
   "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
   // ipc: + ipc.localhost are the Tauri desktop app's IPC transport (invoke → now_playing/set_playback_state);
   // harmless for browsers, required so the desktop media bridge isn't blocked.
