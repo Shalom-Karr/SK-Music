@@ -1011,14 +1011,30 @@ async function refreshExternalTrending(env) {
 const LIVE_PLAYLIST_IDS = PUBLIC_LIVE_PLAYLISTS;
 const zpKvKey = (id) => "zp:" + id;
 
+// Zemer partner key (docs/zemer-partner.md). Since 2026-10-28 Zemer refuses server-side calls without it,
+// and accepts it only on these host/path prefixes — so it is attached ONLY there (never to tracking.zemer.io
+// or anything else), and only when the Worker secret is set. Never log it, echo it, or put it in an error.
+const ZEMER_PARTNER_PATHS = {
+  "content.zemer.io": ["/whitelist", "/blockedContentIds", "/podcastsWhitelist"],
+  "search.zemer.io": ["/home-rows", "/new", "/radio", "/stations", "/station", "/podcasts", "/podcast", "/podcast-channel", "/zemer-playlists"],
+};
+function zemerHeaders(env, url) {
+  const h = {};
+  const key = env && env.ZEMER_PARTNER_KEY;
+  if (!key) return h;
+  const u = new URL(url);
+  const allowed = ZEMER_PARTNER_PATHS[u.hostname];
+  if (u.protocol === "https:" && allowed && allowed.some((p) => u.pathname === p || u.pathname.startsWith(p + "/")))
+    h["X-Zemer-Partner"] = key;
+  return h;
+}
+
 // Fetch a fresh copy of one auto-playlist from the upstream Zemer search index.
 // Returns the raw JSON text, or null on any error.
-async function fetchUpstreamPlaylist(id) {
+async function fetchUpstreamPlaylist(env, id) {
   try {
-    const res = await fetch(
-      `https://search.zemer.io/zemer-playlists?id=${encodeURIComponent(id)}`,
-      { signal: AbortSignal.timeout(15000) }
-    );
+    const u = `https://search.zemer.io/zemer-playlists?id=${encodeURIComponent(id)}`;
+    const res = await fetch(u, { headers: zemerHeaders(env, u), signal: AbortSignal.timeout(15000) });
     if (!res.ok) return null;
     const text = await res.text();
     return text && text.length > 2 ? text : null;
@@ -1055,7 +1071,7 @@ async function handleLivePlaylist(url, env, ctx) {
   if (edgeHit) return edgeHit;
 
   // 3. Live upstream fetch.
-  const text = await fetchUpstreamPlaylist(id);
+  const text = await fetchUpstreamPlaylist(env, id);
   if (text == null) {
     return Response.json(
       { error: "unavailable" },
@@ -1080,7 +1096,7 @@ async function handleLivePlaylist(url, env, ctx) {
 async function refreshTrending(env) {
   if (!env.PAGES) return;
   for (const id of LIVE_PLAYLIST_IDS) {
-    const text = await fetchUpstreamPlaylist(id);
+    const text = await fetchUpstreamPlaylist(env, id);
     if (text) await env.PAGES.put(zpKvKey(id), text, { expirationTtl: 46800 });
   }
 }
@@ -1092,9 +1108,10 @@ async function refreshTrending(env) {
 // filters) with the same KV → edge cache → live priority as /zp-live; the cron keeps KV warm.
 const HOME_ROWS_KV_KEY = "home-rows:v1";
 
-async function fetchUpstreamHomeRows() {
+async function fetchUpstreamHomeRows(env) {
   try {
-    const res = await fetch("https://search.zemer.io/home-rows", { signal: AbortSignal.timeout(15000) });
+    const u = "https://search.zemer.io/home-rows";
+    const res = await fetch(u, { headers: zemerHeaders(env, u), signal: AbortSignal.timeout(15000) });
     if (!res.ok) return null;
     const text = await res.text();
     return text && text.length > 2 ? text : null;
@@ -1119,7 +1136,7 @@ async function handleHomeRows(env, ctx) {
   const edgeHit = await edgeCache.match(cacheKey);
   if (edgeHit) return edgeHit;
 
-  const text = await fetchUpstreamHomeRows();
+  const text = await fetchUpstreamHomeRows(env);
   if (text == null) {
     return Response.json({ error: "unavailable" }, { status: 502, headers: { "Cache-Control": "no-store" } });
   }
@@ -1134,7 +1151,7 @@ async function handleHomeRows(env, ctx) {
 // Cron half: same 13 h TTL bridging discipline as refreshTrending.
 async function refreshHomeRows(env) {
   if (!env.PAGES) return;
-  const text = await fetchUpstreamHomeRows();
+  const text = await fetchUpstreamHomeRows(env);
   if (text) await env.PAGES.put(HOME_ROWS_KV_KEY, text, { expirationTtl: 46800 });
 }
 
@@ -1162,7 +1179,8 @@ async function handleZemerNew(env, ctx) {
 
   let text = null;
   try {
-    const res = await fetch("https://search.zemer.io/new?k=60&days=14", { signal: AbortSignal.timeout(15000) });
+    const u = "https://search.zemer.io/new?k=60&days=14";
+    const res = await fetch(u, { headers: zemerHeaders(env, u), signal: AbortSignal.timeout(15000) });
     if (res.ok) { const t = await res.text(); if (t && t.length > 2) text = t; }
   } catch {}
   if (text == null) {
@@ -1188,11 +1206,11 @@ async function handleZemerNew(env, ctx) {
 const POD_ID_RX = /^[A-Za-z0-9_=-]{1,128}$/;
 const podBad = (m) => Response.json({ error: m }, { status: 400, headers: { "Cache-Control": "no-store" } });
 
-async function podUpstream(url, cacheKey, ttl, ctx) {
+async function podUpstream(env, url, cacheKey, ttl, ctx) {
   const cache = caches.default;
   if (cacheKey) { const hit = await cache.match(cacheKey); if (hit) return hit; }
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    const res = await fetch(url, { headers: zemerHeaders(env, url), signal: AbortSignal.timeout(15000) });
     const text = await res.text();
     const out = new Response(text, {
       status: res.status,
@@ -1205,7 +1223,7 @@ async function podUpstream(url, cacheKey, ttl, ctx) {
   }
 }
 
-async function handlePodcasts(request, url, ctx) {
+async function handlePodcasts(request, url, env, ctx) {
   if (request.method !== "GET")
     return Response.json({ error: "method not allowed" }, { status: 405, headers: { "Cache-Control": "no-store" } });
   const p = url.pathname;
@@ -1219,7 +1237,7 @@ async function handlePodcasts(request, url, ctx) {
     const k = parseInt(url.searchParams.get("k") || "", 10);
     if (Number.isFinite(k)) out.set("k", String(Math.min(100, Math.max(1, k))));
     const qs = out.toString();
-    return podUpstream("https://search.zemer.io/podcasts/new-episodes" + (qs ? "?" + qs : ""),
+    return podUpstream(env, "https://search.zemer.io/podcasts/new-episodes" + (qs ? "?" + qs : ""),
       new Request("https://sk/pod-new?" + qs), 1800, ctx); // 30 min — shows publish on a weekly cadence, not a minutely one
   }
 
@@ -1234,16 +1252,16 @@ async function handlePodcasts(request, url, ctx) {
     const qs = out.toString();
     // 6 h. A show/channel page only gains an episode when the podcast publishes, and /podcasts/new-episodes
     // is the surface that has to be fresh — so this trades staleness we can't see for Worker requests we pay for.
-    return podUpstream("https://search.zemer.io" + p + "?" + qs, new Request("https://sk" + p + "?" + qs), 21600, ctx);
+    return podUpstream(env, "https://search.zemer.io" + p + "?" + qs, new Request("https://sk" + p + "?" + qs), 21600, ctx);
   }
 
   // The whitelist mirror. The SPA does NOT read this — it reads the build-time snapshot in
   // /data/podcasts.json, which costs no Worker request at all. These stay for external callers, and
   // are cached to the same 6 h as the show endpoints: a stale allow-set only ever hides new shows.
   if (p === "/podcasts-whitelist")
-    return podUpstream("https://content.zemer.io/podcastsWhitelist", new Request("https://sk/pod-wl"), 21600, ctx);
+    return podUpstream(env, "https://content.zemer.io/podcastsWhitelist", new Request("https://sk/pod-wl"), 21600, ctx);
   if (p === "/podcasts-whitelist/version")
-    return podUpstream("https://content.zemer.io/podcastsWhitelist/version", new Request("https://sk/pod-wlv"), 3600, ctx);
+    return podUpstream(env, "https://content.zemer.io/podcastsWhitelist/version", new Request("https://sk/pod-wlv"), 3600, ctx);
 
   return podBad("unknown podcast route");
 }
@@ -1264,7 +1282,7 @@ async function handlePodcasts(request, url, ctx) {
 const STATION_ID_RX = /^[a-z0-9][a-z0-9-]{0,31}$/; // shape-checked, not hardcoded — a new upstream station works without a deploy
 const STATIONS_EDGE_TTL = 15;
 
-async function handleStations(request, url, ctx) {
+async function handleStations(request, url, env, ctx) {
   if (request.method !== "GET")
     return Response.json({ error: "method not allowed" }, { status: 405, headers: { "Cache-Control": "no-store" } });
 
@@ -1274,7 +1292,8 @@ async function handleStations(request, url, ctx) {
   if (hit) return hit;
 
   try {
-    const res = await fetch("https://search.zemer.io/stations", { signal: AbortSignal.timeout(15000) });
+    const u = "https://search.zemer.io/stations";
+    const res = await fetch(u, { headers: zemerHeaders(env, u), signal: AbortSignal.timeout(15000) });
     const text = await res.text();
     const out = new Response(text, {
       status: res.status,
@@ -1291,7 +1310,7 @@ async function handleStations(request, url, ctx) {
   }
 }
 
-async function handleStation(request, url) {
+async function handleStation(request, url, env) {
   if (request.method !== "GET")
     return Response.json({ error: "method not allowed" }, { status: 405, headers: { "Cache-Control": "no-store" } });
 
@@ -1307,9 +1326,8 @@ async function handleStation(request, url) {
   }
 
   try {
-    const res = await fetch("https://search.zemer.io/station?" + out.toString(), {
-      signal: AbortSignal.timeout(15000),
-    });
+    const u = "https://search.zemer.io/station?" + out.toString();
+    const res = await fetch(u, { headers: zemerHeaders(env, u), signal: AbortSignal.timeout(15000) });
     const text = await res.text();
     return new Response(text, {
       status: res.status,
@@ -1320,7 +1338,7 @@ async function handleStation(request, url) {
   }
 }
 
-async function handleStationCover(request, url, ctx) {
+async function handleStationCover(request, url, env, ctx) {
   if (request.method !== "GET")
     return new Response("method not allowed", { status: 405, headers: { "Cache-Control": "no-store" } });
 
@@ -1334,9 +1352,8 @@ async function handleStationCover(request, url, ctx) {
   if (hit) return hit;
 
   try {
-    const res = await fetch(`https://search.zemer.io/stations/cover?id=${encodeURIComponent(id)}`, {
-      signal: AbortSignal.timeout(15000),
-    });
+    const u = `https://search.zemer.io/stations/cover?id=${encodeURIComponent(id)}`;
+    const res = await fetch(u, { headers: zemerHeaders(env, u), signal: AbortSignal.timeout(15000) });
     if (!res.ok) return new Response("unavailable", { status: 502, headers: { "Cache-Control": "no-store" } });
     const body = await res.arrayBuffer();
     const out = new Response(body, {
@@ -1363,7 +1380,7 @@ const RADIO_KINDS = ["song", "artist", "album", "shuffle", "playlist"];
 const badRadio = (msg) =>
   Response.json({ error: msg }, { status: 400, headers: { "Cache-Control": "no-store" } });
 
-async function handleRadio(request, url) {
+async function handleRadio(request, url, env) {
   // GET only, and never forward url.search verbatim — rebuild the upstream query from a validated
   // allowlist so /radio can't be used to pass arbitrary/unbounded params to search.zemer.io.
   if (request.method !== "GET")
@@ -1403,9 +1420,8 @@ async function handleRadio(request, url) {
   // NOTE: a per-IP rate limit would need infra not bound here (no Rate Limiting binding / Durable Object);
   // the param allowlist above is the required hardening. Add a binding-backed limiter if abuse appears.
   try {
-    const res = await fetch("https://search.zemer.io/radio?" + out.toString(), {
-      signal: AbortSignal.timeout(15000),
-    });
+    const u = "https://search.zemer.io/radio?" + out.toString();
+    const res = await fetch(u, { headers: zemerHeaders(env, u), signal: AbortSignal.timeout(15000) });
     const text = await res.text();
     return new Response(text, {
       status: res.status,
@@ -1915,15 +1931,15 @@ async function route(request, env, ctx) {
     if (pathname === "/zp-live") return handleLivePlaylist(url, env, ctx);
     if (pathname === "/zemer-home-rows") return withCatalogGate(await handleHomeRows(env, ctx), env, ctx);
     if (pathname === "/zemer-new") return withCatalogGate(await handleZemerNew(env, ctx), env, ctx);
-    if (pathname === "/radio") return handleRadio(request, url);
+    if (pathname === "/radio") return handleRadio(request, url, env);
     // /podcasts/new-episodes is the ONLY API path under /podcasts/ — matched exactly so the SPA's
     // shareable /podcasts/:podcaster falls through to the app shell instead of being answered with a
     // JSON 400. (Series and episodes live under /shows/, which the Worker never claimed.)
     if (pathname === "/podcast" || pathname === "/podcast-channel" || pathname === "/podcasts/new-episodes" || pathname.startsWith("/podcasts-whitelist"))
-      return handlePodcasts(request, url, ctx);
-    if (pathname === "/stations") return handleStations(request, url, ctx);
-    if (pathname === "/station") return handleStation(request, url);
-    if (pathname === "/stations/cover") return handleStationCover(request, url, ctx);
+      return handlePodcasts(request, url, env, ctx);
+    if (pathname === "/stations") return handleStations(request, url, env, ctx);
+    if (pathname === "/station") return handleStation(request, url, env);
+    if (pathname === "/stations/cover") return handleStationCover(request, url, env, ctx);
     // Lyrics on/off switch: LYRICS_ENABLED (false ⇒ 404).
     if (pathname === "/lyrics") return LYRICS_ENABLED ? handleLyrics(request, url, ctx) : new Response("Not found", { status: 404 });
     if (pathname.startsWith("/statuses/")) return handleStatuses(request, url, ctx);

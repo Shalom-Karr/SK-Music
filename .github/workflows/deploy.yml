@@ -45,6 +45,9 @@ jobs:
       - name: Build static bundle
         env:
           SK_PRIVATE_DIR: ${{ steps.priv.outputs.dir }}
+          # Zemer partner key (docs/zemer-partner.md). The build fails closed without a working key:
+          # a non-zero exit here skips the deploy step, so the previous deployment stays live.
+          ZEMER_PARTNER_KEY: ${{ secrets.ZEMER_PARTNER_KEY }}
         run: node engine/build-static.mjs
       - name: Deploy to Cloudflare
         if: env.HAS_CF_TOKEN == 'true'

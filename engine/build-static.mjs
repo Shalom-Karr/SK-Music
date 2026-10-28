@@ -151,6 +151,15 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
   // Catalog API base — curated playlists list + acapella detection both call it.
   const CATALOG_BASE = (process.env.CATALOG_API || "https://search.zemer.io").replace(/\/$/, "");
 
+  // Zemer partner key (docs/zemer-partner.md): required on every server-side content.zemer.io and
+  // search.zemer.io call since 2026-10-28. Secret — never log it or put it in an error message.
+  const ZEMER_HEADERS = process.env.ZEMER_PARTNER_KEY ? { "X-Zemer-Partner": process.env.ZEMER_PARTNER_KEY } : {};
+  // Only send it to the real catalog host, never to a CATALOG_API override pointing elsewhere.
+  const CATALOG_HEADERS = new URL(CATALOG_BASE).hostname === "search.zemer.io" ? ZEMER_HEADERS : {};
+  const keyHint = process.env.ZEMER_PARTNER_KEY ? "" : " (ZEMER_PARTNER_KEY is not set)";
+  // GitHub Actions annotation, so a refused key on an optional feed is visible without failing the build.
+  const ghWarn = (msg) => console.log(`::warning::${msg}${keyHint}`);
+
   // Public anon key — the same one that ships in the client. Declared here rather than further down
   // because the artist-merge read below has to happen BEFORE the artist index is built.
   const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4dHRxY291YWJkcHRmdGx2Zm5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTc2OTAsImV4cCI6MjA5ODc5MzY5MH0.DiTcbcKTqXZTJfOqEXfvckiObinN0g15BDbLmAmmdsY";
@@ -211,49 +220,53 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
   // ── external metadata: whitelist + Israeli/Chasidish tag tables ────────────
   // These augment artist records with flags not stored in the corpus
   // (isDJ, isAmerican, isFamous, isIsraeli, isChasidish from Supabase).
-  // All fetches are best-effort: a network failure means flags default false
-  // and the tagger falls back to its committed bake.
-  let whitelistArtists = [];
-  const whitelistMeta  = new Map(); // channel_id → { isDJ, isAmerican, isFamous, isChasid }
-
-  try {
-    const res = await fetch("https://content.zemer.io/whitelist");
-    if (res.ok) {
-      const payload = await res.json();
-      whitelistArtists = Array.isArray(payload)
-        ? payload
-        : (payload.artists || payload.channels || []);
-      for (const a of whitelistArtists) {
-        if (a && a.id) {
-          whitelistMeta.set(a.id, {
-            isDJ: !!a.isDJ,
-            isAmerican: !!a.isAmerican,
-            isFamous: !!a.isFamous,
-            isChasid: !!a.isChasid,
-          });
-        }
-      }
-      console.log(`  whitelist: ${whitelistArtists.length} artists (isChasid=${whitelistArtists.filter(a => a && a.isChasid).length})`);
+  // The whitelist and blockedContentIds are content gates: FAIL CLOSED. If either can't be fetched or
+  // doesn't parse to the expected shape, the build throws — CI exits non-zero, the deploy step never
+  // runs, and the previous deployment stays live. There is deliberately no fallback copy for either.
+  const fetchRequiredZemer = async (name, url) => {
+    let res;
+    try {
+      res = await fetch(url, { headers: ZEMER_HEADERS, signal: AbortSignal.timeout(30000) });
+    } catch (e) {
+      throw new Error(`${name}: fetch failed (${e.name}); not publishing without it${keyHint}`);
     }
-  } catch (e) {
-    console.warn("  whitelist: skipped —", e.message);
+    if (!res.ok) throw new Error(`${name}: HTTP ${res.status}; not publishing without it${keyHint}`);
+    try { return await res.json(); }
+    catch { throw new Error(`${name}: response is not JSON; not publishing without it`); }
+  };
+
+  const whitelistMeta  = new Map(); // channel_id → { isDJ, isAmerican, isFamous, isChasid }
+  const whitelistArtists = await (async () => {
+    const payload = await fetchRequiredZemer("whitelist", "https://content.zemer.io/whitelist");
+    const list = Array.isArray(payload) ? payload : (payload && (payload.artists || payload.channels));
+    if (!Array.isArray(list) || !list.length || !list.some((a) => a && a.id))
+      throw new Error("whitelist: unexpected shape (no artist array); not publishing without it");
+    return list;
+  })();
+  for (const a of whitelistArtists) {
+    if (a && a.id) {
+      whitelistMeta.set(a.id, {
+        isDJ: !!a.isDJ,
+        isAmerican: !!a.isAmerican,
+        isFamous: !!a.isFamous,
+        isChasid: !!a.isChasid,
+      });
+    }
   }
+  console.log(`  whitelist: ${whitelistArtists.length} artists (isChasid=${whitelistArtists.filter(a => a && a.isChasid).length})`);
 
   // Per-id content overrides (Zemer's blockedContentIds mirror): { global: [ids hidden for everyone],
   // female: [ids hidden only when female is blocked] }. Each id is a videoId, playlistId, or channelId.
   // This is how a MIXED item — a male-primary track featuring a woman — is caught, which the artist-level
-  // isFemale flag misses. Best-effort; empty on failure. Baked to /data/blocked-ids.json for the client.
-  let blockedIds = { global: [], female: [] };
-  try {
-    const res = await fetch("https://content.zemer.io/blockedContentIds");
-    if (res.ok) {
-      const b = await res.json();
-      blockedIds = { global: b.global || [], female: b.female || [] };
-      console.log(`  blocked ids: ${blockedIds.global.length} global + ${blockedIds.female.length} female`);
-    }
-  } catch (e) {
-    console.warn("  blocked ids: skipped —", e.message);
-  }
+  // isFemale flag misses. Required (see above). Baked to /data/blocked-ids.json for the client.
+  const blockedIds = await (async () => {
+    const b = await fetchRequiredZemer("blockedContentIds", "https://content.zemer.io/blockedContentIds");
+    if (!b || typeof b !== "object" || Array.isArray(b) || !Array.isArray(b.global)
+        || (b.female != null && !Array.isArray(b.female)))
+      throw new Error("blockedContentIds: unexpected shape (want { global: [], female: [] }); not publishing without it");
+    return { global: b.global, female: b.female || [] };
+  })();
+  console.log(`  blocked ids: ${blockedIds.global.length} global + ${blockedIds.female.length} female`);
 
   // Paginated Supabase tag reader — streams all rows into a Map<channel_id, boolean>.
   const israeliFlags = new Map();
@@ -303,9 +316,11 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
   try {
     let body = null;
     try {
-      const res = await fetch(`${CATALOG_BASE}/zemer-playlists?id=acapella`);
+      const res = await fetch(`${CATALOG_BASE}/zemer-playlists?id=acapella`, { headers: CATALOG_HEADERS });
       if (res.ok) body = await res.json();
-    } catch { /* fall through to the committed copy */ }
+      // 404 is the normal off-season state; anything else (a refused key: 401/403) is worth seeing.
+      else if (res.status !== 404) ghWarn(`acapella playlist: HTTP ${res.status} — using the committed fallback`);
+    } catch (e) { ghWarn(`acapella playlist: fetch failed (${e.name}) — using the committed fallback`); }
     if (!body || !(body.tracks || []).length) body = acapellaFallback;
     if (body) {
       const acSet = new Set(((body && body.tracks) || []).map((t) => t.videoId));
@@ -573,7 +588,7 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
       let lastError;
       for (let attempt = 0; attempt < attempts; attempt++) {
         try {
-          const res = await fetch(CATALOG_BASE + urlPath, { signal: AbortSignal.timeout(25000) });
+          const res = await fetch(CATALOG_BASE + urlPath, { headers: CATALOG_HEADERS, signal: AbortSignal.timeout(25000) });
           if (!res.ok) throw new Error("HTTP " + res.status);
           return res;
         } catch (e) {
@@ -595,7 +610,7 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
       const listBody = await fetchJSON("/zemer-playlists");
       catalogList = listBody.playlists || [];
     } catch (e) {
-      console.warn(`  !! curated playlists: LIST FETCH FAILED from ${CATALOG_BASE} — ${e.message}. Section renders empty (plus the acapella fallback below). !!`);
+      ghWarn(`curated playlists: LIST FETCH FAILED from ${CATALOG_BASE} — ${e.message}. Section renders empty (plus the acapella fallback below).`);
       catalogList = []; // never throw — continue so the acapella fallback still bakes
     }
     console.log(`  curated playlists: fetched ${catalogList.length} from ${CATALOG_BASE}, baking details + covers…`);
@@ -611,12 +626,12 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
           const coverRes = await fetchWithRetry("/zemer-playlists/cover?id=" + encodeURIComponent(entry.id));
           ensureWrite(path.join(DATA, "zemer-playlist", entry.id + ".svg"), await coverRes.text());
         } catch (ce) {
-          console.warn(`  !! curated playlists: cover failed for "${entry.id}" — ${ce.message} (card falls back to placeholder)`);
+          ghWarn(`curated playlists: cover failed for "${entry.id}" — ${ce.message} (card falls back to placeholder)`);
         }
 
         successfulPlaylists.push({ ...entry, thumbnail: coverPath(entry.id) });
       } catch (de) {
-        console.warn(`  !! curated playlists: detail failed for "${entry.id}" — ${de.message} (dropping this playlist)`);
+        ghWarn(`curated playlists: detail failed for "${entry.id}" — ${de.message} (dropping this playlist)`);
       }
     }
 
@@ -635,7 +650,7 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
     if (successfulPlaylists.length && successfulPlaylists.length >= catalogList.length) {
       console.log(`  curated playlists: baked ${successfulPlaylists.length}/${catalogList.length} (from ${CATALOG_BASE})`);
     } else {
-      console.warn(`  !! curated playlists: baked ${successfulPlaylists.length}/${catalogList.length} — ${successfulPlaylists.length ? "some playlists missing" : "SECTION WILL BE EMPTY"} !!`);
+      ghWarn(`curated playlists: baked ${successfulPlaylists.length}/${catalogList.length} — ${successfulPlaylists.length ? "some playlists missing" : "SECTION WILL BE EMPTY"}`);
     }
   })();
 
@@ -652,17 +667,21 @@ if (!CODE_ONLY) { // ===== full build: corpus → dataset + per-entity detail + 
   // the full list, kol-isha shows included), so those flags are what the client gates on — if the
   // whitelist half fails we bake NOTHING rather than a list we can't filter. Fail closed.
   await (async () => {
-    const grab = async (url) => {
-      try { const r = await fetch(url, { signal: AbortSignal.timeout(25000) }); return r.ok ? await r.json() : null; }
-      catch { return null; }
+    const grab = async (name, url, headers) => {
+      try {
+        const r = await fetch(url, { headers, signal: AbortSignal.timeout(25000) });
+        if (r.ok) return await r.json();
+        ghWarn(`podcasts: ${name} HTTP ${r.status}`);
+      } catch (e) { ghWarn(`podcasts: ${name} fetch failed (${e.name})`); }
+      return null;
     };
     const [index, whitelist] = await Promise.all([
-      grab(CATALOG_BASE + "/podcasts"),
-      grab("https://content.zemer.io/podcastsWhitelist"),
+      grab("index", CATALOG_BASE + "/podcasts", CATALOG_HEADERS),
+      grab("podcastsWhitelist", "https://content.zemer.io/podcastsWhitelist", ZEMER_HEADERS),
     ]);
     const shows = (index && index.podcasts) || [];
     if (!shows.length || !Array.isArray(whitelist) || !whitelist.length) {
-      console.warn("  !! podcasts: index or whitelist fetch failed — Podcasters rail will not render this build !!");
+      ghWarn("podcasts: index or whitelist missing — Podcasters rail will not render this build");
       return;
     }
     const flags = new Map(whitelist.map((d) => [d.docId || d.id, d]));
