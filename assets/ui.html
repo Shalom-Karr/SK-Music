@@ -1261,19 +1261,6 @@ fill="url(#royal)" stroke="none">
     <div class="toggle locked" id="tgFemale" role="button" tabindex="0" onclick="gotoParental()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div><span>Hide female singers</span><small>Kol isha — change in Parental Controls</small></div><div class="sw"></div></div>
     <div class="toggle locked" id="tgAcapLocked" role="button" tabindex="0" onclick="flipFilter('acapella')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" style="display:none"><div><span>Acapella</span><small id="acapLockSub">Required for Sefira / the Three Weeks</small></div><div class="sw"></div></div>
   </div>
-  <!-- Shown to everyone: this is the switch for people whose filter blocks the normal player. It
-       turns itself on automatically when that is detected, but it has to be reachable by hand too —
-       both to turn back off, and for someone who was told to enable it. -->
-  <div id="relayRow" style="border-top:1px solid var(--line);margin-top:8px;padding-top:4px">
-    <h4 style="margin-top:0">Playback</h4>
-    <div class="toggle" id="tgRelay" role="button" tabindex="0" onclick="setRelay(!relayOn())" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
-      <div>
-        <span>Stream via proxy</span>
-        <small>Turn on if your filter blocks playback &mdash; the music comes through a proxy instead of YouTube</small>
-      </div>
-      <div class="sw"></div>
-    </div>
-  </div>
   <!-- Desktop only — revealed by the SK_NATIVE block. A browser tab cannot observe other
        applications' audio at all, so in the web app this control would be a switch wired to nothing. -->
   <div id="duckRow" style="display:none;border-top:1px solid var(--line);margin-top:8px;padding-top:4px">
@@ -1361,7 +1348,7 @@ fill="url(#royal)" stroke="none">
         <button class="iconbtn" id="npVidCtl" onclick="toggleVidControls()" title="Show video controls" aria-label="Show video controls" aria-pressed="false" style="width:48px;height:48px;flex:none;display:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M3 17h6v2H3zm0-6h12v2H3zm0-6h18v2H3zm14 6h4v2h-4zm-6 6h10v2H11z"/></svg></button>
         <button class="iconbtn" id="npShare" onclick="openShare(event)" title="Share" aria-label="Share" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0 0 6c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92z"/></svg></button>
         <!-- SK-OFFLINE: desktop-only "download for offline" toggle; hidden until the native shell shows it -->
-        <button class="iconbtn" id="npDownload" onclick="downloadCurrent()" title="Download" aria-label="Download" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z"/></svg></button>
+        <button class="iconbtn" id="npDownload" onclick="downloadCurrent()" title="Download" aria-label="Download" style="width:48px;height:48px;flex:none;display:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-4.7 1.4-1.4L12 13.6V3zM5 19h14v2H5z"/></svg></button>
         <button class="iconbtn" id="npMenu" onclick="if(state.queue[state.qi])openSongMenu(this,state.queue[state.qi])" title="More" aria-label="More actions" style="width:48px;height:48px;flex:none"><svg viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4m0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/></svg></button>
       </div>
       <div class="np-seek"><input type="range" class="seek" id="npSeek" min="0" max="1000" value="0" aria-label="Seek">
@@ -2146,8 +2133,6 @@ function syncFilterUI() {
   if (el("chasidSeg")) el("chasidSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", (b.dataset.v || "") === chasidMode()));
   if (el("tgDJ")) el("tgDJ").classList.toggle("on", noDJ());
   if (el("tgZemerRadio")) el("tgZemerRadio").classList.toggle("on", zemerRadioOn());
-  if (el("relayRow")) el("relayRow").style.display = IS_IOS ? "none" : ""; // on iOS the relay is not optional
-  if (el("tgRelay")) el("tgRelay").classList.toggle("on", relayOn());
   // The account switch only exists once a parent has allowed podcasts at all — otherwise it's a
   // control with nothing behind it.
   if (el("tgPodcasts")) { el("tgPodcasts").style.display = pcPodcasts() ? "" : "none"; el("tgPodcasts").classList.toggle("on", podcastsOn()); }
@@ -4448,7 +4433,7 @@ function openSongMenu(anchor, t) {
   if (!acaOnly) html += `<button class="mi" role="menuitem" onclick="closeMenus();smRadio()">${ico.radio}<span>Start radio</span></button>`;
   if (t.artist) html += `<button class="mi" role="menuitem" onclick="closeMenus();smArtist()">${ico.artist}<span>Go to artist</span></button>`;
   if (t.videoId && !t.kind) html += `<button class="mi" role="menuitem" onclick="closeMenus();smAlbum()">${ico.album}<span>Go to album</span></button>`;
-  if (t.videoId && !t.kind) html += `<button class="mi" role="menuitem" onclick="closeMenus();smDownload()">${ico.dl}<span>Download</span></button>`;
+  if (SK_NATIVE && t.videoId && !t.kind) html += `<button class="mi" role="menuitem" onclick="closeMenus();smDownload()">${ico.dl}<span>Download</span></button>`;
   html += `<button class="mi" role="menuitem" onclick="closeMenus();smShare()">${ico.share}<span>Share</span></button>`;
   html += `<div class="misep"></div><button class="mi" role="menuitem" onclick="closeMenus();smReport()">${ico.flag}<span>Report a problem</span></button>`;
   popMenu(anchor, html);
@@ -4467,31 +4452,9 @@ async function smAlbum() {
   if (state.nowOpen) closeNow();
   openAlbum(d.albumId);
 }
-function smDownload() { const t = _menuTrack; if (!t || !t.videoId) return; if (SK_NATIVE) { skDownload(t.videoId, t.title, t.artist); } else { showToast("Downloads require the desktop app", 2000); } }
+function smDownload() { const t = _menuTrack; if (SK_NATIVE && t && t.videoId) skDownload(t.videoId, t.title, t.artist); }
 function smShare() { const t = _menuTrack; if (t) shareSong(t, _menuRect ? rectAnchor(_menuRect) : null); }
 function smReport() { const t = _menuTrack; if (t) reportSong(t); }
-// A relay-sourced <audio> error means the RELAY refused us — the track itself is fine, so skipping
-// to the next one (which would fail identically) is exactly wrong. Retire the relay for this
-// session and resume the SAME track through the YouTube iframe, fetching the API first on iOS
-// where boot skipped it. Returns true if it took ownership of the error.
-function relayFailed(src) {
-  if (relayDead || !src || src.indexOf(RELAY_BASE) !== 0) return false;
-  relayDead = true;
-  console.warn("[relay] refused — falling back to the YouTube player for this session");
-  // Unconditionally, and BEFORE the track check: the iframe is now the only engine left, and on iOS
-  // boot never fetched the API. Skipping this when nothing happens to be queued would retire the relay
-  // and leave no engine at all — every later track would sit in PB.pending waiting for an API that was
-  // never requested.
-  ensureYT();
-  const t = state.queue[state.qi];
-  if (!t || t.kind || !t.videoId) return false; // nothing to resume; let the normal error path run
-  const at = PB.cur() || 0; // 0 when the relay 403'd before playing; a real position if it died mid-track
-  cancelSwap();
-  PB.nextStart = at;
-  PB.load(t.videoId, at); // relayOn() is false now, so this takes the iframe path (queues in `pending` until the API lands)
-  showToast("Switching player\u2026", 1800);
-  return true;
-}
 function smPlayNext() { enqueueMenuTrack(true); }
 function smAddToQueue() { enqueueMenuTrack(false); }
 // Insert the menu track into the live queue. "Play next" = right after the current track; "Add to
@@ -4859,23 +4822,10 @@ function blockedByFilter(kind) { blockedPage("Access denied", `This ${kind} is b
 // network content filter to intercept, and playback works wherever the embed is allowed. Only whitelisted
 // corpus videoIds are ever loaded, and the iframe is off-screen with no controls, so no YouTube UI shows.
 // If the IFrame API itself can't load, we fall back to the server-proxied /stream path (the <audio> tag).
-/* ---- streaming proxy --------------------------------------------------------------------------
-   A large part of this audience sits behind a kosher filter that blocks youtube.com and
-   googlevideo.com outright, so the embedded player simply never loads and nothing plays. The Zemer
-   project (whose catalog this app already uses) runs a relay for exactly that case — see
-   a streaming proxy exists for exactly this, "so playback works on devices whose kosher filter blocks
-   music.youtube.com and googlevideo.com". We use the same two endpoints their Android client does:
-
-     GET /stream?v=<id>    audio, Accept-Ranges (so the scrubber works)
-     GET /download?v=<id>  one clean full file, Content-Disposition: attachment
-
-   Playback goes through the <audio> element with NO `crossorigin` attribute, so it needs no CORS
-   grant — the same reason the shiurim path works. `media-src` in the CSP has to allow the host
-   (engine/build-static.mjs).
-
-   OFF by default: the YouTube player is better when it is reachable (gapless hand-off, no third
-   party in the audio path, no load on someone else's bandwidth). It turns itself on only when
-   playback is actually found to be blocked, and can be toggled by hand in the filter menu. */
+/* ---- no filter bypass -------------------------------------------------------------------------
+   Behind a kosher filter that blocks youtube.com / googlevideo.com the embedded player never loads
+   and nothing plays. SK Music has no streaming source of its own for that case, so it says so (see
+   ytUnavailable) instead of trying to route around the filter. */
 /* ---- platform ---------------------------------------------------------------------------------
    iPadOS reports itself as "Macintosh", so UA sniffing alone misses iPads — the MacIntel+touch test
    catches them (same logic as detectPlatform() in connectivity.html). isStandalone() is true once the
@@ -4891,8 +4841,8 @@ const isStandalone = () => {
 };
 
 /* ---- iOS background-audio keep-alive + progress clock -----------------------------------------
-   On iOS the app plays through the html5 <audio> element (via the relay, see relayOn below), because
-   the YouTube iframe is suspended the instant the screen locks. But iOS ALSO freezes setInterval/
+   Applies whenever iOS plays through the html5 <audio> element (shiurim/podcasts, which pass their own
+   media URL); YouTube-backed tracks go through the iframe, which iOS suspends the instant the screen locks. But iOS ALSO freezes setInterval/
    setTimeout while locked, so the 300ms tick() and with it end-of-track advance and the progress bar
    die exactly when background playback needs them. A ScriptProcessorNode on a running AudioContext
    still receives audio callbacks while locked; we pump a synthetic "timeupdate" off it so the near-end
@@ -4953,60 +4903,15 @@ function iosOnForeground() {
   iosWasPlayingHidden = false;
 }
 
-const RELAY_BASE = "https://stream.zemer.io";
-const relayStreamUrl = (id) => RELAY_BASE + "/stream?v=" + encodeURIComponent(id);
-const relayDownloadUrl = (id) => RELAY_BASE + "/download?v=" + encodeURIComponent(id);
-// Two ways to be on the relay, deliberately kept apart:
-//   persisted (localStorage "zw_relay") — the user flipped the switch themselves; survives reloads.
-//   session   (in-memory)               — the app switched automatically on a CONFIRMED block;
-//                                          dies with the tab, so a one-off hiccup can never park
-//                                          an unfiltered user on the relay for good.
-// Every reader goes through relayOn(), which is true for either, so the engine choice, the
-// toggle UI and the analytics tag all just work.
-let relaySession = false;
-// Set when a relay-sourced <audio> errors: the relay is refusing this origin (403) or is down.
-// Session-only and one-way — a reload gives it another chance, but within a session we stop
-// re-trying an engine that just proved it cannot serve us and fall back to the iframe instead.
-let relayDead = false;
-// IS_IOS first: on iOS the iframe engine cannot play in the background at all, so the relay IS the
-// engine, not a fallback. The manual toggle is hidden there (syncFilterUI).
-const relayOn = () => !relayDead && (IS_IOS || relaySession || LS.get("zw_relay", "") === "1");
-function setRelay(on, quiet, persist = true) {
-  if (persist) { LS.set("zw_relay", on ? "1" : ""); relaySession = false; }
-  else relaySession = !!on;
-  // Turning it OFF by hand must beat an automatic session switch, or the switch would look stuck on.
-  if (!on) relaySession = false;
-  track("relay", { on: !!on, auto: !persist });
-  syncFilterUI();
-  const t = state.queue[state.qi];
-  // Re-load the current track through the other engine, keeping the position.
-  if (t && !t.kind) { const at = PB.cur() || 0; PB.nextStart = at; cancelSwap(); PB.load(t.videoId, at, on ? relayStreamUrl(t.videoId) : undefined); }
-  if (!quiet) showToast(on
-    ? "<b>Streaming via proxy.</b> Playback goes through a proxy instead of YouTube, so it works behind a filter."
-    : "<b>Back to the normal player.</b>", 4200);
-}
+try { localStorage.removeItem("zw_relay"); } catch {} // retired playback-proxy switch; drop the stale key
 
-// Download the current track. Desktop keeps its own offline library (skdl:// + an index); the web
-// app has nowhere to put a library, so it just hands the file to the browser — the relay sends
-// The relay sends `Content-Disposition: attachment` with a real "Artist - Title.m4a" name, so the
-// browser saves it rather than rendering it. It is a CROSS-ORIGIN URL (stream host ≠ this site), so the
-// `download` attribute is ignored — a same-tab click would NAVIGATE the SPA to the relay URL, wiping the
-// app state (and showing an error page if the relay refuses). Open it in a NEW tab instead: the download
-// fires there off the attachment header, that tab self-closes, and this tab's URL is never touched.
+// Download the current track for offline — desktop only (skdl:// + an index). The web app has no
+// download source, so the control is never shown there.
 function downloadCurrent() {
   const t = state.queue[state.qi];
-  if (!t || !t.videoId) return;
+  if (typeof SK_NATIVE === "undefined" || !SK_NATIVE || !t || !t.videoId) return;
   if (t.kind) { showToast("This can't be downloaded.", 2400); return; } // shiurim/podcasts aren't YouTube-backed
-  if (typeof SK_NATIVE !== "undefined" && SK_NATIVE) return skToggleDownloadCurrent();
-  const a = document.createElement("a");
-  a.href = relayDownloadUrl(t.videoId);
-  a.target = "_blank";                // download in a new tab so the app tab's URL never changes
-  a.rel = "noopener noreferrer";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  track("download", { v: t.videoId, title: t.title || "", artist: t.artist || "", via: "relay" });
-  showToast("<b>Downloading…</b> Check your browser's downloads.", 3200);
+  skToggleDownloadCurrent();
 }
 
 const audio = el("audio"), video = el("video");
@@ -5112,14 +5017,6 @@ const PB = {
     const localSrc = (typeof skLocalSrc === "function") ? skLocalSrc(id) : null; // SK-OFFLINE: prefer a downloaded copy
     if (localSrc) { this.local = true; cancelSwap(); clearTimeout(_loadNudge); try { if (this.mode === "yt" && this.ready) this.yt.stopVideo(); } catch {} audio.src = localSrc; if (startSec) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startSec; }, { once: true }); audio.play().catch(() => {}); return; }
     this.local = false;
-    // RELAY: play through the streaming proxy instead of the YouTube iframe. Reuses the `direct` path that
-    // already exists for shiurim — the <audio> element with a plain cross-origin URL, no `crossorigin`
-    // attribute, so no CORS grant is needed, and the relay serves Accept-Ranges so the scrubber works.
-    // Checked AFTER localSrc so a downloaded copy still wins, and only for YouTube-backed tracks: a
-    // shiur passes its own `src` (so `src` is set and we never reach here) and a local file returned above.
-    if (!src && relayOn() && id) {
-      return this.load(id, startSec, relayStreamUrl(id));
-    }
     // Hand the track to YouTube: the <audio> element must be fully released, not just paused, since it may
     // still hold a shiur's media URL and a stale src there would keep playing under the song.
     try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch {}
@@ -5497,14 +5394,11 @@ function ensureYT() {
   // cleared EVERY later track in the session failed too, even when the API turned up a second later.
   // Report it instead and leave the engine alone — onYouTubeIframeAPIReady still wins whenever it lands, and
   // PB.load()'s `pending` slot replays whatever was queued while we waited.
-  // The timer is a WARNING only. It cannot tell "blocked" from "slow" — and it fired the
-  // relay auto-switch on unfiltered laptops that were merely slow to start, then persisted
-  // that choice across reloads. Only s.onerror (the script actually refused) may switch.
+  // The timer is a WARNING only: it cannot tell "blocked" from "slow". Only s.onerror (the script
+  // actually refused) counts as a confirmed block.
   setTimeout(() => ytUnavailable(false), 9000);
 }
-// iOS boots on the relay (background audio is impossible through the iframe), so the iframe API is
-// not fetched up front there — relayFailed() calls ensureYT() if the relay lets us down.
-if (!IS_IOS) ensureYT();
+ensureYT();
 // The embed host is unreachable — a filtered network, nearly always. There is no server-side stream to fall
 // back to, so say so plainly and point at the diagnostic that identifies WHICH layer is blocked.
 let ytWarnedAt = 0, ytBlockReported = false;
@@ -5522,37 +5416,13 @@ function ytUnavailable(confirmed) {
     ytBlockReported = true;
     track("filter_blocked", { stage: "yt_api", desktop: !!SK_NATIVE });
   }
-  // The player is unreachable, but the music does not have to be: switch to the streaming proxy, which
-  // exists for exactly this network, and resume whatever was queued. Only self-enables — never
-  // self-disables — so a user who turns it back off is not overridden on the next hiccup.
-  // Auto-switch to the relay ONLY on a confirmed block, and only for THIS session: an
-  // automatic switch is never written to localStorage, so a one-off hiccup can't leave an
-  // unfiltered user parked on the relay for good. A user's own toggle still persists.
-  if (confirmed && !relayOn() && !relayDead) {
-    setRelay(true, true, /*persist*/ false);
-    showToast('<b>Your filter blocks the normal player — switched to proxy streaming.</b> Music should play now. '
-      + '<a href="/test" style="color:var(--primary);font-weight:700">Run the connection test</a> if anything is still wrong.', 10000);
-    return;
-  }
   if (!confirmed) {
     showToast('<b>The player is slow to load.</b> If music does not start in a moment, '
-      + '<a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a> — or turn on <b>Stream via proxy</b> in the filter menu.', 9000);
+      + '<a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a>.', 9000);
     return;
   }
-  if (relayDead) return noSourceToast();
   showToast('<b>Playback is blocked on this network.</b> Search &amp; browse still work — <a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a> to see what\'s blocking it.', 9000);
 }
-// Both engines are gone: the network refused the normal player AND the alternate source is unusable.
-// This is the end of the line for a filtered device, and pointing at the connection test would only
-// send someone to diagnose a problem that is not on their end — so say what is actually true.
-function noSourceToast() {
-  if (noSourceShown) return; noSourceShown = true;
-  track("filter_blocked", { stage: "no_source", desktop: !!SK_NATIVE });
-  showToast('<b>Playback on a filtered device is currently unsupported.</b> Getting music through a content '
-    + 'filter needs a streaming server that SK Music does not have the funding to run right now. '
-    + 'Search, browse and playlists still work.', 12000);
-}
-let noSourceShown = false;
 
 function playFrom(qid, i, source) {
   const q = queues.get(qid); if (!q) return;
@@ -5569,7 +5439,7 @@ function playAccrue() { if (playSes && playSes.since) { playSes.played += Date.n
 function playFinalize() {
   if (!playSes) return; playAccrue();
   const secs = Math.round(playSes.played / 1000), dur = playSes.dur || 0;
-  if (secs >= 1) track("play", { v: playSes.v, title: playSes.title, artist: playSes.artist, seconds: secs, qualified: secs >= 30 || (dur > 0 && secs >= dur * 0.5), source: playSes.source, client: PB.local ? "web_local" : (relayOn() ? "web_relay" : (PB.mode === "yt" ? "web_iframe" : "web_stream")) });
+  if (secs >= 1) track("play", { v: playSes.v, title: playSes.title, artist: playSes.artist, seconds: secs, qualified: secs >= 30 || (dur > 0 && secs >= dur * 0.5), source: playSes.source, client: PB.local ? "web_local" : (PB.mode === "yt" ? "web_iframe" : "web_stream") });
   playSes = null;
 }
 function playBegin(t) { playFinalize(); playSes = { v: t.videoId, title: t.title || "", artist: t.artist || "", dur: t.durationSec || 0, source: state.playSource || "other", played: 0, since: 0 }; }
@@ -6492,7 +6362,6 @@ function onPlaybackError() {
     // one-per-session report as ytUnavailable so the Filter-Blocked panel counts
     // people, not failures.
     if (!ytBlockReported) { ytBlockReported = true; track("filter_blocked", { stage: "playback", desktop: !!SK_NATIVE }); }
-    if (relayDead) return noSourceToast(); // the alternate source is already gone, so this is not a per-track dud
     showToast('<b>Couldn\'t play these tracks.</b> Playback looks restricted on this network — <a href="/test" style="color:var(--primary);font-weight:700">run the connection test</a> to see what\'s blocking it.', 9000);
     return;
   }
@@ -6511,7 +6380,7 @@ function onPlaybackError() {
   m.addEventListener("canplay", () => { if (m === PB.med()) setBuffering(false); });
   m.addEventListener("pause", () => { if (m !== PB.med()) return; stopTick(); setPlayIcons(); playAccrue(); });
   m.addEventListener("ended", () => { if (m !== PB.med()) return; setBuffering(false); stopTick(); playFinalize(); repeatOrNext(); });
-  m.addEventListener("error", () => { if (m !== PB.med() || !m.getAttribute("src")) return; if (PB.direct && relayFailed(m.getAttribute("src"))) return; if (PB.local) { const t = state.queue[state.qi]; if (t && t.videoId) skDL.bad.add(t.videoId); PB.local = false; onPlaybackError(); } else if (PB.direct || PB.mode === "html5") onPlaybackError(); }); // SK-OFFLINE: a bad local file → blacklist it for the session and skip. PB.direct: a dead upstream media URL must surface as a playback error, not silence
+  m.addEventListener("error", () => { if (m !== PB.med() || !m.getAttribute("src")) return; if (PB.local) { const t = state.queue[state.qi]; if (t && t.videoId) skDL.bad.add(t.videoId); PB.local = false; onPlaybackError(); } else if (PB.direct || PB.mode === "html5") onPlaybackError(); }); // SK-OFFLINE: a bad local file → blacklist it for the session and skip. PB.direct: a dead upstream media URL must surface as a playback error, not silence
 });
 // On iOS the keep-alive pumps "timeupdate" every ~100ms while locked; that is the only heartbeat that
 // survives the background JS freeze, so hang the end-of-track advance off it.
