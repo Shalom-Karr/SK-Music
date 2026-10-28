@@ -17,6 +17,9 @@ import {
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT  = path.resolve(HERE, "..");
+// Local builds read secrets (ZEMER_PARTNER_KEY) from the gitignored .env; values already in the environment win,
+// and CI has no .env, so there the Actions secret is the only source.
+try { process.loadEnvFile(path.join(ROOT, ".env")); } catch {}
 const DIST  = path.join(ROOT, "dist");
 const DATA  = path.join(DIST, "data");
 const LIB   = path.join(DIST, "lib");

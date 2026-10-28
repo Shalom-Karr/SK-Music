@@ -37,12 +37,13 @@ is `https` on one of the hosts/path prefixes above. In the build, `ZEMER_HEADERS
 
 ## Where the secret lives
 
-The key exists in exactly two places. **Never** put it in the repo, `wrangler.jsonc`, `.env.example`, a commit
+The key exists in three places: the two below, plus your local gitignored `.env`. **Never** put it in the repo, `wrangler.jsonc`, `.env.example`, a commit
 message, a log line, or an error message, and never return it to a browser.
 
 1. **GitHub Actions secret** `ZEMER_PARTNER_KEY` (used by the build):
-   GitHub → repo → **Settings → Secrets and variables → Actions → New repository secret** → name
-   `ZEMER_PARTNER_KEY`. `.github/workflows/deploy.yml` passes it to the "Build static bundle" step only.
+   GitHub → repo → **Settings → Secrets and variables → Actions → Secrets tab → New repository secret** → name
+   `ZEMER_PARTNER_KEY`. Not a *Variable* (unmasked in logs) and not an *Environment* secret (the deploy job
+   declares no environment, so it would never receive it). `.github/workflows/deploy.yml` passes it to the "Build static bundle" step only.
 2. **Worker secret** `ZEMER_PARTNER_KEY` (used at runtime):
 
    ```sh
@@ -52,8 +53,14 @@ message, a log line, or an error message, and never return it to a browser.
    Paste the value at the prompt (not as an argument, so it stays out of shell history). Secrets persist
    across `wrangler deploy`; CI's deploy does not touch them. Check with `npx wrangler secret list`.
 
-Local Worker dev (`wrangler dev`): wrangler reads `.dev.vars`, which is **not** in `.gitignore` here — add it
-there before creating one. Local build: `ZEMER_PARTNER_KEY=... npm run build:static`.
+3. **Local `.env`** (`ZEMER_PARTNER_KEY=<key>`; `.env`, `.env.*` and `.dev.vars` are all gitignored). The build
+   loads it at startup (values already in the environment win; CI has no `.env`), and `wrangler dev` reads it
+   when there is no `.dev.vars`.
+
+Verify a key without printing it (expect 200, and 403 without the header):
+`curl -s -o /dev/null -w "%{http_code}\n" -H "X-Zemer-Partner: $ZEMER_PARTNER_KEY" https://content.zemer.io/blockedContentIds`.
+Before pushing, confirm it is nowhere in the diff: `git log -p origin/main..HEAD | grep -cF "${ZEMER_PARTNER_KEY:0:8}"`
+must print 0.
 There is no offline escape hatch: a full build without a working key fails (see below). `--code` builds make
 no Zemer calls and need no key.
 
