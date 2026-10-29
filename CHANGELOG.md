@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.9.15 — 2026-10-29 (web)
+
+**Why the bump:** the admin view of an account showed what it did, but not where it connected from.
+
+**Admin: account IP addresses**
+- The accounts list has a **Signup IP** column — the address the account was created from (hover for where it
+  came from and when).
+- An account's **Activity** tab starts with **IP addresses**: the signup IP, then every address the account has
+  used — first and last seen, app events and visits, sign-ins, security events, location and network, and
+  which records each one appears in. Each address has a Copy button.
+- Signup IP comes from the sign-up record when Supabase has one, else the earliest sign-in on record, else the
+  first signed-in visit.
+- Needs `supabase/v1.2.9-account-ips.sql` run once in the Supabase SQL editor; until then the dashboard looks
+  exactly as before. Admin-only, like the rest of the Admin tab.
+
 ## 1.9.14 + Desktop 1.2.6 — 2026-10-28 (web + desktop)
 
 **Why the bump:** Zemer, which supplies the catalog, now answers only clients it recognises. Its playback
