@@ -226,6 +226,13 @@
   #adminModal .adm-vrow:last-child{border-bottom:0}
   #adminModal table{border-collapse:collapse;width:100%;font-size:13px}
   #adminModal th,#adminModal td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line)}
+  #adminModal .adm-ipwrap{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--card);scrollbar-width:thin;scrollbar-color:#2a3a5e transparent}
+  #adminModal .adm-ipwrap table{font-size:12.5px}
+  #adminModal .adm-ipwrap th{position:sticky;top:0;background:var(--card);color:var(--dim);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+  #adminModal .adm-ipwrap td{white-space:nowrap;color:var(--muted)}
+  #adminModal .adm-ipwrap tr:last-child td{border-bottom:0}
+  #adminModal .adm-ip{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--text);font-size:12px}
+  #adminModal .adm-copy.sm{height:22px;padding:0 8px;font-size:11px;margin-left:6px;vertical-align:middle}
   @media(max-width:640px){
     #adminModal{padding:0;place-items:stretch}
     #adminModal .adm-mbox{width:100%;height:100%;height:100dvh;border:0;border-radius:0}
@@ -1560,6 +1567,26 @@ $('content').addEventListener('click', async (e) => {
 
   /* ---- user list ---- */
   let ADM_TIMER = null, OFFSET = 0, TOTAL = 0, SORT = { key: 'created_at', dir: -1 }, PAGE_USERS = [];
+  // Signup IPs come from admin_signup_ips (v1.2.9-account-ips.sql). Until that SQL is run the RPC 404s and the
+  // column simply never appears. SIGNUP_AVAIL: null = not yet known, true = deployed, false = missing.
+  let SIGNUP = {}, SIGNUP_AVAIL = null, SIGNUP_SEQ = 0;
+  const IP_SRC = { signup: 'signup record', first_sign_in: 'earliest sign-in on record', first_visit: 'first signed-in visit' };
+  const rpcMissing = (e) => /could not find the function|PGRST202/i.test(String(e && e.message || ''));
+  const signupTitle = (s) => s ? `${s.ip} \xb7 ${IP_SRC[s.source] || s.source}${s.provider ? ' (' + s.provider + ')' : ''} \xb7 ${dt(s.at)}` : '';
+
+  async function loadSignupIps(users) {
+    const seq = ++SIGNUP_SEQ;
+    if (!users.length || SIGNUP_AVAIL === false) return;
+    try {
+      const d = await rpc('admin_signup_ips', { p_users: users.map((u) => u.id) });
+      if (seq !== SIGNUP_SEQ) return;
+      SIGNUP = d && typeof d === 'object' ? d : {}; SIGNUP_AVAIL = true;
+    } catch (e) {
+      if (seq !== SIGNUP_SEQ) return;
+      SIGNUP = {}; if (rpcMissing(e)) SIGNUP_AVAIL = false;
+    }
+    renderRows();
+  }
   const PAGE = 100;
   const SORTABLE = { name: 1, email: 1, created_at: 1, last_sign_in_at: 1, pin_fails: 1 };
 
@@ -1593,9 +1620,11 @@ $('content').addEventListener('click', async (e) => {
       const prev = a$('prevBtn'), next = a$('nextBtn');
       if (prev) prev.disabled = OFFSET === 0;
       if (next) next.disabled = OFFSET + PAGE >= TOTAL;
+      SIGNUP = null;
       renderRows();
+      loadSignupIps(PAGE_USERS);
     } catch (e) {
-      const body = a$('rows'); if (body) body.innerHTML = `<tr><td colspan="10" style="padding:24px;color:var(--dim)">${esc(e.message)}</td></tr>`;
+      const body = a$('rows'); if (body) body.innerHTML = `<tr><td colspan="${SIGNUP_AVAIL === true ? 11 : 10}" style="padding:24px;color:var(--dim)">${esc(e.message)}</td></tr>`;
     }
   }
   window._adminLoad = adminLoad;
@@ -1610,8 +1639,9 @@ $('content').addEventListener('click', async (e) => {
       <th onclick="admSortBy('pin_fails')" style="cursor:pointer">PIN fails${sortArrow('pin_fails')}</th>
       <th onclick="admSortBy('created_at')" style="cursor:pointer">Created${sortArrow('created_at')}</th>
       <th onclick="admSortBy('last_sign_in_at')" style="cursor:pointer">Last sign-in${sortArrow('last_sign_in_at')}</th>
+      ${SIGNUP_AVAIL === true ? '<th>Signup IP</th>' : ''}
       <th>ID</th>`;
-    if (!PAGE_USERS.length) { body.innerHTML = '<tr><td colspan="10" class="adm-em" style="padding:24px">No users match.</td></tr>'; return; }
+    if (!PAGE_USERS.length) { body.innerHTML = `<tr><td colspan="${SIGNUP_AVAIL === true ? 11 : 10}" class="adm-em" style="padding:24px">No users match.</td></tr>`; return; }
     const k = SORT.key;
     const users = PAGE_USERS.slice().sort((a, b) => {
       let x = a[k], y = b[k];
@@ -1633,6 +1663,11 @@ $('content').addEventListener('click', async (e) => {
         <td>${u.pin_fails ? `<span class="adm-pill ${locked ? 'off' : 'warn'}">${num(u.pin_fails)}${locked ? ' \xb7 locked' : ''}</span>` : '<span class="adm-em">0</span>'}</td>
         <td class="adm-em">${dshort(u.created_at)}</td>
         <td class="adm-em">${dshort(u.last_sign_in_at)}</td>
+        ${SIGNUP_AVAIL !== true ? '' : (() => {
+          const s = SIGNUP && SIGNUP[u.id];
+          return s ? `<td class="adm-em" style="font-family:ui-monospace,monospace;font-size:11.5px;color:var(--muted)" title="${esc(signupTitle(s))}">${esc(s.ip)}</td>`
+                   : `<td class="adm-em">${SIGNUP == null ? '…' : '—'}</td>`;
+        })()}
         <td class="adm-em" style="font-family:ui-monospace,monospace;font-size:11px">${esc(String(u.id).slice(0, 8))}</td>
       </tr>`;
     }).join('');
@@ -1658,9 +1693,49 @@ $('content').addEventListener('click', async (e) => {
       CUR = await rpc('admin_user_detail', { p_user: id });
       ORIG = snapSettings(CUR);
       renderUser();
-      loadHistory(id); loadVisits(id); loadPlaylists(id);
+      loadHistory(id); loadVisits(id); loadPlaylists(id); loadIps(id);
     } catch (e) { a$('mBody').innerHTML = `<div class="adm-em" style="padding:18px 22px">${esc(e.message)}</div>`; }
   };
+
+  // admin_user_ips (v1.2.9-account-ips.sql). Not deployed yet => the section removes itself, no error shown.
+  async function loadIps(id) {
+    const box = document.getElementById('adm-ips'); if (!box) return;
+    const drop = () => { const s = document.getElementById('adm-ipsSec'), nx = box.nextElementSibling; if (nx) nx.style.marginTop = '0'; if (s) s.remove(); box.remove(); };
+    if (SIGNUP_AVAIL === false) return drop();
+    try {
+      const d = await rpc('admin_user_ips', { p_user: id, p_limit: 200 });
+      if (!CUR || CUR.id !== id) return;
+      const ips = (d && d.ips) || [], s = d && d.signup, total = (d && d.total) || 0;
+      const n = document.getElementById('adm-ipsN');
+      if (n) n.textContent = `\xb7 ${num(total)} address${total === 1 ? '' : 'es'}${total > ips.length ? `, newest ${num(ips.length)} shown` : ''}`;
+      const copyBtn = (ip) => `<button class="adm-copy sm" data-v="${esc(ip)}" onclick="admCopyText(this)">Copy</button>`;
+      const SRC = { visit: 'app', auth: 'auth log', session: 'session', security: 'security', signup: 'signup' };
+      const signup = s
+        ? `<div class="adm-kv wide" style="margin-bottom:10px;border:1px solid var(--line);border-radius:12px"><div><div class="k">Signup IP \xb7 ${esc(IP_SRC[s.source] || s.source)}${s.provider ? ' (' + esc(s.provider) + ')' : ''}</div>
+             <div class="v"><span class="adm-ip">${esc(s.ip)}</span> <span class="adm-em">\xb7 ${dt(s.at)}</span></div></div>${copyBtn(s.ip)}</div>`
+        : '<div class="adm-note" style="margin-bottom:10px">No signup IP on record for this account.</div>';
+      const rows = ips.map((r) => {
+        const where = [r.city, r.region && r.region !== r.city ? r.region : null, r.country].filter(Boolean).join(', ');
+        const net = [r.asn != null ? 'AS' + r.asn : null, r.as_org].filter(Boolean).join(' ');
+        return `<tr>
+          <td><span class="adm-ip">${esc(r.ip)}</span>${copyBtn(r.ip)}</td>
+          <td>${dshort(r.first_seen)}</td>
+          <td>${dt(r.last_seen)}</td>
+          <td class="mono">${num(r.events)}${r.visits ? ` <span class="adm-em">/ ${num(r.visits)}</span>` : ''}</td>
+          <td class="mono">${num((r.auth_events || 0) + (r.sign_ins || 0))}</td>
+          <td class="mono">${r.security ? `<span class="adm-pill off">${num(r.security)}</span>` : '0'}</td>
+          <td>${esc(where || (net ? '' : '—'))}${net ? `<div class="adm-em" style="font-size:11px">${esc(net)}</div>` : ''}</td>
+          <td>${(r.sources || []).map((x) => `<span class="adm-pill">${esc(SRC[x] || x)}</span>`).join(' ')}</td>
+        </tr>`;
+      }).join('');
+      box.innerHTML = signup + (ips.length
+        ? `<div class="adm-ipwrap"><table><thead><tr><th>IP</th><th>First seen</th><th>Last seen</th><th title="app events / visits">Events</th><th title="auth log events + surviving sessions">Sign-ins</th><th title="security_events rows (rate limits, blocks)">Security</th><th>Location</th><th>Seen in</th></tr></thead><tbody>${rows}</tbody></table></div>`
+        : '<div class="adm-note">No IP addresses recorded for this account.</div>');
+    } catch (e) {
+      if (rpcMissing(e)) { SIGNUP_AVAIL = false; return drop(); }
+      box.innerHTML = `<div class="adm-note">${esc(e.message)}</div>`;
+    }
+  }
 
   async function loadHistory(id) {
     const box = document.getElementById('adm-hist'); if (!box) return;
@@ -1722,15 +1797,16 @@ $('content').addEventListener('click', async (e) => {
     const body = a$('mBody'); if (body) body.scrollTop = 0;
   };
 
-  window.admCopyId = function (btn) {
-    if (!CUR) return;
+  const copyText = (btn, text) => {
     const done = () => { btn.textContent = 'Copied'; btn.classList.add('ok'); setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('ok'); }, 1400); };
     const fallback = () => {
-      const ta = document.createElement('textarea'); ta.value = CUR.id; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
       document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch (_) {} ta.remove();
     };
-    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(String(CUR.id)).then(done, fallback); else fallback();
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
   };
+  window.admCopyId = function (btn) { if (CUR) copyText(btn, String(CUR.id)); };
+  window.admCopyText = function (btn) { if (btn && btn.dataset.v) copyText(btn, btn.dataset.v); };
 
   const initials = (s) => String(s || '?').trim().split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
 
@@ -1797,7 +1873,9 @@ $('content').addEventListener('click', async (e) => {
     a$('mBody').innerHTML = `
       <div class="adm-pane" data-t="settings">${settingsHtml(u)}</div>
       <div class="adm-pane" data-t="activity">
-        <h3 class="adm-sec" style="margin-top:0">Visits <span id="adm-visN" style="color:var(--dim);font-size:11px"></span></h3>
+        ${SIGNUP_AVAIL === false ? '' : `<h3 class="adm-sec" id="adm-ipsSec" style="margin-top:0">IP addresses <span id="adm-ipsN" style="color:var(--dim);font-size:11px"></span></h3>
+        <div id="adm-ips"><div class="adm-em">Loading…</div></div>`}
+        <h3 class="adm-sec"${SIGNUP_AVAIL === false ? ' style="margin-top:0"' : ''}>Visits <span id="adm-visN" style="color:var(--dim);font-size:11px"></span></h3>
         <div id="adm-vis"><div class="adm-em">Loading…</div></div>
         <h3 class="adm-sec">Play history <span id="adm-histN" style="color:var(--dim);font-size:11px"></span></h3>
         <div id="adm-hist"><div class="adm-em">Loading…</div></div>
@@ -1862,7 +1940,7 @@ $('content').addEventListener('click', async (e) => {
       try {
         await rpc('admin_clear_pin', { p_user: CUR.id });
         CUR = await rpc('admin_user_detail', { p_user: CUR.id }); ORIG = snapSettings(CUR);
-        renderUser(); loadHistory(CUR.id); loadVisits(CUR.id); loadPlaylists(CUR.id);
+        renderUser(); loadHistory(CUR.id); loadVisits(CUR.id); loadPlaylists(CUR.id); loadIps(CUR.id);
         a$('mMsg').style.color = 'var(--good)'; a$('mMsg').textContent = 'PIN cleared';
         adminLoad();
       } catch (e) { a$('mMsg').style.color = 'var(--accent)'; a$('mMsg').textContent = e.message; }
