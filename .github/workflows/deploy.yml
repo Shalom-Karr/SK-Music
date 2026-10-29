@@ -52,8 +52,14 @@ jobs:
       - name: Deploy to Cloudflare
         if: env.HAS_CF_TOKEN == 'true'
         uses: cloudflare/wrangler-action@v3
+        env:
+          # The Worker's copy of the partner key comes from this same Actions secret on every deploy, so the
+          # key lives in one place and rotating it is one secret update (docs/zemer-partner.md).
+          ZEMER_PARTNER_KEY: ${{ secrets.ZEMER_PARTNER_KEY }}
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          secrets: |
+            ZEMER_PARTNER_KEY
           command: deploy --var PRIVATE_DIR:${{ steps.priv.outputs.dir }}
       - name: Skipped deploy (no token)
         if: env.HAS_CF_TOKEN != 'true'

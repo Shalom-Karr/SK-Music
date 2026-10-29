@@ -44,7 +44,9 @@ message, a log line, or an error message, and never return it to a browser.
    GitHub → repo → **Settings → Secrets and variables → Actions → Secrets tab → New repository secret** → name
    `ZEMER_PARTNER_KEY`. Not a *Variable* (unmasked in logs) and not an *Environment* secret (the deploy job
    declares no environment, so it would never receive it). `.github/workflows/deploy.yml` passes it to the "Build static bundle" step only.
-2. **Worker secret** `ZEMER_PARTNER_KEY` (used at runtime):
+2. **Worker secret** `ZEMER_PARTNER_KEY` (used at runtime). The "Deploy to Cloudflare" step uploads it from the
+   Actions secret above on every deploy (`wrangler-action` `secrets:` input), so rotating the key is one update
+   to the GitHub secret plus a re-run of the workflow. To set it by hand instead:
 
    ```sh
    npx wrangler secret put ZEMER_PARTNER_KEY
