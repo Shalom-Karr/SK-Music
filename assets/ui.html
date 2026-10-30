@@ -2608,7 +2608,7 @@ async function loadHome() {
   const quick = gate(d.quickPicks), recent = gate(readRecent()), vids = gate(d.featuredVideos);
   const fAlbums = feedAlbums(nf), fSongs = gateFeed(((nf && nf.categories) || {}).songs || []).filter((t) => t.videoId);
   const newS = fSongs.length ? fSongs : gate(d.newSongs); // real release dates when the feed has them, corpus otherwise
-  let h = `<div class="hero"><div class="eyebrow">Kosher music, by construction</div><h1>Only the music you trust.</h1><p>Every song here comes from a whitelisted artist's full catalog — searched, not filtered. Nothing outside it.</p>${acapellaMode() === "only" ? "" : `<button class="btn-play" style="margin-top:16px" onclick="startRadio('shuffle','')">${ICON.radio} Radio mode</button>`}<span class="heb">מוזיקה</span></div>` + (trend || "");
+  let h = `<div class="hero"><div class="eyebrow">Shalom Karr's Kosher music, by construction</div><h1>Only the music you trust.</h1><p>Every song here comes from the SK Music database and Zemer's whitelisted catalog.</p>${acapellaMode() === "only" ? "" : `<button class="btn-play" style="margin-top:16px" onclick="startRadio('shuffle','')">${ICON.radio} Radio mode</button>`}<span class="heb">מוזיקה</span></div>` + (trend || "");
   h += `<div id="homeStations"></div>`; // filled by pStations below — keeps Zemer Radio's slot above Quick Picks
   if (quick.length) h += section("Quick Picks", quickPicks(quick));
   h += `<div id="homeStatuses"></div>`; // filled by pStatuses below — story circles sit under Quick Picks
