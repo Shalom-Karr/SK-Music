@@ -2582,7 +2582,7 @@ function feedAlbums(nf) { // albums + singles, gated (fail-closed feed gate), ne
 /* ============================ HOME ============================ */
 async function loadHome() {
   state.loaded.home = true; secN = 0; const v = el("v-home");
-  v.innerHTML = `<div class="hero"><div class="eyebrow">Kosher music, by construction</div><h1>Only the music you trust.</h1><p>Every song here comes from a whitelisted artist's full catalog — searched, not filtered. Nothing outside it.</p><span class="heb">מוזיקה</span></div>` + section("Quick Picks", skRail(6));
+  v.innerHTML = `<div class="hero"><div class="eyebrow">Shalom Karr's Kosher music, by construction</div><h1>Only the music you trust.</h1><p>Every song here comes from the SK Music database and Zemer's whitelisted catalog.</p><span class="heb">מוזיקה</span></div>` + section("Quick Picks", skRail(6));
   if (acapellaMode() === "only") { // Acapella-ONLY: render the playlist + Acapella-only trending (the general feed would be near-empty). "Hide" mode uses the normal home below, gated.
     await ensureFilters(); const tracks = gate(acapellaTracks || []); const shuffled = [...tracks].sort(() => Math.random() - 0.5);
     const trend = await trendingSections(); secN = 0; // trendingSections filters top songs + top artists to the Acapella set
