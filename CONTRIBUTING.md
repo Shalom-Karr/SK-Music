@@ -1,7 +1,6 @@
 # Contributing
 
-SK Music is free software under the **GNU GPL v3.0** (see [LICENSE](LICENSE)). Bug reports, ideas, and
-patches are all welcome.
+SK Music is proprietary; see [LICENSE](LICENSE). Bug reports and ideas are welcome.
 
 ## Reporting bugs or suggesting features
 
@@ -43,5 +42,6 @@ docs/       architecture, filters + parental controls, backend, credentials
 
 ## License
 
-By contributing, you agree your contributions are licensed under the project's **GNU GPL v3.0** (see
-[LICENSE](LICENSE)).
+Submissions do not grant rights automatically. Before submitting code or other
+material, obtain written approval from the copyright holders that sets out the
+terms under which it may be included.

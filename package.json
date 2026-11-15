@@ -2,7 +2,7 @@
   "name": "skmusic",
   "version": "1.0.0",
   "private": true,
-  "license": "GPL-3.0-or-later",
+  "license": "UNLICENSED",
   "type": "module",
   "description": "SK Music — a fast, kosher, filtered YouTube music web client. Static Cloudflare Worker build over a whitelisted catalog.",
   "engines": {

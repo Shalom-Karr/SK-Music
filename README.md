@@ -81,11 +81,9 @@ IFrame Player API; the app does not host, download, or re-encode any audio or vi
 
 ## License
 
-SK Music is free software under the **GNU General Public License v3.0** — see [LICENSE](LICENSE).
-
-Copyright © 2026 Shalom Karr. Portions derive from
-[`zemer-search`](https://github.com/ZemerTeam/zemer-search) by
-[alltechdev](https://github.com/alltechdev), also licensed GPL-3.0.
-
-The GPL permits commercial use. As a personal request — **not** a condition of the license — please contact
-the author before using SK Music, or substantial parts of it, in a paid or commercial product.
+Copyright © 2026 Shalom Karr and Zemer. All rights reserved. No license or
+permission is granted to use, copy, reproduce, modify, distribute, publish, or
+create derivative works from any part of SK Music without prior written
+permission from the copyright holders. This applies to its code and other
+copyrightable materials; copyright does not cover ideas, concepts, methods, or
+principles in isolation. See [LICENSE](LICENSE).
