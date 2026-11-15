@@ -3,7 +3,7 @@ name = "sk-music-desktop"
 version = "1.2.6"
 description = "SK Music — native desktop shell (Tauri 2) for the kosher Jewish-music web client"
 authors = ["SK Music"]
-license = "GPL-3.0-or-later"
+license-file = "../../LICENSE"
 edition = "2021"
 rust-version = "1.77"
 
@@ -32,7 +32,7 @@ tauri-plugin-autostart = "2"
 # Native "track changed" toasts while the window is hidden to tray (wired up in src/media.rs).
 tauri-plugin-notification = "2"
 
-# Hand off-site links (GitHub, jtechforums, the GPL text…) to the OS default browser — the app
+# Hand off-site links (GitHub, jtechforums, license text…) to the OS default browser — the app
 # window has nowhere to put them (wired up in src/deeplink.rs::init_external_links).
 tauri-plugin-opener = "2"
 

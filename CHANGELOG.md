@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.9.16 — 2026-11-15 (web)
+
+**Why the bump:** clarify ownership and restrict use of SK Music's protected materials.
+
+**License and attribution**
+- SK Music is now marked proprietary, with copyright attributed to Shalom Karr and Zemer.
+- No permission is granted to use, copy, modify, or distribute the project's code or other copyrightable
+  materials without prior written permission. Copyright does not cover ideas in isolation.
+
 ## 1.9.15 — 2026-10-29 (web)
 
 **Why the bump:** the admin view of an account showed what it did, but not where it connected from.
